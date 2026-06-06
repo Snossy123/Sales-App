@@ -1,10 +1,12 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
+import { createMockApi } from './mock'
 
-const baseURL =
-  import.meta.env.VITE_API_URL?.trim() || '/api/v1'
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
 
-export const api = axios.create({
+const baseURL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
+
+const axiosApi = axios.create({
   baseURL,
   headers: {
     Accept: 'application/json',
@@ -12,18 +14,21 @@ export const api = axios.create({
   },
 })
 
-api.interceptors.request.use((config) => {
+axiosApi.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  const { branchId, warehouseId } = useAuthStore.getState()
+  const { branchId, warehouseId, departmentId } = useAuthStore.getState()
   if (branchId) {
     config.headers['X-Branch-Id'] = String(branchId)
   }
   if (warehouseId) {
     config.headers['X-Warehouse-Id'] = String(warehouseId)
+  }
+  if (departmentId) {
+    config.headers['X-Department-Id'] = String(departmentId)
   }
 
   const user = useAuthStore.getState().user
@@ -34,7 +39,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-api.interceptors.response.use(
+axiosApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
@@ -46,6 +51,10 @@ api.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+const mockApi = createMockApi()
+
+export const api = isDemoMode ? mockApi : axiosApi
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -60,5 +69,6 @@ export function getErrorMessage(error: unknown): string {
     if (error.response?.status) return `خطأ في الخادم (${error.response.status})`
     return 'تعذر الاتصال بالخادم.'
   }
+  if (error instanceof Error) return error.message
   return 'حدث خطأ غير متوقع.'
 }

@@ -4,8 +4,9 @@ import { api, getErrorMessage } from '../api/client'
 import type {
   CheckoutPayload,
   Customer,
+  GpsProduct,
+  GpsStock,
   PaginatedResponse,
-  ProductUnit,
   SalesInvoice,
 } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
@@ -17,9 +18,9 @@ export function PosPage() {
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const branchId = useAuthStore((s) => s.branchId)
   const [customerId, setCustomerId] = useState<number | ''>('')
-  const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('cash')
-  const [selectedUnits, setSelectedUnits] = useState<number[]>([])
-  const [downPayment, setDownPayment] = useState(0)
+  const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
+  const [quantity, setQuantity] = useState(1)
+  const [downPayment, setDownPayment] = useState(2500)
   const [installmentCount, setInstallmentCount] = useState(6)
   const [firstDueDate, setFirstDueDate] = useState(
     () => new Date().toISOString().split('T')[0],
@@ -36,18 +37,21 @@ export function PosPage() {
     },
   })
 
-  const unitsQuery = useQuery({
-    queryKey: ['product-units', 'pos', warehouseId],
+  const productQuery = useQuery({
+    queryKey: ['gps-product'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
-        params: {
-          per_page: 100,
-          include: 'productModel',
-          'filter[warehouse_id]': warehouseId,
-          'filter[state]': 'available',
-        },
+      const { data } = await api.get<GpsProduct>('/gps-product')
+      return data
+    },
+  })
+
+  const stockQuery = useQuery({
+    queryKey: ['gps-stock', 'pos', warehouseId],
+    queryFn: async () => {
+      const { data } = await api.get<GpsStock>('/gps-stock', {
+        params: { 'filter[warehouse_id]': warehouseId },
       })
-      return data.data
+      return data
     },
     enabled: Boolean(warehouseId),
   })
@@ -58,37 +62,36 @@ export function PosPage() {
       return data
     },
     onSuccess: (invoice) => {
-      setSuccessMsg(`تم إنشاء الفاتورة #${invoice.id} بنجاح`)
-      setSelectedUnits([])
+      setSuccessMsg(
+        `تم إنشاء الفاتورة #${invoice.id} — بانتظار مراجعة قسم التأكيد قبل إرسال الأقساط للعميل`,
+      )
+      setQuantity(1)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['product-units'] })
+      queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
     },
   })
 
-  const toggleUnit = (id: number) => {
-    setSelectedUnits((prev) =>
-      prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id],
-    )
-  }
+  const unitPrice = productQuery.data?.sell_price ?? 0
+  const available = stockQuery.data?.available ?? 0
+  const totalEstimate = quantity * Number(unitPrice)
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId || !warehouseId || selectedUnits.length === 0) return
-
-    const lines = selectedUnits.map((product_unit_id) => {
-      const unit = unitsQuery.data?.find((u) => u.id === product_unit_id)
-      return {
-        product_unit_id,
-        unit_price: unit?.sell_price ? Number(unit.sell_price) : undefined,
-      }
-    })
+    if (!customerId || !warehouseId || quantity <= 0 || quantity > available) return
 
     const payload: CheckoutPayload = {
       customer_id: Number(customerId),
       warehouse_id: warehouseId,
       branch_id: branchId ?? undefined,
       payment_term: paymentTerm,
-      lines,
+      lines: [
+        {
+          product_id: productQuery.data?.id ?? 1,
+          quantity,
+          unit_price: Number(unitPrice),
+        },
+      ],
     }
 
     if (paymentTerm === 'installment') {
@@ -102,11 +105,6 @@ export function PosPage() {
 
     checkoutMutation.mutate(payload)
   }
-
-  const totalEstimate = selectedUnits.reduce((sum, id) => {
-    const unit = unitsQuery.data?.find((u) => u.id === id)
-    return sum + (unit?.sell_price ? Number(unit.sell_price) : 0)
-  }, 0)
 
   return (
     <div>
@@ -192,37 +190,40 @@ export function PosPage() {
           </div>
 
           <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-            <h2 className="font-semibold text-on-surface">الوحدات المتاحة</h2>
+            <h2 className="font-semibold text-on-surface">جهاز GPS</h2>
             <AsyncState
-              isLoading={unitsQuery.isLoading}
-              isError={unitsQuery.isError}
-              error={unitsQuery.error}
+              isLoading={productQuery.isLoading || stockQuery.isLoading}
+              isError={productQuery.isError || stockQuery.isError}
+              error={productQuery.error ?? stockQuery.error}
             >
-              <ul className="max-h-80 space-y-xs overflow-y-auto">
-                {unitsQuery.data?.map((unit) => (
-                  <li key={unit.id}>
-                    <label className="flex cursor-pointer items-center gap-sm rounded border border-outline-variant/60 p-sm hover:bg-surface-container-low">
-                      <input
-                        type="checkbox"
-                        checked={selectedUnits.includes(unit.id)}
-                        onChange={() => toggleUnit(unit.id)}
-                        className="h-4 w-4"
-                      />
-                      <span className="flex-grow text-sm">
-                        {unit.product_model?.name_ar || unit.product_model?.name}
-                      </span>
-                      <span className="tabular-nums text-xs text-on-surface-variant" dir="ltr">
-                        {unit.imei}
-                      </span>
-                      <span className="tabular-nums text-sm font-medium">
-                        {unit.sell_price != null
-                          ? Number(unit.sell_price).toLocaleString('ar-EG')
-                          : '—'}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              {productQuery.data && (
+                <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
+                  <div className="mb-md flex items-center gap-sm">
+                    <Icon name="gps_fixed" className="text-primary" />
+                    <span className="font-medium">
+                      {productQuery.data.name_ar || productQuery.data.name}
+                    </span>
+                  </div>
+                  <p className="mb-sm text-sm text-on-surface-variant">
+                    متاح: <strong className="tabular-nums">{available}</strong> قطعة
+                  </p>
+                  <p className="mb-md tabular-nums text-sm">
+                    سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                  </p>
+
+                  <div>
+                    <label className="mb-xs block text-sm text-on-surface-variant">الكمية</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={available}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Number(e.target.value))}
+                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                    />
+                  </div>
+                </div>
+              )}
             </AsyncState>
 
             <div className="border-t border-outline-variant pt-md">
@@ -235,19 +236,22 @@ export function PosPage() {
                 </p>
               )}
               {successMsg && (
-                <p className="mb-sm text-sm text-secondary">{successMsg}</p>
+                <p className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
+                  {successMsg}
+                </p>
               )}
               <button
                 type="submit"
                 disabled={
                   checkoutMutation.isPending ||
                   !customerId ||
-                  selectedUnits.length === 0
+                  quantity <= 0 ||
+                  quantity > available
                 }
                 className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                <Icon name="payments" />
-                {checkoutMutation.isPending ? 'جاري الحفظ...' : 'إتمام البيع'}
+                <Icon name="send" />
+                {checkoutMutation.isPending ? 'جاري الإرسال...' : 'إرسال للمراجعة'}
               </button>
             </div>
           </div>

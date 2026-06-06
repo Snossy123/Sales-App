@@ -6,8 +6,17 @@ export interface PaginatedResponse<T> {
   total: number
 }
 
+export interface Department {
+  id: number
+  name: string
+  name_ar?: string | null
+  code: string
+  is_active?: boolean
+}
+
 export interface Branch {
   id: number
+  department_id?: number
   name: string
   name_ar?: string | null
   code: string
@@ -32,15 +41,21 @@ export interface Role {
   name: string
 }
 
+export type DemoRole = 'admin' | 'sales' | 'reviewer' | 'collector'
+export type UserSection = 'sales' | 'review' | 'collection'
+
 export interface AuthUser {
   id: number
   name: string
   email: string
   organization_id: number
+  department_id?: number | null
   branch_id?: number | null
   branch?: Branch | null
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
+  demo_role?: DemoRole
+  section?: UserSection
 }
 
 export interface LoginResponse {
@@ -54,9 +69,31 @@ export interface DashboardStats {
   invoices_today: number
   customers_count: number
   available_units: number
+  pending_reviews?: number
   overdue_installments: number
   due_this_week: number
   outstanding_balance: number
+}
+
+export interface GpsProduct {
+  id: number
+  name: string
+  name_ar?: string | null
+  brand?: string | null
+  model_code?: string | null
+  sell_price: number
+  cost_price?: number | null
+}
+
+export interface GpsStock {
+  id: number
+  warehouse_id: number
+  branch_id: number
+  quantity: number
+  reserved: number
+  product?: GpsProduct
+  warehouse?: Warehouse
+  available?: number
 }
 
 export interface ProductModel {
@@ -105,38 +142,61 @@ export interface Guarantor {
 
 export interface InstallmentItem {
   id: number
+  sales_invoice_id?: number
+  installment_plan_id?: number
   installment_number: number
   due_date: string
   amount: string | number
   paid_amount: string | number
   status: string
+  customer_name?: string
+  customer_phone?: string
+  invoice_number?: string
+  remaining?: number
 }
 
 export interface InstallmentPlan {
   id: number
   down_payment: string | number
   installment_count: number
+  interval_days?: number
+  first_due_date?: string
+  status?: string
   items?: InstallmentItem[]
 }
+
+export type InvoiceStatus = 'pending_review' | 'confirmed' | 'rejected'
 
 export interface SalesInvoice {
   id: number
   invoice_number?: string
   invoice_date: string
+  branch_id?: number
+  warehouse_id?: number
   total: string | number
+  paid_amount?: string | number
   balance_due: string | number
   payment_term: string
   payment_status: string
+  status?: InvoiceStatus
   customer_id: number
   customer?: Customer
   installment_plan?: InstallmentPlan | null
   lines?: SalesInvoiceLine[]
+  created_by?: number
+  reviewed_by?: number
+  reviewed_at?: string
+  confirmed_at?: string
+  rejection_reason?: string
 }
 
 export interface SalesInvoiceLine {
   id: number
-  product_unit_id: number
+  product_id?: number
+  product_unit_id?: number
+  quantity?: number
   unit_price: string | number
+  product_name_ar?: string | null
   product_unit?: ProductUnit
 }
 
@@ -173,11 +233,22 @@ export interface CheckoutPayload {
   discount_amount?: number
   invoice_date?: string
   notes?: string
-  lines: { product_unit_id: number; unit_price?: number; discount?: number }[]
+  lines: {
+    product_unit_id?: number
+    product_id?: number
+    quantity?: number
+    unit_price?: number
+    discount?: number
+  }[]
   installment_plan?: {
     down_payment: number
     installment_count: number
     interval_days?: number
     first_due_date: string
   }
+}
+
+export interface CollectInstallmentPayload {
+  installment_item_id: number
+  amount: number
 }

@@ -3,6 +3,8 @@ import { api } from '../api/client'
 import type { DashboardStats } from '../api/types'
 import { KpiCard } from '../components/KpiCard'
 import { AsyncState } from '../components/AsyncState'
+import { getUserRole } from '../lib/permissions'
+import { useAuthStore } from '../stores/authStore'
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('ar-EG', {
@@ -13,6 +15,9 @@ function formatMoney(value: number) {
 }
 
 export function DashboardPage() {
+  const user = useAuthStore((s) => s.user)
+  const role = getUserRole(user)
+
   const query = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
@@ -24,6 +29,10 @@ export function DashboardPage() {
   return (
     <div>
       <h1 className="mb-md text-2xl font-bold text-on-surface">لوحة التحكم</h1>
+      <p className="mb-md text-sm text-on-surface-variant">
+        نظرة عامة على مخزون GPS والمبيعات والأقساط
+      </p>
+
       <AsyncState
         isLoading={query.isLoading}
         isError={query.isError}
@@ -31,6 +40,18 @@ export function DashboardPage() {
       >
         {query.data && (
           <div className="grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="مخزون GPS المتاح"
+              value={query.data.available_units}
+              icon="gps_fixed"
+            />
+            {(role === 'admin' || role === 'reviewer') && (
+              <KpiCard
+                label="فواتير بانتظار المراجعة"
+                value={query.data.pending_reviews ?? 0}
+                icon="fact_check"
+              />
+            )}
             <KpiCard
               label="مبيعات اليوم"
               value={formatMoney(query.data.sales_today)}
@@ -45,11 +66,6 @@ export function DashboardPage() {
               label="إجمالي العملاء"
               value={query.data.customers_count}
               icon="group"
-            />
-            <KpiCard
-              label="وحدات متاحة"
-              value={query.data.available_units}
-              icon="inventory_2"
             />
             <KpiCard
               label="أقساط متأخرة"

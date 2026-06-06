@@ -24,14 +24,17 @@ export function CustomerDetailPage() {
   const customer = query.data
   const invoices = customer?.sales_invoices ?? []
 
-  const installmentRows = invoices.flatMap((inv) => {
-    const items = inv.installment_plan?.items ?? []
-    return items.map((item) => ({
-      invoice_id: inv.id,
-      invoice_date: inv.invoice_date,
-      ...item,
-    }))
-  })
+  const installmentRows = invoices
+    .filter((inv) => inv.status === 'confirmed' && inv.payment_term === 'installment')
+    .flatMap((inv) => {
+      const items = inv.installment_plan?.items ?? []
+      return items.map((item) => ({
+        invoice_id: inv.id,
+        invoice_number: inv.invoice_number,
+        invoice_date: inv.invoice_date,
+        ...item,
+      }))
+    })
 
   return (
     <div>
@@ -84,28 +87,28 @@ export function CustomerDetailPage() {
             )}
 
             <section className="mb-md">
-              <h2 className="mb-sm text-lg font-semibold">الفواتير</h2>
+              <h2 className="mb-sm text-lg font-semibold">الفواتير المؤكدة</h2>
               <DataTable
                 data={invoices as unknown as Record<string, unknown>[]}
                 keyExtractor={(row) => row.id as number}
-                emptyMessage="لا توجد فواتير"
+                emptyMessage="لا توجد فواتير مؤكدة"
                 columns={[
-                  { key: 'id', header: 'رقم' },
+                  { key: 'invoice_number', header: 'رقم' },
                   { key: 'invoice_date', header: 'التاريخ' },
                   {
                     key: 'total',
                     header: 'الإجمالي',
-                    render: (row) =>
-                      Number(row.total).toLocaleString('ar-EG') + ' ج.م',
+                    render: (row) => Number(row.total).toLocaleString('ar-EG') + ' ج.م',
                   },
                   {
                     key: 'payment_term',
                     header: 'الدفع',
-                    render: (row) => String(row.payment_term),
+                    render: (row) =>
+                      row.payment_term === 'installment' ? 'تقسيط' : 'نقدي',
                   },
                   {
                     key: 'payment_status',
-                    header: 'الحالة',
+                    header: 'السداد',
                     render: (row) => (
                       <StatusBadge status={String(row.payment_status)} />
                     ),
@@ -116,12 +119,12 @@ export function CustomerDetailPage() {
 
             {installmentRows.length > 0 && (
               <section>
-                <h2 className="mb-sm text-lg font-semibold">جدول الأقساط</h2>
+                <h2 className="mb-sm text-lg font-semibold">جدول الأقساط (بعد التأكيد)</h2>
                 <DataTable
                   data={installmentRows as Record<string, unknown>[]}
                   keyExtractor={(row) => `${row.invoice_id}-${row.id}`}
                   columns={[
-                    { key: 'invoice_id', header: 'فاتورة' },
+                    { key: 'invoice_number', header: 'فاتورة' },
                     { key: 'installment_number', header: 'قسط' },
                     { key: 'due_date', header: 'الاستحقاق' },
                     {

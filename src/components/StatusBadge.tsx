@@ -9,17 +9,36 @@ const variantStyles: Record<BadgeVariant, string> = {
   default: 'bg-surface-container text-on-surface-variant',
 }
 
+const statusLabels: Record<string, string> = {
+  paid: 'مدفوع',
+  partial: 'جزئي',
+  unpaid: 'غير مدفوع',
+  pending: 'معلق',
+  overdue: 'متأخر',
+  confirmed: 'مؤكدة',
+  pending_review: 'بانتظار المراجعة',
+  rejected: 'مرفوضة',
+  active: 'نشط',
+  available: 'متاح',
+  cash: 'نقدي',
+  installment: 'تقسيط',
+}
+
 const statusMap: Record<string, BadgeVariant> = {
   paid: 'paid',
   completed: 'paid',
+  confirmed: 'paid',
   active: 'active',
   available: 'active',
   pending: 'pending',
   partial: 'pending',
+  pending_review: 'pending',
+  unpaid: 'pending',
   negotiation: 'pending',
   new: 'pending',
   contacted: 'pending',
   overdue: 'overdue',
+  rejected: 'overdue',
   blocked: 'blocked',
   inactive: 'blocked',
   sold: 'default',
@@ -40,7 +59,7 @@ export function StatusBadge({ status, label }: StatusBadgeProps) {
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantStyles[variant]}`}
     >
-      {label ?? status}
+      {label ?? statusLabels[key] ?? status}
     </span>
   )
 }
