@@ -1,9 +1,12 @@
 import type { AxiosRequestConfig } from 'axios'
 import type {
+  Branch,
   CheckoutPayload,
   Customer,
   DashboardStats,
+  Department,
   GpsStock,
+  InventoryOverviewRow,
   LoginResponse,
   PaginatedResponse,
   SalesInvoice,
@@ -62,6 +65,76 @@ function enrichCustomer(state: DemoState, customer: Customer): Customer {
 
 function getStock(state: DemoState, warehouseId: number): GpsStock | undefined {
   return state.stocks.find((s) => s.warehouse_id === warehouseId)
+}
+
+function getStockByBranch(state: DemoState, branchId: number): GpsStock | undefined {
+  return state.stocks.find((s) => s.branch_id === branchId)
+}
+
+function getDeptStock(state: DemoState, departmentId: number) {
+  let ds = state.departmentStocks.find((d) => d.department_id === departmentId)
+  if (!ds) {
+    ds = { department_id: departmentId, quantity: 0, pending: 0, distributed: 0 }
+    state.departmentStocks.push(ds)
+  }
+  return ds
+}
+
+function calcDistributed(state: DemoState, departmentId: number): number {
+  const branchIds = state.branches.filter((b) => b.department_id === departmentId).map((b) => b.id)
+  return state.stocks
+    .filter((s) => branchIds.includes(s.branch_id))
+    .reduce((sum, s) => sum + s.quantity + s.reserved + s.sold, 0)
+}
+
+function enrichDepartment(state: DemoState, dept: Department) {
+  const ds = getDeptStock(state, dept.id)
+  const distributed = calcDistributed(state, dept.id)
+  return {
+    ...dept,
+    department_stock: { ...ds, distributed },
+  }
+}
+
+function buildInventoryOverview(
+  state: DemoState,
+  departmentFilter?: number,
+): InventoryOverviewRow[] {
+  const rows: InventoryOverviewRow[] = []
+  const depts = departmentFilter
+    ? state.departments.filter((d) => d.id === departmentFilter)
+    : state.departments
+
+  for (const dept of depts) {
+    const ds = getDeptStock(state, dept.id)
+    if (ds.pending > 0) {
+      rows.push({
+        row_type: 'department_pending',
+        department_id: dept.id,
+        department_name_ar: dept.name_ar || dept.name,
+        quantity: ds.pending,
+        reserved: 0,
+        sold: 0,
+        pending: ds.pending,
+      })
+    }
+
+    const deptBranches = state.branches.filter((b) => b.department_id === dept.id)
+    for (const branch of deptBranches) {
+      const stock = getStockByBranch(state, branch.id)
+      rows.push({
+        row_type: 'branch',
+        department_id: dept.id,
+        department_name_ar: dept.name_ar || dept.name,
+        branch_id: branch.id,
+        branch_name_ar: branch.name_ar || branch.name,
+        quantity: stock?.quantity ?? 0,
+        reserved: stock?.reserved ?? 0,
+        sold: stock?.sold ?? 0,
+      })
+    }
+  }
+  return rows
 }
 
 function refreshInvoicePayment(invoice: SalesInvoice): void {
@@ -201,7 +274,54 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'departments') {
-    return paginate(state.departments, params)
+    const enriched = state.departments.map((d) => enrichDepartment(state, d))
+    return paginate(enriched, params)
+  }
+
+  if (m === 'POST' && path === 'departments') {
+    const body = data as Partial<Department>
+    let created: Department | undefined
+    mutateState((s) => {
+      const id = s.counters.department++
+      const dept: Department = {
+        id,
+        name: body.name ?? body.name_ar ?? '',
+        name_ar: body.name_ar ?? body.name ?? '',
+        code: body.code ?? `D${id}`,
+        is_active: body.is_active ?? true,
+      }
+      s.departments.push(dept)
+      s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
+      created = enrichDepartment(s, dept)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^departments\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as Partial<Department>
+    let updated: Department | undefined
+    mutateState((s) => {
+      const dept = s.departments.find((d) => d.id === id)
+      if (!dept) throw mockError(404, 'الإدارة غير موجودة')
+      if (body.name != null) dept.name = body.name
+      if (body.name_ar != null) dept.name_ar = body.name_ar
+      if (body.code != null) dept.code = body.code
+      if (body.is_active != null) dept.is_active = body.is_active
+      updated = enrichDepartment(s, dept)
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^departments\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    mutateState((s) => {
+      const hasBranches = s.branches.some((b) => b.department_id === id)
+      if (hasBranches) throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      s.departments = s.departments.filter((d) => d.id !== id)
+      s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
+    })
+    return { message: 'تم الحذف' }
   }
 
   if (m === 'GET' && path === 'branches') {
@@ -210,10 +330,152 @@ export function handleMockRequest(
     if (deptFilter) {
       items = items.filter((b) => b.department_id === Number(deptFilter))
     }
-    return paginate(items.map((b) => ({
-      ...b,
-      warehouses: state.warehouses.filter((w) => w.branch_id === b.id),
-    })))
+    return paginate(
+      items.map((b) => ({
+        ...b,
+        department: state.departments.find((d) => d.id === b.department_id),
+        warehouses: state.warehouses.filter((w) => w.branch_id === b.id),
+      })),
+      params,
+    )
+  }
+
+  if (m === 'POST' && path === 'branches') {
+    const body = data as Partial<Branch>
+    let created: Branch | undefined
+    mutateState((s) => {
+      if (!body.department_id) throw mockError(422, 'يجب اختيار الإدارة')
+      const id = s.counters.branch++
+      const whId = s.counters.warehouse++
+      const branch: Branch = {
+        id,
+        department_id: body.department_id,
+        name: body.name ?? body.name_ar ?? '',
+        name_ar: body.name_ar ?? body.name ?? '',
+        code: body.code ?? `B${id}`,
+        address: body.address ?? null,
+        phone: body.phone ?? null,
+        is_active: body.is_active ?? true,
+      }
+      s.branches.push(branch)
+      s.warehouses.push({
+        id: whId,
+        branch_id: id,
+        name: `${branch.name} Store`,
+        name_ar: `مخزن ${branch.name_ar}`,
+        code: `${branch.code}-W1`,
+        is_active: true,
+      })
+      s.stocks.push({
+        id: whId,
+        warehouse_id: whId,
+        branch_id: id,
+        quantity: 0,
+        reserved: 0,
+        sold: 0,
+      })
+      created = {
+        ...branch,
+        department: s.departments.find((d) => d.id === branch.department_id),
+      }
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^branches\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as Partial<Branch>
+    let updated: Branch | undefined
+    mutateState((s) => {
+      const branch = s.branches.find((b) => b.id === id)
+      if (!branch) throw mockError(404, 'الفرع غير موجود')
+      if (body.name != null) branch.name = body.name
+      if (body.name_ar != null) branch.name_ar = body.name_ar
+      if (body.code != null) branch.code = body.code
+      if (body.address != null) branch.address = body.address
+      if (body.phone != null) branch.phone = body.phone
+      if (body.is_active != null) branch.is_active = body.is_active
+      if (body.department_id != null) branch.department_id = body.department_id
+      updated = {
+        ...branch,
+        department: s.departments.find((d) => d.id === branch.department_id),
+      }
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^branches\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    mutateState((s) => {
+      const stock = getStockByBranch(s, id)
+      if (stock && (stock.quantity > 0 || stock.reserved > 0 || stock.sold > 0)) {
+        throw mockError(422, 'لا يمكن حذف فرع له مخزون أو حركات')
+      }
+      const hasInvoices = s.invoices.some((i) => i.branch_id === id)
+      if (hasInvoices) throw mockError(422, 'لا يمكن حذف فرع مرتبط بفواتير')
+      s.branches = s.branches.filter((b) => b.id !== id)
+      s.warehouses = s.warehouses.filter((w) => w.branch_id !== id)
+      s.stocks = s.stocks.filter((st) => st.branch_id !== id)
+    })
+    return { message: 'تم الحذف' }
+  }
+
+  if (m === 'POST' && path === 'department-stock/add') {
+    const body = data as { department_id: number; quantity: number }
+    let result: ReturnType<typeof enrichDepartment> | undefined
+    mutateState((s) => {
+      const ds = getDeptStock(s, body.department_id)
+      ds.quantity += body.quantity
+      ds.pending += body.quantity
+      ds.distributed = calcDistributed(s, body.department_id)
+      const dept = s.departments.find((d) => d.id === body.department_id)
+      if (!dept) throw mockError(404, 'الإدارة غير موجودة')
+      result = enrichDepartment(s, dept)
+    })
+    return result
+  }
+
+  if (m === 'POST' && path === 'department-stock/distribute') {
+    const body = data as { department_id: number; branch_id: number; quantity: number }
+    let result: GpsStock | undefined
+    mutateState((s) => {
+      const branch = s.branches.find((b) => b.id === body.branch_id)
+      if (!branch || branch.department_id !== body.department_id) {
+        throw mockError(422, 'الفرع غير تابع لهذه الإدارة')
+      }
+      const ds = getDeptStock(s, body.department_id)
+      if (body.quantity <= 0 || body.quantity > ds.pending) {
+        throw mockError(422, `الكمية المعلقة المتاحة ${ds.pending} قطعة فقط`)
+      }
+      ds.pending -= body.quantity
+
+      let stock = getStockByBranch(s, body.branch_id)
+      if (!stock) {
+        const wh = s.warehouses.find((w) => w.branch_id === body.branch_id)
+        if (!wh) throw mockError(404, 'مخزن الفرع غير موجود')
+        stock = {
+          id: wh.id,
+          warehouse_id: wh.id,
+          branch_id: body.branch_id,
+          quantity: 0,
+          reserved: 0,
+          sold: 0,
+        }
+        s.stocks.push(stock)
+      }
+      stock.quantity += body.quantity
+      ds.distributed = calcDistributed(s, body.department_id)
+      result = { ...stock, available: stock.quantity - stock.reserved }
+    })
+    return result
+  }
+
+  if (m === 'GET' && path === 'inventory/overview') {
+    const deptFilter = params['filter[department_id]']
+      ? Number(params['filter[department_id]'])
+      : undefined
+    const rows = buildInventoryOverview(state, deptFilter)
+    return paginate(rows, params)
   }
 
   if (m === 'GET' && path === 'warehouses') {
@@ -245,15 +507,7 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'gps-stock/add') {
-    const body = data as { warehouse_id: number; quantity: number }
-    let updated: GpsStock | undefined
-    mutateState((s) => {
-      const stock = getStock(s, body.warehouse_id)
-      if (!stock) throw mockError(404, 'المخزن غير موجود')
-      stock.quantity += body.quantity
-      updated = { ...stock, available: stock.quantity - stock.reserved }
-    })
-    return updated
+    throw mockError(422, 'أضف الكمية من صفحة الإدارات ثم وزّع على الفروع')
   }
 
   if (m === 'GET' && path === 'customers') {
@@ -401,6 +655,7 @@ export function handleMockRequest(
       if (stock) {
         stock.reserved -= qty
         stock.quantity -= qty
+        stock.sold += qty
       }
 
       invoice.status = 'confirmed'

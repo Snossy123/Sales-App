@@ -3,6 +3,7 @@ import type {
   Branch,
   Customer,
   Department,
+  DepartmentStock,
   GpsProduct,
   GpsStock,
   InstallmentItem,
@@ -24,10 +25,14 @@ export interface DemoState {
   branches: Branch[]
   warehouses: Warehouse[]
   gpsProduct: GpsProduct
+  departmentStocks: DepartmentStock[]
   stocks: GpsStock[]
   customers: Customer[]
   invoices: SalesInvoice[]
   counters: {
+    department: number
+    branch: number
+    warehouse: number
     invoice: number
     customer: number
     installmentItem: number
@@ -131,10 +136,15 @@ export function createSeedState(): DemoState {
     cost_price: 2200,
   }
 
+  const departmentStocks: DepartmentStock[] = [
+    { department_id: 1, quantity: 100, pending: 15, distributed: 75 },
+    { department_id: 2, quantity: 50, pending: 5, distributed: 25 },
+  ]
+
   const stocks: GpsStock[] = [
-    { id: 1, warehouse_id: 1, branch_id: 1, quantity: 45, reserved: 2 },
-    { id: 2, warehouse_id: 2, branch_id: 2, quantity: 30, reserved: 0 },
-    { id: 3, warehouse_id: 3, branch_id: 3, quantity: 25, reserved: 1 },
+    { id: 1, warehouse_id: 1, branch_id: 1, quantity: 45, reserved: 2, sold: 8 },
+    { id: 2, warehouse_id: 2, branch_id: 2, quantity: 30, reserved: 0, sold: 5 },
+    { id: 3, warehouse_id: 3, branch_id: 3, quantity: 25, reserved: 1, sold: 3 },
   ]
 
   const customers: Customer[] = [
@@ -367,10 +377,14 @@ export function createSeedState(): DemoState {
     branches,
     warehouses,
     gpsProduct,
+    departmentStocks,
     stocks,
     customers,
     invoices,
     counters: {
+      department: 3,
+      branch: 4,
+      warehouse: 4,
       invoice: 5,
       customer: 4,
       installmentItem: 10,

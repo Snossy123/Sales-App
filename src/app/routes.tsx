@@ -11,6 +11,8 @@ import { CustomerDetailPage } from '../pages/CustomerDetailPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
+import { DepartmentsPage } from '../pages/DepartmentsPage'
+import { BranchesPage } from '../pages/BranchesPage'
 
 function ProtectedRoute() {
   const token = useAuthStore((s) => s.token)
@@ -51,6 +53,8 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route element={<RoleRoute />}>
             <Route index element={<DashboardPage />} />
+            <Route path="departments" element={<DepartmentsPage />} />
+            <Route path="branches" element={<BranchesPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="customers" element={<CustomersPage />} />

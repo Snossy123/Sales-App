@@ -10,6 +10,8 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { to: '/', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['admin', 'sales', 'reviewer', 'collector'] },
+  { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', roles: ['admin'] },
+  { to: '/branches', icon: 'store', label: 'الفروع', roles: ['admin'] },
   { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['admin', 'sales'] },
   { to: '/pos', icon: 'point_of_sale', label: 'نقطة البيع', roles: ['admin', 'sales'] },
   { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['admin', 'reviewer'] },
@@ -20,6 +22,8 @@ export const navItems: NavItem[] = [
 
 const routeRoles: Record<string, DemoRole[]> = {
   '/': ['admin', 'sales', 'reviewer', 'collector'],
+  '/departments': ['admin'],
+  '/branches': ['admin'],
   '/inventory': ['admin', 'sales'],
   '/pos': ['admin', 'sales'],
   '/invoices/review': ['admin', 'reviewer'],

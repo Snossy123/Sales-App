@@ -1,18 +1,13 @@
-import { useState, type FormEvent } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
-import type { GpsProduct, GpsStock } from '../api/types'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
+import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
-import { useAuthStore } from '../stores/authStore'
-import { getUserRole } from '../lib/permissions'
 
 export function InventoryPage() {
-  const queryClient = useQueryClient()
-  const warehouseId = useAuthStore((s) => s.warehouseId)
-  const user = useAuthStore((s) => s.user)
-  const canEdit = ['admin', 'sales'].includes(getUserRole(user))
-  const [addQty, setAddQty] = useState(10)
+  const [deptFilter, setDeptFilter] = useState<number | ''>('')
 
   const productQuery = useQuery({
     queryKey: ['gps-product'],
@@ -22,130 +17,112 @@ export function InventoryPage() {
     },
   })
 
-  const stockQuery = useQuery({
-    queryKey: ['gps-stock', warehouseId],
+  const departmentsQuery = useQuery({
+    queryKey: ['departments', 'filter'],
     queryFn: async () => {
-      const { data } = await api.get<GpsStock>('/gps-stock', {
-        params: { 'filter[warehouse_id]': warehouseId },
+      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+        params: { per_page: 100 },
       })
-      return data
-    },
-    enabled: Boolean(warehouseId),
-  })
-
-  const addMutation = useMutation({
-    mutationFn: async (quantity: number) => {
-      const { data } = await api.post<GpsStock>('/gps-stock/add', {
-        warehouse_id: warehouseId,
-        quantity,
-      })
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      setAddQty(10)
+      return data.data
     },
   })
 
-  const handleAdd = (e: FormEvent) => {
-    e.preventDefault()
-    if (!warehouseId || addQty <= 0) return
-    addMutation.mutate(addQty)
-  }
+  const overviewQuery = useQuery({
+    queryKey: ['inventory', 'overview', deptFilter],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (deptFilter) params['filter[department_id]'] = deptFilter
+      const { data } = await api.get<PaginatedResponse<InventoryOverviewRow>>('/inventory/overview', {
+        params,
+      })
+      return data.data
+    },
+  })
 
   return (
     <div>
       <h1 className="mb-md text-2xl font-bold text-on-surface">مخزون GPS</h1>
+      <p className="mb-md text-sm text-on-surface-variant">
+        عرض شامل لكل إدارة وفرع — الكمية المعلقة تظهر قبل التوزيع على الفروع
+      </p>
 
-      {!warehouseId ? (
-        <p className="text-on-surface-variant">يرجى اختيار مخزن من الشريط العلوي.</p>
-      ) : (
-        <AsyncState
-          isLoading={productQuery.isLoading || stockQuery.isLoading}
-          isError={productQuery.isError || stockQuery.isError}
-          error={productQuery.error ?? stockQuery.error}
-        >
-          {productQuery.data && stockQuery.data && (
-            <div className="grid gap-md lg:grid-cols-2">
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-                <div className="mb-md flex items-center gap-md">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon name="gps_fixed" size={36} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-on-surface">
-                      {productQuery.data.name_ar || productQuery.data.name}
-                    </h2>
-                    <p className="text-sm text-on-surface-variant">
-                      {productQuery.data.brand} — {productQuery.data.model_code}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-sm">
-                  <div className="rounded-lg bg-surface-container-low p-sm text-center">
-                    <p className="text-xs text-on-surface-variant">الكمية الكلية</p>
-                    <p className="text-2xl font-bold tabular-nums text-on-surface">
-                      {stockQuery.data.quantity}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-[#ef9900]/10 p-sm text-center">
-                    <p className="text-xs text-on-surface-variant">محجوز</p>
-                    <p className="text-2xl font-bold tabular-nums text-[#653e00]">
-                      {stockQuery.data.reserved}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-secondary/10 p-sm text-center">
-                    <p className="text-xs text-on-surface-variant">متاح للبيع</p>
-                    <p className="text-2xl font-bold tabular-nums text-secondary">
-                      {stockQuery.data.available ?? stockQuery.data.quantity - stockQuery.data.reserved}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-md text-lg font-semibold tabular-nums text-primary">
-                  سعر البيع: {Number(productQuery.data.sell_price).toLocaleString('ar-EG')} ج.م
-                </p>
-              </div>
-
-              {canEdit && (
-                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-                  <h3 className="mb-md font-semibold text-on-surface">إضافة كمية للمخزن</h3>
-                  <form onSubmit={handleAdd} className="flex flex-col gap-md">
-                    <div>
-                      <label className="mb-xs block text-sm text-on-surface-variant">
-                        عدد القطع
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={addQty}
-                        onChange={(e) => setAddQty(Number(e.target.value))}
-                        className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums focus:border-primary focus:outline-none"
-                      />
-                    </div>
-                    {addMutation.isError && (
-                      <p className="text-sm text-error">{getErrorMessage(addMutation.error)}</p>
-                    )}
-                    {addMutation.isSuccess && (
-                      <p className="text-sm text-secondary">تم تحديث المخزون بنجاح</p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={addMutation.isPending}
-                      className="flex items-center justify-center gap-xs rounded-lg bg-primary py-3 font-bold text-on-primary disabled:opacity-60"
-                    >
-                      <Icon name="add" />
-                      {addMutation.isPending ? 'جاري الحفظ...' : 'إضافة للمخزن'}
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-          )}
-        </AsyncState>
+      {productQuery.data && (
+        <div className="mb-md flex flex-wrap items-center gap-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon name="gps_fixed" size={28} />
+          </div>
+          <div>
+            <p className="font-bold text-on-surface">
+              {productQuery.data.name_ar || productQuery.data.name}
+            </p>
+            <p className="text-sm text-on-surface-variant">
+              {productQuery.data.brand} — {productQuery.data.model_code} — سعر البيع:{' '}
+              {Number(productQuery.data.sell_price).toLocaleString('ar-EG')} ج.م
+            </p>
+          </div>
+        </div>
       )}
+
+      <div className="mb-md">
+        <select
+          value={deptFilter}
+          onChange={(e) => setDeptFilter(e.target.value ? Number(e.target.value) : '')}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+        >
+          <option value="">كل الإدارات</option>
+          {departmentsQuery.data?.map((d) => (
+            <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <AsyncState
+        isLoading={overviewQuery.isLoading || productQuery.isLoading}
+        isError={overviewQuery.isError}
+        error={overviewQuery.error}
+      >
+        <DataTable<InventoryOverviewRow & Record<string, unknown>>
+          data={(overviewQuery.data ?? []) as (InventoryOverviewRow & Record<string, unknown>)[]}
+          keyExtractor={(row) =>
+            row.row_type === 'department_pending'
+              ? `pending-${row.department_id}`
+              : `branch-${row.branch_id}`
+          }
+          columns={[
+            { key: 'department_name_ar', header: 'الإدارة' },
+            {
+              key: 'branch_name_ar',
+              header: 'الفرع',
+              render: (row) =>
+                row.row_type === 'department_pending' ? (
+                  <span className="text-[#653e00]">— (معلق)</span>
+                ) : (
+                  (row.branch_name_ar as string) || '—'
+                ),
+            },
+            {
+              key: 'quantity',
+              header: 'الكمية',
+              className: 'tabular-nums font-medium',
+              render: (row) => row.quantity,
+            },
+            {
+              key: 'reserved',
+              header: 'المحجوز',
+              className: 'tabular-nums',
+              render: (row) =>
+                row.row_type === 'department_pending' ? '—' : row.reserved,
+            },
+            {
+              key: 'sold',
+              header: 'المباع',
+              className: 'tabular-nums',
+              render: (row) =>
+                row.row_type === 'department_pending' ? '—' : row.sold,
+            },
+          ]}
+        />
+      </AsyncState>
     </div>
   )
 }

@@ -12,6 +12,26 @@ export interface Department {
   name_ar?: string | null
   code: string
   is_active?: boolean
+  department_stock?: DepartmentStock
+}
+
+export interface DepartmentStock {
+  department_id: number
+  quantity: number
+  pending: number
+  distributed?: number
+}
+
+export interface InventoryOverviewRow {
+  row_type: 'department_pending' | 'branch'
+  department_id: number
+  department_name_ar: string
+  branch_id?: number
+  branch_name_ar?: string
+  quantity: number
+  reserved: number
+  sold: number
+  pending?: number
 }
 
 export interface Branch {
@@ -23,6 +43,7 @@ export interface Branch {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  department?: Department
   warehouses?: Warehouse[]
 }
 
@@ -91,6 +112,7 @@ export interface GpsStock {
   branch_id: number
   quantity: number
   reserved: number
+  sold: number
   product?: GpsProduct
   warehouse?: Warehouse
   available?: number
