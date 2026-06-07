@@ -28,6 +28,12 @@
   --color-outline: #757682;
   --color-outline-variant: #c5c5d3;
   --color-surface-tint: #4059aa;
+  --color-tertiary-container: #ffddb5;
+
+  --color-chart-1: #00236f;
+  --color-chart-2: #006c49;
+  --color-chart-3: #ef9900;
+  --color-chart-4: #4059aa;
 
   --font-sans: 'IBM Plex Sans Arabic', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
 

@@ -1,14 +1,28 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ChartCard } from '../components/ChartCard'
 import { DataTable } from '../components/DataTable'
+import { FilterBar } from '../components/FilterBar'
+import { Icon } from '../components/Icon'
+import { InsightBanner } from '../components/InsightBanner'
+import { KpiCard } from '../components/KpiCard'
+import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
-import { Icon } from '../components/Icon'
+import { BarChartPanel } from '../components/charts/BarChartPanel'
+import {
+  computeBranchByDeptData,
+  computeBranchInsights,
+  computeBranchKpis,
+  computeBranchStatusData,
+  filterBranches,
+} from '../lib/pageStats'
 
-type Panel = 'create' | 'edit' | null
+type Panel = 'create' | 'edit' | 'delete' | null
 
 const emptyForm = {
   code: '',
@@ -19,12 +33,17 @@ const emptyForm = {
   is_active: true,
 }
 
+const PER_PAGE = 10
+
 export function BranchesPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [deptFilter, setDeptFilter] = useState<number | ''>('')
+  const [deptFilter, setDeptFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [panel, setPanel] = useState<Panel>(null)
   const [editId, setEditId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null)
   const [form, setForm] = useState(emptyForm)
 
   const departmentsQuery = useQuery({
@@ -37,21 +56,44 @@ export function BranchesPage() {
     },
   })
 
-  const query = useQuery({
-    queryKey: ['branches', 'admin', page, deptFilter],
+  const allBranchesQuery = useQuery({
+    queryKey: ['branches', 'admin', 'all', deptFilter],
     queryFn: async () => {
-      const params: Record<string, string | number> = { page, per_page: 10 }
-      if (deptFilter) params['filter[department_id]'] = deptFilter
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (deptFilter) params['filter[department_id]'] = Number(deptFilter)
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params })
-      return data
+      return data.data
     },
   })
+
+  const filtered = useMemo(
+    () => filterBranches(allBranchesQuery.data ?? [], search, statusFilter),
+    [allBranchesQuery.data, search, statusFilter],
+  )
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PER_PAGE
+    return filtered.slice(start, start + PER_PAGE)
+  }, [filtered, page])
+
+  const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const kpis = useMemo(() => computeBranchKpis(allBranchesQuery.data ?? []), [allBranchesQuery.data])
+  const deptChartData = useMemo(() => computeBranchByDeptData(allBranchesQuery.data ?? []), [allBranchesQuery.data])
+  const statusChartData = useMemo(() => computeBranchStatusData(allBranchesQuery.data ?? []), [allBranchesQuery.data])
+  const insights = useMemo(() => computeBranchInsights(allBranchesQuery.data ?? []), [allBranchesQuery.data])
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['branches'] })
     queryClient.invalidateQueries({ queryKey: ['departments'] })
     queryClient.invalidateQueries({ queryKey: ['inventory'] })
     queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+  }
+
+  const closePanel = () => {
+    setPanel(null)
+    setEditId(null)
+    setDeleteTarget(null)
+    setForm(emptyForm)
   }
 
   const saveMutation = useMutation({
@@ -69,9 +111,7 @@ export function BranchesPage() {
     },
     onSuccess: () => {
       invalidate()
-      setPanel(null)
-      setForm(emptyForm)
-      setEditId(null)
+      closePanel()
     },
   })
 
@@ -79,7 +119,10 @@ export function BranchesPage() {
     mutationFn: async (id: number) => {
       await api.delete(`/branches/${id}`)
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate()
+      closePanel()
+    },
   })
 
   const openEdit = (branch: Branch & { department?: Department }) => {
@@ -95,93 +138,111 @@ export function BranchesPage() {
     setPanel('edit')
   }
 
+  const hasFilters = Boolean(search || statusFilter || deptFilter)
+  const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
+
   return (
     <div>
-      <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
-        <h1 className="text-2xl font-bold text-on-surface">الفروع</h1>
-        <button
-          type="button"
-          onClick={() => { setPanel('create'); setForm(emptyForm); setEditId(null) }}
-          className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-        >
-          <Icon name="add" size={18} />
-          إضافة فرع
-        </button>
-      </div>
-
-      <div className="mb-md">
-        <select
-          value={deptFilter}
-          onChange={(e) => { setDeptFilter(e.target.value ? Number(e.target.value) : ''); setPage(1) }}
-          className="rounded border border-outline-variant px-sm py-2 text-sm"
-        >
-          <option value="">كل الإدارات</option>
-          {departmentsQuery.data?.map((d) => (
-            <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {(panel === 'create' || panel === 'edit') && (
-        <form
-          onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
-          className="mb-md grid gap-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md sm:grid-cols-2"
-        >
-          <select
-            value={form.department_id}
-            onChange={(e) => setForm({ ...form, department_id: Number(e.target.value) })}
-            required
-            className="rounded border border-outline-variant px-sm py-2 text-sm sm:col-span-2"
+      <PageHeader
+        title="الفروع"
+        subtitle="إدارة فروع الإدارات وعناوينها"
+        actions={
+          <button
+            type="button"
+            onClick={() => { setPanel('create'); setForm(emptyForm); setEditId(null) }}
+            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >
-            <option value="">اختر الإدارة</option>
-            {departmentsQuery.data?.map((d) => (
-              <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
-            ))}
-          </select>
-          <input
-            placeholder="الكود"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            required
-            dir="ltr"
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            placeholder="الاسم بالعربية"
-            value={form.name_ar}
-            onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
-            required
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            placeholder="العنوان"
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            className="rounded border border-outline-variant px-sm py-2 text-sm sm:col-span-2"
-          />
-          <label className="flex items-center gap-xs text-sm">
-            <input
-              type="checkbox"
-              checked={form.is_active}
-              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-            />
-            نشط
-          </label>
-          {saveMutation.isError && (
-            <p className="text-sm text-error sm:col-span-2">{getErrorMessage(saveMutation.error)}</p>
-          )}
-          <div className="flex gap-sm sm:col-span-2">
-            <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">
-              حفظ
-            </button>
-            <button type="button" onClick={() => setPanel(null)} className="rounded-lg border px-md py-2 text-sm">إلغاء</button>
-          </div>
-        </form>
-      )}
+            <Icon name="add" size={18} />
+            إضافة فرع
+          </button>
+        }
+      />
 
-      <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
+      <AsyncState
+        isLoading={allBranchesQuery.isLoading}
+        isError={allBranchesQuery.isError}
+        error={allBranchesQuery.error}
+      >
+        {allBranchesQuery.data && (
+          <>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+              <KpiCard label="إجمالي الفروع" value={kpis.total} icon="store" />
+              <KpiCard label="فروع نشطة" value={kpis.active} icon="check_circle" />
+              <KpiCard label="إدارات ممثلة" value={kpis.departmentCount} icon="domain" />
+              <KpiCard label="متوسط فروع/إدارة" value={kpis.avgPerDept} icon="analytics" />
+            </div>
+
+            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+              <ChartCard title="توزيع الفروع حسب الإدارة">
+                <BarChartPanel
+                  data={deptChartData}
+                  xKey="name"
+                  series={[{ key: 'count', label: 'عدد الفروع', color: 'var(--color-chart-1)' }]}
+                />
+              </ChartCard>
+              <ChartCard title="حالة الفروع">
+                <BarChartPanel
+                  data={statusChartData}
+                  xKey="name"
+                  series={[
+                    { key: 'count', label: 'العدد', color: 'var(--color-chart-2)' },
+                  ]}
+                />
+              </ChartCard>
+            </div>
+
+            {insights.length > 0 && (
+              <div className="mb-md space-y-md">
+                {insights.map((insight) => (
+                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </AsyncState>
+
+      <FilterBar
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1) }}
+        searchPlaceholder="بحث بالاسم أو الكود أو العنوان..."
+        selects={[
+          {
+            id: 'department',
+            label: 'الإدارة',
+            value: deptFilter,
+            onChange: (v) => { setDeptFilter(v); setPage(1) },
+            options: [
+              { value: '', label: 'كل الإدارات' },
+              ...(departmentsQuery.data?.map((d) => ({
+                value: String(d.id),
+                label: d.name_ar || d.name,
+              })) ?? []),
+            ],
+          },
+          {
+            id: 'status',
+            label: 'الحالة',
+            value: statusFilter,
+            onChange: (v) => { setStatusFilter(v); setPage(1) },
+            options: [
+              { value: '', label: 'الكل' },
+              { value: 'active', label: 'نشط' },
+              { value: 'inactive', label: 'غير نشط' },
+            ],
+          },
+        ]}
+        showClear={hasFilters}
+        onClear={() => { setSearch(''); setStatusFilter(''); setDeptFilter(''); setPage(1) }}
+      />
+
+      <AsyncState
+        isLoading={allBranchesQuery.isLoading}
+        isError={allBranchesQuery.isError}
+        error={allBranchesQuery.error}
+      >
         <DataTable<Branch & Record<string, unknown>>
-          data={(query.data?.data ?? []) as (Branch & Record<string, unknown>)[]}
+          data={paginated as (Branch & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
           columns={[
             { key: 'code', header: 'الكود' },
@@ -212,7 +273,7 @@ export function BranchesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => deleteMutation.mutate(row.id as number)}
+                    onClick={() => { setDeleteTarget(row as Branch); setPanel('delete') }}
                     className="text-sm text-error hover:underline"
                   >
                     حذف
@@ -222,15 +283,94 @@ export function BranchesPage() {
             },
           ]}
         />
-        {query.data && (
-          <Pagination
-            currentPage={query.data.current_page}
-            lastPage={query.data.last_page}
-            total={query.data.total}
-            onPageChange={setPage}
-          />
-        )}
+        <Pagination
+          currentPage={page}
+          lastPage={lastPage}
+          total={filtered.length}
+          onPageChange={setPage}
+        />
       </AsyncState>
+
+      <Modal
+        open={panel === 'create' || panel === 'edit'}
+        onClose={closePanel}
+        title={panel === 'edit' ? 'تعديل فرع' : 'إضافة فرع'}
+      >
+        <form
+          onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
+          className="grid gap-sm sm:grid-cols-2"
+        >
+          <select
+            value={form.department_id}
+            onChange={(e) => setForm({ ...form, department_id: Number(e.target.value) })}
+            required
+            className={`${inputClass} sm:col-span-2`}
+          >
+            <option value="">اختر الإدارة</option>
+            {departmentsQuery.data?.map((d) => (
+              <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
+            ))}
+          </select>
+          <input
+            placeholder="الكود"
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            required
+            dir="ltr"
+            className={inputClass}
+          />
+          <input
+            placeholder="الاسم بالعربية"
+            value={form.name_ar}
+            onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
+            required
+            className={inputClass}
+          />
+          <input
+            placeholder="العنوان"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            className={`${inputClass} sm:col-span-2`}
+          />
+          <label className="flex items-center gap-xs text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+            />
+            نشط
+          </label>
+          {saveMutation.isError && (
+            <p className="text-sm text-error sm:col-span-2">{getErrorMessage(saveMutation.error)}</p>
+          )}
+          <div className="flex gap-sm sm:col-span-2">
+            <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">
+              حفظ
+            </button>
+            <button type="button" onClick={closePanel} className="rounded-lg border px-md py-2 text-sm">إلغاء</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={panel === 'delete'} onClose={closePanel} title="تأكيد الحذف" size="sm">
+        <p className="mb-md text-sm text-on-surface-variant">
+          هل تريد حذف فرع &quot;{deleteTarget?.name_ar || deleteTarget?.name}&quot;؟ لا يمكن التراجع.
+        </p>
+        {deleteMutation.isError && (
+          <p className="mb-sm text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>
+        )}
+        <div className="flex gap-sm">
+          <button
+            type="button"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            className="rounded-lg bg-error px-md py-2 text-sm font-bold text-on-primary"
+          >
+            {deleteMutation.isPending ? 'جاري الحذف...' : 'حذف'}
+          </button>
+          <button type="button" onClick={closePanel} className="rounded-lg border px-md py-2 text-sm">إلغاء</button>
+        </div>
+      </Modal>
     </div>
   )
 }
