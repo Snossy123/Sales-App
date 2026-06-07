@@ -5,6 +5,7 @@ interface CollapsibleSectionProps {
   title: string
   summary?: string
   defaultOpen?: boolean
+  isLoading?: boolean
   children: ReactNode
 }
 
@@ -12,6 +13,7 @@ export function CollapsibleSection({
   title,
   summary,
   defaultOpen = false,
+  isLoading = false,
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
@@ -34,7 +36,15 @@ export function CollapsibleSection({
         <Icon name={open ? 'expand_less' : 'expand_more'} size={22} className="text-on-surface-variant" />
       </button>
 
-      {open && <div className="border-t border-outline-variant p-md">{children}</div>}
+      {open && (
+        <div className="border-t border-outline-variant p-md">
+          {isLoading ? (
+            <p className="py-md text-center text-sm text-on-surface-variant">جاري التحميل...</p>
+          ) : (
+            children
+          )}
+        </div>
+      )}
     </div>
   )
 }

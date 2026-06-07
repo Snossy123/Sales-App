@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
@@ -6,14 +7,17 @@ import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
+import { DistributeStockModal } from '../components/DistributeStockModal'
 import { FilterBar } from '../components/FilterBar'
-import { Icon } from '../components/Icon'
+import { GpsProductCard } from '../components/GpsProductCard'
 import { InsightBanner } from '../components/InsightBanner'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
+import { ToastBanner } from '../components/ToastBanner'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import { StackedBarChartPanel } from '../components/charts/StackedBarChartPanel'
+import { getUserRole } from '../lib/permissions'
 import {
   computeInventoryBranchStackData,
   computeInventoryDeptDonutData,
@@ -21,14 +25,20 @@ import {
   computeInventoryKpis,
   filterInventoryRows,
 } from '../lib/pageStats'
+import { useAuthStore } from '../stores/authStore'
 
 const PER_PAGE = 10
 
 export function InventoryPage() {
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = getUserRole(user) === 'admin'
   const [deptFilter, setDeptFilter] = useState('')
   const [branchSearch, setBranchSearch] = useState('')
   const [rowTypeFilter, setRowTypeFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [distributeOpen, setDistributeOpen] = useState(false)
+  const [distributeDeptId, setDistributeDeptId] = useState<number | undefined>()
+  const [successToast, setSuccessToast] = useState('')
 
   const productQuery = useQuery({
     queryKey: ['gps-product'],
@@ -71,12 +81,25 @@ export function InventoryPage() {
   }, [filtered, page])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const kpis = useMemo(() => computeInventoryKpis(overviewQuery.data ?? []), [overviewQuery.data])
-  const stackData = useMemo(() => computeInventoryBranchStackData(overviewQuery.data ?? []), [overviewQuery.data])
-  const donutData = useMemo(() => computeInventoryDeptDonutData(overviewQuery.data ?? []), [overviewQuery.data])
-  const insights = useMemo(() => computeInventoryInsights(overviewQuery.data ?? []), [overviewQuery.data])
-
+  const kpis = useMemo(() => computeInventoryKpis(filtered), [filtered])
+  const stackData = useMemo(() => computeInventoryBranchStackData(filtered), [filtered])
+  const donutData = useMemo(() => computeInventoryDeptDonutData(filtered), [filtered])
+  const insights = useMemo(() => computeInventoryInsights(filtered), [filtered])
   const hasFilters = Boolean(deptFilter || branchSearch || rowTypeFilter)
+
+  const analyticsSummary = hasFilters
+    ? `${filtered.length} نتيجة`
+    : '4 مؤشرات'
+
+  const openDistribute = (departmentId: number) => {
+    setDistributeDeptId(departmentId)
+    setDistributeOpen(true)
+  }
+
+  const closeDistribute = () => {
+    setDistributeOpen(false)
+    setDistributeDeptId(undefined)
+  }
 
   return (
     <div>
@@ -86,57 +109,54 @@ export function InventoryPage() {
       />
 
       {productQuery.data && (
-        <div className="mb-md flex flex-wrap items-center gap-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon name="gps_fixed" size={28} />
-          </div>
-          <div>
-            <p className="font-bold text-on-surface">
-              {productQuery.data.name_ar || productQuery.data.name}
-            </p>
-            <p className="text-sm text-on-surface-variant">
-              {productQuery.data.brand} — {productQuery.data.model_code} — سعر البيع:{' '}
-              {Number(productQuery.data.sell_price).toLocaleString('ar-EG')} ج.م
-            </p>
-          </div>
-        </div>
+        <GpsProductCard product={productQuery.data} canEditPrice={isAdmin} />
       )}
 
-      {overviewQuery.data && (
-        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
-          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="إجمالي الكمية" value={kpis.totalQuantity} icon="inventory" />
-            <KpiCard label="إجمالي المحجوز" value={kpis.totalReserved} icon="lock" />
-            <KpiCard label="إجمالي المباع" value={kpis.totalSold} icon="sell" />
-            <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
-          </div>
+      {successToast && (
+        <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
+      )}
 
-          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-            <ChartCard title="مخزون الفروع" subtitle="الكمية / المحجوز / المباع">
-              <StackedBarChartPanel
-                data={stackData}
-                xKey="name"
-                series={[
-                  { key: 'quantity', label: 'الكمية', color: 'var(--color-chart-1)' },
-                  { key: 'reserved', label: 'المحجوز', color: 'var(--color-chart-3)' },
-                  { key: 'sold', label: 'المباع', color: 'var(--color-chart-2)' },
-                ]}
-              />
-            </ChartCard>
-            <ChartCard title="توزيع المخزون بين الإدارات">
-              <DonutChartPanel data={donutData} />
-            </ChartCard>
-          </div>
-
-          {insights.length > 0 && (
-            <div className="space-y-md">
-              {insights.map((insight) => (
-                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-              ))}
+      <CollapsibleSection
+        title="التحليلات والرسوم البيانية"
+        summary={analyticsSummary}
+        isLoading={overviewQuery.isLoading}
+      >
+        {!overviewQuery.isLoading && overviewQuery.data && (
+          <>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+              <KpiCard label="إجمالي الكمية" value={kpis.totalQuantity} icon="inventory" />
+              <KpiCard label="إجمالي المحجوز" value={kpis.totalReserved} icon="lock" />
+              <KpiCard label="إجمالي المباع" value={kpis.totalSold} icon="sell" />
+              <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
             </div>
-          )}
-        </CollapsibleSection>
-      )}
+
+            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+              <ChartCard title="مخزون الفروع" subtitle="الكمية / المحجوز / المباع">
+                <StackedBarChartPanel
+                  data={stackData}
+                  xKey="name"
+                  series={[
+                    { key: 'quantity', label: 'الكمية', color: 'var(--color-chart-1)' },
+                    { key: 'reserved', label: 'المحجوز', color: 'var(--color-chart-3)' },
+                    { key: 'sold', label: 'المباع', color: 'var(--color-chart-2)' },
+                  ]}
+                />
+              </ChartCard>
+              <ChartCard title="توزيع المخزون بين الإدارات">
+                <DonutChartPanel data={donutData} />
+              </ChartCard>
+            </div>
+
+            {insights.length > 0 && (
+              <div className="space-y-md">
+                {insights.map((insight) => (
+                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CollapsibleSection>
 
       <FilterBar
         search={branchSearch}
@@ -184,6 +204,7 @@ export function InventoryPage() {
               ? `pending-${row.department_id}`
               : `branch-${row.branch_id}`
           }
+          emptyMessage={hasFilters ? 'لا توجد نتائج مطابقة للفلاتر' : 'لا توجد بيانات'}
           columns={[
             { key: 'department_name_ar', header: 'الإدارة' },
             {
@@ -210,11 +231,49 @@ export function InventoryPage() {
                 row.row_type === 'department_pending' ? '—' : row.reserved,
             },
             {
+              key: 'available',
+              header: 'المتاح',
+              className: 'tabular-nums font-medium',
+              render: (row) =>
+                row.row_type === 'department_pending'
+                  ? row.quantity
+                  : row.quantity - row.reserved,
+            },
+            {
               key: 'sold',
               header: 'المباع',
               className: 'tabular-nums',
               render: (row) =>
                 row.row_type === 'department_pending' ? '—' : row.sold,
+            },
+            {
+              key: 'actions',
+              header: 'إجراءات',
+              render: (row) => {
+                if (row.row_type === 'department_pending' && isAdmin) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => openDistribute(row.department_id as number)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      توزيع
+                    </button>
+                  )
+                }
+                if (row.row_type === 'branch') {
+                  const deptId = row.department_id as number
+                  return (
+                    <Link
+                      to={`/branches?department=${deptId}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      عرض الفروع
+                    </Link>
+                  )
+                }
+                return '—'
+              },
             },
           ]}
         />
@@ -225,6 +284,14 @@ export function InventoryPage() {
           onPageChange={setPage}
         />
       </AsyncState>
+
+      <DistributeStockModal
+        open={distributeOpen}
+        onClose={closeDistribute}
+        departments={departmentsQuery.data ?? []}
+        initialDepartmentId={distributeDeptId}
+        onSuccess={() => setSuccessToast('تم التوزيع على الفرع')}
+      />
     </div>
   )
 }

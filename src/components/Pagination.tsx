@@ -11,17 +11,19 @@ export function Pagination({
   total,
   onPageChange,
 }: PaginationProps) {
-  if (total === 0) return null
+  const safeLastPage = Math.max(1, lastPage)
 
   return (
     <div className="mt-md flex flex-wrap items-center justify-between gap-sm text-sm text-on-surface-variant">
       <span>
-        إجمالي {total} — صفحة {currentPage} من {lastPage}
+        {total === 0
+          ? '0 نتائج'
+          : `إجمالي ${total} — صفحة ${currentPage} من ${safeLastPage}`}
       </span>
       <div className="flex gap-xs">
         <button
           type="button"
-          disabled={currentPage <= 1}
+          disabled={total === 0 || currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
           className="rounded border border-outline-variant px-sm py-1 disabled:opacity-40"
         >
@@ -29,7 +31,7 @@ export function Pagination({
         </button>
         <button
           type="button"
-          disabled={currentPage >= lastPage}
+          disabled={total === 0 || currentPage >= safeLastPage}
           onClick={() => onPageChange(currentPage + 1)}
           className="rounded border border-outline-variant px-sm py-1 disabled:opacity-40"
         >

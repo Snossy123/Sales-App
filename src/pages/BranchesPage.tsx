@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
@@ -14,6 +15,7 @@ import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
+import { ToastBanner } from '../components/ToastBanner'
 import { BarChartPanel } from '../components/charts/BarChartPanel'
 import {
   computeBranchByDeptData,
@@ -38,11 +40,13 @@ const PER_PAGE = 10
 
 export function BranchesPage() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [page, setPage] = useState(1)
-  const [deptFilter, setDeptFilter] = useState('')
+  const [deptFilter, setDeptFilter] = useState(() => searchParams.get('department') ?? '')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [panel, setPanel] = useState<Panel>(null)
+  const [successToast, setSuccessToast] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -78,10 +82,15 @@ export function BranchesPage() {
   }, [filtered, page])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const kpis = useMemo(() => computeBranchKpis(allBranchesQuery.data ?? []), [allBranchesQuery.data])
-  const deptChartData = useMemo(() => computeBranchByDeptData(allBranchesQuery.data ?? []), [allBranchesQuery.data])
-  const statusChartData = useMemo(() => computeBranchStatusData(allBranchesQuery.data ?? []), [allBranchesQuery.data])
-  const insights = useMemo(() => computeBranchInsights(allBranchesQuery.data ?? []), [allBranchesQuery.data])
+  const kpis = useMemo(() => computeBranchKpis(filtered), [filtered])
+  const deptChartData = useMemo(() => computeBranchByDeptData(filtered), [filtered])
+  const statusChartData = useMemo(() => computeBranchStatusData(filtered), [filtered])
+  const insights = useMemo(() => computeBranchInsights(filtered), [filtered])
+  const hasFilters = Boolean(search || statusFilter || deptFilter)
+
+  const analyticsSummary = hasFilters
+    ? `${filtered.length} نتيجة`
+    : '4 مؤشرات'
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['branches'] })
@@ -113,6 +122,7 @@ export function BranchesPage() {
     onSuccess: () => {
       invalidate()
       closePanel()
+      setSuccessToast(panel === 'edit' ? 'تم تحديث الفرع' : 'تم إضافة الفرع')
     },
   })
 
@@ -123,6 +133,7 @@ export function BranchesPage() {
     onSuccess: () => {
       invalidate()
       closePanel()
+      setSuccessToast('تم حذف الفرع')
     },
   })
 
@@ -139,7 +150,6 @@ export function BranchesPage() {
     setPanel('edit')
   }
 
-  const hasFilters = Boolean(search || statusFilter || deptFilter)
   const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
   return (
@@ -159,43 +169,53 @@ export function BranchesPage() {
         }
       />
 
-      {allBranchesQuery.data && (
-        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
-          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="إجمالي الفروع" value={kpis.total} icon="store" />
-            <KpiCard label="فروع نشطة" value={kpis.active} icon="check_circle" />
-            <KpiCard label="إدارات ممثلة" value={kpis.departmentCount} icon="domain" />
-            <KpiCard label="متوسط فروع/إدارة" value={kpis.avgPerDept} icon="analytics" />
-          </div>
-
-          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-            <ChartCard title="توزيع الفروع حسب الإدارة">
-              <BarChartPanel
-                data={deptChartData}
-                xKey="name"
-                series={[{ key: 'count', label: 'عدد الفروع', color: 'var(--color-chart-1)' }]}
-              />
-            </ChartCard>
-            <ChartCard title="حالة الفروع">
-              <BarChartPanel
-                data={statusChartData}
-                xKey="name"
-                series={[
-                  { key: 'count', label: 'العدد', color: 'var(--color-chart-2)' },
-                ]}
-              />
-            </ChartCard>
-          </div>
-
-          {insights.length > 0 && (
-            <div className="space-y-md">
-              {insights.map((insight) => (
-                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-              ))}
-            </div>
-          )}
-        </CollapsibleSection>
+      {successToast && (
+        <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
       )}
+
+      <CollapsibleSection
+        title="التحليلات والرسوم البيانية"
+        summary={analyticsSummary}
+        isLoading={allBranchesQuery.isLoading}
+      >
+        {!allBranchesQuery.isLoading && allBranchesQuery.data && (
+          <>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+              <KpiCard label="إجمالي الفروع" value={kpis.total} icon="store" />
+              <KpiCard label="فروع نشطة" value={kpis.active} icon="check_circle" />
+              <KpiCard label="إدارات ممثلة" value={kpis.departmentCount} icon="domain" />
+              <KpiCard label="متوسط فروع/إدارة" value={kpis.avgPerDept} icon="analytics" />
+            </div>
+
+            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+              <ChartCard title="توزيع الفروع حسب الإدارة">
+                <BarChartPanel
+                  data={deptChartData}
+                  xKey="name"
+                  series={[{ key: 'count', label: 'عدد الفروع', color: 'var(--color-chart-1)' }]}
+                />
+              </ChartCard>
+              <ChartCard title="حالة الفروع">
+                <BarChartPanel
+                  data={statusChartData}
+                  xKey="name"
+                  series={[
+                    { key: 'count', label: 'العدد', color: 'var(--color-chart-2)' },
+                  ]}
+                />
+              </ChartCard>
+            </div>
+
+            {insights.length > 0 && (
+              <div className="space-y-md">
+                {insights.map((insight) => (
+                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CollapsibleSection>
 
       <FilterBar
         search={search}
@@ -239,6 +259,7 @@ export function BranchesPage() {
         <DataTable<Branch & Record<string, unknown>>
           data={paginated as (Branch & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          emptyMessage={hasFilters ? 'لا توجد نتائج مطابقة للفلاتر' : 'لا توجد بيانات'}
           columns={[
             { key: 'code', header: 'الكود' },
             { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
@@ -320,6 +341,12 @@ export function BranchesPage() {
             onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
             required
             className={inputClass}
+          />
+          <input
+            placeholder="الاسم بالإنجليزية"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className={`${inputClass} sm:col-span-2`}
           />
           <input
             placeholder="العنوان"

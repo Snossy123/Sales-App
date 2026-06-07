@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Branch, Department, PaginatedResponse } from '../api/types'
+import type { Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
+import { DistributeStockModal } from '../components/DistributeStockModal'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
@@ -14,6 +15,7 @@ import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
+import { ToastBanner } from '../components/ToastBanner'
 import { BarChartPanel } from '../components/charts/BarChartPanel'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import {
@@ -24,7 +26,7 @@ import {
   filterDepartments,
 } from '../lib/pageStats'
 
-type Panel = 'create' | 'edit' | 'addStock' | 'distribute' | 'delete' | null
+type Panel = 'create' | 'edit' | 'addStock' | 'delete' | null
 
 const emptyForm = { code: '', name_ar: '', name: '', is_active: true }
 const PER_PAGE = 10
@@ -35,14 +37,13 @@ export function DepartmentsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [panel, setPanel] = useState<Panel>(null)
+  const [distributeOpen, setDistributeOpen] = useState(false)
+  const [successToast, setSuccessToast] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [stockDeptId, setStockDeptId] = useState<number | ''>('')
   const [stockQty, setStockQty] = useState(10)
-  const [distDeptId, setDistDeptId] = useState<number | ''>('')
-  const [distBranchId, setDistBranchId] = useState<number | ''>('')
-  const [distQty, setDistQty] = useState(5)
 
   const allQuery = useQuery({
     queryKey: ['departments', 'admin', 'all'],
@@ -52,17 +53,6 @@ export function DepartmentsPage() {
       })
       return data.data
     },
-  })
-
-  const branchesQuery = useQuery({
-    queryKey: ['branches', 'all', distDeptId],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { per_page: 100, 'filter[department_id]': distDeptId },
-      })
-      return data.data
-    },
-    enabled: Boolean(distDeptId),
   })
 
   const filtered = useMemo(
@@ -76,10 +66,15 @@ export function DepartmentsPage() {
   }, [filtered, page])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const kpis = useMemo(() => computeDepartmentKpis(allQuery.data ?? []), [allQuery.data])
-  const barData = useMemo(() => computeDepartmentBarData(allQuery.data ?? []), [allQuery.data])
-  const donutData = useMemo(() => computeDepartmentDonutData(allQuery.data ?? []), [allQuery.data])
-  const insights = useMemo(() => computeDepartmentInsights(allQuery.data ?? []), [allQuery.data])
+  const kpis = useMemo(() => computeDepartmentKpis(filtered), [filtered])
+  const barData = useMemo(() => computeDepartmentBarData(filtered), [filtered])
+  const donutData = useMemo(() => computeDepartmentDonutData(filtered), [filtered])
+  const insights = useMemo(() => computeDepartmentInsights(filtered), [filtered])
+  const hasFilters = Boolean(search || statusFilter)
+
+  const analyticsSummary = hasFilters
+    ? `${filtered.length} نتيجة`
+    : '4 مؤشرات'
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['departments'] })
@@ -109,6 +104,7 @@ export function DepartmentsPage() {
     onSuccess: () => {
       invalidate()
       closePanel()
+      setSuccessToast(panel === 'edit' ? 'تم تحديث الإدارة' : 'تم إضافة الإدارة')
     },
   })
 
@@ -119,6 +115,7 @@ export function DepartmentsPage() {
     onSuccess: () => {
       invalidate()
       closePanel()
+      setSuccessToast('تم حذف الإدارة')
     },
   })
 
@@ -134,22 +131,7 @@ export function DepartmentsPage() {
       invalidate()
       closePanel()
       setStockQty(10)
-    },
-  })
-
-  const distributeMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post('/department-stock/distribute', {
-        department_id: distDeptId,
-        branch_id: distBranchId,
-        quantity: distQty,
-      })
-      return data
-    },
-    onSuccess: () => {
-      invalidate()
-      closePanel()
-      setDistQty(5)
+      setSuccessToast('تمت إضافة الكمية للإدارة')
     },
   })
 
@@ -168,8 +150,6 @@ export function DepartmentsPage() {
     e.preventDefault()
     saveMutation.mutate()
   }
-
-  const hasFilters = Boolean(search || statusFilter)
 
   const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -198,7 +178,7 @@ export function DepartmentsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setPanel('distribute')}
+              onClick={() => setDistributeOpen(true)}
               className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-sm text-sm"
             >
               <Icon name="swap_horiz" size={18} />
@@ -208,41 +188,51 @@ export function DepartmentsPage() {
         }
       />
 
-      {allQuery.data && (
-        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
-          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="إدارات نشطة" value={kpis.activeCount} icon="domain" />
-            <KpiCard label="إجمالي المخزون" value={kpis.totalStock} icon="inventory_2" />
-            <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
-            <KpiCard label="إجمالي الموزّع" value={kpis.totalDistributed} icon="local_shipping" />
-          </div>
-
-          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-            <ChartCard title="مخزون كل إدارة" subtitle="إجمالي / معلق / موزّع">
-              <BarChartPanel
-                data={barData}
-                xKey="name"
-                series={[
-                  { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
-                  { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
-                  { key: 'distributed', label: 'موزّع', color: 'var(--color-chart-2)' },
-                ]}
-              />
-            </ChartCard>
-            <ChartCard title="نسبة التوزيع" subtitle="موزّع مقابل معلق">
-              <DonutChartPanel data={donutData} />
-            </ChartCard>
-          </div>
-
-          {insights.length > 0 && (
-            <div className="space-y-md">
-              {insights.map((insight) => (
-                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-              ))}
-            </div>
-          )}
-        </CollapsibleSection>
+      {successToast && (
+        <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
       )}
+
+      <CollapsibleSection
+        title="التحليلات والرسوم البيانية"
+        summary={analyticsSummary}
+        isLoading={allQuery.isLoading}
+      >
+        {!allQuery.isLoading && allQuery.data && (
+          <>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+              <KpiCard label="إدارات نشطة" value={kpis.activeCount} icon="domain" />
+              <KpiCard label="إجمالي المخزون" value={kpis.totalStock} icon="inventory_2" />
+              <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
+              <KpiCard label="إجمالي الموزّع" value={kpis.totalDistributed} icon="local_shipping" />
+            </div>
+
+            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+              <ChartCard title="مخزون كل إدارة" subtitle="إجمالي / معلق / موزّع">
+                <BarChartPanel
+                  data={barData}
+                  xKey="name"
+                  series={[
+                    { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
+                    { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
+                    { key: 'distributed', label: 'موزّع', color: 'var(--color-chart-2)' },
+                  ]}
+                />
+              </ChartCard>
+              <ChartCard title="نسبة التوزيع" subtitle="موزّع مقابل معلق">
+                <DonutChartPanel data={donutData} />
+              </ChartCard>
+            </div>
+
+            {insights.length > 0 && (
+              <div className="space-y-md">
+                {insights.map((insight) => (
+                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CollapsibleSection>
 
       <FilterBar
         search={search}
@@ -269,6 +259,7 @@ export function DepartmentsPage() {
         <DataTable<Department & Record<string, unknown>>
           data={paginated as (Department & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          emptyMessage={hasFilters ? 'لا توجد نتائج مطابقة للفلاتر' : 'لا توجد بيانات'}
           columns={[
             { key: 'code', header: 'الكود', className: 'tabular-nums' },
             { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
@@ -407,54 +398,12 @@ export function DepartmentsPage() {
         </form>
       </Modal>
 
-      <Modal open={panel === 'distribute'} onClose={closePanel} title="توزيع على فرع" size="lg">
-        <form
-          onSubmit={(e) => { e.preventDefault(); distributeMutation.mutate() }}
-          className="grid gap-sm sm:grid-cols-3"
-        >
-          <select
-            value={distDeptId}
-            onChange={(e) => { setDistDeptId(Number(e.target.value)); setDistBranchId('') }}
-            required
-            className={inputClass}
-          >
-            <option value="">الإدارة</option>
-            {allQuery.data?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name_ar || d.name} (معلق: {d.department_stock?.pending ?? 0})
-              </option>
-            ))}
-          </select>
-          <select
-            value={distBranchId}
-            onChange={(e) => setDistBranchId(Number(e.target.value))}
-            required
-            disabled={!distDeptId}
-            className={inputClass}
-          >
-            <option value="">الفرع</option>
-            {branchesQuery.data?.map((b) => (
-              <option key={b.id} value={b.id}>{b.name_ar || b.name}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={distQty}
-            onChange={(e) => setDistQty(Number(e.target.value))}
-            className={`${inputClass} tabular-nums`}
-          />
-          {distributeMutation.isError && (
-            <p className="text-sm text-error sm:col-span-3">{getErrorMessage(distributeMutation.error)}</p>
-          )}
-          <div className="flex gap-sm sm:col-span-3">
-            <button type="submit" disabled={distributeMutation.isPending} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">
-              توزيع
-            </button>
-            <button type="button" onClick={closePanel} className="rounded-lg border px-md py-2 text-sm">إلغاء</button>
-          </div>
-        </form>
-      </Modal>
+      <DistributeStockModal
+        open={distributeOpen}
+        onClose={() => setDistributeOpen(false)}
+        departments={allQuery.data ?? []}
+        onSuccess={() => setSuccessToast('تم التوزيع على الفرع')}
+      />
 
       <Modal open={panel === 'delete'} onClose={closePanel} title="تأكيد الحذف" size="sm">
         <p className="mb-md text-sm text-on-surface-variant">

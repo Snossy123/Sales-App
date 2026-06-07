@@ -494,6 +494,19 @@ export function handleMockRequest(
     return state.gpsProduct
   }
 
+  if (m === 'PUT' && path === 'gps-product') {
+    const body = data as { sell_price?: number }
+    let updated = state.gpsProduct
+    mutateState((s) => {
+      if (body.sell_price == null || body.sell_price <= 0) {
+        throw mockError(422, 'سعر البيع يجب أن يكون أكبر من صفر')
+      }
+      s.gpsProduct.sell_price = body.sell_price
+      updated = { ...s.gpsProduct }
+    })
+    return updated
+  }
+
   if (m === 'GET' && path === 'gps-stock') {
     const warehouseId = Number(params['filter[warehouse_id]'] || ctx.warehouseId)
     const stock = getStock(state, warehouseId)
