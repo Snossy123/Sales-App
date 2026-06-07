@@ -4,6 +4,7 @@ import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
+import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
@@ -158,49 +159,43 @@ export function BranchesPage() {
         }
       />
 
-      <AsyncState
-        isLoading={allBranchesQuery.isLoading}
-        isError={allBranchesQuery.isError}
-        error={allBranchesQuery.error}
-      >
-        {allBranchesQuery.data && (
-          <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="إجمالي الفروع" value={kpis.total} icon="store" />
-              <KpiCard label="فروع نشطة" value={kpis.active} icon="check_circle" />
-              <KpiCard label="إدارات ممثلة" value={kpis.departmentCount} icon="domain" />
-              <KpiCard label="متوسط فروع/إدارة" value={kpis.avgPerDept} icon="analytics" />
-            </div>
+      {allBranchesQuery.data && (
+        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
+          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard label="إجمالي الفروع" value={kpis.total} icon="store" />
+            <KpiCard label="فروع نشطة" value={kpis.active} icon="check_circle" />
+            <KpiCard label="إدارات ممثلة" value={kpis.departmentCount} icon="domain" />
+            <KpiCard label="متوسط فروع/إدارة" value={kpis.avgPerDept} icon="analytics" />
+          </div>
 
-            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <ChartCard title="توزيع الفروع حسب الإدارة">
-                <BarChartPanel
-                  data={deptChartData}
-                  xKey="name"
-                  series={[{ key: 'count', label: 'عدد الفروع', color: 'var(--color-chart-1)' }]}
-                />
-              </ChartCard>
-              <ChartCard title="حالة الفروع">
-                <BarChartPanel
-                  data={statusChartData}
-                  xKey="name"
-                  series={[
-                    { key: 'count', label: 'العدد', color: 'var(--color-chart-2)' },
-                  ]}
-                />
-              </ChartCard>
-            </div>
+          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+            <ChartCard title="توزيع الفروع حسب الإدارة">
+              <BarChartPanel
+                data={deptChartData}
+                xKey="name"
+                series={[{ key: 'count', label: 'عدد الفروع', color: 'var(--color-chart-1)' }]}
+              />
+            </ChartCard>
+            <ChartCard title="حالة الفروع">
+              <BarChartPanel
+                data={statusChartData}
+                xKey="name"
+                series={[
+                  { key: 'count', label: 'العدد', color: 'var(--color-chart-2)' },
+                ]}
+              />
+            </ChartCard>
+          </div>
 
-            {insights.length > 0 && (
-              <div className="mb-md space-y-md">
-                {insights.map((insight) => (
-                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </AsyncState>
+          {insights.length > 0 && (
+            <div className="space-y-md">
+              {insights.map((insight) => (
+                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
 
       <FilterBar
         search={search}

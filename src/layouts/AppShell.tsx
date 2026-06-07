@@ -1,8 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
-import { DepartmentSwitcher } from '../components/DepartmentSwitcher'
-import { BranchSwitcher } from '../components/BranchSwitcher'
-import { WarehouseSwitcher } from '../components/WarehouseSwitcher'
 import { useAuthStore } from '../stores/authStore'
 import { useContextData } from '../hooks/useContextData'
 import { api, isDemoMode } from '../api/client'
@@ -95,7 +92,7 @@ export function AppShell() {
       </aside>
 
       <main className="mr-64 flex h-full flex-grow flex-col overflow-y-auto bg-background">
-        <header className="sticky top-0 z-40 flex w-full flex-row-reverse items-center justify-between border-b border-outline-variant bg-surface px-margin py-base">
+        <header className="sticky top-0 z-40 flex w-full items-center justify-end border-b border-outline-variant bg-surface px-margin py-base">
           <div className="flex flex-row-reverse items-center gap-md">
             <div className="flex flex-row-reverse gap-sm">
               <button
@@ -116,12 +113,6 @@ export function AppShell() {
                 {user?.name?.charAt(0) ?? '؟'}
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-md">
-            <DepartmentSwitcher />
-            <BranchSwitcher />
-            <WarehouseSwitcher />
           </div>
         </header>
 

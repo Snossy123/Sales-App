@@ -4,6 +4,7 @@ import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
+import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
@@ -207,43 +208,41 @@ export function DepartmentsPage() {
         }
       />
 
-      <AsyncState isLoading={allQuery.isLoading} isError={allQuery.isError} error={allQuery.error}>
-        {allQuery.data && (
-          <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="إدارات نشطة" value={kpis.activeCount} icon="domain" />
-              <KpiCard label="إجمالي المخزون" value={kpis.totalStock} icon="inventory_2" />
-              <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
-              <KpiCard label="إجمالي الموزّع" value={kpis.totalDistributed} icon="local_shipping" />
-            </div>
+      {allQuery.data && (
+        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
+          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard label="إدارات نشطة" value={kpis.activeCount} icon="domain" />
+            <KpiCard label="إجمالي المخزون" value={kpis.totalStock} icon="inventory_2" />
+            <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
+            <KpiCard label="إجمالي الموزّع" value={kpis.totalDistributed} icon="local_shipping" />
+          </div>
 
-            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <ChartCard title="مخزون كل إدارة" subtitle="إجمالي / معلق / موزّع">
-                <BarChartPanel
-                  data={barData}
-                  xKey="name"
-                  series={[
-                    { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
-                    { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
-                    { key: 'distributed', label: 'موزّع', color: 'var(--color-chart-2)' },
-                  ]}
-                />
-              </ChartCard>
-              <ChartCard title="نسبة التوزيع" subtitle="موزّع مقابل معلق">
-                <DonutChartPanel data={donutData} />
-              </ChartCard>
-            </div>
+          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+            <ChartCard title="مخزون كل إدارة" subtitle="إجمالي / معلق / موزّع">
+              <BarChartPanel
+                data={barData}
+                xKey="name"
+                series={[
+                  { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
+                  { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
+                  { key: 'distributed', label: 'موزّع', color: 'var(--color-chart-2)' },
+                ]}
+              />
+            </ChartCard>
+            <ChartCard title="نسبة التوزيع" subtitle="موزّع مقابل معلق">
+              <DonutChartPanel data={donutData} />
+            </ChartCard>
+          </div>
 
-            {insights.length > 0 && (
-              <div className="mb-md space-y-md">
-                {insights.map((insight) => (
-                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </AsyncState>
+          {insights.length > 0 && (
+            <div className="space-y-md">
+              {insights.map((insight) => (
+                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
 
       <FilterBar
         search={search}

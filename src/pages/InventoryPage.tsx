@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
+import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
@@ -101,47 +102,41 @@ export function InventoryPage() {
         </div>
       )}
 
-      <AsyncState
-        isLoading={overviewQuery.isLoading || productQuery.isLoading}
-        isError={overviewQuery.isError}
-        error={overviewQuery.error}
-      >
-        {overviewQuery.data && (
-          <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="إجمالي الكمية" value={kpis.totalQuantity} icon="inventory" />
-              <KpiCard label="إجمالي المحجوز" value={kpis.totalReserved} icon="lock" />
-              <KpiCard label="إجمالي المباع" value={kpis.totalSold} icon="sell" />
-              <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
-            </div>
+      {overviewQuery.data && (
+        <CollapsibleSection title="التحليلات والرسوم البيانية" summary="4 مؤشرات">
+          <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard label="إجمالي الكمية" value={kpis.totalQuantity} icon="inventory" />
+            <KpiCard label="إجمالي المحجوز" value={kpis.totalReserved} icon="lock" />
+            <KpiCard label="إجمالي المباع" value={kpis.totalSold} icon="sell" />
+            <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
+          </div>
 
-            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <ChartCard title="مخزون الفروع" subtitle="الكمية / المحجوز / المباع">
-                <StackedBarChartPanel
-                  data={stackData}
-                  xKey="name"
-                  series={[
-                    { key: 'quantity', label: 'الكمية', color: 'var(--color-chart-1)' },
-                    { key: 'reserved', label: 'المحجوز', color: 'var(--color-chart-3)' },
-                    { key: 'sold', label: 'المباع', color: 'var(--color-chart-2)' },
-                  ]}
-                />
-              </ChartCard>
-              <ChartCard title="توزيع المخزون بين الإدارات">
-                <DonutChartPanel data={donutData} />
-              </ChartCard>
-            </div>
+          <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
+            <ChartCard title="مخزون الفروع" subtitle="الكمية / المحجوز / المباع">
+              <StackedBarChartPanel
+                data={stackData}
+                xKey="name"
+                series={[
+                  { key: 'quantity', label: 'الكمية', color: 'var(--color-chart-1)' },
+                  { key: 'reserved', label: 'المحجوز', color: 'var(--color-chart-3)' },
+                  { key: 'sold', label: 'المباع', color: 'var(--color-chart-2)' },
+                ]}
+              />
+            </ChartCard>
+            <ChartCard title="توزيع المخزون بين الإدارات">
+              <DonutChartPanel data={donutData} />
+            </ChartCard>
+          </div>
 
-            {insights.length > 0 && (
-              <div className="mb-md space-y-md">
-                {insights.map((insight) => (
-                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </AsyncState>
+          {insights.length > 0 && (
+            <div className="space-y-md">
+              {insights.map((insight) => (
+                <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
 
       <FilterBar
         search={branchSearch}
