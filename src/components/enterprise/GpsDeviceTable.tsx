@@ -1,11 +1,23 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Icon } from '../Icon'
-import { gpsDeviceRows } from '../../data/enterpriseGpsMock'
+import { gpsDeviceRows as defaultRows } from '../../data/enterpriseGpsMock'
+import type { GpsDeviceRow } from '../../data/enterpriseGpsMock'
 
-export function GpsDeviceTable() {
+export interface GpsDeviceTableRow extends GpsDeviceRow {
+  branchId?: number
+}
+
+interface GpsDeviceTableProps {
+  rows?: GpsDeviceTableRow[]
+  totalCount?: number
+}
+
+export function GpsDeviceTable({ rows = defaultRows, totalCount }: GpsDeviceTableProps) {
   const [search, setSearch] = useState('')
+  const total = totalCount ?? rows.length
 
-  const filtered = gpsDeviceRows.filter(
+  const filtered = rows.filter(
     (row) =>
       !search ||
       row.code.includes(search) ||
@@ -15,11 +27,11 @@ export function GpsDeviceTable() {
 
   return (
     <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-      <div className="flex items-center justify-between gap-xl border-b border-outline-variant p-lg">
-        <div className="relative max-w-xl flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-xl border-b border-outline-variant p-lg">
+        <div className="relative max-w-xl min-w-[200px] flex-1">
           <Icon
             name="search"
-            className="absolute top-1/2 right-md -translate-y-1/2 text-on-surface-variant"
+            className="absolute top-1/2 right-md -translate-y-1/2 text-on-surface-variant no-flip"
           />
           <input
             type="text"
@@ -34,14 +46,14 @@ export function GpsDeviceTable() {
             type="button"
             className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
           >
-            <Icon name="filter_list" size={20} />
+            <Icon name="filter_list" size={20} className="no-flip" />
             حالة الجهاز
           </button>
           <button
             type="button"
             className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
           >
-            <Icon name="router" size={20} />
+            <Icon name="router" size={20} className="no-flip" />
             طراز GPS
           </button>
         </div>
@@ -62,14 +74,31 @@ export function GpsDeviceTable() {
                 key={row.code}
                 className="group cursor-pointer border-r-4 border-transparent transition-colors hover:border-primary hover:bg-surface-container"
               >
-                <td className="p-lg font-body-md font-semibold text-primary">{row.code}</td>
+                <td className="p-lg font-body-md font-semibold text-primary">
+                  {row.branchId ? (
+                    <Link to={`/branches/${row.branchId}`} className="hover:underline">
+                      {row.code}
+                    </Link>
+                  ) : (
+                    row.code
+                  )}
+                </td>
                 <td className="p-lg font-body-md font-medium text-on-surface">{row.model}</td>
                 <td className="p-lg font-body-md text-on-surface-variant">{row.client}</td>
                 <td className="p-lg text-left">
-                  <Icon
-                    name="more_vert"
-                    className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest"
-                  />
+                  {row.branchId ? (
+                    <Link to={`/branches/${row.branchId}`}>
+                      <Icon
+                        name="more_vert"
+                        className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest no-flip"
+                      />
+                    </Link>
+                  ) : (
+                    <Icon
+                      name="more_vert"
+                      className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest no-flip"
+                    />
+                  )}
                 </td>
               </tr>
             ))}
@@ -77,10 +106,12 @@ export function GpsDeviceTable() {
         </table>
       </div>
       <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-low p-lg">
-        <p className="font-body-sm text-on-surface-variant">عرض 1-4 من أصل 1,300</p>
+        <p className="font-body-sm text-on-surface-variant">
+          عرض 1-{filtered.length} من أصل {total.toLocaleString('ar-EG')}
+        </p>
         <div className="flex items-center gap-sm">
           <button type="button" className="rounded-lg p-sm hover:bg-surface-container disabled:opacity-50" disabled>
-            <Icon name="chevron_right" className="rotate-180" />
+            <Icon name="chevron_right" className="rotate-180 no-flip" />
           </button>
           <button type="button" className="rounded bg-primary px-md py-1 font-label-sm text-on-primary">
             1
@@ -92,7 +123,7 @@ export function GpsDeviceTable() {
             3
           </button>
           <button type="button" className="rounded-lg p-sm hover:bg-surface-container">
-            <Icon name="chevron_left" className="rotate-180" />
+            <Icon name="chevron_left" className="rotate-180 no-flip" />
           </button>
         </div>
       </div>

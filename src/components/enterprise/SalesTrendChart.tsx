@@ -1,15 +1,28 @@
 import { Icon } from '../Icon'
-import { chartLegend, chartMonths } from '../../data/enterpriseGpsMock'
+import { chartLegend as defaultLegend, chartMonths } from '../../data/enterpriseGpsMock'
+import type { ChartLegendItem } from '../../lib/departmentDashboard'
 
-export function SalesTrendChart() {
+interface SalesTrendChartProps {
+  title?: string
+  completionRate?: number
+  legend?: ChartLegendItem[]
+  tooltipText?: string
+}
+
+export function SalesTrendChart({
+  title = 'اتجهات المبيعات حسب الفرع',
+  completionRate = 65,
+  legend = [...defaultLegend],
+  tooltipText = 'أكتوبر: 480 وحدة',
+}: SalesTrendChartProps) {
   return (
     <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-lg shadow-sm">
       <div className="mb-md flex items-center justify-between">
         <h3 className="flex items-center gap-sm font-title-lg text-on-surface">
           <Icon name="trending_up" className="text-primary" />
-          اتجهات المبيعات حسب الفرع
+          {title}
         </h3>
-        <span className="font-label-md text-on-surface-variant">معدل الإنجاز: 65%</span>
+        <span className="font-label-md text-on-surface-variant">معدل الإنجاز: {completionRate}%</span>
       </div>
       <div className="mt-md flex flex-col gap-lg">
         <div className="relative h-64 w-full">
@@ -36,26 +49,30 @@ export function SalesTrendChart() {
                 strokeLinejoin="round"
                 strokeWidth="3"
               />
-              <path
-                d="M 0 180 L 100 150 L 200 110 L 300 130 L 400 90 L 500 70"
-                fill="none"
-                stroke="#9e4300"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="3"
-              />
-              <path
-                d="M 0 140 L 100 160 L 200 130 L 300 150 L 400 120 L 500 100"
-                fill="none"
-                stroke="#5c5f60"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="3"
-              />
+              {legend.length > 1 && (
+                <path
+                  d="M 0 180 L 100 150 L 200 110 L 300 130 L 400 90 L 500 70"
+                  fill="none"
+                  stroke="#9e4300"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                />
+              )}
+              {legend.length > 2 && (
+                <path
+                  d="M 0 140 L 100 160 L 200 130 L 300 150 L 400 120 L 500 100"
+                  fill="none"
+                  stroke="#5c5f60"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                />
+              )}
               <circle className="animate-pulse" cx="500" cy="40" fill="#005bbf" r="5" />
             </svg>
             <div className="absolute top-0 left-0 z-10 -translate-x-1/2 -translate-y-full rounded bg-inverse-surface p-sm font-label-sm text-inverse-on-surface shadow-lg">
-              أكتوبر: 480 وحدة
+              {tooltipText}
             </div>
           </div>
           <div className="mr-xl mt-sm flex justify-between font-label-sm text-on-surface-variant">
@@ -65,7 +82,7 @@ export function SalesTrendChart() {
           </div>
         </div>
         <div className="flex flex-wrap gap-lg border-t border-outline-variant pt-md">
-          {chartLegend.map((item) => (
+          {legend.map((item) => (
             <div key={item.label} className="flex items-center gap-xs">
               <span className={`h-3 w-3 rounded-full ${item.color}`} />
               <span className="font-body-sm text-on-surface-variant">{item.label}</span>

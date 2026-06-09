@@ -4,12 +4,14 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
-import { DataTable } from '../components/DataTable'
-import { KpiCard } from '../components/KpiCard'
-import { PageHeader } from '../components/PageHeader'
-import { StatusBadge } from '../components/StatusBadge'
+import { Icon } from '../components/Icon'
+import { SalesTrendChart } from '../components/enterprise/SalesTrendChart'
+import { GpsKpiRow } from '../components/enterprise/GpsKpiRow'
+import { DeviceHealthCards } from '../components/enterprise/DeviceHealthCards'
+import { GpsDeviceTable } from '../components/enterprise/GpsDeviceTable'
 import { useAuthStore } from '../stores/authStore'
-import { canAccessDepartment, isSuperAdmin } from '../lib/access'
+import { canAccessDepartment, isDepartmentAdmin, isSuperAdmin } from '../lib/access'
+import { buildDepartmentDashboard } from '../lib/departmentDashboard'
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,99 +47,108 @@ export function DepartmentDetailPage() {
   const dept = departmentQuery.data
   const branches = branchesQuery.data ?? []
 
-  const kpis = useMemo(() => {
-    const stock = dept?.department_stock
-    return [
-      { label: 'مخزون الإدارة', value: String(stock?.quantity ?? 0), icon: 'inventory_2' },
-      { label: 'قيد التوزيع', value: String(stock?.pending ?? 0), icon: 'pending' },
-      { label: 'موزّع للفروع', value: String(stock?.distributed ?? 0), icon: 'local_shipping' },
-      { label: 'عدد الفروع', value: String(branches.length), icon: 'store' },
-    ]
-  }, [dept, branches.length])
+  const dashboard = useMemo(() => {
+    if (!dept) return null
+    return buildDepartmentDashboard(dept, branches)
+  }, [dept, branches])
+
+  const deptName = dept?.name_ar || dept?.name || '...'
+  const isLoading = departmentQuery.isLoading || branchesQuery.isLoading
+  const isError = departmentQuery.isError || branchesQuery.isError
+  const error = departmentQuery.error ?? branchesQuery.error
 
   return (
-    <div className="space-y-md">
-      <nav className="mb-sm">
-        <ol className="flex gap-xs text-body-sm text-secondary">
-          {isSuperAdmin(user) && (
-            <>
-              <li>
-                <Link to="/departments" className="transition-colors hover:text-primary">
-                  الإدارات
-                </Link>
-              </li>
-              <li className="no-flip">/</li>
-            </>
-          )}
-          <li className="font-bold text-on-surface">{dept?.name_ar || dept?.name || '...'}</li>
-        </ol>
-      </nav>
-
-      <AsyncState
-        isLoading={departmentQuery.isLoading}
-        isError={departmentQuery.isError}
-        error={departmentQuery.error}
-      >
-        {dept && (
-          <>
-            <PageHeader
-              title={dept.name_ar || dept.name}
-              subtitle={`كود الإدارة: ${dept.code}`}
-              actions={
-                <StatusBadge
-                  status={dept.is_active ? 'active' : 'inactive'}
-                  label={dept.is_active ? 'نشطة' : 'موقوفة'}
-                />
-              }
-            />
-
-            <div className="mb-md grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-4">
-              {kpis.map((kpi) => (
-                <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} icon={kpi.icon} />
-              ))}
-            </div>
-          </>
-        )}
-      </AsyncState>
-
-      <section>
-        <h2 className="mb-sm text-lg font-bold text-on-surface">فروع الإدارة</h2>
-        <AsyncState
-          isLoading={branchesQuery.isLoading}
-          isError={branchesQuery.isError}
-          error={branchesQuery.error}
-        >
-          <DataTable<Branch & Record<string, unknown>>
-            data={branches as (Branch & Record<string, unknown>)[]}
-            keyExtractor={(row) => row.id}
-            emptyMessage="لا توجد فروع لهذه الإدارة"
-            columns={[
-              { key: 'code', header: 'الكود' },
-              { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
-              { key: 'address', header: 'العنوان' },
-              {
-                key: 'is_active',
-                header: 'الحالة',
-                render: (row) => (
-                  <StatusBadge
-                    status={row.is_active ? 'active' : 'inactive'}
-                    label={row.is_active ? 'نشط' : 'موقوف'}
-                  />
-                ),
-              },
-              {
-                key: 'actions',
-                header: 'إجراءات',
-                render: (row) => (
-                  <Link to={`/branches/${row.id}`} className="text-sm text-primary hover:underline">
-                    عرض التفاصيل
+    <AsyncState isLoading={isLoading} isError={isError} error={error}>
+      {dept && dashboard && (
+        <div className="space-y-xl">
+          <div className="flex flex-wrap items-center justify-between gap-md">
+            <nav className="flex items-center gap-xs text-on-surface-variant">
+              {isSuperAdmin(user) ? (
+                <>
+                  <Link to="/departments" className="font-body-sm text-body-sm transition-colors hover:text-primary">
+                    الإدارات
                   </Link>
-                ),
-              },
-            ]}
+                  <Icon name="chevron_right" size={14} className="rotate-180" />
+                </>
+              ) : (
+                <>
+                  <Link to="/" className="font-body-sm text-body-sm transition-colors hover:text-primary">
+                    الرئيسية
+                  </Link>
+                  <Icon name="chevron_right" size={14} className="rotate-180" />
+                  <span className="font-body-sm text-body-sm">إدارتي</span>
+                  <Icon name="chevron_right" size={14} className="rotate-180" />
+                </>
+              )}
+              <span className="font-body-sm text-body-sm font-bold text-on-surface">{deptName}</span>
+            </nav>
+            <button
+              type="button"
+              className="flex items-center gap-sm rounded-lg bg-primary px-lg py-md font-label-md text-on-primary shadow-sm transition-all hover:opacity-90 active:scale-95"
+            >
+              <Icon name="add" size={20} className="no-flip" />
+              جهاز جديد
+            </button>
+          </div>
+
+          <section>
+            <div className="flex flex-wrap items-end justify-between gap-md">
+              <div>
+                <h2 className="font-headline-md text-on-surface">
+                  نظام إدارة أجهزة GPS — {deptName}
+                </h2>
+                <div className="mt-sm flex flex-wrap items-center gap-md">
+                  <span className="rounded border border-outline-variant bg-surface-container-high px-sm py-1 font-label-md text-primary">
+                    {dept.code}
+                  </span>
+                  <span
+                    className={`rounded-full px-sm py-0.5 font-label-sm ${
+                      dept.is_active ? 'bg-[#EAF6ED] text-[#34A853]' : 'bg-error-container text-error'
+                    }`}
+                  >
+                    {dept.is_active ? 'نشطة' : 'موقوفة'}
+                  </span>
+                  <span className="flex items-center gap-xs font-body-sm text-on-surface-variant">
+                    <Icon name="history" size={16} className="no-flip" />
+                    تحديث تلقائي: منذ دقيقتين
+                  </span>
+                  {isDepartmentAdmin(user) && (
+                    <span className="font-body-sm text-on-surface-variant">
+                      · {branches.length} فرع
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-sm">
+                <button
+                  type="button"
+                  className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
+                >
+                  <Icon name="file_download" size={20} className="no-flip" />
+                  تقرير المخزون
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
+                >
+                  <Icon name="share" size={20} className="no-flip" />
+                  مشاركة البيانات
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <SalesTrendChart
+            title="اتجهات المبيعات حسب الفرع"
+            completionRate={dashboard.completionRate}
+            legend={dashboard.chartLegend}
+            tooltipText={dashboard.tooltipText}
           />
-        </AsyncState>
-      </section>
-    </div>
+          <GpsKpiRow kpis={dashboard.kpis} />
+          <DeviceHealthCards cards={dashboard.healthCards} />
+          <GpsDeviceTable rows={dashboard.deviceRows} totalCount={dashboard.totalDevices} />
+        </div>
+      )}
+    </AsyncState>
   )
 }
