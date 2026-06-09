@@ -15,13 +15,15 @@ export function createMockApi(): AxiosInstance {
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<T>> => {
     const cleanUrl = url.replace(/^\//, '')
-    const { branchId, warehouseId, user } = useAuthStore.getState()
+    const { branchId, warehouseId, user, departmentId } = useAuthStore.getState()
 
     try {
       const result = handleMockRequest(method, cleanUrl, data, config, {
         branchId: branchId ?? undefined,
         warehouseId: warehouseId ?? undefined,
+        departmentId: departmentId ?? undefined,
         organizationId: user?.organization_id,
+        user: user ?? undefined,
       })
       return {
         data: result as T,

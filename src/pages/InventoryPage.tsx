@@ -31,7 +31,8 @@ const PER_PAGE = 10
 
 export function InventoryPage() {
   const user = useAuthStore((s) => s.user)
-  const isAdmin = getUserRole(user) === 'admin'
+  const role = getUserRole(user)
+  const isAdmin = role === 'super_admin' || role === 'admin'
   const [deptFilter, setDeptFilter] = useState('')
   const [branchSearch, setBranchSearch] = useState('')
   const [rowTypeFilter, setRowTypeFilter] = useState('')

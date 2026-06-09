@@ -28,7 +28,7 @@ function formatMoney(value: number) {
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
-  const showReviews = role === 'admin' || role === 'reviewer'
+  const showReviews = role === 'super_admin' || role === 'admin' || role === 'reviewer'
 
   const query = useQuery({
     queryKey: ['dashboard'],

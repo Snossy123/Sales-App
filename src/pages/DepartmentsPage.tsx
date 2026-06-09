@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Department, PaginatedResponse } from '../api/types'
@@ -292,6 +293,9 @@ export function DepartmentsPage() {
               header: 'إجراءات',
               render: (row) => (
                 <div className="flex gap-2">
+                  <Link to={`/departments/${row.id}`} className="text-sm text-primary hover:underline">
+                    عرض التفاصيل
+                  </Link>
                   <button type="button" onClick={() => openEdit(row as Department)} className="text-sm text-primary hover:underline">
                     تعديل
                   </button>

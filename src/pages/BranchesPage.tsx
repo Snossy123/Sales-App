@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
+import { getScopedDepartmentId } from '../lib/access'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
@@ -40,9 +42,14 @@ const PER_PAGE = 10
 
 export function BranchesPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const scopedDeptId = getScopedDepartmentId(user)
   const [searchParams] = useSearchParams()
   const [page, setPage] = useState(1)
-  const [deptFilter, setDeptFilter] = useState(() => searchParams.get('department') ?? '')
+  const [deptFilter, setDeptFilter] = useState(() => {
+    if (scopedDeptId) return String(scopedDeptId)
+    return searchParams.get('department') ?? ''
+  })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [panel, setPanel] = useState<Panel>(null)
@@ -160,7 +167,14 @@ export function BranchesPage() {
         actions={
           <button
             type="button"
-            onClick={() => { setPanel('create'); setForm(emptyForm); setEditId(null) }}
+            onClick={() => {
+              setPanel('create')
+              setForm({
+                ...emptyForm,
+                department_id: scopedDeptId ?? '',
+              })
+              setEditId(null)
+            }}
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >
             <Icon name="add" size={18} />
@@ -222,19 +236,21 @@ export function BranchesPage() {
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="بحث بالاسم أو الكود أو العنوان..."
         selects={[
-          {
-            id: 'department',
-            label: 'الإدارة',
-            value: deptFilter,
-            onChange: (v) => { setDeptFilter(v); setPage(1) },
-            options: [
-              { value: '', label: 'كل الإدارات' },
-              ...(departmentsQuery.data?.map((d) => ({
-                value: String(d.id),
-                label: d.name_ar || d.name,
-              })) ?? []),
-            ],
-          },
+          ...(!scopedDeptId
+            ? [{
+                id: 'department',
+                label: 'الإدارة',
+                value: deptFilter,
+                onChange: (v: string) => { setDeptFilter(v); setPage(1) },
+                options: [
+                  { value: '', label: 'كل الإدارات' },
+                  ...(departmentsQuery.data?.map((d) => ({
+                    value: String(d.id),
+                    label: d.name_ar || d.name,
+                  })) ?? []),
+                ],
+              }]
+            : []),
           {
             id: 'status',
             label: 'الحالة',
@@ -248,7 +264,12 @@ export function BranchesPage() {
           },
         ]}
         showClear={hasFilters}
-        onClear={() => { setSearch(''); setStatusFilter(''); setDeptFilter(''); setPage(1) }}
+        onClear={() => {
+          setSearch('')
+          setStatusFilter('')
+          if (!scopedDeptId) setDeptFilter('')
+          setPage(1)
+        }}
       />
 
       <AsyncState
@@ -319,17 +340,23 @@ export function BranchesPage() {
           onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
           className="grid gap-sm sm:grid-cols-2"
         >
-          <select
-            value={form.department_id}
-            onChange={(e) => setForm({ ...form, department_id: Number(e.target.value) })}
-            required
-            className={`${inputClass} sm:col-span-2`}
-          >
-            <option value="">اختر الإدارة</option>
-            {departmentsQuery.data?.map((d) => (
-              <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
-            ))}
-          </select>
+          {scopedDeptId ? (
+            <div className={`${inputClass} sm:col-span-2 bg-surface-container-low text-on-surface-variant`}>
+              الإدارة: {departmentsQuery.data?.find((d) => d.id === scopedDeptId)?.name_ar || 'إدارتك'}
+            </div>
+          ) : (
+            <select
+              value={form.department_id}
+              onChange={(e) => setForm({ ...form, department_id: Number(e.target.value) })}
+              required
+              className={`${inputClass} sm:col-span-2`}
+            >
+              <option value="">اختر الإدارة</option>
+              {departmentsQuery.data?.map((d) => (
+                <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
+              ))}
+            </select>
+          )}
           <input
             placeholder="الكود"
             value={form.code}

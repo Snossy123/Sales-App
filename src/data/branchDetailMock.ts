@@ -1,3 +1,5 @@
+import type { Branch } from '../api/types'
+
 export interface BranchKpi {
   label: string
   value: string
@@ -82,8 +84,18 @@ export const defaultBranchDetail: BranchDetail = {
   products: defaultProducts,
 }
 
-export function getBranchDetail(id: string | undefined): BranchDetail {
-  return { ...defaultBranchDetail, id: Number(id) || defaultBranchDetail.id }
+export function getBranchDetail(id: string | undefined, apiBranch?: Branch | null): BranchDetail {
+  const numericId = Number(id) || defaultBranchDetail.id
+  if (!apiBranch) {
+    return { ...defaultBranchDetail, id: numericId }
+  }
+  return {
+    ...defaultBranchDetail,
+    id: numericId,
+    code: apiBranch.code ?? defaultBranchDetail.code,
+    name: apiBranch.name_ar || apiBranch.name || defaultBranchDetail.name,
+    address: apiBranch.address ?? defaultBranchDetail.address,
+  }
 }
 
 export function getStatusBadgeClass(status: BranchProduct['status']): string {

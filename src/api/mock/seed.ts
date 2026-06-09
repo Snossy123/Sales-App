@@ -15,7 +15,7 @@ import type {
 
 export interface DemoUser extends AuthUser {
   password: string
-  demo_role: 'admin' | 'sales' | 'reviewer' | 'collector'
+  demo_role: 'super_admin' | 'admin' | 'sales' | 'reviewer' | 'collector'
   section?: 'sales' | 'review' | 'collection'
 }
 
@@ -316,16 +316,29 @@ export function createSeedState(): DemoState {
   const users: DemoUser[] = [
     {
       id: 1,
-      name: 'مدير النظام',
-      email: 'admin@demo.test',
+      name: 'مدير النظام الأعلى',
+      email: 'superadmin@demo.test',
       password: 'demo',
       organization_id: 1,
-      department_id: 1,
-      branch_id: 1,
+      department_id: null,
+      branch_id: null,
+      demo_role: 'super_admin',
+      organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      branch: null,
+      roles: [{ id: 1, name: 'Super Admin' }],
+    },
+    {
+      id: 5,
+      name: 'أحمد — مدير إدارة الدلتا',
+      email: 'deptadmin@demo.test',
+      password: 'demo',
+      organization_id: 1,
+      department_id: 2,
+      branch_id: 3,
       demo_role: 'admin',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
-      branch: branches[0],
-      roles: [{ id: 1, name: 'Admin' }],
+      branch: branches.find((b) => b.id === 3) ?? branches[2],
+      roles: [{ id: 5, name: 'Department Admin' }],
     },
     {
       id: 2,

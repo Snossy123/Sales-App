@@ -8,7 +8,8 @@ import { getDefaultRoute } from '../lib/permissions'
 import { Icon } from '../components/Icon'
 
 const demoAccounts = [
-  { email: 'admin@demo.test', label: 'مدير النظام', icon: 'admin_panel_settings' },
+  { email: 'superadmin@demo.test', label: 'مدير النظام الأعلى', icon: 'admin_panel_settings' },
+  { email: 'deptadmin@demo.test', label: 'مدير إدارة الدلتا', icon: 'corporate_fare' },
   { email: 'sales@demo.test', label: 'قسم المبيعات', icon: 'point_of_sale' },
   { email: 'reviewer@demo.test', label: 'قسم المراجعة', icon: 'fact_check' },
   { email: 'collector@demo.test', label: 'قسم التحصيل', icon: 'payments' },

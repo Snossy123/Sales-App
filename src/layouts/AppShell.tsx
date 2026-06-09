@@ -3,16 +3,7 @@ import { Icon } from '../components/Icon'
 import { useAuthStore } from '../stores/authStore'
 import { useContextData } from '../hooks/useContextData'
 import { api, isDemoMode } from '../api/client'
-import { getNavForUser, getRoleLabel, getUserRole, type NavItem } from '../lib/permissions'
-
-function isNavItemActive(item: NavItem, pathname: string) {
-  const normalized = pathname.replace(/\/$/, '') || '/'
-  if (item.to === '/branches') {
-    return normalized === '/branches' || /^\/branches\/\d+$/.test(normalized)
-  }
-  if (item.end) return normalized === item.to
-  return normalized === item.to || normalized.startsWith(`${item.to}/`)
-}
+import { getNavForUser, getRoleLabel, getUserRole, isNavItemActive } from '../lib/permissions'
 
 export function AppShell() {
   useContextData()
@@ -22,7 +13,7 @@ export function AppShell() {
   const location = useLocation()
   const navItems = getNavForUser(user)
   const role = getUserRole(user)
-  const showPosShortcut = role === 'admin' || role === 'sales'
+  const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
 
   const handleLogout = async () => {
     try {
@@ -56,11 +47,12 @@ export function AppShell() {
 
           <nav className="flex flex-grow flex-col gap-base">
             {navItems.map((item) => {
-              const isActive = isNavItemActive(item, location.pathname)
+              const isActive = isNavItemActive(item, location.pathname, user)
+              const navTo = item.dynamicTo && user ? (item.dynamicTo(user) ?? item.to) : item.to
               return (
                 <NavLink
-                  key={item.to}
-                  to={item.to}
+                  key={`${item.label}-${navTo}`}
+                  to={navTo}
                   end={item.end}
                   className={`flex items-center gap-base rounded-lg p-sm transition-all ${
                     isActive

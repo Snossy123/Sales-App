@@ -12,6 +12,7 @@ import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
+import { DepartmentDetailPage } from '../pages/DepartmentDetailPage'
 import { BranchesPage } from '../pages/BranchesPage'
 import { GpsManagementPage } from '../pages/enterprise/GpsManagementPage'
 import { BranchDetailPage } from '../pages/enterprise/BranchDetailPage'
@@ -56,6 +57,7 @@ export function AppRoutes() {
           <Route element={<RoleRoute />}>
             <Route index element={<DashboardPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
+            <Route path="departments/:id" element={<DepartmentDetailPage />} />
             <Route path="branches" element={<BranchesPage />} />
             <Route path="branches/:id" element={<BranchDetailPage />} />
             <Route path="gps/management" element={<GpsManagementPage />} />

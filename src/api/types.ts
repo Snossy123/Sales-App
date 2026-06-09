@@ -62,7 +62,7 @@ export interface Role {
   name: string
 }
 
-export type DemoRole = 'admin' | 'sales' | 'reviewer' | 'collector'
+export type DemoRole = 'super_admin' | 'admin' | 'sales' | 'reviewer' | 'collector'
 export type UserSection = 'sales' | 'review' | 'collection'
 
 export interface AuthUser {

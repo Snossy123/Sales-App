@@ -12,12 +12,21 @@ import type {
   SalesInvoice,
 } from '../types'
 import { loadState, mutateState, resetState } from './store'
+import type { AuthUser } from '../types'
+import { getScopedDepartmentId, isSuperAdmin } from '../../lib/access'
 import type { DemoState } from './seed'
 
 interface MockContext {
   branchId?: number
   warehouseId?: number
+  departmentId?: number
   organizationId?: number
+  user?: AuthUser
+}
+
+function getApiDepartmentScope(ctx: MockContext): number | null {
+  if (!ctx.user) return null
+  return getScopedDepartmentId(ctx.user)
 }
 
 function paginate<T>(items: T[], params?: Record<string, unknown>): PaginatedResponse<T> {
@@ -274,11 +283,24 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'departments') {
-    const enriched = state.departments.map((d) => enrichDepartment(state, d))
+    const scope = getApiDepartmentScope(ctx)
+    let items = state.departments
+    if (scope != null) items = items.filter((d) => d.id === scope)
+    const enriched = items.map((d) => enrichDepartment(state, d))
     return paginate(enriched, params)
   }
 
+  if (m === 'GET' && path.match(/^departments\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بعرض هذه الإدارة')
+    const dept = state.departments.find((d) => d.id === id)
+    if (!dept) throw mockError(404, 'الإدارة غير موجودة')
+    return enrichDepartment(state, dept)
+  }
+
   if (m === 'POST' && path === 'departments') {
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بإنشاء إدارات')
     const body = data as Partial<Department>
     let created: Department | undefined
     mutateState((s) => {
@@ -299,6 +321,8 @@ export function handleMockRequest(
 
   if (m === 'PUT' && path.match(/^departments\/\d+$/)) {
     const id = Number(path.split('/')[1])
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بتعديل هذه الإدارة')
     const body = data as Partial<Department>
     let updated: Department | undefined
     mutateState((s) => {
@@ -314,6 +338,7 @@ export function handleMockRequest(
   }
 
   if (m === 'DELETE' && path.match(/^departments\/\d+$/)) {
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     const id = Number(path.split('/')[1])
     mutateState((s) => {
       const hasBranches = s.branches.some((b) => b.department_id === id)
@@ -324,8 +349,27 @@ export function handleMockRequest(
     return { message: 'تم الحذف' }
   }
 
+  if (m === 'GET' && path.match(/^branches\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const branch = state.branches.find((b) => b.id === id)
+    if (!branch) throw mockError(404, 'الفرع غير موجود')
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null && branch.department_id !== scope) {
+      throw mockError(403, 'غير مصرح بعرض هذا الفرع')
+    }
+    return {
+      ...branch,
+      department: state.departments.find((d) => d.id === branch.department_id),
+      warehouses: state.warehouses.filter((w) => w.branch_id === branch.id),
+    }
+  }
+
   if (m === 'GET' && path === 'branches') {
     let items = [...state.branches]
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null) {
+      items = items.filter((b) => b.department_id === scope)
+    }
     const deptFilter = params['filter[department_id]']
     if (deptFilter) {
       items = items.filter((b) => b.department_id === Number(deptFilter))
@@ -342,6 +386,13 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'branches') {
     const body = data as Partial<Branch>
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null) {
+      if (body.department_id != null && body.department_id !== scope) {
+        throw mockError(403, 'لا يمكن إنشاء فرع خارج إدارتك')
+      }
+      body.department_id = scope
+    }
     let created: Branch | undefined
     mutateState((s) => {
       if (!body.department_id) throw mockError(422, 'يجب اختيار الإدارة')
@@ -471,9 +522,10 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'inventory/overview') {
-    const deptFilter = params['filter[department_id]']
+    const scope = getApiDepartmentScope(ctx)
+    const deptFilter = scope ?? (params['filter[department_id]']
       ? Number(params['filter[department_id]'])
-      : undefined
+      : undefined)
     const rows = buildInventoryOverview(state, deptFilter)
     return paginate(rows, params)
   }

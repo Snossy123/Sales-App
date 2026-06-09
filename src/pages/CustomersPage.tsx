@@ -14,7 +14,7 @@ export function CustomersPage() {
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
   const user = useAuthStore((s) => s.user)
-  const canCreate = ['admin', 'sales'].includes(getUserRole(user))
+  const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', national_id: '', address: '' })
