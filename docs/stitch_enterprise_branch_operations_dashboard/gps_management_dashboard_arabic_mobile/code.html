@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إنتربرايز سنترال | لوحة تحكم أجهزة GPS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#783100",
+                    "on-tertiary": "#ffffff",
+                    "secondary-container": "#e1e3e4",
+                    "inverse-surface": "#20314b",
+                    "primary-fixed-dim": "#adc7ff",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#0e0200",
+                    "on-secondary-container": "#626566",
+                    "tertiary-container": "#c55500",
+                    "inverse-primary": "#adc7ff",
+                    "surface-variant": "#d6e3ff",
+                    "surface-container-highest": "#d6e3ff",
+                    "on-surface": "#091c35",
+                    "surface-container-high": "#dfe8ff",
+                    "surface-bright": "#f9f9ff",
+                    "tertiary": "#9e4300",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "primary-container": "#1a73e8",
+                    "secondary-fixed": "#e1e3e4",
+                    "on-primary-container": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "primary": "#005bbf",
+                    "surface": "#f9f9ff",
+                    "surface-container": "#e7eeff",
+                    "background": "#f9f9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-tint": "#005bc0",
+                    "surface-dim": "#cadbfc",
+                    "surface-container-low": "#f0f3ff",
+                    "error-container": "#ffdad6",
+                    "secondary": "#5c5f60",
+                    "on-surface-variant": "#414754",
+                    "on-secondary-fixed-variant": "#454748",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed": "#341100",
+                    "inverse-on-surface": "#ecf0ff",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed": "#001a41",
+                    "outline-variant": "#c1c6d6",
+                    "on-background": "#091c35",
+                    "primary-fixed": "#d8e2ff",
+                    "outline": "#727785",
+                    "on-primary-fixed-variant": "#004493",
+                    "on-secondary-fixed": "#191c1d",
+                    "secondary-fixed-dim": "#c5c7c8",
+                    "tertiary-fixed": "#ffdbcb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "base": "4px",
+                    "sm": "8px",
+                    "container-margin": "24px",
+                    "xs": "4px",
+                    "gutter": "16px",
+                    "xl": "32px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "title-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "label-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface-bright text-on-surface min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="bg-surface dark:bg-inverse-surface text-primary dark:text-inverse-primary w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline flex justify-between items-center px-lg h-16 w-full max-w-full">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined cursor-pointer active:opacity-80">menu</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">إنتربرايز سنترال</h1>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined cursor-pointer active:opacity-80">notifications</span>
+</div>
+</header>
+<div class="flex">
+<!-- Navigation Drawer (Desktop Hidden) -->
+<aside class="h-screen w-64 fixed right-0 top-0 hidden md:flex flex-col p-md gap-sm bg-surface-container-low dark:bg-surface-dim border-l border-outline-variant dark:border-outline z-40 mt-16">
+<div class="flex items-center gap-md p-md mb-md">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<div>
+<p class="font-title-lg text-title-lg text-on-surface leading-tight">مسؤول النظام</p>
+<p class="font-label-md text-label-md text-on-surface-variant">مدير GPS</p>
+</div>
+</div>
+<nav class="flex flex-col gap-xs">
+<a class="flex items-center gap-md p-md bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-lg transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">لوحة التحكم</span>
+</a>
+<a class="flex items-center gap-md p-md text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">location_on</span>
+<span class="font-label-md text-label-md">أجهزة GPS</span>
+</a>
+<a class="flex items-center gap-md p-md text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">المبيعات</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:mr-64 p-md md:p-xl pb-24 md:pb-xl">
+<!-- Breadcrumbs & Header -->
+<section class="mb-xl">
+<nav class="flex items-center gap-xs text-on-surface-variant mb-sm">
+<span class="font-body-sm text-body-sm">الرئيسية</span>
+<span class="material-symbols-outlined text-[14px]">chevron_left</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">لوحة تحكم GPS</span>
+</nav>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">إدارة أجهزة GPS والنشاط</h2>
+<div class="flex items-center gap-md mt-xs">
+<span class="font-label-md text-label-md bg-surface-container px-sm py-1 rounded text-primary border border-outline-variant">GPS-DASH-01</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+                            آخر تحديث: 24 أكتوبر 2023
+                        </span>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-lg py-md rounded-lg font-label-md text-label-md flex items-center gap-sm shadow-sm hover:opacity-90 active:scale-95 transition-all w-fit">
+<span class="material-symbols-outlined">add</span>
+                    إضافة جهاز GPS
+                </button>
+</div>
+</section>
+<!-- KPI Section -->
+<section class="mb-xl">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-md transition-all text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">إجمالي أجهزة GPS المباعة</p>
+<p class="font-display-lg text-display-lg text-on-surface">850</p>
+<div class="flex items-center gap-xs text-[#34A853]">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-body-sm text-body-sm">+12 هذا الأسبوع</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-md transition-all text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">إجمالي المبيعات</p>
+<p class="font-display-lg text-display-lg text-on-surface">425,000 ر.س</p>
+<div class="flex items-center gap-xs text-[#34A853]">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-body-sm text-body-sm">+5.2%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-md transition-all text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">إجمالي أجهزة GPS المتاحة للبيع</p>
+<p class="font-display-lg text-display-lg text-on-surface">150</p>
+<div class="flex items-center gap-xs text-primary">
+<span class="material-symbols-outlined text-[16px]">inventory_2</span>
+<span class="font-body-sm text-body-sm">جاهز للتسليم</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-md transition-all text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">إجمالي مخزون GPS</p>
+<p class="font-display-lg text-display-lg text-on-surface">1,050</p>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">storage</span>
+<span class="font-body-sm text-body-sm">إجمالي السعة</span>
+</div>
+</div>
+</div>
+<!-- Ratio Indicator -->
+<div class="mt-lg bg-surface-container-lowest p-lg rounded-xl border border-outline-variant">
+<div class="flex justify-between items-center mb-sm">
+<span class="font-label-md text-label-md text-on-surface">نسبة المبيعات إلى المتاح</span>
+<span class="font-label-md text-label-md text-primary font-bold">85%</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-3 flex overflow-hidden">
+<div class="bg-primary h-full" style="width: 85%"></div>
+<div class="bg-primary-container opacity-30 h-full flex-1"></div>
+</div>
+<div class="flex gap-md mt-sm">
+<div class="flex items-center gap-xs">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">مباع (850)</span>
+</div>
+<div class="flex items-center gap-xs">
+<div class="w-3 h-3 rounded-full bg-primary-container opacity-50"></div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">متاح (150)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Device Status Section -->
+<section class="mb-xl">
+<h3 class="font-title-lg text-title-lg mb-md text-on-surface">حالة أجهزة GPS الحالية</h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Sold -->
+<div class="bg-[#EAF6ED] p-md rounded-xl border border-[#34A85320] flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-[#34A853]">تم البيع</p>
+<p class="font-headline-md text-headline-md text-[#155724]">850</p>
+</div>
+<div class="bg-[#34A85320] p-sm rounded-full">
+<span class="material-symbols-outlined text-[#34A853]">check_circle</span>
+</div>
+</div>
+<!-- Pending -->
+<div class="bg-[#FFF4E5] p-md rounded-xl border border-[#FF980020] flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-[#FF9800]">قيد التنشيط</p>
+<p class="font-headline-md text-headline-md text-[#663C00]">45</p>
+</div>
+<div class="bg-[#FF980020] p-sm rounded-full">
+<span class="material-symbols-outlined text-[#FF9800]">pending_actions</span>
+</div>
+</div>
+<!-- Maintenance -->
+<div class="bg-[#FDECEA] p-md rounded-xl border border-[#D32F2F20] flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-[#D32F2F]">تحت الصيانة</p>
+<p class="font-headline-md text-headline-md text-[#5F1919]">12</p>
+</div>
+<div class="bg-[#D32F2F20] p-sm rounded-full">
+<span class="material-symbols-outlined text-[#D32F2F]">build</span>
+</div>
+</div>
+<!-- Software Update -->
+<div class="bg-[#E3F2FD] p-md rounded-xl border border-[#1976D220] flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-[#1976D2]">تحديث النظام</p>
+<p class="font-headline-md text-headline-md text-[#0D47A1]">28</p>
+</div>
+<div class="bg-[#1976D220] p-sm rounded-full">
+<span class="material-symbols-outlined text-[#1976D2]">system_update</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Search & Filter (Contextual) -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+<div class="p-md border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div class="relative flex-1 max-w-md">
+<span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pr-xl pl-md py-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md" placeholder="بحث عن جهاز GPS برقم التسلسل..." type="text"/>
+</div>
+<div class="flex items-center gap-sm">
+<button class="flex items-center gap-xs px-md py-md bg-surface border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+                        الحالة
+                    </button>
+</div>
+</div>
+<div class="md:hidden divide-y divide-outline-variant">
+<div class="p-md flex flex-col gap-sm text-right">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md bg-surface-container-high px-sm py-[2px] rounded">SN-GPS-8821</span>
+<span class="px-sm py-1 rounded-full bg-[#EAF6ED] text-[#34A853] font-label-sm text-label-sm">مباع - نشط</span>
+</div>
+<div>
+<p class="font-title-lg text-title-lg">جهاز GPS المحمول برو</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">العميل: شركة النقل السريع</p>
+</div>
+<div class="flex items-center justify-between mt-xs border-t border-outline-variant pt-sm">
+<span class="font-body-sm text-body-sm text-on-surface-variant">آخر موقع: منذ 5 دقائق</span>
+<button class="text-primary font-label-md text-label-md">تتبع</button>
+</div>
+</div>
+<div class="p-md flex flex-col gap-sm text-right">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md bg-surface-container-high px-sm py-[2px] rounded">SN-GPS-4410</span>
+<span class="px-sm py-1 rounded-full bg-[#FFF4E5] text-[#FF9800] font-label-sm text-label-sm">قيد التنشيط</span>
+</div>
+<div>
+<p class="font-title-lg text-title-lg">GPS المسافات الطويلة V2</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">المخزن: المنطقة الشمالية</p>
+</div>
+<div class="flex items-center justify-between mt-xs border-t border-outline-variant pt-sm">
+<span class="font-body-sm text-body-sm text-on-surface-variant">طلب رقم: #9921</span>
+<button class="text-primary font-label-md text-label-md">التفاصيل</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Mobile Bottom Navigation Bar -->
+<nav class="md:hidden fixed bottom-0 right-0 w-full flex justify-around items-center h-16 px-2 pb-safe bg-surface dark:bg-inverse-surface border-t border-outline-variant dark:border-outline shadow-md z-50">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-xl px-3 py-1 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm">لوحة التحكم</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-container-highest scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">location_on</span>
+<span class="font-label-sm text-label-sm">أجهزة GPS</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-container-highest scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm">المبيعات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-container-highest scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-sm text-label-sm">تقارير GPS</span>
+</a>
+</nav>
+<script>
+    // Micro-interactions for KPI and Ratio cards
+    document.querySelectorAll('.kpi-card, .ratio-card').forEach(card => {
+        card.addEventListener('touchstart', () => {
+            card.style.transform = 'scale(0.98)';
+        });
+        card.addEventListener('touchend', () => {
+            card.style.transform = 'scale(1)';
+        });
+    });
+</script>
+</body></html>

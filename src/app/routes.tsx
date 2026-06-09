@@ -13,6 +13,10 @@ import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
 import { BranchesPage } from '../pages/BranchesPage'
+import { EnterpriseGpsLayout } from '../layouts/EnterpriseGpsLayout'
+import { BranchDetailLayout } from '../layouts/BranchDetailLayout'
+import { GpsManagementPage } from '../pages/enterprise/GpsManagementPage'
+import { BranchDetailPage } from '../pages/enterprise/BranchDetailPage'
 
 function ProtectedRoute() {
   const token = useAuthStore((s) => s.token)
@@ -50,6 +54,14 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
+        <Route element={<RoleRoute />}>
+          <Route element={<EnterpriseGpsLayout />}>
+            <Route path="gps/management" element={<GpsManagementPage />} />
+          </Route>
+          <Route element={<BranchDetailLayout />}>
+            <Route path="branches/:id" element={<BranchDetailPage />} />
+          </Route>
+        </Route>
         <Route element={<AppShell />}>
           <Route element={<RoleRoute />}>
             <Route index element={<DashboardPage />} />

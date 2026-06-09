@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
@@ -284,6 +284,9 @@ export function BranchesPage() {
               header: 'إجراءات',
               render: (row) => (
                 <div className="flex gap-2">
+                  <Link to={`/branches/${row.id}`} className="text-sm text-primary hover:underline">
+                    عرض التفاصيل
+                  </Link>
                   <button type="button" onClick={() => openEdit(row as Branch)} className="text-sm text-primary hover:underline">
                     تعديل
                   </button>

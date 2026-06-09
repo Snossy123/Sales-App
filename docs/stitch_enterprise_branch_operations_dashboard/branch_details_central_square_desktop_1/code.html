@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Branch Details - Central Square (B-001)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F4F7FA;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Custom scrollbar for data tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #E1E4E8;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #c1c6d6;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "on-primary-fixed": "#001a41",
+                "surface-variant": "#d6e3ff",
+                "surface-container-lowest": "#ffffff",
+                "surface": "#f9f9ff",
+                "on-surface": "#091c35",
+                "on-error": "#ffffff",
+                "primary-fixed-dim": "#adc7ff",
+                "outline-variant": "#c1c6d6",
+                "tertiary-fixed-dim": "#ffb691",
+                "on-secondary-fixed": "#191c1d",
+                "tertiary": "#9e4300",
+                "primary-fixed": "#d8e2ff",
+                "secondary-fixed": "#e1e3e4",
+                "secondary-container": "#e1e3e4",
+                "background": "#f9f9ff",
+                "surface-container-low": "#f0f3ff",
+                "surface-dim": "#cadbfc",
+                "surface-bright": "#f9f9ff",
+                "on-tertiary-fixed": "#341100",
+                "outline": "#727785",
+                "inverse-surface": "#20314b",
+                "secondary-fixed-dim": "#c5c7c8",
+                "on-primary": "#ffffff",
+                "primary": "#005bbf",
+                "on-tertiary": "#ffffff",
+                "error": "#ba1a1a",
+                "surface-container-high": "#dfe8ff",
+                "on-tertiary-fixed-variant": "#783100",
+                "on-secondary-fixed-variant": "#454748",
+                "on-background": "#091c35",
+                "tertiary-fixed": "#ffdbcb",
+                "primary-container": "#1a73e8",
+                "surface-container": "#e7eeff",
+                "on-primary-container": "#ffffff",
+                "surface-container-highest": "#d6e3ff",
+                "on-primary-fixed-variant": "#004493",
+                "on-surface-variant": "#414754",
+                "inverse-on-surface": "#ecf0ff",
+                "on-secondary": "#ffffff",
+                "inverse-primary": "#adc7ff",
+                "on-error-container": "#93000a",
+                "on-tertiary-container": "#0e0200",
+                "tertiary-container": "#c55500",
+                "secondary": "#5c5f60",
+                "error-container": "#ffdad6",
+                "on-secondary-container": "#626566",
+                "surface-tint": "#005bc0"
+              },
+              "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+              },
+              "spacing": {
+                "container-margin": "24px",
+                "base": "4px",
+                "sm": "8px",
+                "md": "16px",
+                "gutter": "16px",
+                "lg": "24px",
+                "xs": "4px",
+                "xl": "32px"
+              },
+              "fontFamily": {
+                "display-lg": ["Inter"],
+                "label-md": ["Inter"],
+                "body-md": ["Inter"],
+                "title-lg": ["Inter"],
+                "headline-sm": ["Inter"],
+                "headline-md": ["Inter"],
+                "body-lg": ["Inter"],
+                "label-sm": ["Inter"],
+                "body-sm": ["Inter"]
+              },
+              "fontSize": {
+                "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "600"}],
+                "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+</head>
+<body class="bg-[#F4F7FA] text-on-surface">
+<!-- Navigation Drawer (SideNav) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant hidden md:flex flex-col p-md gap-sm z-40">
+<div class="mb-xl px-2">
+<span class="font-title-lg text-title-lg text-on-surface font-bold">Enterprise Central</span>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 ease-in-out rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-label-md text-label-md transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 ease-in-out rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Sales</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 ease-in-out rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>Reports</span>
+</a>
+</nav>
+<div class="mt-auto pt-lg border-t border-outline-variant flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold">
+                AU
+            </div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Admin User</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Global Manager</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="md:ml-64 min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="w-full top-0 sticky z-30 bg-surface border-b border-outline-variant flex justify-between items-center px-lg h-16 max-w-full">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline cursor-pointer md:hidden" data-icon="menu">menu</span>
+<nav class="flex items-center gap-2 font-body-sm text-body-sm text-outline">
+<a class="hover:text-primary transition-colors" href="#">Branches</a>
+<span class="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+<span class="font-semibold text-on-surface">Central Square Details</span>
+</nav>
+</div>
+<div class="flex items-center gap-lg">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-body-sm focus:ring-2 focus:ring-primary focus:outline-none w-64" placeholder="Search resources..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container-high p-2 rounded-full transition-colors" data-icon="notifications">notifications</span>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-lg flex flex-col gap-lg">
+<!-- Page Header Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-sm">
+<h1 class="font-headline-md text-headline-md text-on-surface">Central Square</h1>
+<span class="bg-[#EAF6ED] text-[#34A853] px-3 py-1 rounded-full font-label-sm text-label-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#34A853]"></span>
+                            Operational
+                        </span>
+</div>
+<div class="flex items-center gap-md font-body-sm text-body-sm text-on-surface-variant">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="fingerprint">fingerprint</span>
+                            Branch Code: <span class="font-semibold text-on-surface ml-1">B-001</span>
+</span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="location_on">location_on</span>
+                            Main Street, Block 4
+                        </span>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="bg-white border border-outline-variant text-primary font-label-md text-label-md px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-surface-container-low transition-colors shadow-sm active:scale-95">
+<span class="material-symbols-outlined text-[18px]" data-icon="ios_share">ios_share</span>
+                        Export
+                    </button>
+<button class="bg-primary text-white font-label-md text-label-md px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-container transition-colors shadow-sm active:scale-95">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+                        Edit Details
+                    </button>
+</div>
+</section>
+<!-- KPI Row -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- KPI Card 1 -->
+<div class="bg-white p-md rounded-xl border border-[#E1E4E8] flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Inventory Value</span>
+<span class="p-2 bg-surface-container-low rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface text-[24px]">$45,280</span>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[#34A853] font-label-sm text-label-sm flex items-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                                12.5%
+                            </span>
+<span class="text-outline text-[11px]">vs last month</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 2 -->
+<div class="bg-white p-md rounded-xl border border-[#E1E4E8] flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Monthly Units Sold</span>
+<span class="p-2 bg-surface-container-low rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="shopping_cart">shopping_cart</span>
+</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface text-[24px]">1,542</span>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[#34A853] font-label-sm text-label-sm flex items-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                                8.2%
+                            </span>
+<span class="text-outline text-[11px]">vs last month</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 3 -->
+<div class="bg-white p-md rounded-xl border border-[#E1E4E8] flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Stock Health</span>
+<span class="p-2 bg-surface-container-low rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="analytics">analytics</span>
+</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface text-[24px]">94%</span>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[#ba1a1a] font-label-sm text-label-sm flex items-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_down">trending_down</span>
+                                2.1%
+                            </span>
+<span class="text-outline text-[11px]">vs last week</span>
+</div>
+</div>
+</div>
+<!-- KPI Card 4 -->
+<div class="bg-white p-md rounded-xl border border-[#E1E4E8] flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Active Trackers</span>
+<span class="p-2 bg-surface-container-low rounded-lg text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="sensors">sensors</span>
+</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface text-[24px]">3,892</span>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[#34A853] font-label-sm text-label-sm flex items-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                                4.7%
+                            </span>
+<span class="text-outline text-[11px]">fleet growth</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Bundle Featured Section -->
+<section class="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="flex flex-col lg:flex-row h-full">
+<div class="lg:w-1/3 p-lg bg-surface-container-low border-r border-outline-variant flex flex-col justify-center gap-md">
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-label-sm text-primary uppercase font-bold tracking-widest">Featured Bundle</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">GPS Pro X100 Tracker Bundle</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">The comprehensive tracking solution for enterprise fleets, including high-gain antennas and global 4G connectivity.</p>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg text-on-surface">$183</span>
+<span class="font-label-md text-label-md text-on-surface-variant line-through">$215</span>
+</div>
+<button class="w-full bg-primary text-white font-label-md text-label-md py-3 rounded-lg hover:bg-primary-container transition-all shadow-md">Stock Unit</button>
+</div>
+<div class="lg:w-2/3 p-lg">
+<h3 class="font-title-lg text-title-lg mb-lg">Bundle Components</h3>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-md">
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="router">router</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Pro X100 Unit</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$125.00</p>
+</div>
+</div>
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="sim_card">sim_card</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">4G SIM Card</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$12.00</p>
+</div>
+</div>
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="settings_input_antenna">settings_input_antenna</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">High-Gain Antenna</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$18.00</p>
+</div>
+</div>
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="electrical_services">electrical_services</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Power Cable</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$8.00</p>
+</div>
+</div>
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="toggle_on">toggle_on</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Cut-off Relay</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$15.00</p>
+</div>
+</div>
+<div class="flex items-start gap-sm p-3 rounded-lg border border-transparent hover:border-outline-variant transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary" data-icon="construction">construction</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Mounting Kit</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">$5.00</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Branch Inventory Table Section -->
+<section class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="px-lg py-md border-b border-outline-variant flex items-center justify-between">
+<h2 class="font-title-lg text-title-lg text-on-surface">Branch Inventory</h2>
+<div class="flex items-center gap-sm">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]" data-icon="filter_list">filter_list</span>
+<select class="pl-9 pr-8 py-1.5 bg-white border border-outline-variant rounded-lg text-label-md appearance-none focus:ring-1 focus:ring-primary">
+<option>All Categories</option>
+<option>Trackers</option>
+<option>Accessories</option>
+<option>Connectivity</option>
+</select>
+</div>
+</div>
+</div>
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead class="bg-[#F8F9FA] font-label-md text-label-md text-on-surface-variant">
+<tr>
+<th class="px-lg py-4 font-semibold">SKU</th>
+<th class="px-lg py-4 font-semibold">Product Name</th>
+<th class="px-lg py-4 font-semibold">Category</th>
+<th class="px-lg py-4 font-semibold text-right">Price</th>
+<th class="px-lg py-4 font-semibold text-right">Stock</th>
+<th class="px-lg py-4 font-semibold text-right">Sold</th>
+<th class="px-lg py-4 font-semibold">Status</th>
+<th class="px-lg py-4 font-semibold"></th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface divide-y divide-outline-variant/30">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4 font-mono text-body-sm">GPS-X100-PRO</td>
+<td class="px-lg py-4 font-semibold">GPS Pro X100</td>
+<td class="px-lg py-4">Tracker</td>
+<td class="px-lg py-4 text-right">$125.00</td>
+<td class="px-lg py-4 text-right">142</td>
+<td class="px-lg py-4 text-right">856</td>
+<td class="px-lg py-4">
+<span class="bg-[#EAF6ED] text-[#34A853] px-2 py-0.5 rounded-full font-label-sm text-label-sm">In Stock</span>
+</td>
+<td class="px-lg py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-outline cursor-pointer" data-icon="more_vert">more_vert</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4 font-mono text-body-sm">SIM-GLB-4G</td>
+<td class="px-lg py-4 font-semibold">4G Global SIM</td>
+<td class="px-lg py-4">Connectivity</td>
+<td class="px-lg py-4 text-right">$12.00</td>
+<td class="px-lg py-4 text-right">84</td>
+<td class="px-lg py-4 text-right">1,240</td>
+<td class="px-lg py-4">
+<span class="bg-[#FFF4E5] text-[#B76E00] px-2 py-0.5 rounded-full font-label-sm text-label-sm">Low Stock</span>
+</td>
+<td class="px-lg py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-outline cursor-pointer" data-icon="more_vert">more_vert</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4 font-mono text-body-sm">ANT-HGAIN-01</td>
+<td class="px-lg py-4 font-semibold">High-Gain Antenna</td>
+<td class="px-lg py-4">Accessories</td>
+<td class="px-lg py-4 text-right">$18.00</td>
+<td class="px-lg py-4 text-right">215</td>
+<td class="px-lg py-4 text-right">412</td>
+<td class="px-lg py-4">
+<span class="bg-[#EAF6ED] text-[#34A853] px-2 py-0.5 rounded-full font-label-sm text-label-sm">In Stock</span>
+</td>
+<td class="px-lg py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-outline cursor-pointer" data-icon="more_vert">more_vert</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4 font-mono text-body-sm">CBL-PWR-12V</td>
+<td class="px-lg py-4 font-semibold">Power Cable 12V</td>
+<td class="px-lg py-4">Accessories</td>
+<td class="px-lg py-4 text-right">$8.00</td>
+<td class="px-lg py-4 text-right">0</td>
+<td class="px-lg py-4 text-right">980</td>
+<td class="px-lg py-4">
+<span class="bg-[#FDE7E7] text-[#BA1A1A] px-2 py-0.5 rounded-full font-label-sm text-label-sm">Out of Stock</span>
+</td>
+<td class="px-lg py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-outline cursor-pointer" data-icon="more_vert">more_vert</span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4 font-mono text-body-sm">RLY-CUT-30A</td>
+<td class="px-lg py-4 font-semibold">Cut-off Relay 30A</td>
+<td class="px-lg py-4">Accessories</td>
+<td class="px-lg py-4 text-right">$15.00</td>
+<td class="px-lg py-4 text-right">56</td>
+<td class="px-lg py-4 text-right">112</td>
+<td class="px-lg py-4">
+<span class="bg-[#EAF6ED] text-[#34A853] px-2 py-0.5 rounded-full font-label-sm text-label-sm">In Stock</span>
+</td>
+<td class="px-lg py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-outline cursor-pointer" data-icon="more_vert">more_vert</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-lg py-md border-t border-outline-variant flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Showing 5 of 24 products</span>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded hover:bg-surface-container-high transition-colors text-outline">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded bg-primary text-white font-label-sm text-label-sm">1</button>
+<button class="w-8 h-8 rounded hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">2</button>
+<button class="w-8 h-8 rounded hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">3</button>
+<button class="p-1 rounded hover:bg-surface-container-high transition-colors text-outline">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Map & Footer Info -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-lg">
+<div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl overflow-hidden h-[300px] relative">
+<img alt="Location Map" class="w-full h-full object-cover grayscale-[0.5] opacity-80" data-alt="A clean, minimalist digital map of a city intersection with a blue location pin highlighting a central commercial building. The map uses a soft grey and white color palette with subtle blue accents for water and parks. The style is professional and corporate, matching a high-end enterprise software dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9IctgnEx6fn-xhpUCchLQ16yhd8shDmWSgZ17NmhjoSMmSucNsETxiFZG7h4Z8yE-nnRx9gQFJV9BNoz5kPhsmrh_OnqX18QMD74KmqRgppdGbyxWn0DER4IrN-EW4n7PZFDxsl3_nOT3-eQB7XyidXjTwDLI6RVie7r66hJ7TWB_DponHe266KNOpT_ewZMrnx0HO2-iKnT0y-wE0-X0dnqARygmaQH4qyk-8bY7kOMdV-mZPu9QzGfOGKVuPbwrgI9wsHCmro4"/>
+<div class="absolute top-4 left-4 bg-white p-3 rounded-lg shadow-lg border border-outline-variant">
+<p class="font-label-md text-label-md font-bold">Location Hub</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Primary Logistics Center</p>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-lg flex flex-col gap-lg">
+<div>
+<h4 class="font-title-lg text-title-lg mb-sm">Contact Info</h4>
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="phone">phone</span>
+<span>+1 (555) 234-8900</span>
+</div>
+<div class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="mail">mail</span>
+<span>central.square@enterprise.com</span>
+</div>
+</div>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg mb-sm">Manager</h4>
+<div class="flex items-center gap-3">
+<img alt="Manager" class="w-10 h-10 rounded-full object-cover" data-alt="A professional headshot of a middle-aged male manager in a business casual navy blazer. He has a friendly, authoritative expression. The background is a clean, out-of-focus corporate office environment with soft natural lighting, following a high-quality professional photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACshiY7RB1fqezdL6oyLJu1oODmyQ8350PI5gf3XAeORYljbj1yQZhWcWsPjM76TQtNoGoZp0MjG12-imN7bqH3Eau1dygJtmH7diG79tZx0ufnABJz4di-z9CrKoyjj_PDFONkH59D-ujl-g72IvJpBm6ncal8reJbrhpjL8lHGG-I0SQaPvXUz4bkNPb6J6gbw_fAPrqghjEZvmcMeQ6xXSe9HewtX1NcQXN-taa8nD43i7bmlIYbm-5E2L--9gEIBlQUc2LG8k"/>
+<div>
+<p class="font-label-md text-label-md font-bold">Robert Chen</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Regional Operations Head</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Mobile Navigation Bar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center h-16 bg-surface border-t border-outline-variant px-2 pb-safe z-50 shadow-md">
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dash</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-3 py-1 font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span>Inv</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Sales</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>Reports</span>
+</a>
+</nav>
+<script>
+        // Simple interactive feedback for KPI cards
+        document.querySelectorAll('section > div.bg-white.p-md').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.boxShadow = '0px 4px 12px rgba(0, 0, 0, 0.05)';
+                card.style.transform = 'translateY(-2px)';
+                card.style.transition = 'all 0.2s ease-out';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.boxShadow = 'none';
+                card.style.transform = 'translateY(0px)';
+            });
+        });
+    </script>
+</body></html>
