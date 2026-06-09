@@ -10,8 +10,8 @@ export function BranchDetailPage() {
   const branch = getBranchDetail(id)
 
   return (
-    <main className="flex-1 p-lg pb-32 md:mr-64">
-      <nav className="mb-md">
+    <div className="space-y-xl">
+      <nav>
         <ol className="flex gap-xs text-body-sm text-secondary">
           <li>
             <a href="#" className="transition-colors hover:text-primary">
@@ -40,6 +40,6 @@ export function BranchDetailPage() {
           <BranchOperationsPanel branch={branch} />
         </div>
       </div>
-    </main>
+    </div>
   )
 }

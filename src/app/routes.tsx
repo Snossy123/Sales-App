@@ -13,8 +13,6 @@ import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
 import { BranchesPage } from '../pages/BranchesPage'
-import { EnterpriseGpsLayout } from '../layouts/EnterpriseGpsLayout'
-import { BranchDetailLayout } from '../layouts/BranchDetailLayout'
 import { GpsManagementPage } from '../pages/enterprise/GpsManagementPage'
 import { BranchDetailPage } from '../pages/enterprise/BranchDetailPage'
 
@@ -54,19 +52,13 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route element={<RoleRoute />}>
-          <Route element={<EnterpriseGpsLayout />}>
-            <Route path="gps/management" element={<GpsManagementPage />} />
-          </Route>
-          <Route element={<BranchDetailLayout />}>
-            <Route path="branches/:id" element={<BranchDetailPage />} />
-          </Route>
-        </Route>
         <Route element={<AppShell />}>
           <Route element={<RoleRoute />}>
             <Route index element={<DashboardPage />} />
             <Route path="departments" element={<DepartmentsPage />} />
             <Route path="branches" element={<BranchesPage />} />
+            <Route path="branches/:id" element={<BranchDetailPage />} />
+            <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="customers" element={<CustomersPage />} />
