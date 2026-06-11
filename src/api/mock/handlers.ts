@@ -2,6 +2,7 @@ import type { AxiosRequestConfig } from 'axios'
 import type {
   AccountingDashboard,
   AccountingSettings,
+  BranchAccountingMap,
   BalanceSheetReport,
   Branch,
   CheckoutPayload,
@@ -992,7 +993,9 @@ export function handleMockRequest(
       if (body.journal_entry_prefix) s.accountingSettings.journal_entry_prefix = body.journal_entry_prefix
       if (body.transfer_prefix) s.accountingSettings.transfer_prefix = body.transfer_prefix
       for (const map of body.branch_maps ?? []) {
-        s.branchAccountingMaps[map.branch_id] = map.accounting_default_map as AccountingSettings['branches'][0]['accounting_default_map']
+        if (map.accounting_default_map) {
+          s.branchAccountingMaps[map.branch_id] = map.accounting_default_map as BranchAccountingMap
+        }
       }
     })
     return handleMockRequest('GET', '/accounting/settings', undefined, config, ctx)

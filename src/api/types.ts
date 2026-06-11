@@ -211,6 +211,7 @@ export interface SalesInvoice {
   status?: InvoiceStatus
   customer_id: number
   customer?: Customer
+  branch?: Branch
   installment_plan?: InstallmentPlan | null
   lines?: SalesInvoiceLine[]
   created_by?: number
