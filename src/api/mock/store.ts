@@ -13,6 +13,22 @@ function migrateState(state: DemoState): DemoState {
   if (!state.counters.department) state.counters.department = seed.counters.department
   if (!state.counters.branch) state.counters.branch = seed.counters.branch
   if (!state.counters.warehouse) state.counters.warehouse = seed.counters.warehouse
+  if (!state.accountingAccounts?.length) {
+    state.accountingAccounts = seed.accountingAccounts
+    state.journalEntries = seed.journalEntries
+    state.transfers = seed.transfers
+    state.budgets = seed.budgets
+    state.mappedInvoiceIds = seed.mappedInvoiceIds
+    state.accountingSettings = seed.accountingSettings
+    state.branchAccountingMaps = seed.branchAccountingMaps
+  }
+  if (!state.leads?.length) state.leads = seed.leads
+  if (!state.portalUsers?.length) state.portalUsers = seed.portalUsers
+  if (!state.crmSchedules?.length) state.crmSchedules = seed.crmSchedules
+  if (!state.crmCampaigns?.length) state.crmCampaigns = seed.crmCampaigns
+  if (!state.crmProposals?.length) state.crmProposals = seed.crmProposals
+  if (!state.crmProposalTemplates?.length) state.crmProposalTemplates = seed.crmProposalTemplates
+  if (!state.crmSettings) state.crmSettings = seed.crmSettings
   return state
 }
 

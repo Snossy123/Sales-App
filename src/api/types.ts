@@ -62,7 +62,15 @@ export interface Role {
   name: string
 }
 
-export type DemoRole = 'super_admin' | 'admin' | 'sales' | 'reviewer' | 'collector'
+export type DemoRole =
+  | 'super_admin'
+  | 'admin'
+  | 'sales'
+  | 'reviewer'
+  | 'collector'
+  | 'crm'
+  | 'hr_manager'
+  | 'accountant'
 export type UserSection = 'sales' | 'review' | 'collection'
 
 export interface AuthUser {
@@ -243,6 +251,8 @@ export interface Lead {
   status: string
   expected_value?: string | number | null
   notes?: string | null
+  converted_on?: string | null
+  converted_customer_id?: number | null
   branch?: Branch
   assignee?: { id: number; name: string }
 }
@@ -273,4 +283,357 @@ export interface CheckoutPayload {
 export interface CollectInstallmentPayload {
   installment_item_id: number
   amount: number
+}
+
+// CRM module
+export interface CrmDashboardStats {
+  leads_by_status: Record<string, number>
+  today_follow_ups: number
+  converted_this_month: number
+  conversion_rate: number
+  organization_id?: number
+}
+
+export interface CrmSchedule {
+  id: number
+  organization_id?: number
+  lead_id?: number | null
+  customer_id?: number | null
+  title: string
+  status: string
+  start_datetime?: string | null
+  end_datetime?: string | null
+  description?: string | null
+  schedule_type?: 'call' | 'sms' | 'meeting' | 'email' | string
+  followup_category_id?: number | null
+  allow_notification?: boolean
+  notify_via?: { sms?: number; mail?: number }
+  notify_before?: number | null
+  notify_type?: string | null
+  created_by?: number
+  is_recursive?: boolean
+  recursion_days?: number | null
+  lead?: Lead
+  customer?: Customer
+  users?: { id: number; name: string }[]
+  logs?: CrmScheduleLog[]
+}
+
+export interface CrmScheduleLog {
+  id: number
+  crm_schedule_id: number
+  log_type: string
+  start_datetime: string
+  end_datetime?: string | null
+  subject?: string | null
+  description?: string | null
+  created_by?: number
+}
+
+export interface CrmCampaign {
+  id: number
+  organization_id?: number
+  name: string
+  campaign_type: 'sms' | 'email' | string
+  subject?: string | null
+  email_body?: string | null
+  sms_body?: string | null
+  sent_on?: string | null
+  contact_ids?: number[]
+  created_by?: number
+  created_at?: string
+}
+
+export interface CrmProposal {
+  id: number
+  organization_id?: number
+  customer_id?: number | null
+  lead_id?: number | null
+  subject: string
+  body: string
+  cc?: string | null
+  bcc?: string | null
+  sent_by?: number
+  created_at?: string
+  customer?: Customer
+  lead?: Lead
+}
+
+export interface CrmProposalTemplate {
+  id: number
+  organization_id?: number
+  subject: string
+  body: string
+  cc?: string | null
+  bcc?: string | null
+  created_by?: number
+  created_at?: string
+}
+
+export interface CrmSettings {
+  enable_order_request?: boolean
+  order_request_prefix?: string
+}
+
+export interface CrmReportRow {
+  name?: string
+  contact_name?: string
+  total: number
+}
+
+export interface CrmLeadConversionReport {
+  from: string
+  to: string
+  total_converted: number
+  conversions: Lead[]
+}
+
+export interface PortalUser {
+  id: number
+  name: string
+  email: string
+  customer_id?: number | null
+  customer?: Customer
+}
+
+export interface PortalLoginResponse {
+  token: string
+  user: PortalUser
+}
+
+export interface PortalDashboardData {
+  recent_invoices: SalesInvoice[]
+  total_balance_due: number | string
+}
+
+export type AccountPrimaryType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+
+export interface AccountingAccountType {
+  id: number
+  name: string
+  account_primary_type?: string | null
+  account_type?: string | null
+  parent_id?: number | null
+}
+
+export interface AccountingAccount {
+  id: number
+  name: string
+  gl_code?: string | null
+  account_primary_type: AccountPrimaryType
+  account_sub_type_id?: number | null
+  detail_type_id?: number | null
+  parent_account_id?: number | null
+  description?: string | null
+  status: 'active' | 'inactive'
+  account_sub_type?: AccountingAccountType | null
+  detail_type?: AccountingAccountType | null
+  parent_account?: AccountingAccount | null
+  child_accounts?: AccountingAccount[]
+}
+
+export interface AccountingTransactionLine {
+  id: number
+  accounting_account_id: number
+  acc_trans_mapping_id?: number
+  amount: string | number
+  type: 'debit' | 'credit'
+  note?: string | null
+  operation_date?: string
+  map_type?: string | null
+  account?: AccountingAccount
+}
+
+export interface AccountingAccTransMapping {
+  id: number
+  ref_no?: string | null
+  type: 'journal_entry' | 'transfer' | string
+  operation_date: string
+  note?: string | null
+  created_by?: number
+  lines?: AccountingTransactionLine[]
+}
+
+export interface AccountingDashboard {
+  balances_by_type: Record<string, number>
+  total_accounts: number
+  journal_entries_count: number
+  transfers_count: number
+  unmapped_sales: number
+  recent_entries: AccountingAccTransMapping[]
+}
+
+export interface TrialBalanceRow {
+  id: number
+  name: string
+  gl_code?: string | null
+  account_primary_type: AccountPrimaryType
+  total_debits: string | number
+  total_credits: string | number
+  balance: string | number
+}
+
+export interface TrialBalanceReport {
+  start_date?: string | null
+  end_date?: string | null
+  accounts: TrialBalanceRow[]
+  total_debits: number
+  total_credits: number
+}
+
+export interface BalanceSheetReport {
+  as_of_date: string
+  assets: number
+  liabilities: number
+  equity: number
+  liabilities_and_equity: number
+  balanced: boolean
+}
+
+export interface AccountingBudget {
+  id: number
+  accounting_account_id: number
+  financial_year: number
+  jan: string | number
+  feb: string | number
+  mar: string | number
+  apr: string | number
+  may: string | number
+  jun: string | number
+  jul: string | number
+  aug: string | number
+  sep: string | number
+  oct: string | number
+  nov: string | number
+  dec: string | number
+  quarter_1: string | number
+  quarter_2: string | number
+  quarter_3: string | number
+  quarter_4: string | number
+  yearly: string | number
+  account?: AccountingAccount
+}
+
+export interface BranchAccountingMap {
+  sale?: { deposit_to?: number | null; payment_account?: number | null }
+  sell_payment?: { deposit_to?: number | null; payment_account?: number | null }
+}
+
+export interface AccountingSettings {
+  module_settings: {
+    journal_entry_prefix?: string
+    transfer_prefix?: string
+  }
+  branches: Array<{
+    id: number
+    name: string
+    code: string
+    accounting_default_map?: BranchAccountingMap | null
+  }>
+  accounts: Array<Pick<AccountingAccount, 'id' | 'name' | 'gl_code' | 'account_primary_type'>>
+}
+
+export interface TransactionMapPayload {
+  accounts: Array<Pick<AccountingAccount, 'id' | 'name' | 'gl_code' | 'account_primary_type'>>
+  invoice?: SalesInvoice
+  existing_map?: AccountingTransactionLine[]
+}
+
+// HRM module
+export interface HrmDashboard {
+  present_today: number
+  clocked_in_now: number
+  pending_leaves: number
+  upcoming_leaves: HrmLeave[]
+  employees_by_department: Record<string, number>
+  payroll_due_total: number
+  organization_id?: number
+}
+
+export interface HrmLeaveType {
+  id: number
+  name: string
+  max_days?: number | null
+  is_paid?: boolean
+}
+
+export interface HrmLeave {
+  id: number
+  hrm_leave_type_id: number
+  employee_id: number
+  start_date: string
+  end_date: string
+  ref_no?: string | null
+  status: string
+  reason?: string | null
+  status_note?: string | null
+  changed_by?: number | null
+  leaveType?: HrmLeaveType
+  employee?: Employee
+  changedBy?: { id: number; name: string }
+}
+
+export interface HrmAttendance {
+  id: number
+  employee_id: number
+  date: string
+  check_in?: string | null
+  check_out?: string | null
+  status?: string | null
+  notes?: string | null
+  clock_in_time?: string | null
+  clock_out_time?: string | null
+  hrm_shift_id?: number | null
+  employee?: Employee
+  shift?: HrmShift
+}
+
+export interface HrmShift {
+  id: number
+  name: string
+  type?: 'fixed_shift' | 'flexible_shift' | string | null
+  start_time?: string | null
+  end_time?: string | null
+  holidays?: string[] | null
+  is_allowed_auto_clockout?: boolean
+  auto_clockout_time?: string | null
+  userShifts?: HrmUserShift[]
+}
+
+export interface HrmUserShift {
+  id: number
+  employee_id: number
+  hrm_shift_id: number
+  start_date: string
+  end_date?: string | null
+  employee?: Employee
+}
+
+export interface HrmHoliday {
+  id: number
+  name: string
+  start_date: string
+  end_date: string
+  branch_id?: number | null
+  note?: string | null
+  branch?: Branch
+}
+
+export interface HrmPayrollRecord {
+  id: number
+  employee_id: number
+  branch_id?: number | null
+  ref_no?: string | null
+  duration: string | number
+  duration_unit?: string | null
+  rate: string | number
+  allowances?: Record<string, unknown>[] | null
+  deductions?: Record<string, unknown>[] | null
+  gross_total: string | number
+  final_total: string | number
+  payment_status: string
+  created_by?: number | null
+  employee?: Employee
+  branch?: Branch
+  creator?: { id: number; name: string }
 }

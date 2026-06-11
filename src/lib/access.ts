@@ -5,9 +5,13 @@ export function getUserRole(user: AuthUser | null): DemoRole {
   if (user.demo_role) return user.demo_role
   const roleName = user.roles?.[0]?.name?.toLowerCase() ?? ''
   if (roleName.includes('super')) return 'super_admin'
+  if (roleName.includes('crmspecialist') || roleName.includes('crm specialist')) return 'crm'
+  if (roleName.includes('hrmanager') || roleName.includes('hr manager') || roleName.includes('hr_manager')) return 'hr_manager'
+  if (roleName.includes('accountant')) return 'accountant'
   if (roleName.includes('admin')) return 'admin'
   if (roleName.includes('collector')) return 'collector'
   if (roleName.includes('review')) return 'reviewer'
+  if (roleName.includes('account')) return 'accountant'
   return 'sales'
 }
 

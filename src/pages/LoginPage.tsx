@@ -13,6 +13,8 @@ const demoAccounts = [
   { email: 'sales@demo.test', label: 'قسم المبيعات', icon: 'point_of_sale' },
   { email: 'reviewer@demo.test', label: 'قسم المراجعة', icon: 'fact_check' },
   { email: 'collector@demo.test', label: 'قسم التحصيل', icon: 'payments' },
+  { email: 'accountant@demo.test', label: 'قسم المحاسبة', icon: 'account_balance' },
+  { email: 'crm@demo.test', label: 'قسم CRM', icon: 'hub' },
 ]
 
 export function LoginPage() {

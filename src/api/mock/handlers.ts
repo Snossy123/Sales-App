@@ -1,5 +1,8 @@
 import type { AxiosRequestConfig } from 'axios'
 import type {
+  AccountingDashboard,
+  AccountingSettings,
+  BalanceSheetReport,
   Branch,
   CheckoutPayload,
   Customer,
@@ -10,6 +13,8 @@ import type {
   LoginResponse,
   PaginatedResponse,
   SalesInvoice,
+  TransactionMapPayload,
+  TrialBalanceReport,
 } from '../types'
 import { loadState, mutateState, resetState } from './store'
 import type { AuthUser } from '../types'
@@ -826,9 +831,386 @@ export function handleMockRequest(
     return result
   }
 
+  if (m === 'GET' && path === 'accounting/dashboard') {
+    const balances = state.accountingAccounts.reduce<Record<string, number>>((acc, account) => {
+      acc[account.account_primary_type] = (acc[account.account_primary_type] ?? 0) + (account.id * 1000)
+      return acc
+    }, {})
+    const recent = [...state.journalEntries, ...state.transfers]
+      .sort((a, b) => String(b.operation_date).localeCompare(String(a.operation_date)))
+      .slice(0, 5)
+    const unmapped = state.invoices.filter(
+      (i) => i.status === 'confirmed' && !state.mappedInvoiceIds.includes(i.id),
+    ).length
+    const payload: AccountingDashboard = {
+      balances_by_type: balances,
+      total_accounts: state.accountingAccounts.filter((a) => a.status === 'active').length,
+      journal_entries_count: state.journalEntries.length,
+      transfers_count: state.transfers.length,
+      unmapped_sales: unmapped,
+      recent_entries: recent,
+    }
+    return payload
+  }
+
+  if (m === 'GET' && path === 'accounting/chart-of-accounts') {
+    let accounts = [...state.accountingAccounts]
+    const status = params['filter[status]']
+    const primaryType = params['filter[account_primary_type]']
+    if (status) accounts = accounts.filter((a) => a.status === status)
+    if (primaryType) accounts = accounts.filter((a) => a.account_primary_type === primaryType)
+    return paginate(accounts, params)
+  }
+
+  if (m === 'POST' && path === 'accounting/chart-of-accounts/create-default-accounts') {
+    return { message: 'Default accounts created successfully.', accounts: state.accountingAccounts }
+  }
+
+  if (m === 'GET' && path === 'accounting/journal-entries') {
+    return paginate(state.journalEntries, params)
+  }
+
+  if (m === 'GET' && path === 'accounting/transfers') {
+    return paginate(state.transfers, params)
+  }
+
+  if (m === 'GET' && path === 'accounting/transactions') {
+    const unmappedOnly = params.unmapped_only !== '0' && params.unmapped_only !== 'false'
+    let invoices = state.invoices.filter((i) => i.status === 'confirmed')
+    if (unmappedOnly) {
+      invoices = invoices.filter((i) => !state.mappedInvoiceIds.includes(i.id))
+    }
+    const enriched = invoices.map((inv) => ({
+      ...inv,
+      customer: state.customers.find((c) => c.id === inv.customer_id),
+      branch: state.branches.find((b) => b.id === inv.branch_id),
+    }))
+    return paginate(enriched, params)
+  }
+
+  if (m === 'GET' && path === 'accounting/transactions/map') {
+    const invoiceId = Number(params.sales_invoice_id)
+    const invoice = state.invoices.find((i) => i.id === invoiceId)
+    const payload: TransactionMapPayload = {
+      accounts: state.accountingAccounts
+        .filter((a) => a.status === 'active')
+        .map(({ id, name, gl_code, account_primary_type }) => ({
+          id,
+          name,
+          gl_code,
+          account_primary_type,
+        })),
+    }
+    if (invoice) {
+      payload.invoice = {
+        ...invoice,
+        customer: state.customers.find((c) => c.id === invoice.customer_id),
+      }
+    }
+    return payload
+  }
+
+  if (m === 'POST' && path === 'accounting/transactions/save-map') {
+    const body = data as { sales_invoice_id: number; deposit_to: number; payment_account: number }
+    mutateState((s) => {
+      if (!s.mappedInvoiceIds.includes(body.sales_invoice_id)) {
+        s.mappedInvoiceIds.push(body.sales_invoice_id)
+      }
+    })
+    return { message: 'Sale invoice mapped successfully.', sales_invoice_id: body.sales_invoice_id }
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/trial-balance') {
+    const accounts = state.accountingAccounts
+      .filter((a) => a.status === 'active')
+      .map((a, idx) => ({
+        id: a.id,
+        name: a.name,
+        gl_code: a.gl_code,
+        account_primary_type: a.account_primary_type,
+        total_debits: idx % 2 === 0 ? 10000 + idx * 500 : 0,
+        total_credits: idx % 2 === 1 ? 8000 + idx * 400 : 0,
+        balance: (idx % 2 === 0 ? 1 : -1) * (5000 + idx * 200),
+      }))
+    const report: TrialBalanceReport = {
+      start_date: params.start_date ?? null,
+      end_date: params.end_date ?? null,
+      accounts,
+      total_debits: accounts.reduce((s, r) => s + Number(r.total_debits), 0),
+      total_credits: accounts.reduce((s, r) => s + Number(r.total_credits), 0),
+    }
+    return report
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/balance-sheet') {
+    const report: BalanceSheetReport = {
+      as_of_date: params.as_of_date ?? new Date().toISOString().split('T')[0],
+      assets: 125000,
+      liabilities: 35000,
+      equity: 90000,
+      liabilities_and_equity: 125000,
+      balanced: true,
+    }
+    return report
+  }
+
+  if (m === 'GET' && path === 'accounting/budgets') {
+    let budgets = [...state.budgets]
+    const year = params['filter[financial_year]']
+    if (year) budgets = budgets.filter((b) => String(b.financial_year) === year)
+    return paginate(budgets, params)
+  }
+
+  if (m === 'GET' && path === 'accounting/settings') {
+    const settings: AccountingSettings = {
+      module_settings: state.accountingSettings,
+      branches: state.branches.map((b) => ({
+        id: b.id,
+        name: b.name_ar || b.name,
+        code: b.code,
+        accounting_default_map: state.branchAccountingMaps[b.id] ?? null,
+      })),
+      accounts: state.accountingAccounts
+        .filter((a) => a.status === 'active')
+        .map(({ id, name, gl_code, account_primary_type }) => ({
+          id,
+          name,
+          gl_code,
+          account_primary_type,
+        })),
+    }
+    return settings
+  }
+
+  if (m === 'PUT' && path === 'accounting/settings') {
+    const body = data as {
+      journal_entry_prefix?: string
+      transfer_prefix?: string
+      branch_maps?: Array<{ branch_id: number; accounting_default_map: Record<string, unknown> }>
+    }
+    mutateState((s) => {
+      if (body.journal_entry_prefix) s.accountingSettings.journal_entry_prefix = body.journal_entry_prefix
+      if (body.transfer_prefix) s.accountingSettings.transfer_prefix = body.transfer_prefix
+      for (const map of body.branch_maps ?? []) {
+        s.branchAccountingMaps[map.branch_id] = map.accounting_default_map as AccountingSettings['branches'][0]['accounting_default_map']
+      }
+    })
+    return handleMockRequest('GET', '/accounting/settings', undefined, config, ctx)
+  }
+
   if (m === 'POST' && path === 'demo/reset') {
     resetState()
     return { message: 'تم إعادة ضبط الديمو' }
+  }
+
+  // CRM module
+  if (m === 'GET' && path === 'crm/dashboard') {
+    const leadsByStatus: Record<string, number> = {}
+    for (const lead of state.leads) {
+      leadsByStatus[lead.status] = (leadsByStatus[lead.status] ?? 0) + 1
+    }
+    const today = new Date().toISOString().split('T')[0]
+    const todayFollowUps = state.crmSchedules.filter((s) =>
+      s.start_datetime?.startsWith(today),
+    ).length
+    const convertedThisMonth = state.leads.filter((l) => {
+      if (!l.converted_on) return false
+      const d = new Date(l.converted_on)
+      return d.getMonth() === new Date().getMonth()
+    }).length
+    const totalLeads = state.leads.length
+    const converted = state.leads.filter((l) => l.converted_customer_id).length
+    return {
+      leads_by_status: leadsByStatus,
+      today_follow_ups: todayFollowUps,
+      converted_this_month: convertedThisMonth,
+      conversion_rate: totalLeads > 0 ? Math.round((converted / totalLeads) * 1000) / 10 : 0,
+      organization_id: ctx.organizationId ?? 1,
+    }
+  }
+
+  if (m === 'GET' && path === 'leads') {
+    let leads = [...state.leads]
+    if (ctx.branchId) leads = leads.filter((l) => !l.branch?.id || l.branch.id === ctx.branchId)
+    return paginate(leads, params)
+  }
+
+  if (m === 'PUT' && path.match(/^leads\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as { status?: string }
+    let updated = state.leads.find((l) => l.id === id)
+    if (!updated) throw mockError(404, 'العميل المحتمل غير موجود')
+    mutateState((s) => {
+      const lead = s.leads.find((l) => l.id === id)!
+      if (body.status) lead.status = body.status
+      updated = lead
+    })
+    return updated
+  }
+
+  if (m === 'GET' && path === 'crm/follow-ups') {
+    return paginate(state.crmSchedules, params)
+  }
+
+  if (m === 'POST' && path === 'crm/follow-ups') {
+    const body = data as Record<string, unknown>
+    let created: (typeof state.crmSchedules)[0] | undefined
+    mutateState((s) => {
+      s.counters.crmSchedule = (s.counters.crmSchedule ?? 3) + 1
+      created = {
+        id: s.counters.crmSchedule,
+        title: String(body.title ?? ''),
+        status: String(body.status ?? 'scheduled'),
+        schedule_type: String(body.schedule_type ?? 'call'),
+        start_datetime: body.start_datetime ? String(body.start_datetime) : new Date().toISOString(),
+        description: body.description ? String(body.description) : null,
+        users: ctx.user ? [{ id: ctx.user.id, name: ctx.user.name }] : [],
+      }
+      s.crmSchedules.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'GET' && path === 'crm/campaigns') {
+    return paginate(state.crmCampaigns, params)
+  }
+
+  if (m === 'POST' && path === 'crm/campaigns') {
+    const body = data as Record<string, unknown>
+    let created: (typeof state.crmCampaigns)[0] | undefined
+    mutateState((s) => {
+      s.counters.crmCampaign = (s.counters.crmCampaign ?? 2) + 1
+      created = {
+        id: s.counters.crmCampaign,
+        name: String(body.name ?? ''),
+        campaign_type: String(body.campaign_type ?? 'sms'),
+        subject: body.subject ? String(body.subject) : null,
+        email_body: body.email_body ? String(body.email_body) : null,
+        sms_body: body.sms_body ? String(body.sms_body) : null,
+        contact_ids: (body.contact_ids as number[]) ?? [],
+        created_by: ctx.user?.id ?? 1,
+      }
+      s.crmCampaigns.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^crm\/campaigns\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as Record<string, unknown>
+    let updated: (typeof state.crmCampaigns)[0] | undefined
+    mutateState((s) => {
+      const campaign = s.crmCampaigns.find((c) => c.id === id)
+      if (!campaign) throw mockError(404, 'الحملة غير موجودة')
+      Object.assign(campaign, body)
+      updated = campaign
+    })
+    return updated
+  }
+
+  if (m === 'POST' && path.match(/^crm\/campaigns\/\d+\/send$/)) {
+    const id = Number(path.split('/')[2])
+    let updated: (typeof state.crmCampaigns)[0] | undefined
+    mutateState((s) => {
+      const campaign = s.crmCampaigns.find((c) => c.id === id)
+      if (!campaign) throw mockError(404, 'الحملة غير موجودة')
+      campaign.sent_on = new Date().toISOString()
+      updated = campaign
+    })
+    return { message: 'Campaign queued for delivery', campaign: updated }
+  }
+
+  if (m === 'GET' && path === 'crm/proposals') {
+    return paginate(state.crmProposals, params)
+  }
+
+  if (m === 'POST' && path === 'crm/proposals') {
+    const body = data as Record<string, unknown>
+    let created: (typeof state.crmProposals)[0] | undefined
+    mutateState((s) => {
+      s.counters.crmProposal = (s.counters.crmProposal ?? 1) + 1
+      created = {
+        id: s.counters.crmProposal,
+        subject: String(body.subject ?? ''),
+        body: String(body.body ?? ''),
+        cc: body.cc ? String(body.cc) : null,
+        bcc: body.bcc ? String(body.bcc) : null,
+        sent_by: ctx.user?.id ?? 1,
+        created_at: new Date().toISOString(),
+      }
+      s.crmProposals.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'GET' && path === 'crm/proposal-templates') {
+    return state.crmProposalTemplates
+  }
+
+  if (m === 'POST' && path === 'crm/proposal-templates') {
+    const body = data as Record<string, unknown>
+    let created: (typeof state.crmProposalTemplates)[0] | undefined
+    mutateState((s) => {
+      s.counters.crmProposalTemplate = (s.counters.crmProposalTemplate ?? 1) + 1
+      created = {
+        id: s.counters.crmProposalTemplate,
+        subject: String(body.subject ?? ''),
+        body: String(body.body ?? ''),
+        cc: body.cc ? String(body.cc) : null,
+        bcc: body.bcc ? String(body.bcc) : null,
+        created_by: ctx.user?.id ?? 1,
+      }
+      s.crmProposalTemplates.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^crm\/proposal-templates\/\d+$/)) {
+    const id = Number(path.split('/')[3])
+    const body = data as Record<string, unknown>
+    let updated: (typeof state.crmProposalTemplates)[0] | undefined
+    mutateState((s) => {
+      const template = s.crmProposalTemplates.find((t) => t.id === id)
+      if (!template) throw mockError(404, 'القالب غير موجود')
+      Object.assign(template, body)
+      updated = template
+    })
+    return updated
+  }
+
+  if (m === 'GET' && path === 'crm/reports/follow-ups-by-user') {
+    return [{ name: 'ليلى — CRM', total: state.crmSchedules.length }]
+  }
+
+  if (m === 'GET' && path === 'crm/reports/follow-ups-by-contact') {
+    return state.crmSchedules.map((s) => ({
+      contact_name: s.lead?.name ?? s.customer?.name ?? 'Unknown',
+      total: 1,
+    }))
+  }
+
+  if (m === 'GET' && path === 'crm/reports/lead-to-customer') {
+    const from = params.from ?? new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]
+    const to = params.to ?? new Date().toISOString().split('T')[0]
+    const conversions = state.leads.filter((l) => l.converted_on)
+    return {
+      from,
+      to,
+      total_converted: conversions.length,
+      conversions,
+    }
+  }
+
+  if (m === 'GET' && path === 'crm/settings') {
+    return state.crmSettings
+  }
+
+  if (m === 'PUT' && path === 'crm/settings') {
+    const body = data as Record<string, unknown>
+    mutateState((s) => {
+      s.crmSettings = { ...s.crmSettings, ...body }
+    })
+    return loadState().crmSettings
   }
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)

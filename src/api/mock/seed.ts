@@ -1,13 +1,26 @@
 import type {
+  AccountingAccount,
+  AccountingAccTransMapping,
+  AccountingBudget,
+  AccountingTransactionLine,
   AuthUser,
   Branch,
+  BranchAccountingMap,
+  CrmCampaign,
+  CrmProposal,
+  CrmProposalTemplate,
+  CrmSchedule,
+  CrmSettings,
   Customer,
+  DemoRole,
   Department,
   DepartmentStock,
   GpsProduct,
   GpsStock,
   InstallmentItem,
   InstallmentPlan,
+  Lead,
+  PortalUser,
   SalesInvoice,
   SalesInvoiceLine,
   Warehouse,
@@ -15,12 +28,23 @@ import type {
 
 export interface DemoUser extends AuthUser {
   password: string
-  demo_role: 'super_admin' | 'admin' | 'sales' | 'reviewer' | 'collector'
+  demo_role: DemoRole
   section?: 'sales' | 'review' | 'collection'
+}
+
+export interface DemoPortalUser extends PortalUser {
+  password: string
 }
 
 export interface DemoState {
   users: DemoUser[]
+  portalUsers: DemoPortalUser[]
+  leads: Lead[]
+  crmSchedules: CrmSchedule[]
+  crmCampaigns: CrmCampaign[]
+  crmProposals: CrmProposal[]
+  crmProposalTemplates: CrmProposalTemplate[]
+  crmSettings: CrmSettings
   departments: Department[]
   branches: Branch[]
   warehouses: Warehouse[]
@@ -28,6 +52,13 @@ export interface DemoState {
   departmentStocks: DepartmentStock[]
   stocks: GpsStock[]
   customers: Customer[]
+  accountingAccounts: AccountingAccount[]
+  journalEntries: AccountingAccTransMapping[]
+  transfers: AccountingAccTransMapping[]
+  budgets: AccountingBudget[]
+  mappedInvoiceIds: number[]
+  accountingSettings: { journal_entry_prefix: string; transfer_prefix: string }
+  branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
   counters: {
     department: number
@@ -37,6 +68,15 @@ export interface DemoState {
     customer: number
     installmentItem: number
     payment: number
+    accountingMapping?: number
+    accountingLine?: number
+    accountingAccount?: number
+    budget?: number
+    lead?: number
+    crmSchedule?: number
+    crmCampaign?: number
+    crmProposal?: number
+    crmProposalTemplate?: number
   }
 }
 
@@ -382,10 +422,284 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       roles: [{ id: 4, name: 'Collector' }],
     },
+    {
+      id: 6,
+      name: 'سارة — محاسبة',
+      email: 'accountant@demo.test',
+      password: 'demo',
+      organization_id: 1,
+      department_id: 1,
+      branch_id: 1,
+      demo_role: 'accountant',
+      organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      branch: branches[0],
+      roles: [{ id: 6, name: 'Accountant' }],
+    },
+    {
+      id: 7,
+      name: 'ليلى — CRM',
+      email: 'crm@demo.test',
+      password: 'demo',
+      organization_id: 1,
+      department_id: 1,
+      branch_id: 1,
+      demo_role: 'crm',
+      organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      branch: branches[0],
+      roles: [{ id: 7, name: 'CrmSpecialist' }],
+    },
   ]
+
+  const leads: Lead[] = [
+    {
+      id: 1,
+      name: 'محمود عادل',
+      phone: '01055512345',
+      source: 'موقع إلكتروني',
+      status: 'new',
+      expected_value: 7000,
+      branch: branches[0],
+      assignee: { id: 7, name: 'ليلى — CRM' },
+    },
+    {
+      id: 2,
+      name: 'فاطمة حسين',
+      phone: '01144455667',
+      source: 'إحالة',
+      status: 'contacted',
+      expected_value: 10500,
+      branch: branches[0],
+      assignee: { id: 7, name: 'ليلى — CRM' },
+    },
+    {
+      id: 3,
+      name: 'يوسف كمال',
+      phone: '01233344556',
+      source: 'معرض',
+      status: 'negotiation',
+      expected_value: 14000,
+      branch: branches[2],
+    },
+    {
+      id: 4,
+      name: 'منى سعيد',
+      phone: '01022233445',
+      source: 'اتصال',
+      status: 'qualified',
+      expected_value: 3500,
+      branch: branches[1],
+    },
+    {
+      id: 5,
+      name: 'عمر رشاد',
+      phone: '01511122334',
+      source: 'إعلان',
+      status: 'won',
+      expected_value: 7000,
+      converted_on: '2026-05-01',
+      converted_customer_id: 1,
+      branch: branches[0],
+    },
+  ]
+
+  const crmSchedules: CrmSchedule[] = [
+    {
+      id: 1,
+      title: 'متابعة عرض سعر',
+      status: 'scheduled',
+      schedule_type: 'call',
+      start_datetime: new Date().toISOString(),
+      lead_id: 2,
+      lead: leads[1],
+      users: [{ id: 7, name: 'ليلى — CRM' }],
+    },
+    {
+      id: 2,
+      title: 'اجتماع تفاوض',
+      status: 'open',
+      schedule_type: 'meeting',
+      start_datetime: new Date(Date.now() + 86400000).toISOString(),
+      lead_id: 3,
+      lead: leads[2],
+      users: [{ id: 7, name: 'ليلى — CRM' }],
+    },
+    {
+      id: 3,
+      title: 'تذكير بالدفع',
+      status: 'completed',
+      schedule_type: 'sms',
+      start_datetime: '2026-05-15T10:00:00',
+      customer_id: 1,
+      customer: customers[0],
+      users: [{ id: 7, name: 'ليلى — CRM' }],
+    },
+  ]
+
+  const crmCampaigns: CrmCampaign[] = [
+    {
+      id: 1,
+      name: 'عرض الصيف',
+      campaign_type: 'sms',
+      sms_body: 'خصم 10% على أجهزة GPS — {contact_name}',
+      contact_ids: [1, 2, 3],
+      created_by: 7,
+    },
+    {
+      id: 2,
+      name: 'نشرة شهر يونيو',
+      campaign_type: 'email',
+      subject: 'أحدث عروض GPS',
+      email_body: 'مرحباً {contact_name}، اكتشف عروضنا الجديدة.',
+      sent_on: '2026-06-01T09:00:00',
+      contact_ids: [1, 2],
+      created_by: 7,
+    },
+  ]
+
+  const crmProposalTemplates: CrmProposalTemplate[] = [
+    {
+      id: 1,
+      subject: 'عرض جهاز GPS',
+      body: 'نقدم لكم عرضاً لتركيب {contact_name} جهاز تتبع GPS بسعر مميز.',
+      created_by: 7,
+    },
+  ]
+
+  const crmProposals: CrmProposal[] = [
+    {
+      id: 1,
+      subject: 'عرض لمحمود عادل',
+      body: 'عرض تركيب 2 جهاز GPS بإجمالي 7000 ج.م',
+      lead_id: 1,
+      lead: leads[0],
+      sent_by: 7,
+      created_at: '2026-06-05T12:00:00',
+    },
+  ]
+
+  const crmSettings: CrmSettings = {
+    enable_order_request: true,
+    order_request_prefix: 'ORD',
+  }
+
+  const portalUsers: DemoPortalUser[] = [
+    {
+      id: 101,
+      name: 'أحمد محمود حسن',
+      email: 'portal@demo.test',
+      password: 'demo',
+      customer_id: 1,
+      customer: customers[0],
+    },
+  ]
+
+  const accountingAccounts: AccountingAccount[] = [
+    { id: 1, name: 'الصندوق', gl_code: '1000', account_primary_type: 'asset', status: 'active' },
+    { id: 2, name: 'البنك', gl_code: '1010', account_primary_type: 'asset', status: 'active' },
+    { id: 3, name: 'العملاء', gl_code: '1200', account_primary_type: 'asset', status: 'active', parent_account_id: null },
+    { id: 4, name: 'إيرادات المبيعات', gl_code: '4000', account_primary_type: 'income', status: 'active' },
+    { id: 5, name: 'مصروفات تشغيلية', gl_code: '5000', account_primary_type: 'expense', status: 'active' },
+    { id: 6, name: 'رأس المال', gl_code: '3000', account_primary_type: 'equity', status: 'active' },
+    { id: 7, name: 'الموردون', gl_code: '2000', account_primary_type: 'liability', status: 'active' },
+  ]
+
+  const journalLine = (
+    id: number,
+    mappingId: number,
+    accountId: number,
+    amount: number,
+    type: 'debit' | 'credit',
+    account?: AccountingAccount,
+  ): AccountingTransactionLine => ({
+    id,
+    accounting_account_id: accountId,
+    acc_trans_mapping_id: mappingId,
+    amount,
+    type,
+    account: account ?? accountingAccounts.find((a) => a.id === accountId),
+  })
+
+  const journalEntries: AccountingAccTransMapping[] = [
+    {
+      id: 1,
+      ref_no: 'JE-001',
+      type: 'journal_entry',
+      operation_date: '2026-01-15T00:00:00',
+      note: 'قيد افتتاحي',
+      lines: [
+        journalLine(1, 1, 1, 50000, 'debit'),
+        journalLine(2, 1, 6, 50000, 'credit'),
+      ],
+    },
+    {
+      id: 2,
+      ref_no: 'JE-002',
+      type: 'journal_entry',
+      operation_date: '2026-02-01T00:00:00',
+      note: 'تسجيل مصروف',
+      lines: [
+        journalLine(3, 2, 5, 2500, 'debit'),
+        journalLine(4, 2, 1, 2500, 'credit'),
+      ],
+    },
+  ]
+
+  const transfers: AccountingAccTransMapping[] = [
+    {
+      id: 3,
+      ref_no: 'TR-001',
+      type: 'transfer',
+      operation_date: '2026-02-10T00:00:00',
+      note: 'تحويل للبنك',
+      lines: [
+        journalLine(5, 3, 2, 10000, 'debit'),
+        journalLine(6, 3, 1, 10000, 'credit'),
+      ],
+    },
+  ]
+
+  const budgets: AccountingBudget[] = [
+    {
+      id: 1,
+      accounting_account_id: 4,
+      financial_year: 2026,
+      jan: 50000,
+      feb: 55000,
+      mar: 60000,
+      apr: 55000,
+      may: 60000,
+      jun: 65000,
+      jul: 60000,
+      aug: 65000,
+      sep: 70000,
+      oct: 65000,
+      nov: 70000,
+      dec: 75000,
+      quarter_1: 165000,
+      quarter_2: 180000,
+      quarter_3: 195000,
+      quarter_4: 210000,
+      yearly: 750000,
+      account: accountingAccounts[3],
+    },
+  ]
+
+  const branchAccountingMaps: Record<number, BranchAccountingMap> = {
+    1: { sale: { deposit_to: 4, payment_account: 1 }, sell_payment: { deposit_to: 1, payment_account: 3 } },
+    2: { sale: { deposit_to: 4, payment_account: 2 }, sell_payment: { deposit_to: 2, payment_account: 3 } },
+    3: { sale: { deposit_to: 4, payment_account: 1 }, sell_payment: { deposit_to: 1, payment_account: 3 } },
+    4: { sale: { deposit_to: 4, payment_account: 2 }, sell_payment: { deposit_to: 2, payment_account: 3 } },
+  }
 
   return {
     users,
+    portalUsers,
+    leads,
+    crmSchedules,
+    crmCampaigns,
+    crmProposals,
+    crmProposalTemplates,
+    crmSettings,
     departments,
     branches,
     warehouses,
@@ -394,6 +708,13 @@ export function createSeedState(): DemoState {
     stocks,
     customers,
     invoices,
+    accountingAccounts,
+    journalEntries,
+    transfers,
+    budgets,
+    mappedInvoiceIds: [1],
+    accountingSettings: { journal_entry_prefix: 'JE', transfer_prefix: 'TR' },
+    branchAccountingMaps,
     counters: {
       department: 3,
       branch: 4,
@@ -402,6 +723,15 @@ export function createSeedState(): DemoState {
       customer: 4,
       installmentItem: 10,
       payment: 1,
+      accountingMapping: 4,
+      accountingLine: 7,
+      accountingAccount: 8,
+      budget: 2,
+      lead: 6,
+      crmSchedule: 4,
+      crmCampaign: 3,
+      crmProposal: 2,
+      crmProposalTemplate: 2,
     },
   }
 }
