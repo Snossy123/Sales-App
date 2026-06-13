@@ -173,7 +173,11 @@ export function DailyBranchReportPage() {
           ))}
         </div>
 
-        <AsyncState isLoading={existingQuery.isLoading} isError={false}>
+        <AsyncState
+          isLoading={existingQuery.isLoading}
+          isError={existingQuery.isError}
+          error={existingQuery.error}
+        >
           {tab === 'transactions' && (
             <div className="grid gap-md lg:grid-cols-2">
               <section className="rounded-lg border border-outline-variant p-md">

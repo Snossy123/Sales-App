@@ -256,7 +256,11 @@ export function reportToForm(report: DailyBranchReport): DailyBranchReportFormSt
     renewal_notes: report.renewal_notes ?? '',
     reviewer_name: report.reviewer_name ?? '',
     branch_manager_name: report.branch_manager_name ?? '',
-    attendance: fillAttendance.slice(0, ATTENDANCE_ROW_COUNT),
+    attendance: fillAttendance.slice(0, ATTENDANCE_ROW_COUNT).map((row) => ({
+      employee_name: row.employee_name ?? '',
+      check_in: row.check_in ?? '',
+      check_out: row.check_out ?? '',
+    })),
     transactions: fillTransactions.slice(0, TRANSACTION_ROW_COUNT).map((row) => ({
       customer_name: row.customer_name ?? '',
       transaction_type: row.transaction_type ?? '',
