@@ -7,6 +7,7 @@ import type {
   Branch,
   BranchAccountingMap,
   CrmCampaign,
+  CrmMarketplace,
   CrmProposal,
   CrmProposalTemplate,
   CrmSchedule,
@@ -64,6 +65,7 @@ export interface DemoState {
   crmCampaigns: CrmCampaign[]
   crmProposals: CrmProposal[]
   crmProposalTemplates: CrmProposalTemplate[]
+  crmMarketplaces: CrmMarketplace[]
   crmSettings: CrmSettings
   hrmSettings: HrmSettings
   employees: Employee[]
@@ -1245,6 +1247,7 @@ export function createSeedState(): DemoState {
     crmCampaigns,
     crmProposals,
     crmProposalTemplates,
+    crmMarketplaces: [],
     crmSettings,
     hrmSettings,
     employees,

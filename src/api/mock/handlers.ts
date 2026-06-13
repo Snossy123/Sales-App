@@ -1924,6 +1924,54 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path === 'crm/marketplace') {
+    return paginate(state.crmMarketplaces ?? [], params)
+  }
+
+  if (m === 'POST' && path === 'crm/marketplace') {
+    const body = data as { marketplace?: string; site_key?: string; site_id?: string }
+    let created: { id: number; marketplace: string; site_key?: string; site_id?: string } | undefined
+    mutateState((s) => {
+      const row = {
+        id: (s.crmMarketplaces?.length ?? 0) + 1,
+        marketplace: body.marketplace ?? 'facebook_leads',
+        site_key: body.site_key ?? null,
+        site_id: body.site_id ?? null,
+      }
+      s.crmMarketplaces = [...(s.crmMarketplaces ?? []), row]
+      created = row
+    })
+    return created
+  }
+
+  if (m === 'DELETE' && path.startsWith('crm/marketplace/')) {
+    const id = Number(path.split('/').pop())
+    mutateState((s) => {
+      s.crmMarketplaces = (s.crmMarketplaces ?? []).filter((row) => row.id !== id)
+    })
+    return { message: 'deleted' }
+  }
+
+  if (m === 'GET' && path === 'crm/order-requests') {
+    const rows = state.salesInvoices.filter((inv) => inv.is_order_request)
+    return paginate(rows, params)
+  }
+
+  if (m === 'PUT' && path.startsWith('crm/order-requests/')) {
+    const id = Number(path.split('/').pop())
+    const body = data as { status?: string }
+    let updated: (typeof state.salesInvoices)[number] | undefined
+    mutateState((s) => {
+      const idx = s.salesInvoices.findIndex((inv) => inv.id === id && inv.is_order_request)
+      if (idx >= 0 && body.status) {
+        s.salesInvoices[idx] = { ...s.salesInvoices[idx], status: body.status }
+        updated = s.salesInvoices[idx]
+      }
+    })
+    if (!updated) return { status: 404, body: { message: 'Not found' } }
+    return updated
+  }
+
   if (m === 'GET' && path === 'crm/settings') {
     return state.crmSettings
   }
