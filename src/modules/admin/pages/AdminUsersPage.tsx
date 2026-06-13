@@ -9,6 +9,7 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { Pagination } from '../../../components/Pagination'
+import { ToastBanner } from '../../../components/ToastBanner'
 import { useAuthStore } from '../../../stores/authStore'
 import { getScopedDepartmentId, isDepartmentAdmin, isSuperAdmin } from '../../../lib/access'
 import { getAdministrationApiFilters } from '../../../lib/administrationScope'
@@ -352,6 +353,7 @@ export function AdminUsersPage() {
           <Pagination
             currentPage={page}
             lastPage={usersQuery.data?.last_page ?? 1}
+            total={usersQuery.data?.total ?? 0}
             onPageChange={setPage}
           />
         )}
