@@ -16,9 +16,12 @@ import { distributorLabel, contractPrintPath } from '../lib/sales'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { StartTourButton } from '../components/tour/StartTourButton'
+import { usePageTour } from '../hooks/usePageTour'
 import { useAuthStore } from '../stores/authStore'
 
 export function PosPage() {
+  usePageTour('pos')
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const branchId = useAuthStore((s) => s.branchId)
@@ -165,6 +168,7 @@ export function PosPage() {
     <SalesPageShell
       title="تعاقد جديد"
       subtitle="إنشاء تعاقد GPS مع رسوم التركيب وإرساله للمراجعة"
+      actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId ? (
         <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
@@ -173,7 +177,7 @@ export function PosPage() {
           <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
             <h2 className="font-semibold text-on-surface">بيانات العملية</h2>
 
-            <div>
+            <div data-tour="pos-distributor">
               <label className="mb-xs block text-sm text-on-surface-variant">الموزع</label>
               <select
                 value={distributorId}
@@ -194,7 +198,7 @@ export function PosPage() {
               </select>
             </div>
 
-            <div>
+            <div data-tour="pos-customer">
               <label className="mb-xs block text-sm text-on-surface-variant">العميل</label>
               <select
                 value={customerId}
@@ -214,7 +218,7 @@ export function PosPage() {
               </select>
             </div>
 
-            <div>
+            <div data-tour="pos-payment">
               <label className="mb-xs block text-sm text-on-surface-variant">طريقة الدفع</label>
               <div className="flex gap-sm">
                 {(['cash', 'installment'] as const).map((term) => (
@@ -311,7 +315,10 @@ export function PosPage() {
             </div>
           </div>
 
-          <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+          <div
+            data-tour="pos-product"
+            className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
+          >
             <h2 className="font-semibold text-on-surface">جهاز GPS</h2>
             <AsyncState
               isLoading={productQuery.isLoading || stockQuery.isLoading}
@@ -385,6 +392,7 @@ export function PosPage() {
               )}
               <button
                 type="submit"
+                data-tour="pos-submit"
                 disabled={
                   checkoutMutation.isPending ||
                   !customerId ||

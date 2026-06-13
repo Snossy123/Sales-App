@@ -4,6 +4,8 @@ import type { CrmDashboardStats, Lead, PaginatedResponse } from '../../../api/ty
 import { AsyncState } from '../../../components/AsyncState'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
+import { StartTourButton } from '../../../components/tour/StartTourButton'
+import { usePageTour } from '../../../hooks/usePageTour'
 import { useAuthStore } from '../../../stores/authStore'
 
 const STAGES = [
@@ -16,6 +18,7 @@ const STAGES = [
 ] as const
 
 export function CrmPipelinePage() {
+  usePageTour('crm')
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
 
@@ -62,6 +65,7 @@ export function CrmPipelinePage() {
       <PageHeader
         title="العملاء المحتملين"
         subtitle="إدارة مراحل العملاء المحتملين وتحويلهم"
+        actions={<StartTourButton tourId="crm" />}
       />
 
       <AsyncState
@@ -69,7 +73,10 @@ export function CrmPipelinePage() {
         isError={dashboardQuery.isError}
         error={dashboardQuery.error}
       >
-        <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          data-tour="crm-kpis"
+          className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4"
+        >
           <KpiCard
             label="متابعات اليوم"
             value={stats?.today_follow_ups ?? 0}
@@ -98,9 +105,10 @@ export function CrmPipelinePage() {
         isError={query.isError}
         error={query.error}
       >
-        <div className="pipeline-scroll flex gap-md overflow-x-auto pb-md">
+        <div data-tour="crm-pipeline" className="pipeline-scroll flex gap-md overflow-x-auto pb-md">
           {STAGES.map((stage) => {
             const leads = leadsByStage(stage.key)
+            const isFirstStage = stage.key === 'new'
             return (
               <div
                 key={stage.key}
@@ -116,6 +124,7 @@ export function CrmPipelinePage() {
                   {leads.map((lead) => (
                     <li
                       key={lead.id}
+                      data-tour={isFirstStage ? 'crm-lead-card' : undefined}
                       className="rounded-lg border border-outline-variant/80 bg-surface-container-lowest p-sm shadow-sm"
                     >
                       <p className="font-medium text-on-surface">{lead.name}</p>

@@ -26,13 +26,17 @@ export const useAuthStore = create<AuthState>()(
       branchId: null,
       warehouseId: null,
 
-      setAuth: (token, user) =>
+      setAuth: (token, user) => {
+        import('./tourStore').then(({ useTourStore }) => {
+          useTourStore.getState().hydrateFromUser(user)
+        })
         set({
           token,
           user,
           departmentId: user.administration_id ?? user.department_id ?? null,
           branchId: user.branch_id ?? user.branch?.id ?? null,
-        }),
+        })
+      },
 
       setDepartmentId: (departmentId) =>
         set({ departmentId, branchId: null, warehouseId: null }),
@@ -43,6 +47,9 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         useOrgSettingsStore.getState().clear()
+        import('./tourStore').then(({ useTourStore }) => {
+          useTourStore.getState().reset()
+        })
         set({
           token: null,
           user: null,

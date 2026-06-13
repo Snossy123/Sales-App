@@ -5,6 +5,7 @@ export interface Column<T> {
   header: string
   render?: (row: T) => ReactNode
   className?: string
+  headerDataTour?: string
 }
 
 interface DataTableProps<T> {
@@ -13,6 +14,7 @@ interface DataTableProps<T> {
   keyExtractor: (row: T) => string | number
   emptyMessage?: string
   striped?: boolean
+  dataTour?: string
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -21,23 +23,31 @@ export function DataTable<T extends Record<string, unknown>>({
   keyExtractor,
   emptyMessage = 'لا توجد بيانات',
   striped = true,
+  dataTour,
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-lg text-center text-on-surface-variant">
+      <div
+        data-tour={dataTour}
+        className="rounded-lg border border-outline-variant bg-surface-container-lowest p-lg text-center text-on-surface-variant"
+      >
         {emptyMessage}
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest">
+    <div
+      data-tour={dataTour}
+      className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest"
+    >
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-outline-variant bg-surface-container-low">
             {columns.map((col) => (
               <th
                 key={col.key}
+                data-tour={col.headerDataTour}
                 className={`px-sm py-sm text-right text-xs font-bold text-on-surface-variant ${col.className ?? ''}`}
               >
                 {col.header}

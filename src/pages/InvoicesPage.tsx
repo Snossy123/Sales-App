@@ -9,7 +9,9 @@ import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { StartTourButton } from '../components/tour/StartTourButton'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTour } from '../hooks/usePageTour'
 import {
   type ApiPaginated,
   formatInvoiceDate,
@@ -24,6 +26,7 @@ import {
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoicesPage() {
+  usePageTour('invoices')
   const branchId = useAuthStore((s) => s.branchId)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -112,8 +115,22 @@ export function InvoicesPage() {
     <SalesPageShell
       title="كل الفواتير"
       subtitle="عرض وتصفية جميع فواتير المبيعات"
+      actions={
+        <>
+          <StartTourButton tourId="invoices" />
+          <Link
+            to="/pos"
+            data-tour="invoices-create"
+            className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+          >
+            <Icon name="add" size={18} />
+            تعاقد جديد
+          </Link>
+        </>
+      }
       filters={
         <FilterBar
+          dataTour="invoices-filters"
           search={invoiceSearch}
           onSearchChange={(value) => {
             setInvoiceSearch(value)
@@ -126,12 +143,14 @@ export function InvoicesPage() {
         />
       }
     >
+      <div data-tour="invoices-results">
       <AsyncState
         isLoading={query.isLoading}
         isError={query.isError}
         error={query.error}
       >
         <DataTable<SalesInvoice & Record<string, unknown>>
+          dataTour="invoices-table"
           data={rows as (SalesInvoice & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
           emptyMessage={hasFilters ? 'لا توجد فواتير مطابقة' : 'لا توجد فواتير'}
@@ -165,6 +184,7 @@ export function InvoicesPage() {
             {
               key: 'status',
               header: 'حالة المراجعة',
+              headerDataTour: 'invoices-status',
               render: (row) => (
                 <StatusBadge
                   status={String(row.status ?? 'confirmed')}
@@ -180,6 +200,7 @@ export function InvoicesPage() {
             {
               key: 'actions',
               header: '',
+              headerDataTour: 'invoices-actions',
               render: (row) => (
                 <Link
                   to={contractPrintPath(row.id)}
@@ -203,6 +224,7 @@ export function InvoicesPage() {
           />
         )}
       </AsyncState>
+      </div>
     </SalesPageShell>
   )
 }

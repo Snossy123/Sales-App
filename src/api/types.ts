@@ -111,8 +111,13 @@ export interface AuthUser {
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
   permissions?: string[]
+  preferences?: UserPreferences
   demo_role?: DemoRole
   workflow_section?: UserSection
+}
+
+export interface UserPreferences {
+  tours?: Partial<Record<string, boolean>>
 }
 
 export interface LoginResponse {

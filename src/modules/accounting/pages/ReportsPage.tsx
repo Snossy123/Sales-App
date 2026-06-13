@@ -12,11 +12,14 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
+import { StartTourButton } from '../../../components/tour/StartTourButton'
+import { usePageTour } from '../../../hooks/usePageTour'
 import { formatMoney, primaryTypeLabels } from '../../../lib/accounting'
 
 type ReportTab = 'trial-balance' | 'balance-sheet' | 'ar-ageing' | 'income-statement'
 
 export function ReportsPage() {
+  usePageTour('reports')
   const [tab, setTab] = useState<ReportTab>('trial-balance')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -79,9 +82,13 @@ export function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="التقارير المحاسبية" subtitle="ميزان المراجعة، الميزانية، أعمار الذمم، وقائمة الدخل" />
+      <PageHeader
+        title="التقارير المحاسبية"
+        subtitle="ميزان المراجعة، الميزانية، أعمار الذمم، وقائمة الدخل"
+        actions={<StartTourButton tourId="reports" />}
+      />
 
-      <div className="mb-md flex flex-wrap gap-xs">
+      <div data-tour="reports-tabs" className="mb-md flex flex-wrap gap-xs">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -97,7 +104,7 @@ export function ReportsPage() {
       </div>
 
       {(tab === 'trial-balance' || tab === 'income-statement') && (
-        <div className="mb-md flex flex-wrap gap-sm">
+        <div data-tour="reports-filters" className="mb-md flex flex-wrap gap-sm">
           <input
             type="date"
             value={startDate}
@@ -115,15 +122,44 @@ export function ReportsPage() {
         </div>
       )}
 
+      {tab === 'balance-sheet' && (
+        <div data-tour="reports-filters" className="mb-md">
+          <input
+            type="date"
+            value={asOfDate}
+            onChange={(e) => setAsOfDate(e.target.value)}
+            className="rounded border border-outline-variant px-sm py-2 text-sm"
+            dir="ltr"
+          />
+        </div>
+      )}
+
+      {tab === 'ar-ageing' && (
+        <div data-tour="reports-filters" className="mb-md">
+          <select
+            value={arGroupBy}
+            onChange={(e) => setArGroupBy(e.target.value as 'contact' | 'due_date')}
+            className="rounded border border-outline-variant px-sm py-2 text-sm"
+          >
+            <option value="contact">حسب العميل</option>
+            <option value="due_date">حسب تاريخ الاستحقاق</option>
+          </select>
+        </div>
+      )}
+
       {tab === 'trial-balance' && (
         <AsyncState isLoading={trialQuery.isLoading} isError={trialQuery.isError} error={trialQuery.error}>
           {trialQuery.data && (
             <>
-              <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2">
+              <div
+                data-tour="reports-summary"
+                className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2"
+              >
                 <KpiCard label="إجمالي المدين" value={formatMoney(trialQuery.data.total_debits)} icon="south_west" />
                 <KpiCard label="إجمالي الدائن" value={formatMoney(trialQuery.data.total_credits)} icon="north_east" />
               </div>
               <DataTable<TrialBalanceRow & Record<string, unknown>>
+                dataTour="reports-table"
                 data={trialQuery.data.accounts as (TrialBalanceRow & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.id}
                 columns={[
@@ -146,19 +182,13 @@ export function ReportsPage() {
 
       {tab === 'balance-sheet' && (
         <>
-          <div className="mb-md">
-            <input
-              type="date"
-              value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
-              className="rounded border border-outline-variant px-sm py-2 text-sm"
-              dir="ltr"
-            />
-          </div>
           <AsyncState isLoading={balanceSheetQuery.isLoading} isError={balanceSheetQuery.isError} error={balanceSheetQuery.error}>
             {balanceSheetQuery.data && (
               <>
-                <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+                <div
+                  data-tour="reports-summary"
+                  className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4"
+                >
                   <KpiCard label="الأصول" value={formatMoney(balanceSheetQuery.data.assets)} icon="account_balance_wallet" />
                   <KpiCard label="الخصوم" value={formatMoney(balanceSheetQuery.data.liabilities)} icon="credit_card" />
                   <KpiCard label="حقوق الملكية" value={formatMoney(balanceSheetQuery.data.equity)} icon="savings" />
@@ -183,19 +213,10 @@ export function ReportsPage() {
 
       {tab === 'ar-ageing' && (
         <>
-          <div className="mb-md">
-            <select
-              value={arGroupBy}
-              onChange={(e) => setArGroupBy(e.target.value as 'contact' | 'due_date')}
-              className="rounded border border-outline-variant px-sm py-2 text-sm"
-            >
-              <option value="contact">حسب العميل</option>
-              <option value="due_date">حسب تاريخ الاستحقاق</option>
-            </select>
-          </div>
           <AsyncState isLoading={arQuery.isLoading} isError={arQuery.isError} error={arQuery.error}>
             {arQuery.data && arGroupBy === 'contact' && (
               <DataTable<ArAgeingContactRow & Record<string, unknown>>
+                dataTour="reports-table"
                 data={(arQuery.data.report as ArAgeingContactRow[]).map((row) => ({ ...row })) as (ArAgeingContactRow & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.contact_id ?? row.name}
                 emptyMessage="لا توجد ذمم مدينة"
@@ -225,7 +246,7 @@ export function ReportsPage() {
         <AsyncState isLoading={incomeQuery.isLoading} isError={incomeQuery.isError} error={incomeQuery.error}>
           {incomeQuery.data && (
             <>
-              <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-3">
+              <div data-tour="reports-summary" className="mb-md grid grid-cols-1 gap-md sm:grid-cols-3">
                 <KpiCard label="إجمالي الإيرادات" value={formatMoney(incomeQuery.data.total_income)} icon="trending_up" />
                 <KpiCard label="إجمالي المصروفات" value={formatMoney(incomeQuery.data.total_expenses)} icon="trending_down" />
                 <KpiCard label="صافي الربح" value={formatMoney(incomeQuery.data.net_profit)} icon="payments" />
@@ -233,6 +254,7 @@ export function ReportsPage() {
               <DataTable<
                 IncomeStatementReport['lines'][number] & Record<string, unknown>
               >
+                dataTour="reports-table"
                 data={incomeQuery.data.lines as (IncomeStatementReport['lines'][number] & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.id}
                 columns={[

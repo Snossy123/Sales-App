@@ -6,6 +6,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { KpiCard } from '../../../components/KpiCard'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
+import { StartTourButton } from '../../../components/tour/StartTourButton'
+import { usePageTour } from '../../../hooks/usePageTour'
 import { useAuthStore } from '../../../stores/authStore'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
@@ -30,6 +32,7 @@ async function fetchDashboard(branchId: number | null): Promise<DashboardResult>
 }
 
 export function HrmDashboardPage() {
+  usePageTour('hrm')
   const branchId = useAuthStore((s) => s.branchId)
 
   const query = useQuery({
@@ -44,12 +47,16 @@ export function HrmDashboardPage() {
       <PageHeader
         title="الموارد البشرية"
         subtitle="لوحة متابعة الموظفين والحضور والإجازات"
+        actions={<StartTourButton tourId="hrm" />}
       />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {result?.mode === 'dashboard' && (
           <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
+            <div
+              data-tour="hrm-kpis"
+              className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4"
+            >
               <KpiCard label="حاضر اليوم" value={result.stats.present_today} icon="how_to_reg" />
               <KpiCard label="مسجل حضور الآن" value={result.stats.clocked_in_now} icon="schedule" />
               <KpiCard label="إجازات معلقة" value={result.stats.pending_leaves} icon="event_busy" />
@@ -60,9 +67,9 @@ export function HrmDashboardPage() {
               />
             </div>
 
-            {result.stats.upcoming_leaves.length > 0 && (
-              <div className="mb-md">
+            <div data-tour="hrm-leaves" className="mb-md">
                 <h2 className="mb-sm text-lg font-semibold text-on-surface">إجازات قادمة</h2>
+                {result.stats.upcoming_leaves.length > 0 ? (
                 <DataTable
                   data={result.stats.upcoming_leaves as (typeof result.stats.upcoming_leaves[0] & Record<string, unknown>)[]}
                   keyExtractor={(row) => row.id}
@@ -86,14 +93,19 @@ export function HrmDashboardPage() {
                     },
                   ]}
                 />
+                ) : (
+                  <p className="text-sm text-on-surface-variant">لا توجد إجازات قادمة</p>
+                )}
               </div>
-            )}
           </>
         )}
 
         {result?.mode === 'employees' && (
           <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-3">
+            <div
+              data-tour="hrm-kpis"
+              className="mb-md grid grid-cols-1 gap-md sm:grid-cols-3"
+            >
               <KpiCard label="إجمالي الموظفين" value={result.employees.length} icon="groups" />
               <KpiCard
                 label="نشط"
@@ -108,6 +120,7 @@ export function HrmDashboardPage() {
             </div>
 
             <DataTable<Employee & Record<string, unknown>>
+              dataTour="hrm-employees"
               data={result.employees as (Employee & Record<string, unknown>)[]}
               keyExtractor={(row) => row.id}
               columns={[

@@ -20,6 +20,7 @@ interface FilterBarProps {
   selects?: FilterSelectConfig[]
   onClear?: () => void
   showClear?: boolean
+  dataTour?: string
 }
 
 const inputClass =
@@ -32,9 +33,13 @@ export function FilterBar({
   selects = [],
   onClear,
   showClear = false,
+  dataTour,
 }: FilterBarProps) {
   return (
-    <div className="mb-md flex flex-wrap items-end gap-sm rounded-lg border border-outline-variant bg-surface-container-low p-sm">
+    <div
+      data-tour={dataTour}
+      className="mb-md flex flex-wrap items-end gap-sm rounded-lg border border-outline-variant bg-surface-container-low p-sm"
+    >
       {onSearchChange !== undefined && (
         <div className="min-w-[200px] flex-1">
           <label className="mb-xs block text-xs font-medium text-on-surface-variant">

@@ -6,9 +6,12 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
+import { StartTourButton } from '../../../components/tour/StartTourButton'
+import { usePageTour } from '../../../hooks/usePageTour'
 import { formatDate, formatMoney, primaryTypeLabels } from '../../../lib/accounting'
 
 export function AccountingDashboardPage() {
+  usePageTour('accounting')
   const query = useQuery({
     queryKey: ['accounting', 'dashboard'],
     queryFn: async () => {
@@ -24,12 +27,16 @@ export function AccountingDashboardPage() {
       <PageHeader
         title="المحاسبة"
         subtitle="نظرة عامة على الحسابات والقيود والمعاملات غير المربوطة"
+        actions={<StartTourButton tourId="accounting" />}
       />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {dashboard && (
           <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+            <div
+              data-tour="accounting-kpis"
+              className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4"
+            >
               <KpiCard label="الحسابات النشطة" value={dashboard.total_accounts} icon="account_balance" />
               <KpiCard label="قيود اليومية" value={dashboard.journal_entries_count} icon="edit_note" />
               <KpiCard label="التحويلات" value={dashboard.transfers_count} icon="swap_horiz" />
@@ -43,7 +50,10 @@ export function AccountingDashboardPage() {
             </div>
 
             <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+              <div
+                data-tour="accounting-balances"
+                className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
+              >
                 <h2 className="mb-sm text-sm font-bold text-on-surface">الأرصدة حسب النوع</h2>
                 <div className="flex flex-col gap-xs">
                   {Object.entries(dashboard.balances_by_type).map(([type, balance]) => (
@@ -66,7 +76,10 @@ export function AccountingDashboardPage() {
               </div>
 
               {dashboard.unmapped_sales > 0 && (
-                <div className="rounded-lg border border-error/30 bg-error-container/20 p-md">
+                <div
+                  data-tour="accounting-unmapped"
+                  className="rounded-lg border border-error/30 bg-error-container/20 p-md"
+                >
                   <p className="mb-sm text-sm font-bold text-on-surface">
                     {dashboard.unmapped_sales} فاتورة مبيعات بانتظار الربط المحاسبي
                   </p>
@@ -80,6 +93,7 @@ export function AccountingDashboardPage() {
               )}
             </div>
 
+            <div data-tour="accounting-recent">
             <h2 className="mb-sm text-lg font-bold text-on-surface">آخر القيود</h2>
             <DataTable<AccountingAccTransMapping & Record<string, unknown>>
               data={(dashboard.recent_entries ?? []) as (AccountingAccTransMapping & Record<string, unknown>)[]}
@@ -106,6 +120,7 @@ export function AccountingDashboardPage() {
                 },
               ]}
             />
+            </div>
           </>
         )}
       </AsyncState>

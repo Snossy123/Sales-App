@@ -26,10 +26,10 @@ import type {
   TransactionMapPayload,
   TrialBalanceReport,
 } from '../types'
-import { loadState, mutateState, resetState } from './store'
+import { loadState, mutateState, resetState, saveState } from './store'
 import type { AuthUser } from '../types'
 import { getScopedDepartmentId, isSuperAdmin } from '../../lib/access'
-import type { DemoState } from './seed'
+import type { DemoState, DemoUser } from './seed'
 import { tryHandleHrmRequest } from './hrmHandlers'
 
 interface MockContext {
@@ -309,6 +309,32 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'auth/logout') {
     return { message: 'ok' }
+  }
+
+  if (m === 'GET' && path === 'auth/me') {
+    if (!ctx.user) throw mockError(401, 'غير مصرح')
+    const { password: _, ...authUser } = ctx.user as DemoUser & { password?: string }
+    return authUser
+  }
+
+  if (m === 'PATCH' && path === 'auth/me/preferences') {
+    if (!ctx.user) throw mockError(401, 'غير مصرح')
+    const body = (data ?? {}) as { tours?: Record<string, boolean> }
+    const userIndex = state.users.findIndex((u) => u.id === ctx.user!.id)
+    if (userIndex < 0) throw mockError(404, 'المستخدم غير موجود')
+
+    const currentPrefs = state.users[userIndex].preferences ?? {}
+    state.users[userIndex].preferences = {
+      ...currentPrefs,
+      tours: {
+        ...(currentPrefs.tours ?? {}),
+        ...(body.tours ?? {}),
+      },
+    }
+    saveState(state)
+
+    const { password: _, ...authUser } = state.users[userIndex]
+    return authUser
   }
 
   if (m === 'GET' && path === 'dashboard') {

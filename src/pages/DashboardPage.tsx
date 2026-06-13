@@ -10,7 +10,9 @@ import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
+import { StartTourButton } from '../components/tour/StartTourButton'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTour } from '../hooks/usePageTour'
 import { BarChartPanel } from '../components/charts/BarChartPanel'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import {
@@ -42,6 +44,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 }
 
 export function DashboardPage() {
+  usePageTour('dashboard')
   const user = useAuthStore((s) => s.user)
   const general = useOrgSettingsStore((s) => s.general)
   const currency = general?.currency ?? 'EGP'
@@ -100,10 +103,14 @@ export function DashboardPage() {
       <PageHeader
         title="لوحة التحكم"
         subtitle={`${todayLabel} — نظرة عامة على المبيعات والمخزون والأقساط`}
+        actions={<StartTourButton tourId="dashboard" />}
       />
 
       {visibleActions.length > 0 && (
-        <div className="mb-md grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-5">
+        <div
+          data-tour="dashboard-quick-actions"
+          className="mb-md grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-5"
+        >
           {visibleActions.map((action) => (
             <Link
               key={action.to}
@@ -136,7 +143,10 @@ export function DashboardPage() {
             )}
 
             {hasOverdue && (
-              <section className="mb-md rounded-xl border border-error/30 bg-error/5 p-md">
+              <section
+                data-tour="dashboard-overdue"
+                className="mb-md rounded-xl border border-error/30 bg-error/5 p-md"
+              >
                 <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
                   <div className="flex items-center gap-sm">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-error/15 text-error">
@@ -204,7 +214,10 @@ export function DashboardPage() {
             )}
 
             <SectionTitle>المخزون والمبيعات</SectionTitle>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+            <div
+              data-tour="dashboard-kpis"
+              className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4"
+            >
               <KpiCard label="مخزون GPS المتاح" value={query.data.available_units} icon="gps_fixed" />
               <KpiCard
                 label="مبيعات اليوم"
@@ -241,7 +254,10 @@ export function DashboardPage() {
               />
             </div>
 
-            <div className="mb-md grid grid-cols-1 gap-md xl:grid-cols-3">
+            <div
+              data-tour="dashboard-charts"
+              className="mb-md grid grid-cols-1 gap-md xl:grid-cols-3"
+            >
               {(role === 'super_admin' || role === 'admin') && stockBarData.length > 0 && (
                 <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق" className="xl:col-span-1">
                   <BarChartPanel

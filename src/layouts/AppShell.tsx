@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { SidebarNav } from '../components/SidebarNav'
+import { TourProvider } from '../components/tour/TourProvider'
 import { useAuthStore } from '../stores/authStore'
 import { useContextData } from '../hooks/useContextData'
 import { useOrgSettingsBootstrap } from '../hooks/useOrgSettings'
@@ -36,6 +37,7 @@ export function AppShell() {
   }
 
   return (
+    <TourProvider>
     <div className="flex h-screen overflow-hidden bg-background">
       <aside className="fixed right-0 z-50 flex h-full w-64 flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
@@ -116,5 +118,6 @@ export function AppShell() {
         </div>
       </main>
     </div>
+    </TourProvider>
   )
 }
