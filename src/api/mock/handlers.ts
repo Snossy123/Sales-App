@@ -317,7 +317,7 @@ export function handleMockRequest(
     return authUser
   }
 
-  if (m === 'PATCH' && path === 'auth/me/preferences') {
+  if ((m === 'PATCH' || m === 'POST') && path === 'auth/me/preferences') {
     if (!ctx.user) throw mockError(401, 'غير مصرح')
     const body = (data ?? {}) as { tours?: Record<string, boolean> }
     const userIndex = state.users.findIndex((u) => u.id === ctx.user!.id)
