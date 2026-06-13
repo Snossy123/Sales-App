@@ -103,6 +103,32 @@ export interface DashboardStats {
   overdue_installments: number
   due_this_week: number
   outstanding_balance: number
+  recent_invoices?: DashboardInvoiceSummary[]
+  overdue_installments_list?: DashboardInstallmentSummary[]
+  pending_review_invoices?: DashboardInvoiceSummary[]
+}
+
+export interface DashboardInvoiceSummary {
+  id: number
+  invoice_number?: string
+  invoice_date: string
+  total: string | number
+  status: string
+  payment_term?: string
+  customer?: { id: number; name: string; phone?: string }
+}
+
+export interface DashboardInstallmentSummary {
+  id: number
+  due_date: string
+  amount: string | number
+  paid_amount: string | number
+  status: string
+  sales_invoice?: {
+    id: number
+    invoice_number?: string
+    customer?: { id: number; name: string; phone?: string }
+  }
 }
 
 export interface GpsProduct {

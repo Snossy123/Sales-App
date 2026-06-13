@@ -25,17 +25,21 @@ export function SidebarNav({ entries, user }: SidebarNavProps) {
   }, [entries, pathname, user])
 
   return (
-    <nav className="flex flex-col gap-xs">
-      {entries.map((entry) => {
+    <nav className="flex flex-col gap-sm py-xs">
+      {entries.map((entry, index) => {
         if (entry.type === 'item') {
           return (
-            <SidebarNavItem
-              key={`${entry.item.label}-${entry.item.to}`}
-              item={entry.item}
-              user={user}
-              pathname={pathname}
-              variant="standalone"
-            />
+            <div key={`${entry.item.label}-${entry.item.to}`}>
+              <SidebarNavItem
+                item={entry.item}
+                user={user}
+                pathname={pathname}
+                variant="standalone"
+              />
+              {index === 0 && entries.length > 1 && (
+                <div className="my-sm border-b border-outline-variant/60" />
+              )}
+            </div>
           )
         }
 

@@ -20,12 +20,15 @@ export function SidebarNavItem({ item, user, pathname, variant = 'standalone' }:
       <NavLink
         to={navTo}
         end={item.end}
-        className={`block rounded-md py-xs pr-md pl-sm text-sm transition-all ${
+        className={`flex items-center gap-xs rounded-md py-xs pr-sm pl-md text-sm transition-all ${
           isActive
-            ? 'border-r-4 border-primary bg-secondary-container font-bold text-on-secondary-container'
-            : 'text-on-surface-variant hover:bg-surface-container-high'
+            ? 'border-r-[3px] border-primary bg-primary/10 font-semibold text-primary'
+            : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
         }`}
       >
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? 'bg-primary' : 'bg-outline-variant'}`}
+        />
         {item.label}
       </NavLink>
     )
@@ -35,10 +38,10 @@ export function SidebarNavItem({ item, user, pathname, variant = 'standalone' }:
     <NavLink
       to={navTo}
       end={item.end}
-      className={`flex items-center gap-base rounded-lg p-sm transition-all ${
+      className={`flex items-center gap-base rounded-xl px-sm py-sm transition-all ${
         isActive
-          ? 'scale-[0.98] border-r-4 border-primary bg-secondary-container font-bold text-on-secondary-container'
-          : 'text-on-surface-variant hover:bg-surface-container-high'
+          ? 'border-r-[3px] border-primary bg-primary/10 font-bold text-primary'
+          : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
       }`}
     >
       <Icon name={item.icon} filled={isActive} className="no-flip" />

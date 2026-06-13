@@ -31,6 +31,7 @@ export interface InventoryKpis {
 export interface PageInsight {
   message: string
   variant: InsightVariant
+  to?: string
 }
 
 function deptName(d: Department) {
@@ -299,20 +300,9 @@ export function computeDashboardStockBarData(departments: Department[]) {
 }
 
 export function computeDashboardInstallmentDonut(stats: DashboardStats): DonutSlice[] {
-  const paid = Math.max(
-    0,
-    stats.outstanding_balance > 0
-      ? Math.round(stats.outstanding_balance * 0.4)
-      : 0,
-  )
   return [
-    { label: 'متأخرة', value: stats.overdue_installments, color: 'var(--color-chart-3)' },
+    { label: 'متأخرة', value: stats.overdue_installments, color: 'var(--color-error)' },
     { label: 'مستحقة هذا الأسبوع', value: stats.due_this_week, color: 'var(--color-chart-4)' },
-    {
-      label: 'رصيد مستحق',
-      value: Math.round(stats.outstanding_balance / 1000) || paid,
-      color: 'var(--color-chart-1)',
-    },
   ].filter((s) => s.value > 0)
 }
 
@@ -333,6 +323,7 @@ export function computeDashboardInsights(
     insights.push({
       message: `يوجد ${stats.overdue_installments} قسط متأخر يحتاج متابعة`,
       variant: 'warning',
+      to: '/installments',
     })
   }
 
@@ -340,6 +331,7 @@ export function computeDashboardInsights(
     insights.push({
       message: `${stats.pending_reviews} فاتورة بانتظار المراجعة`,
       variant: 'info',
+      to: '/invoices/review',
     })
   }
 

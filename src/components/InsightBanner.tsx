@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Icon } from './Icon'
 
 export type InsightVariant = 'info' | 'warning' | 'success' | 'error'
@@ -5,6 +6,7 @@ export type InsightVariant = 'info' | 'warning' | 'success' | 'error'
 interface InsightBannerProps {
   message: string
   variant?: InsightVariant
+  to?: string
 }
 
 const variantStyles: Record<InsightVariant, string> = {
@@ -21,13 +23,24 @@ const variantIcons: Record<InsightVariant, string> = {
   error: 'error',
 }
 
-export function InsightBanner({ message, variant = 'info' }: InsightBannerProps) {
-  return (
-    <div
-      className={`flex items-start gap-sm rounded-lg border px-sm py-2 text-sm ${variantStyles[variant]}`}
-    >
+export function InsightBanner({ message, variant = 'info', to }: InsightBannerProps) {
+  const content = (
+    <>
       <Icon name={variantIcons[variant]} size={18} className="mt-0.5 shrink-0" />
-      <p>{message}</p>
-    </div>
+      <p className="flex-1">{message}</p>
+      {to && <Icon name="chevron_left" size={18} className="shrink-0 opacity-70" />}
+    </>
   )
+
+  const className = `flex items-start gap-sm rounded-lg border px-sm py-2 text-sm transition-colors ${variantStyles[variant]} ${to ? 'hover:opacity-90' : ''}`
+
+  if (to) {
+    return (
+      <Link to={to} className={className}>
+        {content}
+      </Link>
+    )
+  }
+
+  return <div className={className}>{content}</div>
 }

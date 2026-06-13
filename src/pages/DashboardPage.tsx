@@ -1,12 +1,16 @@
-import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { DashboardStats, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
+import { DataTable } from '../components/DataTable'
+import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
+import { StatusBadge } from '../components/StatusBadge'
 import { BarChartPanel } from '../components/charts/BarChartPanel'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import {
@@ -25,10 +29,29 @@ function formatMoney(value: number) {
   }).format(value)
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium' }).format(new Date(value))
+}
+
+const quickActions = [
+  { to: '/pos', icon: 'point_of_sale', label: 'بيع جديد', roles: ['super_admin', 'admin', 'sales'] },
+  { to: '/customers', icon: 'group_add', label: 'عميل جديد', roles: ['super_admin', 'admin', 'sales', 'collector'] },
+  { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
+  { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
+  { to: '/inventory', icon: 'inventory_2', label: 'المخزون', roles: ['super_admin', 'admin', 'sales'] },
+]
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="mb-sm text-sm font-bold tracking-wide text-on-surface-variant">{children}</h2>
+  )
+}
+
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
   const showReviews = role === 'super_admin' || role === 'admin' || role === 'reviewer'
+  const visibleActions = quickActions.filter((a) => a.roles.includes(role))
 
   const query = useQuery({
     queryKey: ['dashboard'],
@@ -46,6 +69,7 @@ export function DashboardPage() {
       })
       return data.data
     },
+    enabled: role === 'super_admin' || role === 'admin',
   })
 
   const stockBarData = useMemo(
@@ -59,65 +83,87 @@ export function DashboardPage() {
   )
 
   const insights = useMemo(
-    () =>
-      query.data
-        ? computeDashboardInsights(query.data, showReviews)
-        : [],
+    () => (query.data ? computeDashboardInsights(query.data, showReviews) : []),
     [query.data, showReviews],
   )
+
+  const todayLabel = new Intl.DateTimeFormat('ar-EG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date())
 
   return (
     <div>
       <PageHeader
         title="لوحة التحكم"
-        subtitle="نظرة عامة على مخزون GPS والمبيعات والأقساط"
+        subtitle={`${todayLabel} — نظرة عامة على المبيعات والمخزون والأقساط`}
       />
 
-      <AsyncState
-        isLoading={query.isLoading}
-        isError={query.isError}
-        error={query.error}
-      >
+      {visibleActions.length > 0 && (
+        <div className="mb-md grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-5">
+          {visibleActions.map((action) => (
+            <Link
+              key={action.to}
+              to={action.to}
+              className="flex items-center gap-sm rounded-xl border border-outline-variant bg-surface-container-lowest px-sm py-sm text-sm font-medium text-on-surface transition-colors hover:border-primary/30 hover:bg-primary/5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon name={action.icon} size={20} className="no-flip" />
+              </div>
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {query.data && (
           <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard
-                label="مخزون GPS المتاح"
-                value={query.data.available_units}
-                icon="gps_fixed"
-              />
-              {showReviews && (
-                <KpiCard
-                  label="فواتير بانتظار المراجعة"
-                  value={query.data.pending_reviews ?? 0}
-                  icon="fact_check"
-                />
-              )}
+            {insights.length > 0 && (
+              <div className="mb-md space-y-sm">
+                {insights.map((insight) => (
+                  <InsightBanner
+                    key={insight.message}
+                    message={insight.message}
+                    variant={insight.variant}
+                    to={insight.to}
+                  />
+                ))}
+              </div>
+            )}
+
+            <SectionTitle>المخزون والمبيعات</SectionTitle>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+              <KpiCard label="مخزون GPS المتاح" value={query.data.available_units} icon="gps_fixed" />
               <KpiCard
                 label="مبيعات اليوم"
                 value={formatMoney(query.data.sales_today)}
                 icon="payments"
               />
-              <KpiCard
-                label="فواتير اليوم"
-                value={query.data.invoices_today}
-                icon="receipt_long"
-              />
-              <KpiCard
-                label="إجمالي العملاء"
-                value={query.data.customers_count}
-                icon="group"
-              />
+              <KpiCard label="فواتير اليوم" value={query.data.invoices_today} icon="receipt_long" />
+              <KpiCard label="إجمالي العملاء" value={query.data.customers_count} icon="group" />
+            </div>
+
+            <SectionTitle>الأقساط والتحصيل</SectionTitle>
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+              {showReviews && (
+                <KpiCard
+                  label="فواتير بانتظار المراجعة"
+                  value={query.data.pending_reviews ?? 0}
+                  icon="fact_check"
+                  trend={(query.data.pending_reviews ?? 0) > 0 ? 'تحتاج مراجعة' : undefined}
+                  trendUp={false}
+                />
+              )}
               <KpiCard
                 label="أقساط متأخرة"
                 value={query.data.overdue_installments}
                 icon="warning"
+                trend={query.data.overdue_installments > 0 ? 'يتطلب متابعة' : undefined}
+                trendUp={false}
               />
-              <KpiCard
-                label="مستحقة هذا الأسبوع"
-                value={query.data.due_this_week}
-                icon="event"
-              />
+              <KpiCard label="مستحقة هذا الأسبوع" value={query.data.due_this_week} icon="event" />
               <KpiCard
                 label="رصيد مستحق"
                 value={formatMoney(query.data.outstanding_balance)}
@@ -125,29 +171,138 @@ export function DashboardPage() {
               />
             </div>
 
-            <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق">
-                <BarChartPanel
-                  data={stockBarData}
-                  xKey="name"
-                  series={[
-                    { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
-                    { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
-                  ]}
-                />
-              </ChartCard>
-              <ChartCard title="ملخص الأقساط" subtitle="متأخرة / مستحقة / رصيد">
-                <DonutChartPanel data={installmentDonut} />
-              </ChartCard>
+            <div className="mb-md grid grid-cols-1 gap-md xl:grid-cols-3">
+              {(role === 'super_admin' || role === 'admin') && stockBarData.length > 0 && (
+                <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق" className="xl:col-span-1">
+                  <BarChartPanel
+                    data={stockBarData}
+                    xKey="name"
+                    series={[
+                      { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
+                      { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
+                    ]}
+                  />
+                </ChartCard>
+              )}
+
+              {installmentDonut.length > 0 && (
+                <ChartCard title="ملخص الأقساط" subtitle="حسب الحالة" className="xl:col-span-1">
+                  <DonutChartPanel data={installmentDonut} />
+                </ChartCard>
+              )}
+
+              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md xl:col-span-1">
+                <div className="mb-sm flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-on-surface">فواتير بانتظار المراجعة</h3>
+                  {showReviews && (query.data.pending_reviews ?? 0) > 0 && (
+                    <Link to="/invoices/review" className="text-xs font-medium text-primary hover:underline">
+                      عرض الكل
+                    </Link>
+                  )}
+                </div>
+                {(query.data.pending_review_invoices ?? []).length > 0 ? (
+                  <div className="flex flex-col gap-xs">
+                    {query.data.pending_review_invoices!.map((inv) => (
+                      <Link
+                        key={inv.id}
+                        to="/invoices/review"
+                        className="flex items-center justify-between rounded-lg bg-surface-container-low px-sm py-xs text-sm transition-colors hover:bg-surface-container"
+                      >
+                        <div>
+                          <p className="font-medium text-on-surface">{inv.customer?.name ?? '—'}</p>
+                          <p className="text-xs text-on-surface-variant">{inv.invoice_number}</p>
+                        </div>
+                        <span className="tabular-nums font-medium text-on-surface">
+                          {formatMoney(Number(inv.total))}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="py-md text-center text-sm text-on-surface-variant">لا توجد فواتير معلقة</p>
+                )}
+              </div>
             </div>
 
-            {insights.length > 0 && (
-              <div className="space-y-md">
-                {insights.map((insight) => (
-                  <InsightBanner key={insight.message} message={insight.message} variant={insight.variant} />
-                ))}
+            <div className="grid grid-cols-1 gap-md lg:grid-cols-2">
+              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+                <div className="mb-sm flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-on-surface">آخر الفواتير</h3>
+                  <Link to="/invoices" className="text-xs font-medium text-primary hover:underline">
+                    عرض الكل
+                  </Link>
+                </div>
+                <DataTable<Record<string, unknown>>
+                  data={(query.data.recent_invoices ?? []) as unknown as Record<string, unknown>[]}
+                  keyExtractor={(row) => Number(row.id)}
+                  columns={[
+                    {
+                      key: 'invoice_number',
+                      header: 'الفاتورة',
+                      render: (row) => String(row.invoice_number ?? '—'),
+                    },
+                    {
+                      key: 'customer',
+                      header: 'العميل',
+                      render: (row) =>
+                        (row.customer as { name?: string } | undefined)?.name ?? '—',
+                    },
+                    {
+                      key: 'total',
+                      header: 'الإجمالي',
+                      render: (row) => formatMoney(Number(row.total)),
+                    },
+                    {
+                      key: 'status',
+                      header: 'الحالة',
+                      render: (row) => (
+                        <StatusBadge status={String(row.status)} />
+                      ),
+                    },
+                  ]}
+                  emptyMessage="لا توجد فواتير"
+                />
               </div>
-            )}
+
+              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+                <div className="mb-sm flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-on-surface">أقساط متأخرة</h3>
+                  <Link to="/installments" className="text-xs font-medium text-primary hover:underline">
+                    عرض الكل
+                  </Link>
+                </div>
+                <DataTable<Record<string, unknown>>
+                  data={(query.data.overdue_installments_list ?? []) as unknown as Record<string, unknown>[]}
+                  keyExtractor={(row) => Number(row.id)}
+                  columns={[
+                    {
+                      key: 'customer',
+                      header: 'العميل',
+                      render: (row) => {
+                        const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
+                        return inv?.customer?.name ?? '—'
+                      },
+                    },
+                    {
+                      key: 'due_date',
+                      header: 'تاريخ الاستحقاق',
+                      render: (row) => formatDate(String(row.due_date)),
+                    },
+                    {
+                      key: 'amount',
+                      header: 'المبلغ',
+                      render: (row) => formatMoney(Number(row.amount)),
+                    },
+                    {
+                      key: 'status',
+                      header: 'الحالة',
+                      render: () => <StatusBadge status="overdue" />,
+                    },
+                  ]}
+                  emptyMessage="لا توجد أقساط متأخرة"
+                />
+              </div>
+            </div>
           </>
         )}
       </AsyncState>

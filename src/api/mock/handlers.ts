@@ -291,6 +291,44 @@ export function handleMockRequest(
       overdue_installments: overdue,
       due_this_week: dueWeek,
       outstanding_balance: outstanding,
+      recent_invoices: branchInvoices.slice(0, 5).map((inv) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        invoice_date: inv.invoice_date,
+        total: inv.total,
+        status: inv.status ?? 'pending_review',
+        payment_term: inv.payment_term,
+        customer: state.customers.find((c) => c.id === inv.customer_id),
+      })),
+      pending_review_invoices: branchInvoices
+        .filter((i) => i.status === 'pending_review')
+        .slice(0, 5)
+        .map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number,
+          invoice_date: inv.invoice_date,
+          total: inv.total,
+          status: inv.status ?? 'pending_review',
+          payment_term: inv.payment_term,
+          customer: state.customers.find((c) => c.id === inv.customer_id),
+        })),
+      overdue_installments_list: confirmed.flatMap((inv) =>
+        (inv.installment_plan?.items ?? [])
+          .filter((item) => item.status === 'overdue')
+          .slice(0, 5)
+          .map((item) => ({
+            id: item.id,
+            due_date: item.due_date,
+            amount: item.amount,
+            paid_amount: item.paid_amount,
+            status: item.status,
+            sales_invoice: {
+              id: inv.id,
+              invoice_number: inv.invoice_number,
+              customer: state.customers.find((c) => c.id === inv.customer_id),
+            },
+          })),
+      ).slice(0, 5),
     }
     return stats
   }

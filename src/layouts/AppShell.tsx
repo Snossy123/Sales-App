@@ -27,14 +27,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <aside className="fixed right-0 z-50 flex h-full w-64 flex-col border-l border-outline-variant bg-surface-container-lowest">
+      <aside className="fixed right-0 z-50 flex h-full w-64 flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
-          <div className="mb-lg flex items-center gap-base">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
+          <div className="mb-md flex items-center gap-base rounded-xl bg-primary/5 p-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-on-primary shadow-sm">
               <Icon name="gps_fixed" filled size={22} className="no-flip" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-black text-primary">نظام GPS</span>
+              <span className="text-base font-black text-primary">نظام GPS</span>
               <span className="text-xs text-on-surface-variant">بيع وتقسيط الأجهزة</span>
             </div>
           </div>

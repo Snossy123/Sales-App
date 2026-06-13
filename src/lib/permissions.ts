@@ -67,7 +67,6 @@ export const navEntries: NavEntry[] = [
       icon: 'point_of_sale',
       items: [
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/pos', icon: 'point_of_sale', label: 'نقطة البيع', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'reviewer'] },
         { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin'] },
         { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
@@ -82,7 +81,7 @@ export const navEntries: NavEntry[] = [
       label: 'المحاسبة',
       icon: 'account_balance',
       items: [
-        { to: '/accounting', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'accountant'] },
+        { to: '/accounting', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'accountant'] },
         { to: '/accounting/chart-of-accounts', icon: 'list_alt', label: 'دليل الحسابات', roles: ['super_admin', 'accountant'] },
         { to: '/accounting/journal-entries', icon: 'edit_note', label: 'قيود اليومية', roles: ['super_admin', 'accountant'] },
         { to: '/accounting/transfers', icon: 'swap_horiz', label: 'التحويلات', roles: ['super_admin', 'accountant'] },
@@ -100,7 +99,7 @@ export const navEntries: NavEntry[] = [
       label: 'الموارد البشرية',
       icon: 'groups',
       items: [
-        { to: '/hrm', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'hr_manager'] },
         { to: '/hrm/employees', icon: 'badge', label: 'الموظفون', roles: ['super_admin', 'hr_manager'] },
         { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'hr_manager'] },
         { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'hr_manager'] },

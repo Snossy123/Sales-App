@@ -20,14 +20,21 @@ export function SidebarNavGroup({ group, user, pathname, isOpen, onToggle }: Sid
       <button
         type="button"
         onClick={onToggle}
-        className={`flex w-full items-center justify-between gap-base rounded-lg p-sm transition-all ${
+        aria-expanded={isOpen}
+        className={`flex w-full items-center justify-between gap-base rounded-xl px-sm py-sm transition-all ${
           isActive
             ? 'bg-surface-container-low font-semibold text-on-surface'
-            : 'text-on-surface-variant hover:bg-surface-container-high'
+            : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
         }`}
       >
         <div className="flex items-center gap-base">
-          <Icon name={group.icon} filled={isActive} className="no-flip" />
+          <div
+            className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+              isActive ? 'bg-primary/15 text-primary' : 'bg-surface-container-high text-on-surface-variant'
+            }`}
+          >
+            <Icon name={group.icon} filled={isActive} size={18} className="no-flip" />
+          </div>
           <span className="text-sm font-medium">{group.label}</span>
         </div>
         <Icon
@@ -38,7 +45,7 @@ export function SidebarNavGroup({ group, user, pathname, isOpen, onToggle }: Sid
       </button>
 
       {isOpen && (
-        <div className="flex flex-col gap-xs pr-sm">
+        <div className="mr-sm flex flex-col gap-xs border-r border-outline-variant/60 pr-sm">
           {group.items.map((item) => (
             <SidebarNavItem
               key={`${item.label}-${item.to}`}
