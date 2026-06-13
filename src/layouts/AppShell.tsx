@@ -3,17 +3,27 @@ import { Icon } from '../components/Icon'
 import { SidebarNav } from '../components/SidebarNav'
 import { useAuthStore } from '../stores/authStore'
 import { useContextData } from '../hooks/useContextData'
+import { useOrgSettingsBootstrap } from '../hooks/useOrgSettings'
+import { useSessionTimeout } from '../hooks/useSessionTimeout'
+import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { api, isDemoMode } from '../api/client'
 import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
 
 export function AppShell() {
   useContextData()
+  useOrgSettingsBootstrap()
+  useSessionTimeout()
   const user = useAuthStore((s) => s.user)
+  const organization = useOrgSettingsStore((s) => s.organization)
+  const general = useOrgSettingsStore((s) => s.general)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const navEntries = getNavEntriesForUser(user)
   const role = getUserRole(user)
   const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
+
+  const orgName = organization?.name_ar || organization?.name || 'نظام GPS'
+  const logoUrl = general?.logo_url
 
   const handleLogout = async () => {
     try {
@@ -30,11 +40,15 @@ export function AppShell() {
       <aside className="fixed right-0 z-50 flex h-full w-64 flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
           <div className="mb-md flex items-center gap-base rounded-xl bg-primary/5 p-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-on-primary shadow-sm">
-              <Icon name="gps_fixed" filled size={22} className="no-flip" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-on-primary shadow-sm">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+              ) : (
+                <Icon name="gps_fixed" filled size={22} className="no-flip" />
+              )}
             </div>
-            <div className="flex flex-col">
-              <span className="text-base font-black text-primary">نظام GPS</span>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-base font-black text-primary">{orgName}</span>
               <span className="text-xs text-on-surface-variant">بيع وتقسيط الأجهزة</span>
             </div>
           </div>

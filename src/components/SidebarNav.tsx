@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { SidebarNavGroup } from './SidebarNavGroup'
 import { SidebarNavItem } from './SidebarNavItem'
 import type { NavEntry } from '../lib/permissions'
-import { isNavGroupActive } from '../lib/permissions'
+import { getUserRole, isNavGroupActive } from '../lib/permissions'
 import type { AuthUser } from '../api/types'
 
 interface SidebarNavProps {
@@ -13,7 +13,10 @@ interface SidebarNavProps {
 
 export function SidebarNav({ entries, user }: SidebarNavProps) {
   const { pathname } = useLocation()
-  const [openGroupId, setOpenGroupId] = useState<string | null>(null)
+  const role = getUserRole(user)
+  const defaultOpenGroup =
+    role === 'super_admin' || role === 'admin' ? 'management' : null
+  const [openGroupId, setOpenGroupId] = useState<string | null>(defaultOpenGroup)
 
   useEffect(() => {
     const activeGroup = entries.find(

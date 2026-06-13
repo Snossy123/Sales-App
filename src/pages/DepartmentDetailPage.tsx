@@ -72,11 +72,9 @@ export function DepartmentDetailPage() {
                 </>
               ) : (
                 <>
-                  <Link to="/" className="font-body-sm text-body-sm transition-colors hover:text-primary">
-                    الرئيسية
-                  </Link>
+                  <span className="font-body-sm text-body-sm">الإدارة</span>
                   <Icon name="chevron_right" size={14} className="rotate-180" />
-                  <span className="font-body-sm text-body-sm">إدارتي</span>
+                  <span className="font-body-sm text-body-sm">لوحة تحكم الإدارة</span>
                   <Icon name="chevron_right" size={14} className="rotate-180" />
                 </>
               )}

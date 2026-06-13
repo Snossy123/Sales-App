@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AuthUser } from '../api/types'
+import { useOrgSettingsStore } from './orgSettingsStore'
 
 interface AuthState {
   token: string | null
@@ -40,14 +41,16 @@ export const useAuthStore = create<AuthState>()(
 
       setWarehouseId: (warehouseId) => set({ warehouseId }),
 
-      logout: () =>
+      logout: () => {
+        useOrgSettingsStore.getState().clear()
         set({
           token: null,
           user: null,
           departmentId: null,
           branchId: null,
           warehouseId: null,
-        }),
+        })
+      },
 
       isAuthenticated: () => Boolean(get().token),
     }),

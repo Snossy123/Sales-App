@@ -38,6 +38,27 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
+      id: 'management',
+      label: 'الإدارة',
+      icon: 'corporate_fare',
+      items: [
+        { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', end: true, roles: ['super_admin'] },
+        { to: '/branches', icon: 'store', label: 'كل الفروع', roles: ['super_admin'] },
+        { to: '/gps/management', icon: 'router', label: 'إدارة GPS المركزية', roles: ['super_admin'] },
+        {
+          to: '/departments',
+          icon: 'dashboard',
+          label: 'لوحة تحكم الإدارة',
+          roles: ['admin'],
+          dynamicTo: (user) => (user.department_id ? `/departments/${user.department_id}` : null),
+        },
+        { to: '/branches', icon: 'store', label: 'فروع الإدارة', roles: ['admin'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
       id: 'system',
       label: 'إدارة النظام',
       icon: 'admin_panel_settings',
@@ -46,16 +67,6 @@ export const navEntries: NavEntry[] = [
         { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
         { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin'] },
         { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
-        { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', roles: ['super_admin'] },
-        {
-          to: '/departments',
-          icon: 'corporate_fare',
-          label: 'إدارتي',
-          roles: ['admin'],
-          dynamicTo: (user) => (user.department_id ? `/departments/${user.department_id}` : null),
-        },
-        { to: '/branches', icon: 'store', label: 'الفروع', roles: ['super_admin', 'admin'] },
-        { to: '/gps/management', icon: 'router', label: 'إدارة GPS المركزية', roles: ['super_admin'] },
       ],
     },
   },
@@ -320,6 +331,18 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
     return normalized === '/branches' || /^\/branches\/\d+$/.test(normalized)
   }
 
+  if (item.to === '/departments' || target === '/departments') {
+    return normalized === '/departments'
+  }
+
+  if (item.to === '/gps/management' || target === '/gps/management') {
+    return normalized === '/gps/management' || normalized.startsWith('/gps/management/')
+  }
+
+  if (target.startsWith('/departments/')) {
+    return normalized === target
+  }
+
   if (item.to === '/hrm' || target === '/hrm') {
     return normalized === '/hrm'
   }
@@ -345,10 +368,6 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
   }
 
   if (target.startsWith('/accounting/')) {
-    return normalized === target
-  }
-
-  if (target.startsWith('/departments/')) {
     return normalized === target
   }
 

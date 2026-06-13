@@ -38,6 +38,7 @@ import { BudgetsPage } from '../modules/accounting/pages/BudgetsPage'
 import { AccountingSettingsPage } from '../modules/accounting/pages/AccountingSettingsPage'
 import { AdminUsersPage } from '../modules/admin/pages/AdminUsersPage'
 import { AdminRolesPage } from '../modules/admin/pages/AdminRolesPage'
+import { AdminRolePermissionsPage } from '../modules/admin/pages/AdminRolePermissionsPage'
 import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPage'
 import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
 import { CrmPipelinePage } from '../modules/crm/pages/CrmPipelinePage'
@@ -147,6 +148,7 @@ export function AppRoutes() {
             <Route path="hrm/settings" element={<HrmSettingsPage />} />
             <Route path="admin/users" element={<AdminUsersPage />} />
             <Route path="admin/roles" element={<AdminRolesPage />} />
+            <Route path="admin/roles/:roleId/permissions" element={<AdminRolePermissionsPage />} />
             <Route path="admin/activity-log" element={<AdminActivityLogPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<CrmPipelinePage />} />

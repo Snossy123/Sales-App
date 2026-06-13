@@ -785,10 +785,49 @@ export interface OrganizationProfile {
   address?: string | null
   enabled_modules?: string[]
   is_active?: boolean
+  updated_at?: string
+}
+
+export interface GeneralSettings {
+  logo_url?: string | null
+  theme_color?: string
+  website?: string | null
+  tax_number?: string | null
+  commercial_register?: string | null
+  currency?: string
+  timezone?: string
+  default_locale?: 'ar' | 'en'
+  date_format?: string
+  time_format?: '12h' | '24h'
+  fiscal_year_start_month?: number
+}
+
+export interface SalesSettings {
+  invoice_prefix?: string
+  require_invoice_review?: boolean
+  default_payment_term?: 'cash' | 'credit' | 'installment'
+  max_installment_months?: number
+  installment_interval_days?: number
+  overdue_grace_days?: number
+  late_fee_percent?: number
+  min_down_payment_percent?: number
+}
+
+export interface SecuritySettings {
+  session_timeout_minutes?: number
+  password_min_length?: number
+  force_password_change_on_first_login?: boolean
+  audit_log_retention_days?: number
+  log_ip_addresses?: boolean
 }
 
 export interface OrganizationSettings {
   organization: OrganizationProfile
+  settings: {
+    general: GeneralSettings
+    sales: SalesSettings
+    security: SecuritySettings
+  }
   module_settings?: {
     crm?: CrmSettings
     hrm?: HrmSettings

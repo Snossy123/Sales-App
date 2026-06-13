@@ -14,6 +14,9 @@ import type {
   ActivityLogEntry,
   AdminRole,
   OrganizationProfile,
+  GeneralSettings,
+  SalesSettings,
+  SecuritySettings,
   HrmSettings,
   Customer,
   DemoRole,
@@ -73,6 +76,9 @@ export interface DemoState {
   adminRoles: AdminRole[]
   adminActivityLogs: ActivityLogEntry[]
   organizationProfile: OrganizationProfile
+  generalSettings: GeneralSettings
+  salesSettings: SalesSettings
+  securitySettings: SecuritySettings
   departments: Department[]
   branches: Branch[]
   warehouses: Warehouse[]
@@ -839,6 +845,40 @@ export function createSeedState(): DemoState {
     address: 'القاهرة، مصر',
     enabled_modules: ['crm', 'hrm', 'accounting'],
     is_active: true,
+    updated_at: new Date().toISOString(),
+  }
+
+  const generalSettings: GeneralSettings = {
+    logo_url: null,
+    theme_color: '#2563eb',
+    website: 'https://demo.test',
+    tax_number: '123-456-789',
+    commercial_register: 'CR-987654',
+    currency: 'EGP',
+    timezone: 'Africa/Cairo',
+    default_locale: 'ar',
+    date_format: 'Y/m/d',
+    time_format: '12h',
+    fiscal_year_start_month: 1,
+  }
+
+  const salesSettings: SalesSettings = {
+    invoice_prefix: 'INV',
+    require_invoice_review: true,
+    default_payment_term: 'installment',
+    max_installment_months: 24,
+    installment_interval_days: 30,
+    overdue_grace_days: 3,
+    late_fee_percent: 0,
+    min_down_payment_percent: 10,
+  }
+
+  const securitySettings: SecuritySettings = {
+    session_timeout_minutes: 480,
+    password_min_length: 8,
+    force_password_change_on_first_login: false,
+    audit_log_retention_days: 365,
+    log_ip_addresses: true,
   }
 
   const adminRoles: AdminRole[] = [
@@ -876,22 +916,65 @@ export function createSeedState(): DemoState {
       id: 1,
       log_name: 'admin',
       description: 'Organization provisioned',
-      created_at: '2026-06-01T09:00:00',
+      event: 'created',
+      created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
       causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+      properties: { organization_id: 1 },
     },
     {
       id: 2,
       log_name: 'admin',
-      description: 'User roles synced',
-      created_at: '2026-06-10T14:30:00',
+      description: 'Demo data seeded',
+      event: 'created',
+      created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
       causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
     },
     {
       id: 3,
       log_name: 'admin',
-      description: 'Organization settings updated',
-      created_at: new Date().toISOString(),
+      description: 'User created',
+      event: 'created',
+      created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
       causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+      subject_type: 'App\\Models\\User',
+      subject_id: 2,
+    },
+    {
+      id: 4,
+      log_name: 'admin',
+      description: 'User roles synced',
+      event: 'updated',
+      created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+      properties: { roles: ['Admin'] },
+    },
+    {
+      id: 5,
+      log_name: 'admin',
+      description: 'Role updated',
+      event: 'updated',
+      created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+      subject_type: 'Spatie\\Permission\\Models\\Role',
+      subject_id: 1,
+    },
+    {
+      id: 6,
+      log_name: 'admin',
+      description: 'Organization settings updated',
+      event: 'updated',
+      created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+    },
+    {
+      id: 7,
+      log_name: 'admin',
+      description: 'User updated',
+      event: 'updated',
+      created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+      subject_type: 'App\\Models\\User',
+      subject_id: 3,
     },
   ]
 
@@ -1027,6 +1110,9 @@ export function createSeedState(): DemoState {
     adminRoles,
     adminActivityLogs,
     organizationProfile,
+    generalSettings,
+    salesSettings,
+    securitySettings,
     departments,
     branches,
     warehouses,

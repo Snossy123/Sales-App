@@ -19,18 +19,12 @@ import {
   computeDashboardStockBarData,
 } from '../lib/pageStats'
 import { getUserRole } from '../lib/permissions'
+import { formatMoney } from '../lib/theme'
+import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { useAuthStore } from '../stores/authStore'
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('ar-EG', {
-    style: 'currency',
-    currency: 'EGP',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium' }).format(new Date(value))
+function formatDate(value: string, locale = 'ar-EG') {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value))
 }
 
 const quickActions = [
@@ -49,8 +43,13 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
+  const general = useOrgSettingsStore((s) => s.general)
+  const currency = general?.currency ?? 'EGP'
+  const locale = general?.default_locale === 'en' ? 'en-US' : 'ar-EG'
   const role = getUserRole(user)
   const showReviews = role === 'super_admin' || role === 'admin' || role === 'reviewer'
+  const fmtMoney = (value: number) => formatMoney(value, currency, locale)
+  const fmtDate = (value: string) => formatDate(value, locale)
   const visibleActions = quickActions.filter((a) => a.roles.includes(role))
 
   const query = useQuery({
@@ -138,7 +137,7 @@ export function DashboardPage() {
               <KpiCard label="مخزون GPS المتاح" value={query.data.available_units} icon="gps_fixed" />
               <KpiCard
                 label="مبيعات اليوم"
-                value={formatMoney(query.data.sales_today)}
+                value={fmtMoney(query.data.sales_today)}
                 icon="payments"
               />
               <KpiCard label="فواتير اليوم" value={query.data.invoices_today} icon="receipt_long" />
@@ -166,7 +165,7 @@ export function DashboardPage() {
               <KpiCard label="مستحقة هذا الأسبوع" value={query.data.due_this_week} icon="event" />
               <KpiCard
                 label="رصيد مستحق"
-                value={formatMoney(query.data.outstanding_balance)}
+                value={fmtMoney(query.data.outstanding_balance)}
                 icon="account_balance"
               />
             </div>
@@ -213,7 +212,7 @@ export function DashboardPage() {
                           <p className="text-xs text-on-surface-variant">{inv.invoice_number}</p>
                         </div>
                         <span className="tabular-nums font-medium text-on-surface">
-                          {formatMoney(Number(inv.total))}
+                          {fmtMoney(Number(inv.total))}
                         </span>
                       </Link>
                     ))}
@@ -250,7 +249,7 @@ export function DashboardPage() {
                     {
                       key: 'total',
                       header: 'الإجمالي',
-                      render: (row) => formatMoney(Number(row.total)),
+                      render: (row) => fmtMoney(Number(row.total)),
                     },
                     {
                       key: 'status',
@@ -286,12 +285,12 @@ export function DashboardPage() {
                     {
                       key: 'due_date',
                       header: 'تاريخ الاستحقاق',
-                      render: (row) => formatDate(String(row.due_date)),
+                      render: (row) => fmtDate(String(row.due_date)),
                     },
                     {
                       key: 'amount',
                       header: 'المبلغ',
-                      render: (row) => formatMoney(Number(row.amount)),
+                      render: (row) => fmtMoney(Number(row.amount)),
                     },
                     {
                       key: 'status',

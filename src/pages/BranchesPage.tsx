@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { getScopedDepartmentId } from '../lib/access'
+import { getScopedDepartmentId, isSuperAdmin } from '../lib/access'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
@@ -44,6 +44,11 @@ export function BranchesPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const scopedDeptId = getScopedDepartmentId(user)
+  const isOrgWide = isSuperAdmin(user)
+  const pageTitle = isOrgWide ? 'كل الفروع' : 'فروع الإدارة'
+  const pageSubtitle = isOrgWide
+    ? 'إدارة فروع جميع الإدارات وعناوينها'
+    : 'فروع إدارتك — إضافة وتعديل وعناوين الفروع'
   const [searchParams] = useSearchParams()
   const [page, setPage] = useState(1)
   const [deptFilter, setDeptFilter] = useState(() => {
@@ -162,8 +167,8 @@ export function BranchesPage() {
   return (
     <div>
       <PageHeader
-        title="الفروع"
-        subtitle="إدارة فروع الإدارات وعناوينها"
+        title={pageTitle}
+        subtitle={pageSubtitle}
         actions={
           <button
             type="button"

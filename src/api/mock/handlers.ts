@@ -1601,6 +1601,13 @@ export function handleMockRequest(
     return state.adminRoles
   }
 
+  if (m === 'GET' && path.match(/^admin\/roles\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const role = state.adminRoles.find((r) => r.id === id)
+    if (!role) throw mockError(404, 'الدور غير موجود')
+    return role
+  }
+
   if (m === 'POST' && path === 'admin/roles') {
     const body = data as { name?: string; permissions?: string[] }
     let created: (typeof state.adminRoles)[0] | undefined
@@ -1636,15 +1643,25 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'admin/permissions') {
-    const basePerms = [
-      'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'dashboard.view',
-      'branches.manage', 'customers.manage', 'sales.pos', 'crm.leads.manage', 'crm.access_own_leads',
-      'accounting.access_accounting_module', 'hr.employees.manage', 'hrm.payroll.manage',
+    const allKeys = [
+      'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage', 'stock.transfer',
+      'customers.manage', 'sales.pos', 'sales.invoices.view', 'installments.collect', 'installments.view',
+      'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'reports.financial',
+      'crm.access_all_leads', 'crm.access_own_leads', 'crm.access_all_schedule', 'crm.access_own_schedule',
+      'crm.access_all_campaigns', 'crm.access_own_campaigns', 'crm.access_contact_login', 'crm.access_sources',
+      'crm.access_life_stage', 'crm.access_proposal', 'crm.view_all_call_log', 'crm.view_own_call_log',
+      'crm.access_b2b_marketplace', 'crm.leads.manage', 'crm.activities.manage',
+      'hrm.leave.manage', 'hrm.leave.approve', 'hrm.attendance.manage', 'hrm.payroll.manage',
+      'hrm.shift.manage', 'hrm.holiday.manage', 'hrm.allowance.manage', 'hrm.sales_target.manage',
+      'hr.employees.manage', 'hr.attendance.manage',
+      'accounting.access_accounting_module', 'accounting.manage_accounts', 'accounting.view_journal',
+      'accounting.add_journal', 'accounting.edit_journal', 'accounting.delete_journal',
+      'accounting.map_transactions', 'accounting.view_transfer', 'accounting.add_transfer',
+      'accounting.edit_transfer', 'accounting.delete_transfer', 'accounting.manage_budget',
+      'accounting.view_reports',
     ]
-    const fromRoles = state.adminRoles.flatMap((r) => r.permissions?.map((p) => p.name) ?? [])
-    const unique = [...new Set([...fromRoles, ...basePerms])]
     const grouped: Record<string, string[]> = {}
-    for (const perm of unique) {
+    for (const perm of allKeys) {
       const group = perm.split('.')[0]
       if (!grouped[group]) grouped[group] = []
       grouped[group].push(perm)
@@ -1654,14 +1671,32 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'admin/activity-log') {
     let logs = [...(state.adminActivityLogs ?? [])]
-    if (params.search) logs = logs.filter((l) => l.description.includes(params.search))
+    if (params.search) {
+      logs = logs.filter((l) => l.description.toLowerCase().includes(String(params.search).toLowerCase()))
+    }
     if (params.log_name) logs = logs.filter((l) => l.log_name === params.log_name)
+    if (params.causer_id) logs = logs.filter((l) => l.causer?.id === Number(params.causer_id))
+    if (params.from) {
+      const from = new Date(String(params.from))
+      logs = logs.filter((l) => l.created_at && new Date(l.created_at) >= from)
+    }
+    if (params.to) {
+      const to = new Date(String(params.to))
+      to.setHours(23, 59, 59, 999)
+      logs = logs.filter((l) => l.created_at && new Date(l.created_at) <= to)
+    }
+    logs.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
     return paginate(logs, params)
   }
 
   if (m === 'GET' && path === 'admin/settings') {
     return {
       organization: state.organizationProfile,
+      settings: {
+        general: state.generalSettings,
+        sales: state.salesSettings,
+        security: state.securitySettings,
+      },
       module_settings: {
         crm: state.crmSettings,
         hrm: state.hrmSettings,
@@ -1673,7 +1708,23 @@ export function handleMockRequest(
   if (m === 'PUT' && path === 'admin/settings') {
     const body = data as Record<string, unknown>
     mutateState((s) => {
-      s.organizationProfile = { ...s.organizationProfile, ...body }
+      s.organizationProfile = {
+        ...s.organizationProfile,
+        ...(body.name !== undefined ? { name: String(body.name) } : {}),
+        ...(body.name_ar !== undefined ? { name_ar: body.name_ar as string | null } : {}),
+        ...(body.phone !== undefined ? { phone: body.phone as string | null } : {}),
+        ...(body.email !== undefined ? { email: body.email as string | null } : {}),
+        ...(body.address !== undefined ? { address: body.address as string | null } : {}),
+        ...(body.enabled_modules !== undefined
+          ? { enabled_modules: body.enabled_modules as string[] }
+          : {}),
+        ...(body.is_active !== undefined ? { is_active: Boolean(body.is_active) } : {}),
+        updated_at: new Date().toISOString(),
+      }
+      const settings = body.settings as Record<string, Record<string, unknown>> | undefined
+      if (settings?.general) s.generalSettings = { ...s.generalSettings, ...settings.general }
+      if (settings?.sales) s.salesSettings = { ...s.salesSettings, ...settings.sales }
+      if (settings?.security) s.securitySettings = { ...s.securitySettings, ...settings.security }
       s.adminActivityLogs.unshift({
         id: (s.counters.activityLog = (s.counters.activityLog ?? 3) + 1),
         log_name: 'admin',
@@ -1685,6 +1736,34 @@ export function handleMockRequest(
     const s = loadState()
     return {
       organization: s.organizationProfile,
+      settings: {
+        general: s.generalSettings,
+        sales: s.salesSettings,
+        security: s.securitySettings,
+      },
+      module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
+    }
+  }
+
+  if (m === 'POST' && path === 'admin/settings/logo') {
+    const file = (data as FormData | undefined)?.get?.('logo')
+    let logoUrl: string | null = null
+    if (file instanceof Blob) {
+      logoUrl = URL.createObjectURL(file)
+    }
+    mutateState((s) => {
+      s.generalSettings = { ...s.generalSettings, logo_url: logoUrl }
+      s.organizationProfile.updated_at = new Date().toISOString()
+    })
+    const s = loadState()
+    return {
+      logo_url: logoUrl,
+      organization: s.organizationProfile,
+      settings: {
+        general: s.generalSettings,
+        sales: s.salesSettings,
+        security: s.securitySettings,
+      },
       module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
     }
   }

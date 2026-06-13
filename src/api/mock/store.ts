@@ -49,6 +49,9 @@ function migrateState(state: DemoState): DemoState {
   if (!state.adminRoles?.length) state.adminRoles = seed.adminRoles
   if (!state.adminActivityLogs?.length) state.adminActivityLogs = seed.adminActivityLogs
   if (!state.organizationProfile) state.organizationProfile = seed.organizationProfile
+  if (!state.generalSettings) state.generalSettings = seed.generalSettings
+  if (!state.salesSettings) state.salesSettings = seed.salesSettings
+  if (!state.securitySettings) state.securitySettings = seed.securitySettings
   return state
 }
 
