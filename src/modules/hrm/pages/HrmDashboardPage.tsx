@@ -7,7 +7,6 @@ import { KpiCard } from '../../../components/KpiCard'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
 import { useAuthStore } from '../../../stores/authStore'
-import { HrmSubNav } from '../components/HrmSubNav'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
 type DashboardResult =
@@ -46,7 +45,6 @@ export function HrmDashboardPage() {
         title="الموارد البشرية"
         subtitle="لوحة متابعة الموظفين والحضور والإجازات"
       />
-      <HrmSubNav />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {result?.mode === 'dashboard' && (

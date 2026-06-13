@@ -13,7 +13,6 @@ import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 import { formatMoney, primaryTypeLabels } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 type ReportTab = 'trial-balance' | 'balance-sheet' | 'ar-ageing' | 'income-statement'
 
@@ -81,7 +80,6 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader title="التقارير المحاسبية" subtitle="ميزان المراجعة، الميزانية، أعمار الذمم، وقائمة الدخل" />
-      <AccountingSubNav />
 
       <div className="mb-md flex flex-wrap gap-xs">
         {tabs.map((t) => (

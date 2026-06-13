@@ -6,7 +6,6 @@ import { AsyncState } from '../../../components/AsyncState'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 import {
   JournalLineEditor,
   emptyJournalLine,
@@ -178,7 +177,6 @@ export function AccountingSettingsPage() {
           </div>
         }
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 

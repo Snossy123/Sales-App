@@ -9,7 +9,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatMoney } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 const monthLabels = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -128,7 +127,6 @@ export function BudgetsPage() {
           </button>
         }
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 

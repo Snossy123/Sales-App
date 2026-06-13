@@ -10,7 +10,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { HrmSubNav } from '../components/HrmSubNav'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
 type LeaveRow = HrmLeave & Record<string, unknown>
@@ -114,7 +113,6 @@ export function HrmLeavesPage() {
           </button>
         }
       />
-      <HrmSubNav />
 
       {successToast && <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />}
       {actionError && <p className="mb-md text-sm text-error">{actionError}</p>}

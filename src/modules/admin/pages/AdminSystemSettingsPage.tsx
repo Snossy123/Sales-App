@@ -5,7 +5,6 @@ import type { OrganizationSettings } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { AdminSubNav } from '../components/AdminSubNav'
 
 const MODULES = [
   { key: 'crm', label: 'CRM' },
@@ -78,7 +77,6 @@ export function AdminSystemSettingsPage() {
   return (
     <div>
       <PageHeader title="إعدادات النظام" subtitle="بيانات المنظمة والوحدات المفعّلة" />
-      <AdminSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>

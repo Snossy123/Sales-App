@@ -8,7 +8,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate, formatMoney } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 export function TransactionMapPage() {
   const queryClient = useQueryClient()
@@ -77,7 +76,6 @@ export function TransactionMapPage() {
         title="ربط المبيعات"
         subtitle="فواتير المبيعات المؤكدة التي لم تُربط بعد في الدفاتر المحاسبية"
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 

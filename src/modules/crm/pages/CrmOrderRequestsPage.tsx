@@ -7,7 +7,6 @@ import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { CrmSubNav } from '../components/CrmSubNav'
 
 const STATUS_LABELS: Record<string, string> = { draft: 'مسودة', confirmed: 'مؤكد', cancelled: 'ملغى' }
 
@@ -38,7 +37,6 @@ export function CrmOrderRequestsPage() {
   return (
     <div>
       <PageHeader title="طلبات العملاء" subtitle="طلبات الشراء من بوابة العميل" />
-      <CrmSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<SalesInvoice & Record<string, unknown>>

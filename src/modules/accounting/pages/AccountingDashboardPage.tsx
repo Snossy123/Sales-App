@@ -7,7 +7,6 @@ import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 import { formatDate, formatMoney, primaryTypeLabels } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 export function AccountingDashboardPage() {
   const query = useQuery({
@@ -26,7 +25,6 @@ export function AccountingDashboardPage() {
         title="المحاسبة"
         subtitle="نظرة عامة على الحسابات والقيود والمعاملات غير المربوطة"
       />
-      <AccountingSubNav />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {dashboard && (

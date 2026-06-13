@@ -8,7 +8,6 @@ import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 import { formatDate, formatMoney } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 interface LedgerResponse {
   account: AccountingAccount
@@ -72,7 +71,6 @@ export function AccountLedgerPage() {
           </Link>
         }
       />
-      <AccountingSubNav />
 
       <div className="mb-md flex flex-wrap gap-sm">
         <input

@@ -4,7 +4,6 @@ import { api, getErrorMessage } from '../../../api/client'
 import type { HrmSettings } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
-import { HrmSubNav } from '../components/HrmSubNav'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -55,7 +54,6 @@ export function HrmSettingsPage() {
   return (
     <div>
       <PageHeader title="إعدادات الموارد البشرية" subtitle="فترات السماح وبادئة مسير الرواتب" />
-      <HrmSubNav />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <form onSubmit={handleSubmit} className="max-w-lg space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">

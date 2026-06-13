@@ -5,7 +5,6 @@ import type { ActivityLogEntry, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
-import { AdminSubNav } from '../components/AdminSubNav'
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—'
@@ -30,7 +29,6 @@ export function AdminActivityLogPage() {
   return (
     <div>
       <PageHeader title="سجل التدقيق" subtitle="تتبع التغييرات والعمليات الإدارية" />
-      <AdminSubNav />
 
       <div className="mb-md flex flex-wrap gap-sm">
         <input

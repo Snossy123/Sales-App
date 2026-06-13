@@ -8,7 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { HrmSubNav } from '../components/HrmSubNav'
 import { useAuthStore } from '../../../stores/authStore'
 
 type HolidayRow = HrmHoliday & Record<string, unknown>
@@ -118,7 +117,6 @@ export function HrmHolidaysPage() {
           </button>
         }
       />
-      <HrmSubNav />
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />

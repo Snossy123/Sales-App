@@ -9,7 +9,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate, formatMoney } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 function getTransferAccounts(lines: AccountingAccTransMapping['lines']) {
   const debit = lines?.find((l) => l.type === 'debit')
@@ -108,7 +107,6 @@ export function TransfersPage() {
           </button>
         }
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 

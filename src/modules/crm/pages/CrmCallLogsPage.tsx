@@ -8,7 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { CrmSubNav } from '../components/CrmSubNav'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -53,7 +52,6 @@ export function CrmCallLogsPage() {
           <Icon name="add" size={18} /> تسجيل مكالمة
         </button>
       } />
-      <CrmSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<CrmCallLog & Record<string, unknown>>

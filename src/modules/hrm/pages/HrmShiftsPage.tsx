@@ -8,7 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { HrmSubNav } from '../components/HrmSubNav'
 
 type ShiftRow = HrmShift & Record<string, unknown>
 type Panel = 'create' | 'edit' | 'assign' | null
@@ -137,7 +136,6 @@ export function HrmShiftsPage() {
           </button>
         }
       />
-      <HrmSubNav />
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />

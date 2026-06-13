@@ -1,17 +1,17 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
+import { SidebarNav } from '../components/SidebarNav'
 import { useAuthStore } from '../stores/authStore'
 import { useContextData } from '../hooks/useContextData'
 import { api, isDemoMode } from '../api/client'
-import { getNavForUser, getRoleLabel, getUserRole, isNavItemActive } from '../lib/permissions'
+import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
 
 export function AppShell() {
   useContextData()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
-  const location = useLocation()
-  const navItems = getNavForUser(user)
+  const navEntries = getNavEntriesForUser(user)
   const role = getUserRole(user)
   const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
 
@@ -28,7 +28,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <aside className="fixed right-0 z-50 flex h-full w-64 flex-col border-l border-outline-variant bg-surface-container-lowest">
-        <div className="flex flex-col gap-xs p-md">
+        <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
           <div className="mb-lg flex items-center gap-base">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
               <Icon name="gps_fixed" filled size={22} className="no-flip" />
@@ -45,27 +45,9 @@ export function AppShell() {
             </div>
           )}
 
-          <nav className="flex flex-grow flex-col gap-base">
-            {navItems.map((item) => {
-              const isActive = isNavItemActive(item, location.pathname, user)
-              const navTo = item.dynamicTo && user ? (item.dynamicTo(user) ?? item.to) : item.to
-              return (
-                <NavLink
-                  key={`${item.label}-${navTo}`}
-                  to={navTo}
-                  end={item.end}
-                  className={`flex items-center gap-base rounded-lg p-sm transition-all ${
-                    isActive
-                      ? 'scale-[0.98] border-r-4 border-primary bg-secondary-container font-bold text-on-secondary-container'
-                      : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-                >
-                  <Icon name={item.icon} filled={isActive} className="no-flip" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                </NavLink>
-              )
-            })}
-          </nav>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <SidebarNav entries={navEntries} user={user} />
+          </div>
 
           {showPosShortcut && (
             <NavLink

@@ -9,7 +9,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { HrmSubNav } from '../components/HrmSubNav'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -131,7 +130,6 @@ export function HrmEmployeesPage() {
           <Icon name="person_add" size={18} /> موظف جديد
         </button>
       } />
-      <HrmSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>

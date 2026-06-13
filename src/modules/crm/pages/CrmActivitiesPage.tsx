@@ -8,7 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { CrmSubNav } from '../components/CrmSubNav'
 
 const ACTIVITY_TYPES = [
   { value: 'call', label: 'مكالمة' },
@@ -68,7 +67,6 @@ export function CrmActivitiesPage() {
           <Icon name="add" size={18} /> نشاط جديد
         </button>
       } />
-      <CrmSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<CrmActivity & Record<string, unknown>>

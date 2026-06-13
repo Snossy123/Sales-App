@@ -9,7 +9,6 @@ import { Icon } from '../../../components/Icon'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { HrmSubNav } from '../components/HrmSubNav'
 
 type AttendanceRow = HrmAttendance & Record<string, unknown>
 
@@ -85,7 +84,6 @@ export function HrmAttendancePage() {
           </div>
         }
       />
-      <HrmSubNav />
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />

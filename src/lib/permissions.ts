@@ -13,49 +13,127 @@ export interface NavItem {
   dynamicTo?: (user: AuthUser) => string | null
 }
 
-export const navItems: NavItem[] = [
-  { to: '/', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
-  { to: '/admin/users', icon: 'manage_accounts', label: 'إدارة النظام', end: true, roles: ['super_admin'] },
-  { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
-  { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin'] },
-  { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
-  { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', roles: ['super_admin'] },
+export interface NavGroup {
+  id: string
+  label: string
+  icon: string
+  items: NavItem[]
+}
+
+export type NavEntry =
+  | { type: 'item'; item: NavItem }
+  | { type: 'group'; group: NavGroup }
+
+export const navEntries: NavEntry[] = [
   {
-    to: '/departments',
-    icon: 'corporate_fare',
-    label: 'إدارتي',
-    roles: ['admin'],
-    dynamicTo: (user) => (user.department_id ? `/departments/${user.department_id}` : null),
+    type: 'item',
+    item: {
+      to: '/',
+      icon: 'dashboard',
+      label: 'لوحة التحكم',
+      end: true,
+      roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
+    },
   },
-  { to: '/branches', icon: 'store', label: 'الفروع', roles: ['super_admin', 'admin'] },
-  { to: '/gps/management', icon: 'router', label: 'إدارة GPS المركزية', roles: ['super_admin'] },
-  { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/pos', icon: 'point_of_sale', label: 'نقطة البيع', roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'reviewer'] },
-  { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin'] },
-  { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
-  { to: '/customers', icon: 'group', label: 'العملاء', roles: ['super_admin', 'admin', 'sales', 'collector'] },
-  { to: '/accounting', icon: 'account_balance', label: 'المحاسبة', roles: ['super_admin', 'accountant'] },
-  { to: '/accounting/chart-of-accounts', icon: 'list_alt', label: 'دليل الحسابات', roles: ['accountant'] },
-  { to: '/accounting/journal-entries', icon: 'edit_note', label: 'قيود اليومية', roles: ['accountant'] },
-  { to: '/accounting/transfers', icon: 'swap_horiz', label: 'التحويلات', roles: ['accountant'] },
-  { to: '/accounting/transactions', icon: 'link', label: 'ربط المبيعات', roles: ['accountant'] },
-  { to: '/accounting/reports', icon: 'assessment', label: 'التقارير', roles: ['accountant'] },
-  { to: '/accounting/budgets', icon: 'savings', label: 'الميزانيات', roles: ['accountant'] },
-  { to: '/accounting/settings', icon: 'settings', label: 'إعدادات المحاسبة', roles: ['accountant'] },
-  { to: '/hrm', icon: 'groups', label: 'الموارد البشرية', end: true, roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/payroll', icon: 'payments', label: 'الرواتب', roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'hr_manager'] },
-  { to: '/hrm/settings', icon: 'settings', label: 'إعدادات HR', roles: ['super_admin', 'hr_manager'] },
-  { to: '/crm', icon: 'hub', label: 'خط الأنابيب', end: true, roles: ['super_admin', 'admin', 'crm'] },
-  { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
-  { to: '/crm/campaigns', icon: 'campaign', label: 'الحملات', roles: ['super_admin', 'admin', 'crm'] },
-  { to: '/crm/proposals', icon: 'description', label: 'العروض', roles: ['super_admin', 'admin', 'crm'] },
-  { to: '/crm/reports', icon: 'analytics', label: 'تقارير CRM', roles: ['super_admin', 'admin', 'crm'] },
-  { to: '/crm/settings', icon: 'settings', label: 'إعدادات CRM', roles: ['super_admin', 'admin', 'crm'] },
+  {
+    type: 'group',
+    group: {
+      id: 'system',
+      label: 'إدارة النظام',
+      icon: 'admin_panel_settings',
+      items: [
+        { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin'] },
+        { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
+        { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin'] },
+        { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
+        { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', roles: ['super_admin'] },
+        {
+          to: '/departments',
+          icon: 'corporate_fare',
+          label: 'إدارتي',
+          roles: ['admin'],
+          dynamicTo: (user) => (user.department_id ? `/departments/${user.department_id}` : null),
+        },
+        { to: '/branches', icon: 'store', label: 'الفروع', roles: ['super_admin', 'admin'] },
+        { to: '/gps/management', icon: 'router', label: 'إدارة GPS المركزية', roles: ['super_admin'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'sales',
+      label: 'المبيعات',
+      icon: 'point_of_sale',
+      items: [
+        { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pos', icon: 'point_of_sale', label: 'نقطة البيع', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin'] },
+        { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
+        { to: '/customers', icon: 'group', label: 'العملاء', roles: ['super_admin', 'admin', 'sales', 'collector'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'accounting',
+      label: 'المحاسبة',
+      icon: 'account_balance',
+      items: [
+        { to: '/accounting', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/chart-of-accounts', icon: 'list_alt', label: 'دليل الحسابات', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/journal-entries', icon: 'edit_note', label: 'قيود اليومية', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/transfers', icon: 'swap_horiz', label: 'التحويلات', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/transactions', icon: 'link', label: 'ربط المبيعات', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/reports', icon: 'assessment', label: 'التقارير', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/budgets', icon: 'savings', label: 'الميزانيات', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'accountant'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'hrm',
+      label: 'الموارد البشرية',
+      icon: 'groups',
+      items: [
+        { to: '/hrm', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/employees', icon: 'badge', label: 'الموظفون', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/leave-types', icon: 'category', label: 'أنواع الإجازة', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/allowances', icon: 'payments', label: 'البدلات', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/payroll', icon: 'account_balance_wallet', label: 'الرواتب', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/payroll-groups', icon: 'folder_shared', label: 'مسيرات الرواتب', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'hr_manager'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'crm',
+      label: 'علاقات العملاء',
+      icon: 'hub',
+      items: [
+        { to: '/crm', icon: 'hub', label: 'خط الأنابيب', end: true, roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/activities', icon: 'task', label: 'الأنشطة', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/call-logs', icon: 'call', label: 'سجل المكالمات', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/campaigns', icon: 'campaign', label: 'الحملات', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/proposals', icon: 'description', label: 'العروض', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/order-requests', icon: 'shopping_cart', label: 'طلبات العملاء', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/marketplace', icon: 'extension', label: 'التكاملات', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/reports', icon: 'analytics', label: 'التقارير', roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'admin', 'crm'] },
+      ],
+    },
+  },
 ]
 
 const routeRoles: Record<string, DemoRole[]> = {
@@ -94,10 +172,39 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/settings': ['super_admin'],
   '/crm': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
+  '/crm/activities': ['super_admin', 'admin', 'crm'],
+  '/crm/call-logs': ['super_admin', 'admin', 'crm'],
   '/crm/campaigns': ['super_admin', 'admin', 'crm'],
   '/crm/proposals': ['super_admin', 'admin', 'crm'],
+  '/crm/order-requests': ['super_admin', 'admin', 'crm'],
+  '/crm/marketplace': ['super_admin', 'admin', 'crm'],
   '/crm/reports': ['super_admin', 'admin', 'crm'],
   '/crm/settings': ['super_admin', 'admin', 'crm'],
+}
+
+function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
+  const role = getUserRole(user)
+  if (item.roles.includes(role)) return true
+  if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
+    return true
+  }
+  if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
+    return true
+  }
+  if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
+    return true
+  }
+  return false
+}
+
+function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
+  if (!canSeeNavItem(item, user)) return null
+  if (item.dynamicTo && user) {
+    const resolved = item.dynamicTo(user)
+    if (!resolved) return null
+    return { ...item, to: resolved }
+  }
+  return item
 }
 
 export function canAccessRoute(path: string, user: AuthUser | null): boolean {
@@ -117,7 +224,6 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   const branchDetailMatch = normalized.match(/^\/branches\/(\d+)$/)
   if (branchDetailMatch) {
     if (!['super_admin', 'admin'].includes(role)) return false
-    // Branch ownership verified in page via API; allow route if role matches
     return routeRoles['/branches']?.includes(role) ?? false
   }
 
@@ -152,31 +258,26 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   return allowed.includes(role)
 }
 
-export function getNavForUser(user: AuthUser | null): NavItem[] {
-  const role = getUserRole(user)
-  return navItems
-    .filter((item) => {
-      if (item.roles.includes(role)) return true
-      if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
-        return true
+export function getNavEntriesForUser(user: AuthUser | null): NavEntry[] {
+  return navEntries
+    .map((entry) => {
+      if (entry.type === 'item') {
+        const resolved = resolveNavItem(entry.item, user)
+        return resolved ? { type: 'item' as const, item: resolved } : null
       }
-      if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
-        return true
+
+      const items = entry.group.items
+        .map((item) => resolveNavItem(item, user))
+        .filter((item): item is NavItem => item != null)
+
+      if (items.length === 0) return null
+
+      return {
+        type: 'group' as const,
+        group: { ...entry.group, items },
       }
-      if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
-        return true
-      }
-      return false
     })
-    .map((item) => {
-      if (item.dynamicTo && user) {
-        const resolved = item.dynamicTo(user)
-        if (!resolved) return null
-        return { ...item, to: resolved }
-      }
-      return item
-    })
-    .filter((item): item is NavItem => item != null)
+    .filter((entry): entry is NavEntry => entry != null)
 }
 
 export function getDefaultRoute(user: AuthUser | null): string {
@@ -221,7 +322,7 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
   }
 
   if (item.to === '/hrm' || target === '/hrm') {
-    return normalized === '/hrm' || normalized.startsWith('/hrm/')
+    return normalized === '/hrm'
   }
 
   if (target.startsWith('/hrm/')) {
@@ -254,4 +355,8 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
 
   if (item.end) return normalized === target
   return normalized === target || normalized.startsWith(`${target}/`)
+}
+
+export function isNavGroupActive(group: NavGroup, pathname: string, user: AuthUser | null): boolean {
+  return group.items.some((item) => isNavItemActive(item, pathname, user))
 }

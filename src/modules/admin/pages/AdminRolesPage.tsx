@@ -8,7 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { AdminSubNav } from '../components/AdminSubNav'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -83,7 +82,6 @@ export function AdminRolesPage() {
           </button>
         }
       />
-      <AdminSubNav />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <AsyncState isLoading={rolesQuery.isLoading} isError={rolesQuery.isError} error={rolesQuery.error}>

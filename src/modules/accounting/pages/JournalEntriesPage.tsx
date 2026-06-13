@@ -9,7 +9,6 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate, formatMoney } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 import {
   JournalLineEditor,
   emptyJournalLine,
@@ -170,7 +169,6 @@ export function JournalEntriesPage() {
           </button>
         }
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 

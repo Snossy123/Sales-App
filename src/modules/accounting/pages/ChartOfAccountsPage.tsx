@@ -14,7 +14,6 @@ import {
   primaryTypeLabels,
   type AccountTreeNode,
 } from '../../../lib/accounting'
-import { AccountingSubNav } from '../components/AccountingSubNav'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -212,7 +211,6 @@ export function ChartOfAccountsPage() {
           </button>
         }
       />
-      <AccountingSubNav />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
