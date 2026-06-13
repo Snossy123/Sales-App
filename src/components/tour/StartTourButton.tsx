@@ -1,8 +1,8 @@
-import { Icon } from './Icon'
-import { getTourLabels, resolveTourLocale } from '../tours/labels'
-import type { TourId } from '../tours/types'
-import { useOrgSettingsStore } from '../stores/orgSettingsStore'
-import { useTourRunner } from '../hooks/usePageTour'
+import { Icon } from '../Icon'
+import { getTourLabels, resolveTourLocale } from '../../tours/labels'
+import type { TourId } from '../../tours/types'
+import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
+import { useTourRunner } from '../../hooks/usePageTour'
 
 interface StartTourButtonProps {
   tourId: TourId
