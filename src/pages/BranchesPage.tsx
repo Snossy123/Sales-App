@@ -79,7 +79,6 @@ export function BranchesPage() {
       const params: Record<string, string | number> = { per_page: 100 }
       if (deptFilter) {
         params['filter[administration_id]'] = Number(deptFilter)
-        params['filter[department_id]'] = Number(deptFilter)
       }
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params })
       return data.data

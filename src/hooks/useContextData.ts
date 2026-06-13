@@ -39,7 +39,6 @@ export function useContextData() {
         params: {
           per_page: 100,
           'filter[administration_id]': departmentId,
-          'filter[department_id]': departmentId,
         },
       })
       return data.data

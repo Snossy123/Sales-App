@@ -38,7 +38,7 @@ export function DepartmentDetailPage() {
     queryKey: ['branches', 'department', departmentId],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { per_page: 100, 'filter[department_id]': departmentId },
+        params: { per_page: 100, 'filter[administration_id]': departmentId },
       })
       return data.data
     },

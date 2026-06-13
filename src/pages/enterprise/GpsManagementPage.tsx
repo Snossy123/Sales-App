@@ -40,7 +40,6 @@ export function GpsManagementPage() {
         params: {
           per_page: 100,
           'filter[administration_id]': administrationId,
-          'filter[department_id]': administrationId,
         },
       })
       return data.data

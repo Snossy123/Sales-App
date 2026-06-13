@@ -32,7 +32,7 @@ export function DistributeStockModal({
     queryKey: ['branches', 'all', effectiveDeptId],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { per_page: 100, 'filter[department_id]': effectiveDeptId },
+        params: { per_page: 100, 'filter[administration_id]': effectiveDeptId },
       })
       return data.data
     },

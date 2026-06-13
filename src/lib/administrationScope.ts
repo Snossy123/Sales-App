@@ -8,12 +8,7 @@ export function getAdministrationApiFilters(user: AuthUser | null): Record<strin
 }
 
 export function getAdministrationBranchFilters(user: AuthUser | null): Record<string, string | number> {
-  const scopeId = getScopedDepartmentId(user)
-  if (scopeId == null) return {}
-  return {
-    'filter[administration_id]': scopeId,
-    'filter[department_id]': scopeId,
-  }
+  return getAdministrationApiFilters(user)
 }
 
 export function mergeScopedParams<T extends Record<string, unknown>>(
