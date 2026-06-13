@@ -86,6 +86,9 @@ export function DashboardPage() {
     [query.data, showReviews],
   )
 
+  const overdueList = query.data?.overdue_installments_list ?? []
+  const hasOverdue = (query.data?.overdue_installments ?? 0) > 0
+
   const todayLabel = new Intl.DateTimeFormat('ar-EG', {
     weekday: 'long',
     day: 'numeric',
@@ -130,6 +133,74 @@ export function DashboardPage() {
                   />
                 ))}
               </div>
+            )}
+
+            {hasOverdue && (
+              <section className="mb-md rounded-xl border border-error/30 bg-error/5 p-md">
+                <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+                  <div className="flex items-center gap-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-error/15 text-error">
+                      <Icon name="warning" size={22} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-on-surface">الأقساط المتأخرة في السداد</h2>
+                      <p className="text-xs text-on-surface-variant">
+                        {query.data.overdue_installments} قسط تجاوز تاريخ الاستحقاق
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/installments"
+                    className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error hover:opacity-90"
+                  >
+                    متابعة التحصيل
+                  </Link>
+                </div>
+
+                <DataTable<Record<string, unknown>>
+                  data={overdueList as unknown as Record<string, unknown>[]}
+                  keyExtractor={(row) => Number(row.id)}
+                  columns={[
+                    {
+                      key: 'customer_name',
+                      header: 'العميل',
+                      render: (row) => {
+                        const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
+                        return String(row.customer_name ?? inv?.customer?.name ?? '—')
+                      },
+                    },
+                    {
+                      key: 'invoice_number',
+                      header: 'الفاتورة',
+                      render: (row) => {
+                        const inv = row.sales_invoice as { invoice_number?: string } | undefined
+                        return String(row.invoice_number ?? inv?.invoice_number ?? '—')
+                      },
+                    },
+                    {
+                      key: 'due_date',
+                      header: 'تاريخ الاستحقاق',
+                      render: (row) => fmtDate(String(row.due_date)),
+                    },
+                    {
+                      key: 'remaining',
+                      header: 'المتبقي',
+                      render: (row) => {
+                        const remaining =
+                          row.remaining ??
+                          Number(row.amount) - Number(row.paid_amount ?? 0)
+                        return fmtMoney(Number(remaining))
+                      },
+                    },
+                    {
+                      key: 'status',
+                      header: 'الحالة',
+                      render: () => <StatusBadge status="overdue" />,
+                    },
+                  ]}
+                  emptyMessage="لا توجد أقساط متأخرة"
+                />
+              </section>
             )}
 
             <SectionTitle>المخزون والمبيعات</SectionTitle>
@@ -266,20 +337,30 @@ export function DashboardPage() {
               <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
                 <div className="mb-sm flex items-center justify-between">
                   <h3 className="text-sm font-bold text-on-surface">أقساط متأخرة</h3>
-                  <Link to="/installments" className="text-xs font-medium text-primary hover:underline">
-                    عرض الكل
-                  </Link>
+                  {hasOverdue && (
+                    <Link to="/installments" className="text-xs font-medium text-primary hover:underline">
+                      عرض الكل ({query.data.overdue_installments})
+                    </Link>
+                  )}
                 </div>
                 <DataTable<Record<string, unknown>>
-                  data={(query.data.overdue_installments_list ?? []) as unknown as Record<string, unknown>[]}
+                  data={overdueList as unknown as Record<string, unknown>[]}
                   keyExtractor={(row) => Number(row.id)}
                   columns={[
                     {
-                      key: 'customer',
+                      key: 'customer_name',
                       header: 'العميل',
                       render: (row) => {
                         const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
-                        return inv?.customer?.name ?? '—'
+                        return String(row.customer_name ?? inv?.customer?.name ?? '—')
+                      },
+                    },
+                    {
+                      key: 'invoice_number',
+                      header: 'الفاتورة',
+                      render: (row) => {
+                        const inv = row.sales_invoice as { invoice_number?: string } | undefined
+                        return String(row.invoice_number ?? inv?.invoice_number ?? '—')
                       },
                     },
                     {
@@ -288,9 +369,14 @@ export function DashboardPage() {
                       render: (row) => fmtDate(String(row.due_date)),
                     },
                     {
-                      key: 'amount',
-                      header: 'المبلغ',
-                      render: (row) => fmtMoney(Number(row.amount)),
+                      key: 'remaining',
+                      header: 'المتبقي',
+                      render: (row) => {
+                        const remaining =
+                          row.remaining ??
+                          Number(row.amount) - Number(row.paid_amount ?? 0)
+                        return fmtMoney(Number(remaining))
+                      },
                     },
                     {
                       key: 'status',

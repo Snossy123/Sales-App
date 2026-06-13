@@ -1,31 +1,31 @@
-import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { PaginatedResponse, SalesInvoice } from '../api/types'
+import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
-import { StatusBadge } from '../components/StatusBadge'
+import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
+import { SalesPageShell } from '../components/SalesPageShell'
+import { StatusBadge } from '../components/StatusBadge'
+import { formatInvoiceDate, invoiceStatusLabels, contractPrintPath } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
-
-const statusLabels: Record<string, string> = {
-  pending_review: 'بانتظار المراجعة',
-  confirmed: 'مؤكدة',
-  rejected: 'مرفوضة',
-}
 
 export function InvoiceReviewPage() {
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [invoiceSearch, setInvoiceSearch] = useState('')
 
   const query = useQuery({
     queryKey: ['sales-invoices', 'review', branchId],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<SalesInvoice>>('/sales-invoices', {
+      const { data } = await api.get<{ data: SalesInvoice[] }>('/sales-invoices', {
         params: {
           per_page: 50,
+          include: 'customer,lines,installmentPlan',
           'filter[status]': 'pending_review',
           'filter[branch_id]': branchId,
         },
@@ -35,7 +35,18 @@ export function InvoiceReviewPage() {
     enabled: Boolean(branchId),
   })
 
-  const selected = query.data?.find((i) => i.id === selectedId) ?? query.data?.[0]
+  const filteredRows = useMemo(() => {
+    const rows = query.data ?? []
+    const q = invoiceSearch.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((row) => {
+      const number = String(row.invoice_number ?? '').toLowerCase()
+      const customer = String(row.customer?.name ?? '').toLowerCase()
+      return number.includes(q) || customer.includes(q)
+    })
+  }, [query.data, invoiceSearch])
+
+  const selected = filteredRows.find((i) => i.id === selectedId) ?? null
 
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -66,12 +77,17 @@ export function InvoiceReviewPage() {
   })
 
   return (
-    <div>
-      <h1 className="mb-md text-2xl font-bold text-on-surface">مراجعة الفواتير</h1>
-      <p className="mb-md text-sm text-on-surface-variant">
-        قسم المراجعة يؤكد الفاتورة قبل إرسال جدول الأقساط للعميل
-      </p>
-
+    <SalesPageShell
+      title="مراجعة الفواتير"
+      subtitle="قسم المراجعة يؤكد الفاتورة قبل إرسال جدول الأقساط للعميل"
+      filters={
+        <FilterBar
+          search={invoiceSearch}
+          onSearchChange={setInvoiceSearch}
+          searchPlaceholder="بحث برقم الفاتورة أو اسم العميل..."
+        />
+      }
+    >
       {!branchId ? (
         <p className="text-on-surface-variant">يرجى اختيار فرع.</p>
       ) : (
@@ -82,7 +98,7 @@ export function InvoiceReviewPage() {
             error={query.error}
           >
             <DataTable<SalesInvoice & Record<string, unknown>>
-              data={(query.data ?? []) as (SalesInvoice & Record<string, unknown>)[]}
+              data={filteredRows as (SalesInvoice & Record<string, unknown>)[]}
               keyExtractor={(row) => row.id}
               emptyMessage="لا توجد فواتير بانتظار المراجعة"
               columns={[
@@ -119,7 +135,7 @@ export function InvoiceReviewPage() {
             />
           </AsyncState>
 
-          {selected && (
+          {selected ? (
             <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
               <h2 className="mb-md text-lg font-semibold">
                 فاتورة {selected.invoice_number ?? `#${selected.id}`}
@@ -128,15 +144,15 @@ export function InvoiceReviewPage() {
               <dl className="mb-md space-y-2 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">العميل</dt>
-                  <dd>{selected.customer?.name}</dd>
+                  <dd>{selected.customer?.name ?? '—'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">التاريخ</dt>
-                  <dd>{selected.invoice_date}</dd>
+                  <dd>{formatInvoiceDate(selected.invoice_date)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">الكمية</dt>
-                  <dd>{selected.lines?.[0]?.quantity ?? '—'} جهاز GPS</dd>
+                  <dd>{selected.lines?.[0]?.quantity ?? selected.lines?.length ?? '—'} جهاز GPS</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">الإجمالي</dt>
@@ -149,7 +165,7 @@ export function InvoiceReviewPage() {
                   <dd>
                     <StatusBadge
                       status={selected.status ?? 'pending_review'}
-                      label={statusLabels[selected.status ?? 'pending_review']}
+                      label={invoiceStatusLabels[selected.status ?? 'pending_review']}
                     />
                   </dd>
                 </div>
@@ -159,7 +175,7 @@ export function InvoiceReviewPage() {
                 <div className="mb-md rounded-lg bg-surface-container-low p-sm text-sm">
                   <p>مقدم: {Number(selected.installment_plan.down_payment).toLocaleString('ar-EG')} ج.م</p>
                   <p>أقساط: {selected.installment_plan.installment_count} × شهري</p>
-                  <p>أول استحقاق: {selected.installment_plan.first_due_date}</p>
+                  <p>أول استحقاق: {formatInvoiceDate(selected.installment_plan.first_due_date)}</p>
                 </div>
               )}
 
@@ -182,7 +198,16 @@ export function InvoiceReviewPage() {
                 </p>
               )}
 
-              <div className="flex gap-sm">
+              <div className="flex flex-wrap gap-sm">
+                <Link
+                  to={contractPrintPath(selected.id, true)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-1 items-center justify-center gap-xs rounded-lg border border-primary py-3 font-bold text-primary hover:bg-primary/5"
+                >
+                  <Icon name="print" />
+                  طباعة العقد
+                </Link>
                 <button
                   type="button"
                   onClick={() => approveMutation.mutate(selected.id)}
@@ -208,9 +233,13 @@ export function InvoiceReviewPage() {
                 </button>
               </div>
             </div>
+          ) : (
+            <div className="flex items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-md text-sm text-on-surface-variant">
+              اختر فاتورة من الجدول لمراجعتها
+            </div>
           )}
         </div>
       )}
-    </div>
+    </SalesPageShell>
   )
 }

@@ -52,6 +52,18 @@ function migrateState(state: DemoState): DemoState {
   if (!state.generalSettings) state.generalSettings = seed.generalSettings
   if (!state.salesSettings) state.salesSettings = seed.salesSettings
   if (!state.securitySettings) state.securitySettings = seed.securitySettings
+  if (!state.distributors?.length) {
+    state.distributors = seed.distributors
+    state.customers = seed.customers
+    state.invoices = seed.invoices
+  }
+  if (!state.dailyBranchReports?.length) {
+    state.dailyBranchReports = seed.dailyBranchReports
+  }
+  if (!state.counters.distributor) state.counters.distributor = seed.counters.distributor
+  if (!state.counters.dailyBranchReport) {
+    state.counters.dailyBranchReport = seed.counters.dailyBranchReport
+  }
   return state
 }
 

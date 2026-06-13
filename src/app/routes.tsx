@@ -6,8 +6,14 @@ import { LoginPage } from '../pages/LoginPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
 import { PosPage } from '../pages/PosPage'
+import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
+import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
 import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
+import { DistributorsPage } from '../pages/DistributorsPage'
+import { DailyBranchReportPage } from '../pages/DailyBranchReportPage'
+import { DailyBranchReportPrintPage } from '../pages/DailyBranchReportPrintPage'
+import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
@@ -121,9 +127,16 @@ export function AppRoutes() {
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="pos" element={<PosPage />} />
+            <Route path="sales/accessories" element={<AccessoriesSalesPage />} />
+            <Route path="sales/maintenance" element={<MaintenanceServicesPage />} />
+            <Route path="daily-reports" element={<DailyBranchReportPage />} />
+            <Route path="daily-reports/:id/print" element={<DailyBranchReportPrintPage />} />
+            <Route path="distributors" element={<DistributorsPage />} />
+            <Route path="distributors/:id" element={<DistributorDetailPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
+            <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="accounting" element={<AccountingDashboardPage />} />

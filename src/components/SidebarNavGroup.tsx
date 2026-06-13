@@ -45,7 +45,7 @@ export function SidebarNavGroup({ group, user, pathname, isOpen, onToggle }: Sid
       </button>
 
       {isOpen && (
-        <div className="mr-sm flex flex-col gap-xs border-r border-outline-variant/60 pr-sm">
+        <div className="ms-sm flex flex-col gap-xs border-s border-outline-variant/60 ps-sm">
           {group.items.map((item) => (
             <SidebarNavItem
               key={`${item.label}-${item.to}`}

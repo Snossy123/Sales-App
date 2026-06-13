@@ -68,8 +68,8 @@ export function AppShell() {
               to="/pos"
               className="mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90"
             >
-              <Icon name="add_shopping_cart" className="no-flip" />
-              <span className="text-sm">عملية بيع جديدة</span>
+              <Icon name="edit_document" className="no-flip" />
+              <span className="text-sm">تعاقد جديد</span>
             </NavLink>
           )}
         </div>

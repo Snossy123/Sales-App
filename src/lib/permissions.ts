@@ -70,10 +70,15 @@ export const navEntries: NavEntry[] = [
       label: 'المبيعات',
       icon: 'point_of_sale',
       items: [
+        { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/sales/accessories', icon: 'headphones', label: 'بيع الاكسسورات', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/sales/maintenance', icon: 'build', label: 'صيانة وسوفت وير', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin', 'admin'] },
         { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'admin', 'collector'] },
+        { to: '/daily-reports', icon: 'summarize', label: 'البيان اليومي', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
+        { to: '/distributors', icon: 'local_shipping', label: 'الموزعين', roles: ['super_admin', 'admin', 'sales', 'collector'] },
         { to: '/customers', icon: 'group', label: 'العملاء', roles: ['super_admin', 'admin', 'sales', 'collector'] },
       ],
     },
@@ -146,9 +151,13 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/gps/management': ['admin'],
   '/inventory': ['super_admin', 'admin', 'sales'],
   '/pos': ['super_admin', 'admin', 'sales'],
-  '/invoices/review': ['super_admin', 'admin', 'reviewer'],
+  '/sales/accessories': ['super_admin', 'admin', 'sales'],
+  '/sales/maintenance': ['super_admin', 'admin', 'sales'],
   '/invoices': ['super_admin', 'admin'],
+  '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
+  '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
+  '/distributors': ['super_admin', 'admin', 'sales', 'collector'],
   '/customers': ['super_admin', 'admin', 'sales', 'collector'],
   '/accounting': ['super_admin', 'admin', 'accountant'],
   '/accounting/chart-of-accounts': ['super_admin', 'admin', 'accountant'],
@@ -219,6 +228,23 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/customers/')) {
     return routeRoles['/customers']?.includes(role) ?? false
+  }
+
+  if (normalized.startsWith('/distributors/')) {
+    return routeRoles['/distributors']?.includes(role) ?? false
+  }
+
+  if (normalized.match(/^\/daily-reports\/\d+\/print$/)) {
+    return routeRoles['/daily-reports']?.includes(role) ?? false
+  }
+
+  if (normalized.match(/^\/invoices\/\d+\/contract-print$/)) {
+    return (
+      routeRoles['/invoices']?.includes(role) ??
+      routeRoles['/invoices/review']?.includes(role) ??
+      routeRoles['/pos']?.includes(role) ??
+      false
+    )
   }
 
   const deptDetailMatch = normalized.match(/^\/departments\/(\d+)$/)

@@ -151,6 +151,12 @@ export interface DashboardInstallmentSummary {
   amount: string | number
   paid_amount: string | number
   status: string
+  remaining?: number
+  installment_number?: number
+  customer_name?: string
+  customer_phone?: string
+  invoice_number?: string
+  sales_invoice_id?: number
   sales_invoice?: {
     id: number
     invoice_number?: string
@@ -204,8 +210,13 @@ export interface ProductUnit {
 export interface Customer {
   id: number
   branch_id?: number | null
+  distributor_id?: number | null
   name: string
   phone: string
+  phone_2?: string | null
+  sim_number?: string | null
+  username?: string | null
+  device_serial?: string | null
   national_id?: string | null
   address?: string | null
   city?: string | null
@@ -213,7 +224,24 @@ export interface Customer {
   credit_score?: number | null
   notes?: string | null
   branch?: Branch
+  distributor?: Distributor
   guarantors?: Guarantor[]
+  sales_invoices?: SalesInvoice[]
+}
+
+export interface Distributor {
+  id: number
+  branch_id: number
+  code: string
+  name: string
+  name_ar?: string | null
+  phone?: string | null
+  status: string
+  notes?: string | null
+  branch?: Branch
+  customers_count?: number
+  sales_invoices_count?: number
+  customers?: Customer[]
   sales_invoices?: SalesInvoice[]
 }
 
@@ -237,6 +265,7 @@ export interface InstallmentItem {
   customer_phone?: string
   invoice_number?: string
   remaining?: number
+  branch_id?: number
 }
 
 export interface InstallmentPlan {
@@ -264,11 +293,17 @@ export interface SalesInvoice {
   payment_status: string
   status?: InvoiceStatus | string
   customer_id: number
+  distributor_id?: number | null
   customer?: Customer
+  distributor?: Distributor
   branch?: Branch
   installment_plan?: InstallmentPlan | null
   lines?: SalesInvoiceLine[]
   notes?: string | null
+  technician_name?: string | null
+  vehicle_info?: string | null
+  subscription_renewal_date?: string | null
+  installation_fee?: string | number | null
   is_order_request?: boolean
   created_by?: number
   reviewed_by?: number
@@ -285,6 +320,65 @@ export interface SalesInvoiceLine {
   unit_price: string | number
   product_name_ar?: string | null
   product_unit?: ProductUnit
+}
+
+export interface DailyReportTransaction {
+  customer_name?: string
+  transaction_type?: string
+  amount?: number | string
+}
+
+export interface DailyReportTransfer {
+  customer_name?: string
+  amount?: number | string
+  reference?: string
+}
+
+export interface DailyReportAttendance {
+  employee_name?: string
+  check_in?: string
+  check_out?: string
+}
+
+export interface DailyReportExpenseLine {
+  description?: string
+  amount?: number | string
+}
+
+export interface DailyReportMovement {
+  description?: string
+}
+
+export interface DailyBranchReport {
+  id: number
+  branch_id: number
+  report_date: string
+  total_amount: number | string
+  expenses_total: number | string
+  net_amount: number | string
+  installations_count?: number
+  devices_actual?: number
+  devices_reserved?: number
+  devices_customer?: number
+  devices_software?: number
+  accessories_tape?: number
+  accessories_cable_ties?: number
+  accessories_bulb?: number
+  percentage?: string | null
+  devices_entering_count?: number | null
+  notes?: string | null
+  vodafone_transfers_count?: number
+  vodafone_transfers_total?: number | string
+  vodafone_other_notes?: string | null
+  renewal_notes?: string | null
+  reviewer_name?: string | null
+  branch_manager_name?: string | null
+  attendance?: DailyReportAttendance[]
+  transactions?: DailyReportTransaction[]
+  transfers?: DailyReportTransfer[]
+  expense_lines?: DailyReportExpenseLine[]
+  movements?: DailyReportMovement[]
+  branch?: Branch
 }
 
 export interface Employee {
@@ -324,8 +418,12 @@ export interface CheckoutPayload {
   branch_id?: number
   payment_term: 'cash' | 'credit' | 'installment'
   discount_amount?: number
+  installation_fee?: number
   invoice_date?: string
   notes?: string
+  technician_name?: string
+  vehicle_info?: string
+  subscription_renewal_date?: string
   lines: {
     product_unit_id?: number
     product_id?: number
@@ -339,6 +437,19 @@ export interface CheckoutPayload {
     interval_days?: number
     first_due_date: string
   }
+}
+
+export interface ServiceCheckoutPayload {
+  customer_id: number
+  branch_id?: number
+  sale_category: 'accessories' | 'maintenance'
+  payment_term?: 'cash' | 'credit' | 'installment'
+  notes?: string
+  items: {
+    description: string
+    quantity: number
+    unit_price: number
+  }[]
 }
 
 export interface CollectInstallmentPayload {

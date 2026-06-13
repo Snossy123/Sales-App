@@ -1,11 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Customer } from '../api/types'
+import type { Customer, SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
-import { StatusBadge } from '../components/StatusBadge'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
+import { StatusBadge } from '../components/StatusBadge'
+import { formatInvoiceDate, distributorLabel } from '../lib/sales'
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -14,7 +15,7 @@ export function CustomerDetailPage() {
     queryKey: ['customer', id],
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
-        params: { include: 'branch,guarantors,salesInvoices.installmentPlan' },
+        params: { include: 'branch,distributor,guarantors,salesInvoices.installmentPlan.items' },
       })
       return data
     },
@@ -22,18 +23,29 @@ export function CustomerDetailPage() {
   })
 
   const customer = query.data
-  const invoices = customer?.sales_invoices ?? []
+  const invoices =
+    customer?.sales_invoices ??
+    (customer as Customer & { salesInvoices?: SalesInvoice[] })?.salesInvoices ??
+    []
 
   const installmentRows = invoices
     .filter((inv) => inv.status === 'confirmed' && inv.payment_term === 'installment')
     .flatMap((inv) => {
-      const items = inv.installment_plan?.items ?? []
-      return items.map((item) => ({
-        invoice_id: inv.id,
-        invoice_number: inv.invoice_number,
-        invoice_date: inv.invoice_date,
-        ...item,
-      }))
+      const plan = inv.installment_plan ?? (inv as SalesInvoice & { installmentPlan?: SalesInvoice['installment_plan'] }).installmentPlan
+      const items = plan?.items ?? []
+      return items.map((item) => {
+        const installmentNumber =
+          (item as { installment_number?: number; sequence?: number }).installment_number ??
+          (item as { sequence?: number }).sequence
+
+        return {
+          invoice_id: inv.id,
+          invoice_number: inv.invoice_number,
+          invoice_date: inv.invoice_date,
+          ...item,
+          installment_number: installmentNumber,
+        }
+      })
     })
 
   return (
@@ -63,12 +75,41 @@ export function CustomerDetailPage() {
                       الرقم القومي: {customer.national_id}
                     </p>
                   )}
+                  {customer.distributor && (
+                    <p className="mt-xs text-sm text-on-surface-variant">
+                      الموزع:{' '}
+                      <Link
+                        to={`/distributors/${customer.distributor.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {customer.distributor.code} — {distributorLabel(customer.distributor)}
+                      </Link>
+                    </p>
+                  )}
                 </div>
                 <StatusBadge status={customer.status} />
               </div>
               {customer.address && (
                 <p className="mt-sm text-sm text-on-surface-variant">{customer.address}</p>
               )}
+              <dl className="mt-md grid gap-2 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-on-surface-variant">رقم العميل 2</dt>
+                  <dd className="tabular-nums">{customer.phone_2 ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-on-surface-variant">رقم الشريحة</dt>
+                  <dd className="tabular-nums">{customer.sim_number ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-on-surface-variant">اسم المستخدم</dt>
+                  <dd>{customer.username ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-on-surface-variant">السريال</dt>
+                  <dd className="tabular-nums">{customer.device_serial ?? '—'}</dd>
+                </div>
+              </dl>
             </div>
 
             {customer.guarantors && customer.guarantors.length > 0 && (
@@ -94,11 +135,15 @@ export function CustomerDetailPage() {
                 emptyMessage="لا توجد فواتير مؤكدة"
                 columns={[
                   { key: 'invoice_number', header: 'رقم' },
-                  { key: 'invoice_date', header: 'التاريخ' },
+                  {
+                    key: 'invoice_date',
+                    header: 'التاريخ',
+                    render: (row) => formatInvoiceDate(String(row.invoice_date)),
+                  },
                   {
                     key: 'total',
                     header: 'الإجمالي',
-                    render: (row) => Number(row.total).toLocaleString('ar-EG') + ' ج.م',
+                    render: (row) => `${Number(row.total).toLocaleString('ar-EG')} ج.م`,
                   },
                   {
                     key: 'payment_term',
@@ -126,7 +171,11 @@ export function CustomerDetailPage() {
                   columns={[
                     { key: 'invoice_number', header: 'فاتورة' },
                     { key: 'installment_number', header: 'قسط' },
-                    { key: 'due_date', header: 'الاستحقاق' },
+                    {
+                      key: 'due_date',
+                      header: 'الاستحقاق',
+                      render: (row) => formatInvoiceDate(String(row.due_date)),
+                    },
                     {
                       key: 'amount',
                       header: 'المبلغ',

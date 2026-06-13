@@ -13,8 +13,10 @@ import type {
   Branch,
   CheckoutPayload,
   Customer,
+  DailyBranchReport,
   DashboardStats,
   Department,
+  Distributor,
   GpsStock,
   InventoryOverviewRow,
   LoginResponse,
@@ -88,6 +90,7 @@ function addDays(date: string, days: number): string {
 }
 
 function enrichCustomer(state: DemoState, customer: Customer): Customer {
+  const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
   const invoices = state.invoices
     .filter((i) => i.customer_id === customer.id && i.status === 'confirmed')
     .map((inv) => ({
@@ -97,7 +100,33 @@ function enrichCustomer(state: DemoState, customer: Customer): Customer {
         ? { ...inv.installment_plan, items: inv.installment_plan.items ?? [] }
         : null,
     }))
-  return { ...customer, sales_invoices: invoices }
+  return {
+    ...customer,
+    distributor: distributor
+      ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
+      : undefined,
+    sales_invoices: invoices,
+  }
+}
+
+function enrichDistributor(state: DemoState, distributor: Distributor): Distributor {
+  const branch = state.branches.find((b) => b.id === distributor.branch_id)
+  const customers = state.customers.filter((c) => c.distributor_id === distributor.id)
+  const salesInvoices = state.invoices
+    .filter((i) => i.distributor_id === distributor.id)
+    .map((inv) => ({
+      ...inv,
+      customer: state.customers.find((c) => c.id === inv.customer_id),
+    }))
+
+  return {
+    ...distributor,
+    branch,
+    customers_count: customers.length,
+    sales_invoices_count: salesInvoices.length,
+    customers,
+    sales_invoices: salesInvoices,
+  }
 }
 
 function getStock(state: DemoState, warehouseId: number): GpsStock | undefined {
@@ -297,12 +326,40 @@ export function handleMockRequest(
     let dueWeek = 0
     const weekEnd = new Date()
     weekEnd.setDate(weekEnd.getDate() + 7)
+    const overdueList: DashboardStats['overdue_installments_list'] = []
 
     for (const inv of confirmed) {
       outstanding += Number(inv.balance_due)
       for (const item of inv.installment_plan?.items ?? []) {
-        if (item.status === 'overdue') overdue++
         const due = new Date(item.due_date)
+        const remaining = Number(item.amount) - Number(item.paid_amount)
+        const isOverdue =
+          remaining > 0 &&
+          (item.status === 'overdue' || (item.status !== 'paid' && due < new Date()))
+        if (isOverdue) {
+          overdue++
+          if (overdueList.length < 10) {
+            const customer = state.customers.find((c) => c.id === inv.customer_id)
+            overdueList.push({
+              id: item.id,
+              due_date: item.due_date,
+              amount: item.amount,
+              paid_amount: item.paid_amount,
+              status: 'overdue',
+              remaining,
+              installment_number: item.installment_number,
+              customer_name: customer?.name,
+              customer_phone: customer?.phone,
+              invoice_number: inv.invoice_number,
+              sales_invoice_id: inv.id,
+              sales_invoice: {
+                id: inv.id,
+                invoice_number: inv.invoice_number,
+                customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : undefined,
+              },
+            })
+          }
+        }
         if (due >= new Date() && due <= weekEnd && item.status !== 'paid') dueWeek++
       }
     }
@@ -342,23 +399,7 @@ export function handleMockRequest(
           payment_term: inv.payment_term,
           customer: state.customers.find((c) => c.id === inv.customer_id),
         })),
-      overdue_installments_list: confirmed.flatMap((inv) =>
-        (inv.installment_plan?.items ?? [])
-          .filter((item) => item.status === 'overdue')
-          .slice(0, 5)
-          .map((item) => ({
-            id: item.id,
-            due_date: item.due_date,
-            amount: item.amount,
-            paid_amount: item.paid_amount,
-            status: item.status,
-            sales_invoice: {
-              id: inv.id,
-              invoice_number: inv.invoice_number,
-              customer: state.customers.find((c) => c.id === inv.customer_id),
-            },
-          })),
-      ).slice(0, 5),
+      overdue_installments_list: overdueList,
     }
     return stats
   }
@@ -723,6 +764,10 @@ export function handleMockRequest(
     }
     const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
     if (branchFilter) items = items.filter((c) => c.branch_id === Number(branchFilter))
+    const distributorFilter = params['filter[distributor_id]']
+    if (distributorFilter) {
+      items = items.filter((c) => c.distributor_id === Number(distributorFilter))
+    }
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((c) => c.status === statusFilter)
     const nameFilter = params['filter[name]']
@@ -730,7 +775,17 @@ export function handleMockRequest(
       const q = nameFilter.toLowerCase()
       items = items.filter((c) => c.name.toLowerCase().includes(q))
     }
-    return paginate(items)
+    return paginate(
+      items.map((customer) => {
+        const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
+        return {
+          ...customer,
+          distributor: distributor
+            ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
+            : undefined,
+        }
+      }),
+    )
   }
 
   if (m === 'POST' && path === 'customers') {
@@ -739,13 +794,26 @@ export function handleMockRequest(
     if (!isBranchInScope(state, ctx, branchId)) {
       throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
     }
+    if (!body.distributor_id) {
+      throw mockError(422, 'يجب اختيار موزع للعميل')
+    }
+    const distributor = state.distributors.find((d) => d.id === body.distributor_id)
+    if (!distributor) throw mockError(422, 'الموزع غير موجود')
+    if (distributor.branch_id !== branchId) {
+      throw mockError(422, 'فرع العميل يجب أن يطابق فرع الموزع')
+    }
     let created: Customer | undefined
     mutateState((s) => {
       const customer: Customer = {
         id: s.counters.customer++,
         branch_id: branchId,
+        distributor_id: body.distributor_id,
         name: body.name ?? '',
         phone: body.phone ?? '',
+        phone_2: body.phone_2 ?? null,
+        sim_number: body.sim_number ?? null,
+        username: body.username ?? null,
+        device_serial: body.device_serial ?? null,
         national_id: body.national_id ?? null,
         address: body.address ?? null,
         city: body.city ?? null,
@@ -755,7 +823,7 @@ export function handleMockRequest(
       s.customers.push(customer)
       created = customer
     })
-    return created
+    return enrichCustomer(state, created!)
   }
 
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {
@@ -764,6 +832,174 @@ export function handleMockRequest(
     if (!customer) throw mockError(404, 'العميل غير موجود')
     if (!isBranchInScope(state, ctx, customer.branch_id)) throw mockError(404, 'العميل غير موجود')
     return enrichCustomer(state, customer)
+  }
+
+  if (m === 'GET' && path === 'daily-branch-reports') {
+    let items = [...(state.dailyBranchReports ?? [])]
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds) {
+      items = items.filter((r) => scopedBranchIds.includes(r.branch_id))
+    }
+    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
+    if (branchFilter) items = items.filter((r) => r.branch_id === Number(branchFilter))
+    const dateFilter = params['filter[report_date]']
+    if (dateFilter) items = items.filter((r) => r.report_date === dateFilter)
+    return paginate(
+      items.map((report) => ({
+        ...report,
+        branch: state.branches.find((b) => b.id === report.branch_id),
+      })),
+    )
+  }
+
+  if (m === 'GET' && path.match(/^daily-branch-reports\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const report = state.dailyBranchReports?.find((r) => r.id === id)
+    if (!report) throw mockError(404, 'البيان غير موجود')
+    if (!isBranchInScope(state, ctx, report.branch_id)) throw mockError(404, 'البيان غير موجود')
+    return {
+      ...report,
+      branch: state.branches.find((b) => b.id === report.branch_id),
+    }
+  }
+
+  if (m === 'POST' && path === 'daily-branch-reports') {
+    const body = data as Partial<DailyBranchReport>
+    const branchId = body.branch_id ?? ctx.branchId ?? 1
+    if (!isBranchInScope(state, ctx, branchId)) throw mockError(403, 'خارج نطاق الفرع')
+    let saved: DailyBranchReport | undefined
+    mutateState((s) => {
+      if (!s.dailyBranchReports) s.dailyBranchReports = []
+      const existing = s.dailyBranchReports.find(
+        (r) => r.branch_id === branchId && r.report_date === body.report_date,
+      )
+      if (existing) {
+        Object.assign(existing, body, { branch_id: branchId })
+        saved = existing
+        return
+      }
+      saved = {
+        id: s.counters.dailyBranchReport++,
+        branch_id: branchId,
+        report_date: body.report_date ?? new Date().toISOString().split('T')[0],
+        total_amount: body.total_amount ?? 0,
+        expenses_total: body.expenses_total ?? 0,
+        net_amount: body.net_amount ?? 0,
+        installations_count: body.installations_count ?? 0,
+        devices_actual: body.devices_actual ?? 0,
+        devices_reserved: body.devices_reserved ?? 0,
+        devices_customer: body.devices_customer ?? 0,
+        devices_software: body.devices_software ?? 0,
+        accessories_tape: body.accessories_tape ?? 0,
+        accessories_cable_ties: body.accessories_cable_ties ?? 0,
+        accessories_bulb: body.accessories_bulb ?? 0,
+        percentage: body.percentage ?? null,
+        devices_entering_count: body.devices_entering_count ?? null,
+        notes: body.notes ?? null,
+        vodafone_transfers_count: body.vodafone_transfers_count ?? 0,
+        vodafone_transfers_total: body.vodafone_transfers_total ?? 0,
+        vodafone_other_notes: body.vodafone_other_notes ?? null,
+        renewal_notes: body.renewal_notes ?? null,
+        reviewer_name: body.reviewer_name ?? null,
+        branch_manager_name: body.branch_manager_name ?? null,
+        attendance: body.attendance ?? [],
+        transactions: body.transactions ?? [],
+        transfers: body.transfers ?? [],
+        expense_lines: body.expense_lines ?? [],
+        movements: body.movements ?? [],
+      }
+      s.dailyBranchReports.push(saved!)
+    })
+    return {
+      ...saved!,
+      branch: state.branches.find((b) => b.id === branchId),
+    }
+  }
+
+  if (m === 'PUT' && path.match(/^daily-branch-reports\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as Partial<DailyBranchReport>
+    let updated: DailyBranchReport | undefined
+    mutateState((s) => {
+      const report = s.dailyBranchReports?.find((r) => r.id === id)
+      if (!report) throw mockError(404, 'البيان غير موجود')
+      Object.assign(report, body)
+      updated = report
+    })
+    return {
+      ...updated!,
+      branch: state.branches.find((b) => b.id === updated!.branch_id),
+    }
+  }
+
+  if (m === 'GET' && path === 'distributors') {
+    let items = [...state.distributors]
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds) {
+      items = items.filter((d) => scopedBranchIds.includes(d.branch_id))
+    }
+    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
+    if (branchFilter) items = items.filter((d) => d.branch_id === Number(branchFilter))
+    const statusFilter = params['filter[status]']
+    if (statusFilter) items = items.filter((d) => d.status === statusFilter)
+    const nameFilter = params['filter[name]']
+    if (nameFilter) {
+      const q = nameFilter.toLowerCase()
+      items = items.filter(
+        (d) =>
+          d.name.toLowerCase().includes(q) ||
+          (d.name_ar ?? '').toLowerCase().includes(q),
+      )
+    }
+    const codeFilter = params['filter[code]']
+    if (codeFilter) {
+      const q = codeFilter.toLowerCase()
+      items = items.filter((d) => d.code.toLowerCase().includes(q))
+    }
+
+    return paginate(
+      items.map((distributor) => enrichDistributor(state, distributor)),
+    )
+  }
+
+  if (m === 'POST' && path === 'distributors') {
+    const body = data as Partial<Distributor>
+    const branchId = body.branch_id ?? ctx.branchId ?? 1
+    if (!isBranchInScope(state, ctx, branchId)) {
+      throw mockError(403, 'لا يمكنك إضافة موزع خارج إدارتك')
+    }
+    if (!body.code || !body.name) {
+      throw mockError(422, 'كود الموزع والاسم مطلوبان')
+    }
+    if (state.distributors.some((d) => d.code === body.code)) {
+      throw mockError(422, 'كود الموزع مستخدم بالفعل')
+    }
+
+    let created: Distributor | undefined
+    mutateState((s) => {
+      created = {
+        id: s.counters.distributor++,
+        branch_id: branchId,
+        code: body.code!,
+        name: body.name!,
+        name_ar: body.name_ar ?? null,
+        phone: body.phone ?? null,
+        status: body.status ?? 'active',
+        notes: body.notes ?? null,
+      }
+      s.distributors.push(created)
+    })
+    return enrichDistributor(state, created!)
+  }
+
+  if (m === 'GET' && path.match(/^distributors\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const distributor = state.distributors.find((d) => d.id === id)
+    if (!distributor) throw mockError(404, 'الموزع غير موجود')
+    if (!isBranchInScope(state, ctx, distributor.branch_id)) {
+      throw mockError(404, 'الموزع غير موجود')
+    }
+    return enrichDistributor(state, distributor)
   }
 
   if (m === 'GET' && path === 'sales-invoices') {
@@ -776,6 +1012,7 @@ export function handleMockRequest(
       items.map((inv) => ({
         ...inv,
         customer: state.customers.find((c) => c.id === inv.customer_id),
+        distributor: state.distributors.find((d) => d.id === inv.distributor_id),
       })),
     )
   }
@@ -784,9 +1021,14 @@ export function handleMockRequest(
     const id = Number(path.split('/')[1])
     const invoice = state.invoices.find((i) => i.id === id)
     if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    const customer = state.customers.find((c) => c.id === invoice.customer_id)
     return {
       ...invoice,
-      customer: state.customers.find((c) => c.id === invoice.customer_id),
+      customer,
+      distributor: state.distributors.find((d) => d.id === invoice.distributor_id),
+      installment_plan: invoice.installment_plan
+        ? { ...invoice.installment_plan, items: invoice.installment_plan.items ?? [] }
+        : null,
     }
   }
 
@@ -796,12 +1038,17 @@ export function handleMockRequest(
     }
     let created: SalesInvoice | undefined
     mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === body.customer_id)
+      if (!customer?.distributor_id) {
+        throw mockError(422, 'يجب ربط العميل بموزع قبل إتمام عملية البيع')
+      }
+
       const warehouseId = body.warehouse_id
       const stock = getStock(s, warehouseId)
       if (!stock) throw mockError(422, 'المخزن غير موجود')
 
       const line = body.lines[0]
-      const qty = line.quantity ?? 1
+      const qty = line.quantity ?? body.lines.length ?? 1
       const unitPrice = line.unit_price ?? s.gpsProduct.sell_price
       const available = stock.quantity - stock.reserved
       if (qty > available) {
@@ -809,7 +1056,14 @@ export function handleMockRequest(
       }
 
       stock.reserved += qty
-      const total = qty * Number(unitPrice)
+      const installationFee = Number(body.installation_fee ?? 0)
+      const total = qty * Number(unitPrice) + installationFee
+      const downPayment =
+        body.payment_term === 'installment'
+          ? Number(body.installment_plan?.down_payment ?? 0)
+          : body.payment_term === 'cash'
+            ? total
+            : 0
       const invoiceId = s.counters.invoice++
       const invoice: SalesInvoice = {
         id: invoiceId,
@@ -818,12 +1072,16 @@ export function handleMockRequest(
         branch_id: body.branch_id ?? ctx.branchId ?? stock.branch_id,
         warehouse_id: warehouseId,
         customer_id: body.customer_id,
+        distributor_id: customer.distributor_id,
         status: 'pending_review',
         payment_term: body.payment_term,
-        payment_status: 'unpaid',
+        payment_status: downPayment >= total ? 'paid' : downPayment > 0 ? 'partial' : 'unpaid',
         total,
-        paid_amount: 0,
-        balance_due: total,
+        paid_amount: downPayment,
+        balance_due: Math.max(0, total - downPayment),
+        technician_name: body.technician_name ?? null,
+        vehicle_info: body.vehicle_info ?? null,
+        subscription_renewal_date: body.subscription_renewal_date ?? null,
         lines: [
           {
             id: invoiceId,
@@ -850,6 +1108,52 @@ export function handleMockRequest(
 
       s.invoices.push(invoice)
       created = invoice
+    })
+    return created
+  }
+
+  if (m === 'POST' && path === 'sales-invoices/service-checkout') {
+    const body = data as {
+      customer_id: number
+      branch_id?: number
+      sale_category: string
+      notes?: string
+      items: { description: string; quantity: number; unit_price: number }[]
+    }
+    let created: SalesInvoice | undefined
+    mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === body.customer_id)
+      if (!customer?.distributor_id) {
+        throw mockError(422, 'يجب ربط العميل بموزع قبل إتمام عملية البيع')
+      }
+
+      const subtotal = body.items.reduce(
+        (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
+        0,
+      )
+      const invoiceId = s.counters.invoice++
+      created = {
+        id: invoiceId,
+        invoice_number: `SRV-2026-${String(invoiceId).padStart(4, '0')}`,
+        invoice_date: new Date().toISOString().split('T')[0],
+        branch_id: body.branch_id ?? ctx.branchId ?? 1,
+        customer_id: body.customer_id,
+        distributor_id: customer.distributor_id,
+        status: 'confirmed',
+        payment_term: 'cash',
+        payment_status: 'paid',
+        total: subtotal,
+        paid_amount: subtotal,
+        balance_due: 0,
+        notes: body.notes ?? null,
+        lines: body.items.map((item, index) => ({
+          id: invoiceId * 100 + index,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          product_name_ar: item.description,
+        })),
+      }
+      s.invoices.push(created)
     })
     return created
   }
@@ -918,13 +1222,15 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && (path === 'installments' || path === 'installments/overdue')) {
-    const branchId = ctx.branchId
+    const branchFilter = params['filter[branch_id]']
+      ? Number(params['filter[branch_id]'])
+      : undefined
     const onlyOverdue = path === 'installments/overdue'
     const rows: Record<string, unknown>[] = []
 
     for (const inv of state.invoices) {
       if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') continue
-      if (branchId && inv.branch_id !== branchId) continue
+      if (branchFilter && inv.branch_id !== branchFilter) continue
       const customer = state.customers.find((c) => c.id === inv.customer_id)
       for (const item of inv.installment_plan?.items ?? []) {
         if (item.status === 'paid') continue
@@ -936,11 +1242,18 @@ export function handleMockRequest(
         rows.push({
           ...item,
           sales_invoice_id: inv.id,
+          branch_id: inv.branch_id,
           invoice_number: inv.invoice_number,
           customer_id: inv.customer_id,
           customer_name: customer?.name,
           customer_phone: customer?.phone,
           remaining: Number(item.amount) - Number(item.paid_amount),
+          sales_invoice: {
+            id: inv.id,
+            invoice_number: inv.invoice_number,
+            branch_id: inv.branch_id,
+            customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : undefined,
+          },
         })
       }
     }

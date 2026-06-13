@@ -1,40 +1,72 @@
+import { Link } from 'react-router-dom'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
   CheckoutPayload,
   Customer,
+  Distributor,
   GpsProduct,
   GpsStock,
   PaginatedResponse,
+  ProductUnit,
   SalesInvoice,
 } from '../api/types'
+import { distributorLabel, contractPrintPath } from '../lib/sales'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
+import { SalesPageShell } from '../components/SalesPageShell'
 import { useAuthStore } from '../stores/authStore'
 
 export function PosPage() {
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const branchId = useAuthStore((s) => s.branchId)
+  const [distributorId, setDistributorId] = useState<number | ''>('')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
+  const [installationFee, setInstallationFee] = useState(500)
   const [downPayment, setDownPayment] = useState(2500)
   const [installmentCount, setInstallmentCount] = useState(6)
   const [firstDueDate, setFirstDueDate] = useState(
     () => new Date().toISOString().split('T')[0],
   )
+  const [technicianName, setTechnicianName] = useState('')
+  const [vehicleInfo, setVehicleInfo] = useState('')
+  const [subscriptionRenewalDate, setSubscriptionRenewalDate] = useState('')
+  const [lastInvoiceId, setLastInvoiceId] = useState<number | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
 
-  const customersQuery = useQuery({
-    queryKey: ['customers', 'pos'],
+  const distributorsQuery = useQuery({
+    queryKey: ['distributors', 'pos', branchId],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Customer>>('/customers', {
-        params: { per_page: 100, 'filter[status]': 'active' },
+      const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', {
+        params: {
+          per_page: 100,
+          'filter[status]': 'active',
+          ...(branchId ? { 'filter[branch_id]': branchId } : {}),
+        },
       })
       return data.data
     },
+    enabled: Boolean(branchId),
+  })
+
+  const customersQuery = useQuery({
+    queryKey: ['customers', 'pos', distributorId],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {
+        per_page: 100,
+        'filter[status]': 'active',
+      }
+      if (distributorId) params['filter[distributor_id]'] = Number(distributorId)
+      if (branchId) params['filter[branch_id]'] = branchId
+
+      const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
+      return data.data
+    },
+    enabled: Boolean(distributorId),
   })
 
   const productQuery = useQuery({
@@ -56,42 +88,65 @@ export function PosPage() {
     enabled: Boolean(warehouseId),
   })
 
+  const unitsQuery = useQuery({
+    queryKey: ['product-units', 'pos', warehouseId],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
+        params: {
+          per_page: 100,
+          'filter[warehouse_id]': warehouseId,
+          'filter[state]': 'available',
+        },
+      })
+      return data.data
+    },
+    enabled: Boolean(warehouseId),
+  })
+
   const checkoutMutation = useMutation({
     mutationFn: async (payload: CheckoutPayload) => {
       const { data } = await api.post<SalesInvoice>('/sales-invoices/checkout', payload)
       return data
     },
     onSuccess: (invoice) => {
+      setLastInvoiceId(invoice.id)
       setSuccessMsg(
-        `تم إنشاء الفاتورة #${invoice.id} — بانتظار مراجعة قسم التأكيد قبل إرسال الأقساط للعميل`,
+        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — بانتظار مراجعة قسم التأكيد`,
       )
       setQuantity(1)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['product-units'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
     },
   })
 
   const unitPrice = productQuery.data?.sell_price ?? 0
-  const available = stockQuery.data?.available ?? 0
-  const totalEstimate = quantity * Number(unitPrice)
+  const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
+  const devicesTotal = quantity * Number(unitPrice)
+  const totalEstimate = devicesTotal + Number(installationFee)
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
     if (!customerId || !warehouseId || quantity <= 0 || quantity > available) return
+
+    const units = unitsQuery.data ?? []
+    const selectedUnits = units.slice(0, quantity)
+    if (selectedUnits.length < quantity) return
 
     const payload: CheckoutPayload = {
       customer_id: Number(customerId),
       warehouse_id: warehouseId,
       branch_id: branchId ?? undefined,
       payment_term: paymentTerm,
-      lines: [
-        {
-          product_id: productQuery.data?.id ?? 1,
-          quantity,
-          unit_price: Number(unitPrice),
-        },
-      ],
+      installation_fee: installationFee,
+      technician_name: technicianName.trim() || undefined,
+      vehicle_info: vehicleInfo.trim() || undefined,
+      subscription_renewal_date: subscriptionRenewalDate || undefined,
+      lines: selectedUnits.map((unit) => ({
+        product_unit_id: unit.id,
+        unit_price: Number(unitPrice),
+      })),
     }
 
     if (paymentTerm === 'installment') {
@@ -107,15 +162,37 @@ export function PosPage() {
   }
 
   return (
-    <div>
-      <h1 className="mb-md text-2xl font-bold text-on-surface">نقطة البيع</h1>
-
+    <SalesPageShell
+      title="تعاقد جديد"
+      subtitle="إنشاء تعاقد GPS مع رسوم التركيب وإرساله للمراجعة"
+    >
       {!warehouseId ? (
-        <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام البيع.</p>
+        <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
       ) : (
         <form onSubmit={handleCheckout} className="grid gap-md lg:grid-cols-2">
           <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
             <h2 className="font-semibold text-on-surface">بيانات العملية</h2>
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">الموزع</label>
+              <select
+                value={distributorId}
+                onChange={(e) => {
+                  const value = e.target.value ? Number(e.target.value) : ''
+                  setDistributorId(value)
+                  setCustomerId('')
+                }}
+                required
+                className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none"
+              >
+                <option value="">اختر الموزع</option>
+                {distributorsQuery.data?.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.code} — {distributorLabel(d)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="mb-xs block text-sm text-on-surface-variant">العميل</label>
@@ -123,9 +200,12 @@ export function PosPage() {
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
                 required
-                className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none"
+                disabled={!distributorId}
+                className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none disabled:opacity-50"
               >
-                <option value="">اختر العميل</option>
+                <option value="">
+                  {distributorId ? 'اختر العميل' : 'اختر الموزع أولاً'}
+                </option>
                 {customersQuery.data?.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} — {c.phone}
@@ -152,6 +232,18 @@ export function PosPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">رسوم التركيب (ج.م)</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={installationFee}
+                onChange={(e) => setInstallationFee(Number(e.target.value))}
+                className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+              />
             </div>
 
             {paymentTerm === 'installment' && (
@@ -187,6 +279,36 @@ export function PosPage() {
                 </div>
               </div>
             )}
+
+            <div className="grid gap-sm sm:grid-cols-2">
+              <div>
+                <label className="mb-xs block text-sm text-on-surface-variant">الفني</label>
+                <input
+                  value={technicianName}
+                  onChange={(e) => setTechnicianName(e.target.value)}
+                  className="w-full rounded border border-outline-variant px-sm py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-xs block text-sm text-on-surface-variant">المركبة</label>
+                <input
+                  value={vehicleInfo}
+                  onChange={(e) => setVehicleInfo(e.target.value)}
+                  className="w-full rounded border border-outline-variant px-sm py-2"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-xs block text-sm text-on-surface-variant">
+                  تاريخ تجديد اشتراك الجهاز
+                </label>
+                <input
+                  type="date"
+                  value={subscriptionRenewalDate}
+                  onChange={(e) => setSubscriptionRenewalDate(e.target.value)}
+                  className="w-full rounded border border-outline-variant px-sm py-2"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
@@ -227,6 +349,16 @@ export function PosPage() {
             </AsyncState>
 
             <div className="border-t border-outline-variant pt-md">
+              <div className="mb-sm space-y-1 text-sm text-on-surface-variant">
+                <div className="flex justify-between tabular-nums">
+                  <span>قيمة الأجهزة</span>
+                  <span>{devicesTotal.toLocaleString('ar-EG')} ج.م</span>
+                </div>
+                <div className="flex justify-between tabular-nums">
+                  <span>رسوم التركيب</span>
+                  <span>{Number(installationFee).toLocaleString('ar-EG')} ج.م</span>
+                </div>
+              </div>
               <p className="mb-sm text-lg font-bold tabular-nums">
                 الإجمالي: {totalEstimate.toLocaleString('ar-EG')} ج.م
               </p>
@@ -236,9 +368,20 @@ export function PosPage() {
                 </p>
               )}
               {successMsg && (
-                <p className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
-                  {successMsg}
-                </p>
+                <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
+                  <p>{successMsg}</p>
+                  {lastInvoiceId && (
+                    <Link
+                      to={contractPrintPath(lastInvoiceId, true)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-sm inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                    >
+                      <Icon name="print" size={18} />
+                      طباعة عقد التقسيط
+                    </Link>
+                  )}
+                </div>
               )}
               <button
                 type="submit"
@@ -257,6 +400,6 @@ export function PosPage() {
           </div>
         </form>
       )}
-    </div>
+    </SalesPageShell>
   )
 }

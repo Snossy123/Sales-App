@@ -20,9 +20,9 @@ export function SidebarNavItem({ item, user, pathname, variant = 'standalone' }:
       <NavLink
         to={navTo}
         end={item.end}
-        className={`flex items-center gap-xs rounded-md py-xs pr-sm pl-md text-sm transition-all ${
+        className={`flex items-center gap-xs rounded-md py-xs pl-md pr-sm text-sm transition-all ${
           isActive
-            ? 'border-r-[3px] border-primary bg-primary/10 font-semibold text-primary'
+            ? 'border-s-[3px] border-primary bg-primary/10 font-semibold text-primary'
             : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
         }`}
       >
@@ -40,7 +40,7 @@ export function SidebarNavItem({ item, user, pathname, variant = 'standalone' }:
       end={item.end}
       className={`flex items-center gap-base rounded-xl px-sm py-sm transition-all ${
         isActive
-          ? 'border-r-[3px] border-primary bg-primary/10 font-bold text-primary'
+          ? 'border-s-[3px] border-primary bg-primary/10 font-bold text-primary'
           : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
       }`}
     >

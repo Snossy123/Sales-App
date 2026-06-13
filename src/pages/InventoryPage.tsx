@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
+import type { Administration, Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -50,12 +50,12 @@ export function InventoryPage() {
   })
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments', 'filter'],
+    queryKey: ['administrations', 'filter'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<Administration>>('/administrations', {
         params: { per_page: 100 },
       })
-      return data.data
+      return data.data as Department[]
     },
   })
 

@@ -19,8 +19,10 @@ import type {
   SecuritySettings,
   HrmSettings,
   Customer,
+  DailyBranchReport,
   DemoRole,
   Department,
+  Distributor,
   Section,
   Employee,
   HrmAllowance,
@@ -87,6 +89,7 @@ export interface DemoState {
   gpsProduct: GpsProduct
   departmentStocks: DepartmentStock[]
   stocks: GpsStock[]
+  distributors: Distributor[]
   customers: Customer[]
   accountingAccounts: AccountingAccount[]
   journalEntries: AccountingAccTransMapping[]
@@ -96,6 +99,7 @@ export interface DemoState {
   accountingSettings: { journal_entry_prefix: string; transfer_prefix: string }
   branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
+  dailyBranchReports: DailyBranchReport[]
   counters: {
     department: number
     section?: number
@@ -103,6 +107,8 @@ export interface DemoState {
     warehouse: number
     invoice: number
     customer: number
+    distributor: number
+    dailyBranchReport: number
     installmentItem: number
     payment: number
     accountingMapping?: number
@@ -251,12 +257,47 @@ export function createSeedState(): DemoState {
     { id: 3, warehouse_id: 3, branch_id: 3, quantity: 25, reserved: 1, sold: 3 },
   ]
 
+  const distributors: Distributor[] = [
+    {
+      id: 1,
+      branch_id: 1,
+      code: 'DIST-001',
+      name: 'Nasr City Distribution',
+      name_ar: 'موزع مدينة نصر',
+      phone: '01011112222',
+      status: 'active',
+    },
+    {
+      id: 2,
+      branch_id: 1,
+      code: 'DIST-002',
+      name: 'Maadi Distribution',
+      name_ar: 'موزع المعادي',
+      phone: '01033334455',
+      status: 'active',
+    },
+    {
+      id: 3,
+      branch_id: 3,
+      code: 'DIST-003',
+      name: 'Tanta Distribution',
+      name_ar: 'موزع طنطا',
+      phone: '01055556666',
+      status: 'active',
+    },
+  ]
+
   const customers: Customer[] = [
     {
       id: 1,
       branch_id: 1,
+      distributor_id: 1,
       name: 'أحمد محمود حسن',
       phone: '01012345678',
+      phone_2: '01087654321',
+      sim_number: '01099887766',
+      username: 'ahmed_gps',
+      device_serial: 'SN-2026-001',
       national_id: '29001011234567',
       address: 'مدينة نصر، القاهرة',
       city: 'القاهرة',
@@ -266,6 +307,7 @@ export function createSeedState(): DemoState {
     {
       id: 2,
       branch_id: 1,
+      distributor_id: 2,
       name: 'سارة علي إبراهيم',
       phone: '01098765432',
       national_id: '29505051234567',
@@ -280,6 +322,7 @@ export function createSeedState(): DemoState {
     {
       id: 3,
       branch_id: 3,
+      distributor_id: 3,
       name: 'خالد عبد الرحمن',
       phone: '01234567890',
       national_id: '28808081234567',
@@ -301,6 +344,7 @@ export function createSeedState(): DemoState {
       branch_id: 1,
       warehouse_id: 1,
       customer_id: 1,
+      distributor_id: 1,
       status: 'confirmed',
       payment_term: 'cash',
       payment_status: 'paid',
@@ -326,12 +370,16 @@ export function createSeedState(): DemoState {
       branch_id: 1,
       warehouse_id: 1,
       customer_id: 2,
+      distributor_id: 2,
       status: 'confirmed',
       payment_term: 'installment',
       payment_status: 'partial',
       total: 17500,
       paid_amount: 5500 + plan1Paid,
       balance_due: 17500 - (5500 + plan1Paid),
+      technician_name: 'محمود الفني',
+      vehicle_info: 'تويota كورولا — أ ب ج 1234',
+      subscription_renewal_date: '2027-04-10',
       lines: [
         {
           id: 2,
@@ -362,6 +410,7 @@ export function createSeedState(): DemoState {
       branch_id: 1,
       warehouse_id: 1,
       customer_id: 1,
+      distributor_id: 1,
       status: 'pending_review',
       payment_term: 'installment',
       payment_status: 'unpaid',
@@ -395,6 +444,7 @@ export function createSeedState(): DemoState {
       branch_id: 3,
       warehouse_id: 3,
       customer_id: 3,
+      distributor_id: 3,
       status: 'rejected',
       payment_term: 'installment',
       payment_status: 'unpaid',
@@ -1139,6 +1189,54 @@ export function createSeedState(): DemoState {
     4: { sale: { deposit_to: 4, payment_account: 2 }, sell_payment: { deposit_to: 2, payment_account: 3 } },
   }
 
+  const dailyBranchReports: DailyBranchReport[] = [
+    {
+      id: 1,
+      branch_id: 1,
+      report_date: '2026-06-10',
+      total_amount: 3245,
+      expenses_total: 275,
+      net_amount: 2970,
+      installations_count: 3,
+      devices_actual: 34,
+      devices_reserved: 4,
+      devices_customer: 18,
+      devices_software: 37,
+      accessories_tape: 12,
+      accessories_cable_ties: 31,
+      accessories_bulb: 20,
+      percentage: '',
+      devices_entering_count: null,
+      notes: '',
+      vodafone_transfers_count: 2,
+      vodafone_transfers_total: 500,
+      vodafone_other_notes: '',
+      renewal_notes: '',
+      reviewer_name: 'امينه طايع',
+      branch_manager_name: '',
+      attendance: [
+        { employee_name: 'مي نصر', check_in: '1:30', check_out: '11:10' },
+        { employee_name: 'امينه طايع', check_in: '1:30', check_out: '11:10' },
+      ],
+      transactions: [
+        { customer_name: 'عميل 1', transaction_type: 'قسط', amount: 500 },
+        { customer_name: 'عميل 2', transaction_type: '5 اقساط', amount: 1200 },
+        { customer_name: 'عميل 3', transaction_type: 'تركيب جديد', amount: 800 },
+        { customer_name: 'عميل 4', transaction_type: 'سوفت+تركيب+تجديد اشتراك', amount: 745 },
+      ],
+      transfers: [
+        { customer_name: 'تحويل 1', amount: 300, reference: '534' },
+        { customer_name: 'تحويل 2', amount: 200, reference: 'انستا' },
+      ],
+      expense_lines: [
+        { description: '225 نسبه محمد', amount: 225 },
+        { description: '50 منديل وزباله', amount: 50 },
+      ],
+      movements: [{ description: '' }, { description: '' }, { description: '' }, { description: '' }],
+      branch: branches[0],
+    },
+  ]
+
   return {
     users,
     portalUsers,
@@ -1172,8 +1270,10 @@ export function createSeedState(): DemoState {
     gpsProduct,
     departmentStocks,
     stocks,
+    distributors,
     customers,
     invoices,
+    dailyBranchReports,
     accountingAccounts,
     journalEntries,
     transfers,
@@ -1188,6 +1288,8 @@ export function createSeedState(): DemoState {
       warehouse: 4,
       invoice: 5,
       customer: 4,
+      distributor: 4,
+      dailyBranchReport: 2,
       installmentItem: 10,
       payment: 1,
       accountingMapping: 4,
