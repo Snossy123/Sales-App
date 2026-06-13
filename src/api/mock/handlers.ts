@@ -21,6 +21,7 @@ import type {
   InventoryOverviewRow,
   LoginResponse,
   PaginatedResponse,
+  CrmMarketplace,
   SalesInvoice,
   TransactionMapPayload,
   TrialBalanceReport,
@@ -1930,9 +1931,9 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'crm/marketplace') {
     const body = data as { marketplace?: string; site_key?: string; site_id?: string }
-    let created: { id: number; marketplace: string; site_key?: string; site_id?: string } | undefined
+    let created: CrmMarketplace | undefined
     mutateState((s) => {
-      const row = {
+      const row: CrmMarketplace = {
         id: (s.crmMarketplaces?.length ?? 0) + 1,
         marketplace: body.marketplace ?? 'facebook_leads',
         site_key: body.site_key ?? null,
@@ -1953,19 +1954,19 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'crm/order-requests') {
-    const rows = state.salesInvoices.filter((inv) => inv.is_order_request)
+    const rows = state.invoices.filter((inv) => inv.is_order_request)
     return paginate(rows, params)
   }
 
   if (m === 'PUT' && path.startsWith('crm/order-requests/')) {
     const id = Number(path.split('/').pop())
     const body = data as { status?: string }
-    let updated: (typeof state.salesInvoices)[number] | undefined
+    let updated: SalesInvoice | undefined
     mutateState((s) => {
-      const idx = s.salesInvoices.findIndex((inv) => inv.id === id && inv.is_order_request)
+      const idx = s.invoices.findIndex((inv) => inv.id === id && inv.is_order_request)
       if (idx >= 0 && body.status) {
-        s.salesInvoices[idx] = { ...s.salesInvoices[idx], status: body.status }
-        updated = s.salesInvoices[idx]
+        s.invoices[idx] = { ...s.invoices[idx], status: body.status }
+        updated = s.invoices[idx]
       }
     })
     if (!updated) return { status: 404, body: { message: 'Not found' } }
