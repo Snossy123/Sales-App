@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           token,
           user,
-          departmentId: user.department_id ?? null,
+          departmentId: user.administration_id ?? user.department_id ?? null,
           branchId: user.branch_id ?? user.branch?.id ?? null,
         }),
 

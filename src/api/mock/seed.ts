@@ -21,6 +21,7 @@ import type {
   Customer,
   DemoRole,
   Department,
+  Section,
   Employee,
   HrmAllowance,
   HrmAttendance,
@@ -46,7 +47,7 @@ import type {
 export interface DemoUser extends AuthUser {
   password: string
   demo_role: DemoRole
-  section?: 'sales' | 'review' | 'collection'
+  workflow_section?: 'sales' | 'review' | 'collection'
 }
 
 export interface DemoPortalUser extends PortalUser {
@@ -80,6 +81,7 @@ export interface DemoState {
   salesSettings: SalesSettings
   securitySettings: SecuritySettings
   departments: Department[]
+  sections: Section[]
   branches: Branch[]
   warehouses: Warehouse[]
   gpsProduct: GpsProduct
@@ -96,6 +98,7 @@ export interface DemoState {
   invoices: SalesInvoice[]
   counters: {
     department: number
+    section?: number
     branch: number
     warehouse: number
     invoice: number
@@ -182,6 +185,7 @@ export function createSeedState(): DemoState {
   const branches: Branch[] = [
     {
       id: 1,
+      administration_id: 1,
       department_id: 1,
       name: 'Nasr City',
       name_ar: 'فرع مدينة نصر',
@@ -191,6 +195,7 @@ export function createSeedState(): DemoState {
     },
     {
       id: 2,
+      administration_id: 1,
       department_id: 1,
       name: 'Maadi',
       name_ar: 'فرع المعادي',
@@ -200,6 +205,7 @@ export function createSeedState(): DemoState {
     },
     {
       id: 3,
+      administration_id: 2,
       department_id: 2,
       name: 'Tanta',
       name_ar: 'فرع طنطا',
@@ -207,6 +213,15 @@ export function createSeedState(): DemoState {
       address: 'طنطا، الغربية',
       is_active: true,
     },
+  ]
+
+  const sections: Section[] = [
+    { id: 1, branch_id: 1, name: 'Sales', name_ar: 'المبيعات', code: 'SALES' },
+    { id: 2, branch_id: 1, name: 'Human Resources', name_ar: 'الموارد البشرية', code: 'HR' },
+    { id: 3, branch_id: 1, name: 'Collection', name_ar: 'التحصيل', code: 'COL' },
+    { id: 4, branch_id: 1, name: 'Accounting', name_ar: 'المحاسبة', code: 'ACC' },
+    { id: 5, branch_id: 1, name: 'CRM', name_ar: 'علاقات العملاء', code: 'CRM' },
+    { id: 6, branch_id: 3, name: 'Sales', name_ar: 'المبيعات', code: 'SALES-DLT' },
   ]
 
   const warehouses: Warehouse[] = [
@@ -409,8 +424,10 @@ export function createSeedState(): DemoState {
       email: 'superadmin@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: null,
       department_id: null,
       branch_id: null,
+      section_id: null,
       demo_role: 'super_admin',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
       branch: null,
@@ -422,12 +439,16 @@ export function createSeedState(): DemoState {
       email: 'deptadmin@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 2,
       department_id: 2,
       branch_id: 3,
+      section_id: 6,
       demo_role: 'admin',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[1],
       branch: branches.find((b) => b.id === 3) ?? branches[2],
-      roles: [{ id: 5, name: 'Department Admin' }],
+      section: sections[5],
+      roles: [{ id: 5, name: 'AdministrationManager' }],
     },
     {
       id: 2,
@@ -435,12 +456,16 @@ export function createSeedState(): DemoState {
       email: 'sales@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 1,
       demo_role: 'sales',
-      section: 'sales',
+      workflow_section: 'sales',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[0],
       roles: [{ id: 2, name: 'Sales' }],
     },
     {
@@ -449,12 +474,16 @@ export function createSeedState(): DemoState {
       email: 'reviewer@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 1,
       demo_role: 'reviewer',
-      section: 'review',
+      workflow_section: 'review',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[0],
       roles: [{ id: 3, name: 'Reviewer' }],
     },
     {
@@ -463,12 +492,16 @@ export function createSeedState(): DemoState {
       email: 'collector@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 3,
       demo_role: 'collector',
-      section: 'collection',
+      workflow_section: 'collection',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[2],
       roles: [{ id: 4, name: 'Collector' }],
     },
     {
@@ -477,11 +510,15 @@ export function createSeedState(): DemoState {
       email: 'accountant@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 4,
       demo_role: 'accountant',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[3],
       roles: [{ id: 6, name: 'Accountant' }],
     },
     {
@@ -490,11 +527,15 @@ export function createSeedState(): DemoState {
       email: 'crm@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 5,
       demo_role: 'crm',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[4],
       roles: [{ id: 7, name: 'CrmSpecialist' }],
     },
     {
@@ -503,11 +544,15 @@ export function createSeedState(): DemoState {
       email: 'hr@demo.test',
       password: 'demo',
       organization_id: 1,
+      administration_id: 1,
       department_id: 1,
       branch_id: 1,
+      section_id: 2,
       demo_role: 'hr_manager',
       organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      administration: departments[0],
       branch: branches[0],
+      section: sections[1],
       roles: [{ id: 8, name: 'HrManager' }],
     },
   ]
@@ -530,7 +575,7 @@ export function createSeedState(): DemoState {
       department_id: 1,
       user_id: 2,
       branch: branches[0],
-      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      department: { id: sections[0].id, name: sections[0].name, name_ar: sections[0].name_ar ?? undefined },
       user: { id: 2, name: 'محمد — مبيعات', email: 'sales@demo.test' },
     },
     {
@@ -543,10 +588,10 @@ export function createSeedState(): DemoState {
       hire_date: '2025-03-01',
       status: 'active',
       branch_id: 1,
-      department_id: 1,
+      department_id: 3,
       user_id: 4,
       branch: branches[0],
-      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      department: { id: sections[2].id, name: sections[2].name, name_ar: sections[2].name_ar ?? undefined },
       user: { id: 4, name: 'كريم — تحصيل', email: 'collector@demo.test' },
     },
     {
@@ -559,10 +604,10 @@ export function createSeedState(): DemoState {
       hire_date: '2024-06-01',
       status: 'active',
       branch_id: 1,
-      department_id: 1,
+      department_id: 2,
       user_id: 8,
       branch: branches[0],
-      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      department: { id: sections[2].id, name: sections[2].name, name_ar: sections[2].name_ar ?? undefined },
       user: { id: 8, name: 'منى — HR', email: 'hr@demo.test' },
     },
   ]
@@ -904,10 +949,17 @@ export function createSeedState(): DemoState {
       ],
     },
     {
-      id: 3,
-      name: 'CrmSpecialist',
-      permissions_count: 8,
-      permissions: [{ id: 8, name: 'crm.leads.manage' }],
+      id: 4,
+      name: 'AdministrationManager',
+      permissions_count: 40,
+      permissions: [
+        { id: 1, name: 'users.manage' },
+        { id: 4, name: 'audit.view' },
+        { id: 5, name: 'dashboard.view' },
+        { id: 8, name: 'crm.leads.manage' },
+        { id: 9, name: 'hr.employees.manage' },
+        { id: 10, name: 'accounting.access_accounting_module' },
+      ],
     },
   ]
 
@@ -1114,6 +1166,7 @@ export function createSeedState(): DemoState {
     salesSettings,
     securitySettings,
     departments,
+    sections,
     branches,
     warehouses,
     gpsProduct,
@@ -1130,6 +1183,7 @@ export function createSeedState(): DemoState {
     branchAccountingMaps,
     counters: {
       department: 3,
+      section: 6,
       branch: 4,
       warehouse: 4,
       invoice: 5,

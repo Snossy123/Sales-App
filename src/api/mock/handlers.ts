@@ -42,6 +42,21 @@ function getApiDepartmentScope(ctx: MockContext): number | null {
   return getScopedDepartmentId(ctx.user)
 }
 
+function getScopedBranchIds(state: DemoState, ctx: MockContext): number[] | null {
+  const scope = getApiDepartmentScope(ctx)
+  if (scope == null) return null
+  return state.branches
+    .filter((b) => (b.administration_id ?? b.department_id) === scope)
+    .map((b) => b.id)
+}
+
+function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number | null): boolean {
+  const branchIds = getScopedBranchIds(state, ctx)
+  if (branchIds == null) return true
+  if (branchId == null) return false
+  return branchIds.includes(branchId)
+}
+
 function paginate<T>(items: T[], params?: Record<string, unknown>): PaginatedResponse<T> {
   const page = Number(params?.page ?? 1)
   const perPage = Number(params?.per_page ?? 50)
@@ -115,6 +130,21 @@ function enrichDepartment(state: DemoState, dept: Department) {
   return {
     ...dept,
     department_stock: { ...ds, distributed },
+  }
+}
+
+function enrichAdminUser(state: DemoState, user: Omit<import('./seed').DemoUser, 'password'>) {
+  const administration = user.administration_id
+    ? state.departments.find((d) => d.id === user.administration_id)
+    : null
+  const branch = user.branch_id ? state.branches.find((b) => b.id === user.branch_id) : null
+  const section = user.section_id ? state.sections.find((s) => s.id === user.section_id) : null
+  return {
+    ...user,
+    department_id: user.administration_id ?? user.department_id ?? null,
+    administration: administration ?? null,
+    branch: branch ?? null,
+    section: section ?? null,
   }
 }
 
@@ -333,7 +363,49 @@ export function handleMockRequest(
     return stats
   }
 
+  if (m === 'GET' && path === 'administrations') {
+    const scope = getApiDepartmentScope(ctx)
+    let items = state.departments
+    if (scope != null) items = items.filter((d) => d.id === scope)
+    return paginate(items, params)
+  }
+
+  if (m === 'GET' && path.match(/^administrations\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بعرض هذه الإدارة')
+    const dept = state.departments.find((d) => d.id === id)
+    if (!dept) throw mockError(404, 'الإدارة غير موجودة')
+    return enrichDepartment(state, dept)
+  }
+
+  if (m === 'POST' && path === 'administrations') {
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بإنشاء إدارات')
+    const body = data as Partial<Department>
+    let created: Department | undefined
+    mutateState((s) => {
+      const id = s.counters.department++
+      const dept: Department = {
+        id,
+        name: body.name ?? body.name_ar ?? '',
+        name_ar: body.name_ar ?? body.name ?? '',
+        code: body.code ?? `D${id}`,
+        is_active: body.is_active ?? true,
+      }
+      s.departments.push(dept)
+      s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
+      created = dept
+    })
+    return created
+  }
+
   if (m === 'GET' && path === 'departments') {
+    const branchFilter = params['filter[branch_id]']
+    if (branchFilter) {
+      const items = state.sections.filter((s) => s.branch_id === Number(branchFilter))
+      return paginate(items, params)
+    }
+
     const scope = getApiDepartmentScope(ctx)
     let items = state.departments
     if (scope != null) items = items.filter((d) => d.id === scope)
@@ -351,9 +423,25 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'departments') {
+    const body = data as Partial<Department> & { branch_id?: number }
+    if (body.branch_id) {
+      let created: (typeof state.sections)[0] | undefined
+      mutateState((s) => {
+        const id = s.counters.section = (s.counters.section ?? 6) + 1
+        created = {
+          id,
+          branch_id: body.branch_id,
+          name: body.name ?? body.name_ar ?? '',
+          name_ar: body.name_ar ?? body.name ?? '',
+          code: body.code ?? `S${id}`,
+        }
+        s.sections.push(created!)
+      })
+      return created
+    }
+
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بإنشاء إدارات')
-    const body = data as Partial<Department>
-    let created: Department | undefined
+    let createdAdmin: Department | undefined
     mutateState((s) => {
       const id = s.counters.department++
       const dept: Department = {
@@ -365,9 +453,9 @@ export function handleMockRequest(
       }
       s.departments.push(dept)
       s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
-      created = enrichDepartment(s, dept)
+      createdAdmin = enrichDepartment(s, dept)
     })
-    return created
+    return createdAdmin
   }
 
   if (m === 'PUT' && path.match(/^departments\/\d+$/)) {
@@ -422,8 +510,9 @@ export function handleMockRequest(
       items = items.filter((b) => b.department_id === scope)
     }
     const deptFilter = params['filter[department_id]']
-    if (deptFilter) {
-      items = items.filter((b) => b.department_id === Number(deptFilter))
+    const adminFilter = params['filter[administration_id]'] ?? deptFilter
+    if (adminFilter) {
+      items = items.filter((b) => (b.administration_id ?? b.department_id) === Number(adminFilter))
     }
     return paginate(
       items.map((b) => ({
@@ -628,7 +717,11 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'customers') {
     let items = [...state.customers]
-    const branchFilter = params['filter[branch_id]'] || ctx.branchId
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds) {
+      items = items.filter((c) => c.branch_id != null && scopedBranchIds.includes(c.branch_id))
+    }
+    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
     if (branchFilter) items = items.filter((c) => c.branch_id === Number(branchFilter))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((c) => c.status === statusFilter)
@@ -642,11 +735,15 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'customers') {
     const body = data as Partial<Customer>
+    const branchId = body.branch_id ?? ctx.branchId ?? 1
+    if (!isBranchInScope(state, ctx, branchId)) {
+      throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
+    }
     let created: Customer | undefined
     mutateState((s) => {
       const customer: Customer = {
         id: s.counters.customer++,
-        branch_id: body.branch_id ?? ctx.branchId ?? 1,
+        branch_id: branchId,
         name: body.name ?? '',
         phone: body.phone ?? '',
         national_id: body.national_id ?? null,
@@ -665,6 +762,7 @@ export function handleMockRequest(
     const id = Number(path.split('/')[1])
     const customer = state.customers.find((c) => c.id === id)
     if (!customer) throw mockError(404, 'العميل غير موجود')
+    if (!isBranchInScope(state, ctx, customer.branch_id)) throw mockError(404, 'العميل غير موجود')
     return enrichCustomer(state, customer)
   }
 
@@ -1538,12 +1636,48 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'admin/users') {
-    const staff = state.users.map(({ password: _, ...u }) => u)
+    let staff = state.users.map(({ password: _, ...u }) => enrichAdminUser(state, u))
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null) {
+      staff = staff.filter((u) => u.administration_id === scope)
+    }
+    const nameFilter = params['filter[name]']
+    if (nameFilter) {
+      staff = staff.filter((u) => u.name.includes(nameFilter))
+    }
+    const emailFilter = params['filter[email]']
+    if (emailFilter) {
+      staff = staff.filter((u) => u.email.includes(emailFilter))
+    }
+    const adminFilter = params['filter[administration_id]']
+    if (adminFilter) {
+      staff = staff.filter((u) => u.administration_id === Number(adminFilter))
+    }
+    const branchFilter = params['filter[branch_id]']
+    if (branchFilter) {
+      staff = staff.filter((u) => u.branch_id === Number(branchFilter))
+    }
+    const sectionFilter = params['filter[section_id]']
+    if (sectionFilter) {
+      staff = staff.filter((u) => u.section_id === Number(sectionFilter))
+    }
     return paginate(staff, params)
   }
 
   if (m === 'POST' && path === 'admin/users') {
     const body = data as Record<string, unknown>
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null) {
+      body.administration_id = scope
+      if (body.branch_id != null && !isBranchInScope(state, ctx, Number(body.branch_id))) {
+        throw mockError(403, 'لا يمكنك ربط المستخدم بفرع خارج إدارتك')
+      }
+      if (Array.isArray(body.role_names)) {
+        body.role_names = (body.role_names as string[]).filter(
+          (role) => !['Admin', 'AdministrationManager', 'Super Admin'].includes(role),
+        )
+      }
+    }
     let created: (typeof state.users)[0] | undefined
     mutateState((s) => {
       s.counters.adminUser = (s.counters.adminUser ?? 7) + 1
@@ -1554,12 +1688,21 @@ export function handleMockRequest(
         email: String(body.email ?? ''),
         password: String(body.password ?? 'demo'),
         organization_id: 1,
+        administration_id: body.administration_id ? Number(body.administration_id) : null,
+        department_id: body.administration_id ? Number(body.administration_id) : null,
         branch_id: body.branch_id ? Number(body.branch_id) : null,
+        section_id: body.section_id ? Number(body.section_id) : null,
         demo_role: 'sales',
         organization: s.organizationProfile
           ? { id: s.organizationProfile.id, name: s.organizationProfile.name, name_ar: s.organizationProfile.name_ar ?? undefined }
           : undefined,
+        administration: body.administration_id
+          ? s.departments.find((d) => d.id === Number(body.administration_id)) ?? null
+          : null,
         branch: s.branches.find((b) => b.id === Number(body.branch_id)),
+        section: body.section_id
+          ? s.sections.find((sec) => sec.id === Number(body.section_id)) ?? null
+          : null,
         roles: s.adminRoles.filter((r) => roleNames.includes(r.name)).map((r) => ({ id: r.id, name: r.name })),
       }
       s.users.push(created!)
@@ -1585,7 +1728,21 @@ export function handleMockRequest(
       if (body.name) user.name = String(body.name)
       if (body.email) user.email = String(body.email)
       if (body.password) user.password = String(body.password)
-      if (body.branch_id != null) user.branch_id = body.branch_id ? Number(body.branch_id) : null
+      if (body.administration_id != null) {
+        user.administration_id = body.administration_id ? Number(body.administration_id) : null
+        user.department_id = user.administration_id
+        user.administration = user.administration_id
+          ? s.departments.find((d) => d.id === user.administration_id) ?? null
+          : null
+      }
+      if (body.branch_id != null) {
+        user.branch_id = body.branch_id ? Number(body.branch_id) : null
+        user.branch = user.branch_id ? s.branches.find((b) => b.id === user.branch_id) : undefined
+      }
+      if (body.section_id != null) {
+        user.section_id = body.section_id ? Number(body.section_id) : null
+        user.section = user.section_id ? s.sections.find((sec) => sec.id === user.section_id) ?? null : null
+      }
       if (Array.isArray(body.role_names)) {
         user.roles = s.adminRoles
           .filter((r) => (body.role_names as string[]).includes(r.name))

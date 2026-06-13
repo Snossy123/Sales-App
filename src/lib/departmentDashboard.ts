@@ -1,4 +1,4 @@
-import type { Branch, Department } from '../api/types'
+import type { Administration, Branch, Department } from '../api/types'
 import type { GpsDeviceRow } from '../data/enterpriseGpsMock'
 
 export interface DepartmentKpi {
@@ -35,8 +35,8 @@ export interface DepartmentDashboardData {
   totalDevices: number
 }
 
-export function buildDepartmentDashboard(dept: Department, branches: Branch[]): DepartmentDashboardData {
-  const stock = dept.department_stock
+export function buildDepartmentDashboard(dept: Department | Administration, branches: Branch[]): DepartmentDashboardData {
+  const stock = 'department_stock' in dept ? dept.department_stock : undefined
   const quantity = stock?.quantity ?? 0
   const pending = stock?.pending ?? 0
   const distributed = stock?.distributed ?? 0

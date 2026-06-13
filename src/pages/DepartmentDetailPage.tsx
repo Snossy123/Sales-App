@@ -74,7 +74,7 @@ export function DepartmentDetailPage() {
                 <>
                   <span className="font-body-sm text-body-sm">الإدارة</span>
                   <Icon name="chevron_right" size={14} className="rotate-180" />
-                  <span className="font-body-sm text-body-sm">لوحة تحكم الإدارة</span>
+                  <span className="font-body-sm text-body-sm">لوحة الإدارة</span>
                   <Icon name="chevron_right" size={14} className="rotate-180" />
                 </>
               )}
@@ -93,7 +93,7 @@ export function DepartmentDetailPage() {
             <div className="flex flex-wrap items-end justify-between gap-md">
               <div>
                 <h2 className="font-headline-md text-on-surface">
-                  نظام إدارة أجهزة GPS — {deptName}
+                  لوحة الإدارة — {deptName}
                 </h2>
                 <div className="mt-sm flex flex-wrap items-center gap-md">
                   <span className="rounded border border-outline-variant bg-surface-container-high px-sm py-1 font-label-md text-primary">

@@ -17,24 +17,76 @@ export const CATEGORY_LABELS: Record<PermissionCategory, string> = {
 }
 
 export const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'عام',
+  dashboard: 'لوحة التحكم',
   branches: 'الفروع',
   warehouses: 'المخازن',
-  inventory: 'المخزون',
-  stock: 'التحويلات',
+  inventory: 'مخزون GPS',
+  stock: 'تحويلات المخزون',
   customers: 'العملاء',
-  sales: 'المبيعات',
+  sales: 'الفواتير والبيع',
   installments: 'الأقساط',
   users: 'المستخدمون',
   roles: 'الأدوار',
-  audit: 'التدقيق',
-  settings: 'الإعدادات',
-  reports: 'التقارير',
+  audit: 'سجل التدقيق',
+  settings: 'إعدادات النظام',
+  reports: 'التقارير المالية',
   crm: 'علاقات العملاء',
   hrm: 'الموارد البشرية',
-  hr: 'الموارد البشرية',
   accounting: 'المحاسبة',
 }
+
+export interface PermissionSectionDef {
+  id: string
+  label: string
+  icon: string
+  modules: string[]
+}
+
+/** ترتيب الوحدات مطابق لمجموعات القائمة الجانبية */
+export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
+  {
+    id: 'general',
+    label: 'عام',
+    icon: 'dashboard',
+    modules: ['dashboard'],
+  },
+  {
+    id: 'management',
+    label: 'الإدارة',
+    icon: 'corporate_fare',
+    modules: ['branches'],
+  },
+  {
+    id: 'sales',
+    label: 'المبيعات',
+    icon: 'point_of_sale',
+    modules: ['warehouses', 'inventory', 'stock', 'customers', 'sales', 'installments'],
+  },
+  {
+    id: 'system',
+    label: 'إدارة النظام',
+    icon: 'admin_panel_settings',
+    modules: ['users', 'roles', 'audit', 'settings'],
+  },
+  {
+    id: 'accounting',
+    label: 'المحاسبة',
+    icon: 'account_balance',
+    modules: ['accounting', 'reports'],
+  },
+  {
+    id: 'hrm',
+    label: 'الموارد البشرية',
+    icon: 'groups',
+    modules: ['hrm'],
+  },
+  {
+    id: 'crm',
+    label: 'علاقات العملاء',
+    icon: 'hub',
+    modules: ['crm'],
+  },
+]
 
 const PERMISSIONS: PermissionDefinition[] = [
   { key: 'dashboard.view', module: 'dashboard', category: 'view', label: 'عرض لوحة التحكم', description: 'الوصول إلى لوحة التحكم الرئيسية وملخص المؤشرات' },
@@ -75,8 +127,8 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'hrm.holiday.manage', module: 'hrm', category: 'other', label: 'إدارة العطلات', description: 'تعريف العطلات الرسمية في التقويم' },
   { key: 'hrm.allowance.manage', module: 'hrm', category: 'other', label: 'إدارة البدلات', description: 'تعريف وإدارة بدلات الموظفين' },
   { key: 'hrm.sales_target.manage', module: 'hrm', category: 'other', label: 'أهداف المبيعات', description: 'تحديد ومتابعة أهداف مبيعات الموظفين' },
-  { key: 'hr.employees.manage', module: 'hr', category: 'other', label: 'إدارة الموظفين', description: 'إنشاء وتعديل بيانات الموظفين' },
-  { key: 'hr.attendance.manage', module: 'hr', category: 'other', label: 'إدارة الحضور (HR)', description: 'إدارة سجلات الحضور على مستوى HR' },
+  { key: 'hr.employees.manage', module: 'hrm', category: 'other', label: 'إدارة الموظفين', description: 'إنشاء وتعديل بيانات الموظفين وربطهم بالفروع' },
+  { key: 'hr.attendance.manage', module: 'hrm', category: 'other', label: 'سجلات الحضور', description: 'تسجيل ومتابعة حضور وانصراف الموظفين على مستوى HR' },
   { key: 'accounting.access_accounting_module', module: 'accounting', category: 'view', label: 'الوصول للمحاسبة', description: 'الدخول إلى وحدة المحاسبة' },
   { key: 'accounting.manage_accounts', module: 'accounting', category: 'other', label: 'دليل الحسابات', description: 'إنشاء وتعديل حسابات دليل الحسابات' },
   { key: 'accounting.view_journal', module: 'accounting', category: 'view', label: 'عرض قيود اليومية', description: 'استعراض قيود اليومية المحاسبية' },
@@ -105,7 +157,7 @@ export function inferCategory(key: string): PermissionCategory {
 
 export function inferModule(key: string): string {
   const prefix = key.split('.')[0]
-  if (prefix === 'hr') return 'hr'
+  if (prefix === 'hr') return 'hrm'
   return prefix
 }
 
@@ -139,7 +191,16 @@ export interface ModuleGroup {
   totalCount: number
 }
 
-export function groupPermissionsByModule(
+export interface PermissionSection {
+  id: string
+  label: string
+  icon: string
+  modules: ModuleGroup[]
+  selectedCount: number
+  totalCount: number
+}
+
+function buildModuleGroups(
   permissions: PermissionDefinition[],
   selected: string[],
 ): ModuleGroup[] {
@@ -151,12 +212,7 @@ export function groupPermissionsByModule(
     byModule.set(perm.module, list)
   }
 
-  const moduleOrder = [
-    'dashboard', 'branches', 'warehouses', 'inventory', 'stock',
-    'customers', 'sales', 'installments', 'crm', 'hrm', 'hr',
-    'accounting', 'users', 'roles', 'audit', 'settings', 'reports',
-  ]
-
+  const moduleOrder = PERMISSION_SECTIONS.flatMap((section) => section.modules)
   const groups: ModuleGroup[] = []
 
   for (const module of moduleOrder) {
@@ -183,6 +239,57 @@ export function groupPermissionsByModule(
   }
 
   return groups
+}
+
+export function groupPermissionsByModule(
+  permissions: PermissionDefinition[],
+  selected: string[],
+): ModuleGroup[] {
+  return buildModuleGroups(permissions, selected)
+}
+
+export function groupPermissionsBySection(
+  permissions: PermissionDefinition[],
+  selected: string[],
+): PermissionSection[] {
+  const moduleGroups = buildModuleGroups(permissions, selected)
+  const byModule = new Map(moduleGroups.map((group) => [group.module, group]))
+  const sections: PermissionSection[] = []
+
+  for (const section of PERMISSION_SECTIONS) {
+    const modules = section.modules
+      .map((module) => byModule.get(module))
+      .filter((group): group is ModuleGroup => Boolean(group))
+
+    if (modules.length === 0) continue
+
+    sections.push({
+      id: section.id,
+      label: section.label,
+      icon: section.icon,
+      modules,
+      selectedCount: modules.reduce((sum, mod) => sum + mod.selectedCount, 0),
+      totalCount: modules.reduce((sum, mod) => sum + mod.totalCount, 0),
+    })
+
+    for (const mod of modules) {
+      byModule.delete(mod.module)
+    }
+  }
+
+  if (byModule.size > 0) {
+    const orphanModules = [...byModule.values()]
+    sections.push({
+      id: 'other',
+      label: 'أخرى',
+      icon: 'extension',
+      modules: orphanModules,
+      selectedCount: orphanModules.reduce((sum, mod) => sum + mod.selectedCount, 0),
+      totalCount: orphanModules.reduce((sum, mod) => sum + mod.totalCount, 0),
+    })
+  }
+
+  return sections
 }
 
 export function groupPermissionsByCategory(

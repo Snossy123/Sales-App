@@ -18,7 +18,7 @@ export function getUserRole(user: AuthUser | null): DemoRole {
   if (user.demo_role) return user.demo_role
 
   if (hasRole(user, 'Admin')) return 'super_admin'
-  if (hasRole(user, 'BranchManager')) return 'admin'
+  if (hasRole(user, 'AdministrationManager', 'BranchManager', 'Department Admin')) return 'admin'
 
   const primary = roleNames(user)[0]?.toLowerCase() ?? ''
   if (primary.includes('super')) return 'super_admin'
@@ -51,33 +51,38 @@ export function isAnyAdmin(user: AuthUser | null): boolean {
 }
 
 /** null = unrestricted (super admin) */
+export function getUserAdministrationId(user: AuthUser | null): number | null {
+  return user?.administration_id ?? user?.department_id ?? null
+}
+
+/** null = unrestricted (super admin) */
 export function getScopedDepartmentId(user: AuthUser | null): number | null {
   if (!user || isSuperAdmin(user)) return null
-  if (isDepartmentAdmin(user)) return user.department_id ?? null
-  return user.department_id ?? null
+  return getUserAdministrationId(user)
 }
 
 export function canAccessDepartment(user: AuthUser | null, departmentId: number): boolean {
   if (!user) return false
   if (isSuperAdmin(user)) return true
-  if (isDepartmentAdmin(user)) return user.department_id === departmentId
+  if (isDepartmentAdmin(user)) return getUserAdministrationId(user) === departmentId
   return false
 }
 
-export function canAccessBranch(user: AuthUser | null, branch: Pick<Branch, 'department_id'>): boolean {
+export function canAccessBranch(user: AuthUser | null, branch: Pick<Branch, 'administration_id' | 'department_id'>): boolean {
   if (!user) return false
   if (isSuperAdmin(user)) return true
   if (isDepartmentAdmin(user)) {
-    return branch.department_id != null && branch.department_id === user.department_id
+    const adminId = branch.administration_id ?? branch.department_id
+    return adminId != null && adminId === getUserAdministrationId(user)
   }
   return false
 }
 
-export function filterByDepartmentScope<T extends { department_id?: number | null }>(
+export function filterByDepartmentScope<T extends { department_id?: number | null; administration_id?: number | null }>(
   user: AuthUser | null,
   items: T[],
 ): T[] {
   const scopeId = getScopedDepartmentId(user)
   if (scopeId == null) return items
-  return items.filter((item) => item.department_id === scopeId)
+  return items.filter((item) => (item.administration_id ?? item.department_id) === scopeId)
 }

@@ -6,6 +6,24 @@ export interface PaginatedResponse<T> {
   total: number
 }
 
+export interface Administration {
+  id: number
+  name: string
+  name_ar?: string | null
+  code: string
+  is_active?: boolean
+}
+
+/** Branch-level organizational unit (قسم) — maps to backend `departments` table. */
+export interface Section {
+  id: number
+  branch_id?: number | null
+  name: string
+  name_ar?: string | null
+  code: string
+  branch?: Branch
+}
+
 export interface Department {
   id: number
   name: string
@@ -36,6 +54,8 @@ export interface InventoryOverviewRow {
 
 export interface Branch {
   id: number
+  administration_id?: number
+  /** @deprecated Use administration_id */
   department_id?: number
   name: string
   name_ar?: string | null
@@ -43,6 +63,8 @@ export interface Branch {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  administration?: Administration
+  /** @deprecated Use administration */
   department?: Department
   warehouses?: Warehouse[]
 }
@@ -78,14 +100,19 @@ export interface AuthUser {
   name: string
   email: string
   organization_id: number
+  administration_id?: number | null
+  /** @deprecated Use administration_id */
   department_id?: number | null
   branch_id?: number | null
+  section_id?: number | null
+  administration?: Administration | null
   branch?: Branch | null
+  section?: Section | null
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
   permissions?: string[]
   demo_role?: DemoRole
-  section?: UserSection
+  workflow_section?: UserSection
 }
 
 export interface LoginResponse {
@@ -750,7 +777,9 @@ export interface HrmPayrollGroup {
 }
 
 export interface AdminUser extends AuthUser {
+  administration_id?: number | null
   branch_id?: number | null
+  section_id?: number | null
   roles?: (Role & { name: string })[]
 }
 

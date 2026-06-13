@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import {
   getAllPermissions,
   groupPermissionsByModule,
+  groupPermissionsBySection,
   searchPermissions,
   type ModuleGroup,
   type PermissionDefinition,
+  type PermissionSection,
 } from '../lib/permissionCatalog'
 import { PermissionCategorySection } from './PermissionCategorySection'
 import { PermissionModuleNav } from './PermissionModuleNav'
@@ -45,9 +47,27 @@ export function RolePermissionsEditor({
     [filteredPermissions, selected],
   )
 
+  const sections = useMemo(
+    () => groupPermissionsBySection(filteredPermissions, selected),
+    [filteredPermissions, selected],
+  )
+
   const activeModuleGroup = useMemo(() => {
     const found = modules.find((m) => m.module === activeModule)
     return found ?? modules[0]
+  }, [modules, activeModule])
+
+  const activeSection = useMemo(() => {
+    if (!activeModuleGroup) return undefined
+    return sections.find((section) =>
+      section.modules.some((mod) => mod.module === activeModuleGroup.module),
+    )
+  }, [sections, activeModuleGroup])
+
+  useEffect(() => {
+    if (!modules.some((mod) => mod.module === activeModule) && modules[0]) {
+      setActiveModule(modules[0].module)
+    }
   }, [modules, activeModule])
 
   const togglePermission = (key: string) => {
@@ -69,6 +89,15 @@ export function RolePermissionsEditor({
     if (!mod) return
     toggleKeys(
       mod.permissions.map((p) => p.key),
+      select,
+    )
+  }
+
+  const toggleSection = (sectionId: string, select: boolean) => {
+    const section = sections.find((item) => item.id === sectionId)
+    if (!section) return
+    toggleKeys(
+      section.modules.flatMap((mod) => mod.permissions.map((p) => p.key)),
       select,
     )
   }
@@ -114,13 +143,14 @@ export function RolePermissionsEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-md lg:grid-cols-[240px_1fr]">
-        <aside className="rounded-xl border border-outline-variant bg-surface-container-lowest p-sm lg:sticky lg:top-4 lg:self-start">
+      <div className="grid grid-cols-1 gap-md xl:grid-cols-[280px_1fr]">
+        <aside className="rounded-xl border border-outline-variant bg-surface-container-lowest p-sm xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:self-start xl:overflow-y-auto">
           <PermissionModuleNav
-            modules={modules}
+            sections={sections}
             activeModule={activeModuleGroup?.module ?? 'dashboard'}
             onSelect={setActiveModule}
             onToggleModule={toggleModule}
+            onToggleSection={toggleSection}
           />
         </aside>
 
@@ -129,6 +159,13 @@ export function RolePermissionsEditor({
             <>
               <div className="mb-md flex flex-wrap items-center justify-between gap-sm border-b border-outline-variant pb-sm">
                 <div>
+                  {activeSection && activeSection.modules.length > 1 && (
+                    <p className="mb-2xs flex items-center gap-xs text-xs text-on-surface-variant">
+                      <Icon name={activeSection.icon} size={14} />
+                      <span>{activeSection.label}</span>
+                      <Icon name="chevron_left" size={14} />
+                    </p>
+                  )}
                   <h2 className="text-base font-bold text-on-surface">{activeModuleGroup.label}</h2>
                   <p className="text-xs text-on-surface-variant">
                     محدد {activeModuleGroup.selectedCount} / {activeModuleGroup.totalCount}
@@ -167,4 +204,4 @@ export function RolePermissionsEditor({
   )
 }
 
-export type { ModuleGroup, PermissionDefinition }
+export type { ModuleGroup, PermissionDefinition, PermissionSection }

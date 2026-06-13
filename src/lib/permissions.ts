@@ -1,5 +1,5 @@
 import type { AuthUser, DemoRole } from '../api/types'
-import { canAccessDepartment, getUserRole, userHasPermission } from './access'
+import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
 
 export { getUserRole } from './access'
 
@@ -44,14 +44,7 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', end: true, roles: ['super_admin'] },
         { to: '/branches', icon: 'store', label: 'كل الفروع', roles: ['super_admin'] },
-        { to: '/gps/management', icon: 'router', label: 'إدارة GPS المركزية', roles: ['super_admin'] },
-        {
-          to: '/departments',
-          icon: 'dashboard',
-          label: 'لوحة تحكم الإدارة',
-          roles: ['admin'],
-          dynamicTo: (user) => (user.department_id ? `/departments/${user.department_id}` : null),
-        },
+        { to: '/gps/management', icon: 'dashboard', label: 'لوحة الإدارة', roles: ['admin'] },
         { to: '/branches', icon: 'store', label: 'فروع الإدارة', roles: ['admin'] },
       ],
     },
@@ -63,9 +56,9 @@ export const navEntries: NavEntry[] = [
       label: 'إدارة النظام',
       icon: 'admin_panel_settings',
       items: [
-        { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin'] },
+        { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin', 'admin'] },
         { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
-        { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin'] },
+        { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin', 'admin'] },
         { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
       ],
     },
@@ -78,9 +71,9 @@ export const navEntries: NavEntry[] = [
       icon: 'point_of_sale',
       items: [
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin'] },
-        { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
+        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin', 'admin'] },
+        { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'admin', 'collector'] },
         { to: '/customers', icon: 'group', label: 'العملاء', roles: ['super_admin', 'admin', 'sales', 'collector'] },
       ],
     },
@@ -92,14 +85,14 @@ export const navEntries: NavEntry[] = [
       label: 'المحاسبة',
       icon: 'account_balance',
       items: [
-        { to: '/accounting', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/chart-of-accounts', icon: 'list_alt', label: 'دليل الحسابات', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/journal-entries', icon: 'edit_note', label: 'قيود اليومية', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/transfers', icon: 'swap_horiz', label: 'التحويلات', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/transactions', icon: 'link', label: 'ربط المبيعات', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/reports', icon: 'assessment', label: 'التقارير', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/budgets', icon: 'savings', label: 'الميزانيات', roles: ['super_admin', 'accountant'] },
-        { to: '/accounting/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'accountant'] },
+        { to: '/accounting', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/chart-of-accounts', icon: 'list_alt', label: 'دليل الحسابات', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/journal-entries', icon: 'edit_note', label: 'قيود اليومية', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/transfers', icon: 'swap_horiz', label: 'التحويلات', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/transactions', icon: 'link', label: 'ربط المبيعات', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/reports', icon: 'assessment', label: 'التقارير', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/budgets', icon: 'savings', label: 'الميزانيات', roles: ['super_admin', 'admin', 'accountant'] },
+        { to: '/accounting/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'admin', 'accountant'] },
       ],
     },
   },
@@ -110,17 +103,17 @@ export const navEntries: NavEntry[] = [
       label: 'الموارد البشرية',
       icon: 'groups',
       items: [
-        { to: '/hrm', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/employees', icon: 'badge', label: 'الموظفون', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/leave-types', icon: 'category', label: 'أنواع الإجازة', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/allowances', icon: 'payments', label: 'البدلات', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/payroll', icon: 'account_balance_wallet', label: 'الرواتب', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/payroll-groups', icon: 'folder_shared', label: 'مسيرات الرواتب', roles: ['super_admin', 'hr_manager'] },
-        { to: '/hrm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'hr_manager'] },
+        { to: '/hrm', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/employees', icon: 'badge', label: 'الموظفون', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/leave-types', icon: 'category', label: 'أنواع الإجازة', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/allowances', icon: 'payments', label: 'البدلات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/payroll', icon: 'account_balance_wallet', label: 'الرواتب', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/payroll-groups', icon: 'folder_shared', label: 'مسيرات الرواتب', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'admin', 'hr_manager'] },
       ],
     },
   },
@@ -150,35 +143,35 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
   '/departments': ['super_admin'],
   '/branches': ['super_admin', 'admin'],
-  '/gps/management': ['super_admin'],
+  '/gps/management': ['admin'],
   '/inventory': ['super_admin', 'admin', 'sales'],
   '/pos': ['super_admin', 'admin', 'sales'],
-  '/invoices/review': ['super_admin', 'reviewer'],
-  '/invoices': ['super_admin'],
-  '/installments': ['super_admin', 'collector'],
+  '/invoices/review': ['super_admin', 'admin', 'reviewer'],
+  '/invoices': ['super_admin', 'admin'],
+  '/installments': ['super_admin', 'admin', 'collector'],
   '/customers': ['super_admin', 'admin', 'sales', 'collector'],
-  '/accounting': ['super_admin', 'accountant'],
-  '/accounting/chart-of-accounts': ['super_admin', 'accountant'],
-  '/accounting/journal-entries': ['super_admin', 'accountant'],
-  '/accounting/transfers': ['super_admin', 'accountant'],
-  '/accounting/transactions': ['super_admin', 'accountant'],
-  '/accounting/reports': ['super_admin', 'accountant'],
-  '/accounting/budgets': ['super_admin', 'accountant'],
-  '/accounting/settings': ['super_admin', 'accountant'],
-  '/hrm': ['super_admin', 'hr_manager'],
-  '/hrm/attendance': ['super_admin', 'hr_manager'],
-  '/hrm/leaves': ['super_admin', 'hr_manager'],
-  '/hrm/leave-types': ['super_admin', 'hr_manager'],
-  '/hrm/employees': ['super_admin', 'hr_manager'],
-  '/hrm/allowances': ['super_admin', 'hr_manager'],
-  '/hrm/payroll-groups': ['super_admin', 'hr_manager'],
-  '/hrm/shifts': ['super_admin', 'hr_manager'],
-  '/hrm/payroll': ['super_admin', 'hr_manager'],
-  '/hrm/holidays': ['super_admin', 'hr_manager'],
-  '/hrm/settings': ['super_admin', 'hr_manager'],
-  '/admin/users': ['super_admin'],
+  '/accounting': ['super_admin', 'admin', 'accountant'],
+  '/accounting/chart-of-accounts': ['super_admin', 'admin', 'accountant'],
+  '/accounting/journal-entries': ['super_admin', 'admin', 'accountant'],
+  '/accounting/transfers': ['super_admin', 'admin', 'accountant'],
+  '/accounting/transactions': ['super_admin', 'admin', 'accountant'],
+  '/accounting/reports': ['super_admin', 'admin', 'accountant'],
+  '/accounting/budgets': ['super_admin', 'admin', 'accountant'],
+  '/accounting/settings': ['super_admin', 'admin', 'accountant'],
+  '/hrm': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/attendance': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/leaves': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/leave-types': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/employees': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/allowances': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/payroll-groups': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/shifts': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/payroll': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/holidays': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/settings': ['super_admin', 'admin', 'hr_manager'],
+  '/admin/users': ['super_admin', 'admin'],
   '/admin/roles': ['super_admin'],
-  '/admin/activity-log': ['super_admin'],
+  '/admin/activity-log': ['super_admin', 'admin'],
   '/admin/settings': ['super_admin'],
   '/crm': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
@@ -202,6 +195,9 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     return true
   }
   if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
+    if (item.to === '/admin/roles' || item.to === '/admin/settings') {
+      return isSuperAdmin(user)
+    }
     return true
   }
   return false
@@ -227,7 +223,7 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   const deptDetailMatch = normalized.match(/^\/departments\/(\d+)$/)
   if (deptDetailMatch) {
-    if (!['super_admin', 'admin'].includes(role)) return false
+    if (role !== 'super_admin') return false
     return canAccessDepartment(user, Number(deptDetailMatch[1]))
   }
 
@@ -252,6 +248,9 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/admin')) {
     const adminRoute = normalized === '/admin/users' ? '/admin/users' : (normalized.match(/^\/admin\/[^/]+/)?.[0] ?? '/admin/users')
+    if ((adminRoute === '/admin/roles' || adminRoute === '/admin/settings') && role !== 'super_admin') {
+      return false
+    }
     const allowed = routeRoles[adminRoute] ?? routeRoles['/admin/users']
     if (allowed?.includes(role)) return true
     return userHasPermission(user, 'users.manage')
@@ -297,7 +296,7 @@ export function getDefaultRoute(user: AuthUser | null): string {
   if (role === 'crm') return '/crm'
   if (role === 'hr_manager') return '/hrm'
   if (role === 'accountant') return '/accounting'
-  if (role === 'admin' && user?.department_id) return `/departments/${user.department_id}`
+  if (role === 'admin') return '/gps/management'
   return '/'
 }
 
