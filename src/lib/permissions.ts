@@ -129,7 +129,7 @@ export const navEntries: NavEntry[] = [
       label: 'علاقات العملاء',
       icon: 'hub',
       items: [
-        { to: '/crm', icon: 'hub', label: 'خط الأنابيب', end: true, roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm', icon: 'hub', label: 'العملاء المحتملين', end: true, roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/activities', icon: 'task', label: 'الأنشطة', roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/call-logs', icon: 'call', label: 'سجل المكالمات', roles: ['super_admin', 'admin', 'crm'] },

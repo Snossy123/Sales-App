@@ -46,7 +46,7 @@ export function CrmPipelinePage() {
 
   return (
     <div>
-      <h1 className="mb-md text-2xl font-bold text-on-surface">خط أنابيب العملاء المحتملين</h1>
+      <h1 className="mb-md text-2xl font-bold text-on-surface">العملاء المحتملين</h1>
 
       <AsyncState
         isLoading={query.isLoading}

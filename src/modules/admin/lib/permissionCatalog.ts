@@ -117,7 +117,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'crm.view_all_call_log', module: 'crm', category: 'view', label: 'عرض كل سجل المكالمات', description: 'استعراض سجل المكالمات لجميع المستخدمين' },
   { key: 'crm.view_own_call_log', module: 'crm', category: 'view', label: 'عرض مكالماتي', description: 'استعراض سجل المكالمات الخاص بالمستخدم' },
   { key: 'crm.access_b2b_marketplace', module: 'crm', category: 'other', label: 'التكاملات', description: 'الوصول إلى تكاملات B2B والسوق' },
-  { key: 'crm.leads.manage', module: 'crm', category: 'other', label: 'إدارة العملاء المحتملين', description: 'إنشاء وتعديل العملاء المحتملين في خط الأنابيب' },
+  { key: 'crm.leads.manage', module: 'crm', category: 'other', label: 'إدارة العملاء المحتملين', description: 'إنشاء وتعديل العملاء المحتملين ومراحلهم' },
   { key: 'crm.activities.manage', module: 'crm', category: 'other', label: 'إدارة الأنشطة', description: 'تسجيل ومتابعة أنشطة CRM' },
   { key: 'hrm.leave.manage', module: 'hrm', category: 'other', label: 'إدارة الإجازات', description: 'تقديم وإدارة طلبات الإجازة' },
   { key: 'hrm.leave.approve', module: 'hrm', category: 'other', label: 'اعتماد الإجازات', description: 'الموافقة على طلبات الإجازة أو رفضها' },

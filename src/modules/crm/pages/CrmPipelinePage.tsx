@@ -60,7 +60,7 @@ export function CrmPipelinePage() {
   return (
     <div>
       <PageHeader
-        title="خط أنابيب العملاء المحتملين"
+        title="العملاء المحتملين"
         subtitle="إدارة مراحل العملاء المحتملين وتحويلهم"
       />
 
