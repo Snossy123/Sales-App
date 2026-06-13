@@ -105,7 +105,10 @@ export function TransactionMapPage() {
             {
               key: 'branch',
               header: 'الفرع',
-              render: (row) => row.branch?.name_ar || row.branch?.name || '—',
+              render: (row) => {
+                const branch = row.branch as { name_ar?: string; name?: string } | undefined
+                return branch?.name_ar || branch?.name || '—'
+              },
             },
             {
               key: 'total',

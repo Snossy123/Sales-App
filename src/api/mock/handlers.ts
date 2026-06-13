@@ -4,7 +4,14 @@ import type {
   AccountingSettings,
   BranchAccountingMap,
   BalanceSheetReport,
+  IncomeStatementReport,
+  ArAgeingContactRow,
+  AccountingAccTransMapping,
+  AccountingAccount,
+  AccountingBudget,
+  AccountingTransactionLine,
   Branch,
+  BranchAccountingMap,
   CheckoutPayload,
   Customer,
   DashboardStats,
@@ -21,6 +28,7 @@ import { loadState, mutateState, resetState } from './store'
 import type { AuthUser } from '../types'
 import { getScopedDepartmentId, isSuperAdmin } from '../../lib/access'
 import type { DemoState } from './seed'
+import { tryHandleHrmRequest } from './hrmHandlers'
 
 interface MockContext {
   branchId?: number
@@ -871,8 +879,272 @@ export function handleMockRequest(
     return paginate(state.journalEntries, params)
   }
 
+  if (m === 'POST' && path === 'accounting/journal-entries') {
+    const body = data as {
+      operation_date?: string
+      note?: string
+      lines: Array<{ accounting_account_id: number; amount: number; type: 'debit' | 'credit'; note?: string }>
+    }
+    let created!: AccountingAccTransMapping
+    mutateState((s) => {
+      s.counters.journalEntry = (s.counters.journalEntry ?? 0) + 1
+      const id = s.counters.journalEntry
+      const lines: AccountingTransactionLine[] = body.lines.map((line, idx) => ({
+        id: id * 10 + idx,
+        accounting_account_id: line.accounting_account_id,
+        acc_trans_mapping_id: id,
+        amount: line.amount,
+        type: line.type,
+        note: line.note,
+        account: s.accountingAccounts.find((a) => a.id === line.accounting_account_id),
+      }))
+      created = {
+        id,
+        ref_no: `${s.accountingSettings.journal_entry_prefix ?? 'JE'}-${String(id).padStart(3, '0')}`,
+        type: 'journal_entry',
+        operation_date: body.operation_date ?? new Date().toISOString(),
+        note: body.note,
+        lines,
+      }
+      s.journalEntries.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^accounting\/journal-entries\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as {
+      operation_date?: string
+      note?: string
+      lines: Array<{ accounting_account_id: number; amount: number; type: 'debit' | 'credit'; note?: string }>
+    }
+    let updated!: AccountingAccTransMapping
+    mutateState((s) => {
+      const idx = s.journalEntries.findIndex((e) => e.id === id)
+      if (idx < 0) throw mockError(404, 'Journal entry not found')
+      const lines: AccountingTransactionLine[] = body.lines.map((line, lineIdx) => ({
+        id: id * 10 + lineIdx,
+        accounting_account_id: line.accounting_account_id,
+        acc_trans_mapping_id: id,
+        amount: line.amount,
+        type: line.type,
+        note: line.note,
+        account: s.accountingAccounts.find((a) => a.id === line.accounting_account_id),
+      }))
+      updated = {
+        ...s.journalEntries[idx],
+        operation_date: body.operation_date ?? s.journalEntries[idx].operation_date,
+        note: body.note ?? s.journalEntries[idx].note,
+        lines,
+      }
+      s.journalEntries[idx] = updated
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^accounting\/journal-entries\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    mutateState((s) => {
+      s.journalEntries = s.journalEntries.filter((e) => e.id !== id)
+    })
+    return { message: 'Journal entry deleted.' }
+  }
+
   if (m === 'GET' && path === 'accounting/transfers') {
     return paginate(state.transfers, params)
+  }
+
+  if (m === 'POST' && path === 'accounting/transfers') {
+    const body = data as {
+      from_account_id: number
+      to_account_id: number
+      amount: number
+      operation_date?: string
+      note?: string
+    }
+    let created!: AccountingAccTransMapping
+    mutateState((s) => {
+      s.counters.transfer = (s.counters.transfer ?? 0) + 1
+      const id = s.counters.transfer
+      const lines: AccountingTransactionLine[] = [
+        {
+          id: id * 10,
+          accounting_account_id: body.to_account_id,
+          acc_trans_mapping_id: id,
+          amount: body.amount,
+          type: 'debit',
+          account: s.accountingAccounts.find((a) => a.id === body.to_account_id),
+        },
+        {
+          id: id * 10 + 1,
+          accounting_account_id: body.from_account_id,
+          acc_trans_mapping_id: id,
+          amount: body.amount,
+          type: 'credit',
+          account: s.accountingAccounts.find((a) => a.id === body.from_account_id),
+        },
+      ]
+      created = {
+        id,
+        ref_no: `${s.accountingSettings.transfer_prefix ?? 'TR'}-${String(id).padStart(3, '0')}`,
+        type: 'transfer',
+        operation_date: body.operation_date ?? new Date().toISOString(),
+        note: body.note,
+        lines,
+      }
+      s.transfers.unshift(created)
+    })
+    return created
+  }
+
+  if (m === 'POST' && path === 'accounting/chart-of-accounts') {
+    const body = data as Partial<AccountingAccount>
+    let created!: AccountingAccount
+    mutateState((s) => {
+      s.counters.accountingAccount = (s.counters.accountingAccount ?? 0) + 1
+      const id = s.counters.accountingAccount
+      created = {
+        id,
+        name: body.name ?? 'حساب',
+        gl_code: body.gl_code ?? null,
+        account_primary_type: body.account_primary_type ?? 'asset',
+        parent_account_id: body.parent_account_id ?? null,
+        description: body.description ?? null,
+        status: body.status ?? 'active',
+      }
+      s.accountingAccounts.push(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^accounting\/chart-of-accounts\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as Partial<AccountingAccount>
+    let updated!: AccountingAccount
+    mutateState((s) => {
+      const idx = s.accountingAccounts.findIndex((a) => a.id === id)
+      if (idx < 0) throw mockError(404, 'Account not found')
+      updated = { ...s.accountingAccounts[idx], ...body, id }
+      s.accountingAccounts[idx] = updated
+    })
+    return updated
+  }
+
+  if (m === 'PATCH' && path.match(/^accounting\/chart-of-accounts\/\d+\/toggle-status$/)) {
+    const id = Number(path.split('/')[2])
+    let updated!: AccountingAccount
+    mutateState((s) => {
+      const idx = s.accountingAccounts.findIndex((a) => a.id === id)
+      if (idx < 0) throw mockError(404, 'Account not found')
+      updated = {
+        ...s.accountingAccounts[idx],
+        status: s.accountingAccounts[idx].status === 'active' ? 'inactive' : 'active',
+      }
+      s.accountingAccounts[idx] = updated
+    })
+    return updated
+  }
+
+  if (m === 'GET' && path.match(/^accounting\/chart-of-accounts\/\d+\/ledger$/)) {
+    const accountId = Number(path.split('/')[2])
+    const account = state.accountingAccounts.find((a) => a.id === accountId)
+    if (!account) throw mockError(404, 'Account not found')
+    const allLines = [...state.journalEntries, ...state.transfers]
+      .flatMap((m) => m.lines ?? [])
+      .filter((l) => l.accounting_account_id === accountId)
+    return {
+      account,
+      balance: allLines.reduce((sum, l) => sum + Number(l.amount) * (l.type === 'debit' ? 1 : -1), 0),
+      transactions: paginate(allLines, params),
+    }
+  }
+
+  if (m === 'POST' && path === 'accounting/opening-balance') {
+    return handleMockRequest('POST', 'accounting/journal-entries', data, config, ctx)
+  }
+
+  if (m === 'POST' && path === 'accounting/budgets') {
+    const body = data as Partial<AccountingBudget> & { accounting_account_id: number; financial_year: number }
+    let created!: AccountingBudget
+    mutateState((s) => {
+      const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const
+      const monthValues = Object.fromEntries(months.map((m) => [m, Number(body[m] ?? 0)])) as Record<(typeof months)[number], number>
+      const yearly = months.reduce((sum, m) => sum + monthValues[m], 0)
+      s.counters.budget = (s.counters.budget ?? 0) + 1
+      const id = s.counters.budget
+      created = {
+        id,
+        accounting_account_id: body.accounting_account_id,
+        financial_year: body.financial_year,
+        ...monthValues,
+        quarter_1: monthValues.jan + monthValues.feb + monthValues.mar,
+        quarter_2: monthValues.apr + monthValues.may + monthValues.jun,
+        quarter_3: monthValues.jul + monthValues.aug + monthValues.sep,
+        quarter_4: monthValues.oct + monthValues.nov + monthValues.dec,
+        yearly,
+        account: s.accountingAccounts.find((a) => a.id === body.accounting_account_id),
+      }
+      s.budgets.push(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^accounting\/budgets\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as Partial<AccountingBudget>
+    let updated!: AccountingBudget
+    mutateState((s) => {
+      const idx = s.budgets.findIndex((b) => b.id === id)
+      if (idx < 0) throw mockError(404, 'Budget not found')
+      updated = { ...s.budgets[idx], ...body, id }
+      s.budgets[idx] = updated
+    })
+    return updated
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/ar-ageing') {
+    const report: ArAgeingContactRow[] = state.customers.slice(0, 3).map((c, idx) => ({
+      contact_id: c.id,
+      name: c.name,
+      '<1': idx === 0 ? 5000 : 0,
+      '1_30': idx === 1 ? 3000 : 0,
+      '31_60': 0,
+      '61_90': idx === 2 ? 2000 : 0,
+      '>90': 0,
+      total_due: [5000, 3000, 2000][idx] ?? 0,
+    }))
+    return { group_by: params.group_by ?? 'contact', as_of_date: new Date().toISOString().split('T')[0], report }
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/income-statement') {
+    const lines = state.accountingAccounts
+      .filter((a) => a.account_primary_type === 'income' || a.account_primary_type === 'expense')
+      .map((a, idx) => ({
+        id: a.id,
+        name: a.name,
+        gl_code: a.gl_code,
+        account_primary_type: a.account_primary_type,
+        balance: a.account_primary_type === 'income' ? 120000 + idx * 5000 : -(45000 + idx * 2000),
+      }))
+    const report: IncomeStatementReport = {
+      start_date: params.start_date ?? null,
+      end_date: params.end_date ?? null,
+      total_income: lines.filter((l) => l.account_primary_type === 'income').reduce((s, l) => s + Number(l.balance), 0),
+      total_expenses: Math.abs(lines.filter((l) => l.account_primary_type === 'expense').reduce((s, l) => s + Number(l.balance), 0)),
+      net_profit: 0,
+      lines,
+    }
+    report.net_profit = report.total_income - report.total_expenses
+    return report
+  }
+
+  if (m === 'POST' && path === 'accounting/settings/reset-data') {
+    mutateState((s) => {
+      s.journalEntries = []
+      s.transfers = []
+      s.mappedInvoiceIds = []
+    })
+    return { message: 'Accounting data reset.' }
   }
 
   if (m === 'GET' && path === 'accounting/transactions') {
@@ -1215,6 +1487,173 @@ export function handleMockRequest(
     })
     return loadState().crmSettings
   }
+
+  if (m === 'GET' && path === 'hrm/settings') {
+    return state.hrmSettings
+  }
+
+  if (m === 'PUT' && path === 'hrm/settings') {
+    const body = data as Record<string, unknown>
+    mutateState((s) => {
+      s.hrmSettings = { ...s.hrmSettings, ...body }
+    })
+    return loadState().hrmSettings
+  }
+
+  if (m === 'GET' && path === 'admin/users') {
+    const staff = state.users.map(({ password: _, ...u }) => u)
+    return paginate(staff, params)
+  }
+
+  if (m === 'POST' && path === 'admin/users') {
+    const body = data as Record<string, unknown>
+    let created: (typeof state.users)[0] | undefined
+    mutateState((s) => {
+      s.counters.adminUser = (s.counters.adminUser ?? 7) + 1
+      const roleNames = (body.role_names as string[]) ?? []
+      created = {
+        id: s.counters.adminUser,
+        name: String(body.name ?? ''),
+        email: String(body.email ?? ''),
+        password: String(body.password ?? 'demo'),
+        organization_id: 1,
+        branch_id: body.branch_id ? Number(body.branch_id) : null,
+        demo_role: 'sales',
+        organization: s.organizationProfile
+          ? { id: s.organizationProfile.id, name: s.organizationProfile.name, name_ar: s.organizationProfile.name_ar ?? undefined }
+          : undefined,
+        branch: s.branches.find((b) => b.id === Number(body.branch_id)),
+        roles: s.adminRoles.filter((r) => roleNames.includes(r.name)).map((r) => ({ id: r.id, name: r.name })),
+      }
+      s.users.push(created!)
+      s.adminActivityLogs.unshift({
+        id: (s.counters.activityLog = (s.counters.activityLog ?? 3) + 1),
+        log_name: 'admin',
+        description: 'User created',
+        created_at: new Date().toISOString(),
+        causer: ctx.user ? { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email } : undefined,
+      })
+    })
+    const { password: __, ...authUser } = created!
+    return authUser
+  }
+
+  if (m === 'PUT' && path.match(/^admin\/users\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as Record<string, unknown>
+    let updated: (typeof state.users)[0] | undefined
+    mutateState((s) => {
+      const user = s.users.find((u) => u.id === id)
+      if (!user) throw mockError(404, 'المستخدم غير موجود')
+      if (body.name) user.name = String(body.name)
+      if (body.email) user.email = String(body.email)
+      if (body.password) user.password = String(body.password)
+      if (body.branch_id != null) user.branch_id = body.branch_id ? Number(body.branch_id) : null
+      if (Array.isArray(body.role_names)) {
+        user.roles = s.adminRoles
+          .filter((r) => (body.role_names as string[]).includes(r.name))
+          .map((r) => ({ id: r.id, name: r.name }))
+      }
+      updated = user
+    })
+    const { password: __, ...authUser } = updated!
+    return authUser
+  }
+
+  if (m === 'GET' && path === 'admin/roles') {
+    return state.adminRoles
+  }
+
+  if (m === 'POST' && path === 'admin/roles') {
+    const body = data as { name?: string; permissions?: string[] }
+    let created: (typeof state.adminRoles)[0] | undefined
+    mutateState((s) => {
+      s.counters.adminRole = (s.counters.adminRole ?? 3) + 1
+      const perms = (body.permissions ?? []).map((name, idx) => ({ id: 100 + idx, name }))
+      created = {
+        id: s.counters.adminRole,
+        name: String(body.name ?? ''),
+        permissions: perms,
+        permissions_count: perms.length,
+      }
+      s.adminRoles.push(created)
+    })
+    return created
+  }
+
+  if (m === 'PUT' && path.match(/^admin\/roles\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as { name?: string; permissions?: string[] }
+    let updated: (typeof state.adminRoles)[0] | undefined
+    mutateState((s) => {
+      const role = s.adminRoles.find((r) => r.id === id)
+      if (!role) throw mockError(404, 'الدور غير موجود')
+      if (body.name) role.name = body.name
+      if (body.permissions) {
+        role.permissions = body.permissions.map((name, idx) => ({ id: 200 + idx, name }))
+        role.permissions_count = role.permissions.length
+      }
+      updated = role
+    })
+    return updated
+  }
+
+  if (m === 'GET' && path === 'admin/permissions') {
+    const basePerms = [
+      'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'dashboard.view',
+      'branches.manage', 'customers.manage', 'sales.pos', 'crm.leads.manage', 'crm.access_own_leads',
+      'accounting.access_accounting_module', 'hr.employees.manage', 'hrm.payroll.manage',
+    ]
+    const fromRoles = state.adminRoles.flatMap((r) => r.permissions?.map((p) => p.name) ?? [])
+    const unique = [...new Set([...fromRoles, ...basePerms])]
+    const grouped: Record<string, string[]> = {}
+    for (const perm of unique) {
+      const group = perm.split('.')[0]
+      if (!grouped[group]) grouped[group] = []
+      grouped[group].push(perm)
+    }
+    return grouped
+  }
+
+  if (m === 'GET' && path === 'admin/activity-log') {
+    let logs = [...(state.adminActivityLogs ?? [])]
+    if (params.search) logs = logs.filter((l) => l.description.includes(params.search))
+    if (params.log_name) logs = logs.filter((l) => l.log_name === params.log_name)
+    return paginate(logs, params)
+  }
+
+  if (m === 'GET' && path === 'admin/settings') {
+    return {
+      organization: state.organizationProfile,
+      module_settings: {
+        crm: state.crmSettings,
+        hrm: state.hrmSettings,
+        accounting: state.accountingSettings,
+      },
+    }
+  }
+
+  if (m === 'PUT' && path === 'admin/settings') {
+    const body = data as Record<string, unknown>
+    mutateState((s) => {
+      s.organizationProfile = { ...s.organizationProfile, ...body }
+      s.adminActivityLogs.unshift({
+        id: (s.counters.activityLog = (s.counters.activityLog ?? 3) + 1),
+        log_name: 'admin',
+        description: 'Organization settings updated',
+        created_at: new Date().toISOString(),
+        causer: ctx.user ? { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email } : undefined,
+      })
+    })
+    const s = loadState()
+    return {
+      organization: s.organizationProfile,
+      module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
+    }
+  }
+
+  const hrmResult = tryHandleHrmRequest(m, path, data, params, ctx)
+  if (hrmResult !== undefined) return hrmResult
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)
 }

@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
-import type { HrmShift, PaginatedResponse } from '../../../api/types'
+import type { Employee, HrmShift, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { HrmSubNav } from '../components/HrmSubNav'
 
 type ShiftRow = HrmShift & Record<string, unknown>
-type Panel = 'create' | 'edit' | null
+type Panel = 'create' | 'edit' | 'assign' | null
 
 const emptyForm = {
   name: '',
@@ -28,6 +29,8 @@ export function HrmShiftsPage() {
   const [panel, setPanel] = useState<Panel>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [assignShiftId, setAssignShiftId] = useState<number | null>(null)
+  const [assignForm, setAssignForm] = useState({ employee_ids: [] as number[], start_date: new Date().toISOString().split('T')[0] })
   const [successToast, setSuccessToast] = useState('')
 
   const query = useQuery({
@@ -40,9 +43,38 @@ export function HrmShiftsPage() {
     },
   })
 
+  const employeesQuery = useQuery({
+    queryKey: ['employees', 'shifts-assign'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params: { per_page: 100 } })
+      return data.data
+    },
+    enabled: panel === 'assign',
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      if (!assignShiftId) throw new Error('no shift')
+      const { data } = await api.post(`/hrm/shifts/${assignShiftId}/assign-users`, {
+        assignments: assignForm.employee_ids.map((employee_id) => ({
+          employee_id,
+          start_date: assignForm.start_date,
+        })),
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hrm', 'shifts'] })
+      setPanel(null)
+      setAssignShiftId(null)
+      setSuccessToast('تم تعيين الموظفين للوردية')
+    },
+  })
+
   const closePanel = () => {
     setPanel(null)
     setEditId(null)
+    setAssignShiftId(null)
     setForm(emptyForm)
   }
 
@@ -105,6 +137,7 @@ export function HrmShiftsPage() {
           </button>
         }
       />
+      <HrmSubNav />
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
@@ -141,13 +174,10 @@ export function HrmShiftsPage() {
               key: 'actions',
               header: 'إجراءات',
               render: (row) => (
-                <button
-                  type="button"
-                  onClick={() => openEdit(row)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  تعديل
-                </button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => openEdit(row)} className="text-sm text-primary hover:underline">تعديل</button>
+                  <button type="button" onClick={() => { setAssignShiftId(row.id); setPanel('assign') }} className="text-sm text-secondary hover:underline">تعيين</button>
+                </div>
               ),
             },
           ]}
@@ -229,6 +259,31 @@ export function HrmShiftsPage() {
               إلغاء
             </button>
           </div>
+        </form>
+      </Modal>
+
+      <Modal open={panel === 'assign'} onClose={closePanel} title="تعيين موظفين للوردية">
+        <form onSubmit={(e) => { e.preventDefault(); assignMutation.mutate() }} className="space-y-sm">
+          <input type="date" value={assignForm.start_date} onChange={(e) => setAssignForm({ ...assignForm, start_date: e.target.value })} required className={inputClass} dir="ltr" />
+          <div className="max-h-48 overflow-y-auto rounded border border-outline-variant p-sm">
+            {(employeesQuery.data ?? []).map((emp) => (
+              <label key={emp.id} className="flex cursor-pointer items-center gap-xs py-0.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={assignForm.employee_ids.includes(emp.id)}
+                  onChange={() => setAssignForm((prev) => ({
+                    ...prev,
+                    employee_ids: prev.employee_ids.includes(emp.id)
+                      ? prev.employee_ids.filter((id) => id !== emp.id)
+                      : [...prev.employee_ids, emp.id],
+                  }))}
+                />
+                {emp.name}
+              </label>
+            ))}
+          </div>
+          {assignMutation.isError && <p className="text-sm text-error">{getErrorMessage(assignMutation.error)}</p>}
+          <button type="submit" disabled={assignMutation.isPending || !assignForm.employee_ids.length} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">تعيين</button>
         </form>
       </Modal>
     </div>

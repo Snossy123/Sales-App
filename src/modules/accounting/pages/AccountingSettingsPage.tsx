@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
-import type { AccountingSettings, BranchAccountingMap } from '../../../api/types'
+import type { AccountingAccTransMapping, AccountingSettings, BranchAccountingMap } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
+import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { AccountingSubNav } from '../components/AccountingSubNav'
+import {
+  JournalLineEditor,
+  emptyJournalLine,
+  isJournalBalanced,
+  type JournalLineForm,
+} from '../components/JournalLineEditor'
 
 type BranchMapState = Record<
   number,
@@ -24,6 +31,10 @@ export function AccountingSettingsPage() {
   const [branchMaps, setBranchMaps] = useState<BranchMapState>({})
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [obDate, setObDate] = useState(new Date().toISOString().split('T')[0])
+  const [obNote, setObNote] = useState('رصيد افتتاحي')
+  const [obLines, setObLines] = useState<JournalLineForm[]>([emptyJournalLine(), emptyJournalLine()])
 
   const query = useQuery({
     queryKey: ['accounting', 'settings'],
@@ -94,6 +105,40 @@ export function AccountingSettingsPage() {
     onError: (err) => setError(getErrorMessage(err)),
   })
 
+  const openingBalanceMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<AccountingAccTransMapping>('/accounting/opening-balance', {
+        operation_date: obDate,
+        note: obNote || undefined,
+        lines: obLines.map((l) => ({
+          accounting_account_id: Number(l.accounting_account_id),
+          amount: Number(l.amount),
+          type: l.type,
+          note: l.note || undefined,
+        })),
+      })
+      return data
+    },
+    onSuccess: () => {
+      setToast('تم تسجيل الرصيد الافتتاحي')
+      setObLines([emptyJournalLine(), emptyJournalLine()])
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/accounting/settings/reset-data')
+    },
+    onSuccess: () => {
+      setResetConfirmOpen(false)
+      setToast('تم إعادة ضبط بيانات المحاسبة')
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
   const updateBranchMap = (
     branchId: number,
     field: keyof BranchMapState[number],
@@ -106,6 +151,7 @@ export function AccountingSettingsPage() {
   }
 
   const accountOptions = query.data?.accounts ?? []
+  const obBalanced = isJournalBalanced(obLines) && obLines.every((l) => l.accounting_account_id)
 
   return (
     <div>
@@ -113,14 +159,23 @@ export function AccountingSettingsPage() {
         title="إعدادات المحاسبة"
         subtitle="بادئات القيود وربط الحسابات الافتراضية لكل فرع"
         actions={
-          <button
-            type="button"
-            onClick={() => createDefaultsMutation.mutate()}
-            disabled={createDefaultsMutation.isPending}
-            className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium hover:bg-surface-container-low disabled:opacity-60"
-          >
-            إنشاء حسابات افتراضية
-          </button>
+          <div className="flex flex-wrap gap-xs">
+            <button
+              type="button"
+              onClick={() => createDefaultsMutation.mutate()}
+              disabled={createDefaultsMutation.isPending}
+              className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium hover:bg-surface-container-low disabled:opacity-60"
+            >
+              إنشاء حسابات افتراضية
+            </button>
+            <button
+              type="button"
+              onClick={() => setResetConfirmOpen(true)}
+              className="rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error-container/20"
+            >
+              إعادة ضبط البيانات
+            </button>
+          </div>
         }
       />
       <AccountingSubNav />
@@ -263,6 +318,38 @@ export function AccountingSettingsPage() {
             </div>
           </section>
 
+          <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+            <h2 className="mb-md text-sm font-bold text-on-surface">الرصيد الافتتاحي</h2>
+            <p className="mb-md text-xs text-on-surface-variant">
+              الأصول والمصروفات مدين · الإيرادات وحقوق الملكية والخصوم دائن
+            </p>
+            <div className="mb-md flex flex-wrap gap-sm">
+              <input
+                type="date"
+                value={obDate}
+                onChange={(e) => setObDate(e.target.value)}
+                className="rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                dir="ltr"
+              />
+              <input
+                type="text"
+                value={obNote}
+                onChange={(e) => setObNote(e.target.value)}
+                placeholder="ملاحظة"
+                className="min-w-[200px] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
+              />
+            </div>
+            <JournalLineEditor lines={obLines} accounts={accountOptions} onChange={setObLines} />
+            <button
+              type="button"
+              disabled={!obBalanced || openingBalanceMutation.isPending}
+              onClick={() => openingBalanceMutation.mutate()}
+              className="mt-md rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary disabled:opacity-60"
+            >
+              تسجيل الرصيد الافتتاحي
+            </button>
+          </section>
+
           {error && (
             <p className="rounded-lg bg-error-container/40 px-sm py-xs text-sm text-error">
               {error}
@@ -278,6 +365,29 @@ export function AccountingSettingsPage() {
           </button>
         </form>
       </AsyncState>
+
+      <Modal open={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)} title="إعادة ضبط بيانات المحاسبة">
+        <p className="mb-md text-sm text-on-surface-variant">
+          سيتم حذف جميع القيود والتحويلات وحركات الدفتر. دليل الحسابات يبقى كما هو.
+        </p>
+        <div className="flex gap-sm">
+          <button
+            type="button"
+            onClick={() => resetMutation.mutate()}
+            disabled={resetMutation.isPending}
+            className="rounded-lg bg-error px-md py-2 text-sm font-bold text-on-error"
+          >
+            تأكيد الحذف
+          </button>
+          <button
+            type="button"
+            onClick={() => setResetConfirmOpen(false)}
+            className="rounded-lg border px-md py-2 text-sm"
+          >
+            إلغاء
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

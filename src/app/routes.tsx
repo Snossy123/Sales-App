@@ -22,16 +22,30 @@ import { HrmLeavesPage } from '../modules/hrm/pages/HrmLeavesPage'
 import { HrmShiftsPage } from '../modules/hrm/pages/HrmShiftsPage'
 import { HrmPayrollPage } from '../modules/hrm/pages/HrmPayrollPage'
 import { HrmHolidaysPage } from '../modules/hrm/pages/HrmHolidaysPage'
+import { HrmSettingsPage } from '../modules/hrm/pages/HrmSettingsPage'
+import { HrmEmployeesPage } from '../modules/hrm/pages/HrmEmployeesPage'
+import { HrmLeaveTypesPage } from '../modules/hrm/pages/HrmLeaveTypesPage'
+import { HrmAllowancesPage } from '../modules/hrm/pages/HrmAllowancesPage'
+import { HrmPayrollGroupsPage } from '../modules/hrm/pages/HrmPayrollGroupsPage'
 import { AccountingDashboardPage } from '../modules/accounting/pages/AccountingDashboardPage'
 import { ChartOfAccountsPage } from '../modules/accounting/pages/ChartOfAccountsPage'
+import { AccountLedgerPage } from '../modules/accounting/pages/AccountLedgerPage'
 import { JournalEntriesPage } from '../modules/accounting/pages/JournalEntriesPage'
 import { TransfersPage } from '../modules/accounting/pages/TransfersPage'
 import { TransactionMapPage } from '../modules/accounting/pages/TransactionMapPage'
 import { ReportsPage } from '../modules/accounting/pages/ReportsPage'
 import { BudgetsPage } from '../modules/accounting/pages/BudgetsPage'
 import { AccountingSettingsPage } from '../modules/accounting/pages/AccountingSettingsPage'
+import { AdminUsersPage } from '../modules/admin/pages/AdminUsersPage'
+import { AdminRolesPage } from '../modules/admin/pages/AdminRolesPage'
+import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPage'
+import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
 import { CrmPipelinePage } from '../modules/crm/pages/CrmPipelinePage'
 import { CrmFollowUpsPage } from '../modules/crm/pages/CrmFollowUpsPage'
+import { CrmActivitiesPage } from '../modules/crm/pages/CrmActivitiesPage'
+import { CrmCallLogsPage } from '../modules/crm/pages/CrmCallLogsPage'
+import { CrmOrderRequestsPage } from '../modules/crm/pages/CrmOrderRequestsPage'
+import { CrmMarketplacePage } from '../modules/crm/pages/CrmMarketplacePage'
 import { CrmCampaignsPage } from '../modules/crm/pages/CrmCampaignsPage'
 import { CrmProposalsPage } from '../modules/crm/pages/CrmProposalsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
@@ -41,6 +55,7 @@ import { PortalLayout } from '../modules/crm/portal/PortalLayout'
 import { PortalDashboardPage } from '../modules/crm/portal/PortalDashboardPage'
 import { PortalInvoicesPage } from '../modules/crm/portal/PortalInvoicesPage'
 import { PortalLedgerPage } from '../modules/crm/portal/PortalLedgerPage'
+import { PortalOrderRequestsPage } from '../modules/crm/portal/PortalOrderRequestsPage'
 import { usePortalAuthStore } from '../stores/portalAuthStore'
 
 function ProtectedRoute() {
@@ -112,6 +127,7 @@ export function AppRoutes() {
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="accounting" element={<AccountingDashboardPage />} />
             <Route path="accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
+            <Route path="accounting/chart-of-accounts/:id/ledger" element={<AccountLedgerPage />} />
             <Route path="accounting/journal-entries" element={<JournalEntriesPage />} />
             <Route path="accounting/transfers" element={<TransfersPage />} />
             <Route path="accounting/transactions" element={<TransactionMapPage />} />
@@ -119,13 +135,26 @@ export function AppRoutes() {
             <Route path="accounting/budgets" element={<BudgetsPage />} />
             <Route path="accounting/settings" element={<AccountingSettingsPage />} />
             <Route path="hrm" element={<HrmDashboardPage />} />
+            <Route path="hrm/employees" element={<HrmEmployeesPage />} />
             <Route path="hrm/attendance" element={<HrmAttendancePage />} />
             <Route path="hrm/leaves" element={<HrmLeavesPage />} />
+            <Route path="hrm/leave-types" element={<HrmLeaveTypesPage />} />
             <Route path="hrm/shifts" element={<HrmShiftsPage />} />
-            <Route path="hrm/payroll" element={<HrmPayrollPage />} />
             <Route path="hrm/holidays" element={<HrmHolidaysPage />} />
+            <Route path="hrm/allowances" element={<HrmAllowancesPage />} />
+            <Route path="hrm/payroll" element={<HrmPayrollPage />} />
+            <Route path="hrm/payroll-groups" element={<HrmPayrollGroupsPage />} />
+            <Route path="hrm/settings" element={<HrmSettingsPage />} />
+            <Route path="admin/users" element={<AdminUsersPage />} />
+            <Route path="admin/roles" element={<AdminRolesPage />} />
+            <Route path="admin/activity-log" element={<AdminActivityLogPage />} />
+            <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<CrmPipelinePage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
+            <Route path="crm/activities" element={<CrmActivitiesPage />} />
+            <Route path="crm/call-logs" element={<CrmCallLogsPage />} />
+            <Route path="crm/order-requests" element={<CrmOrderRequestsPage />} />
+            <Route path="crm/marketplace" element={<CrmMarketplacePage />} />
             <Route path="crm/campaigns" element={<CrmCampaignsPage />} />
             <Route path="crm/proposals" element={<CrmProposalsPage />} />
             <Route path="crm/reports" element={<CrmReportsPage />} />
@@ -143,6 +172,7 @@ export function AppRoutes() {
           <Route index element={<PortalDashboardPage />} />
           <Route path="invoices" element={<PortalInvoicesPage />} />
           <Route path="ledger" element={<PortalLedgerPage />} />
+          <Route path="order-requests" element={<PortalOrderRequestsPage />} />
         </Route>
       </Route>
 

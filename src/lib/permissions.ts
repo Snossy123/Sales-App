@@ -15,6 +15,10 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { to: '/', icon: 'dashboard', label: 'لوحة التحكم', end: true, roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
+  { to: '/admin/users', icon: 'manage_accounts', label: 'إدارة النظام', end: true, roles: ['super_admin'] },
+  { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
+  { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin'] },
+  { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
   { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', roles: ['super_admin'] },
   {
     to: '/departments',
@@ -45,6 +49,7 @@ export const navItems: NavItem[] = [
   { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'hr_manager'] },
   { to: '/hrm/payroll', icon: 'payments', label: 'الرواتب', roles: ['super_admin', 'hr_manager'] },
   { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'hr_manager'] },
+  { to: '/hrm/settings', icon: 'settings', label: 'إعدادات HR', roles: ['super_admin', 'hr_manager'] },
   { to: '/crm', icon: 'hub', label: 'خط الأنابيب', end: true, roles: ['super_admin', 'admin', 'crm'] },
   { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
   { to: '/crm/campaigns', icon: 'campaign', label: 'الحملات', roles: ['super_admin', 'admin', 'crm'] },
@@ -75,9 +80,18 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/hrm': ['super_admin', 'hr_manager'],
   '/hrm/attendance': ['super_admin', 'hr_manager'],
   '/hrm/leaves': ['super_admin', 'hr_manager'],
+  '/hrm/leave-types': ['super_admin', 'hr_manager'],
+  '/hrm/employees': ['super_admin', 'hr_manager'],
+  '/hrm/allowances': ['super_admin', 'hr_manager'],
+  '/hrm/payroll-groups': ['super_admin', 'hr_manager'],
   '/hrm/shifts': ['super_admin', 'hr_manager'],
   '/hrm/payroll': ['super_admin', 'hr_manager'],
   '/hrm/holidays': ['super_admin', 'hr_manager'],
+  '/hrm/settings': ['super_admin', 'hr_manager'],
+  '/admin/users': ['super_admin'],
+  '/admin/roles': ['super_admin'],
+  '/admin/activity-log': ['super_admin'],
+  '/admin/settings': ['super_admin'],
   '/crm': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/campaigns': ['super_admin', 'admin', 'crm'],
@@ -115,6 +129,12 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   if (normalized.startsWith('/hrm')) {
     const hrmRoute = normalized === '/hrm' ? '/hrm' : (normalized.match(/^\/hrm\/[^/]+/)?.[0] ?? '/hrm')
     const allowed = routeRoles[hrmRoute] ?? routeRoles['/hrm']
+    return allowed?.includes(role) ?? false
+  }
+
+  if (normalized.startsWith('/admin')) {
+    const adminRoute = normalized === '/admin/users' ? '/admin/users' : (normalized.match(/^\/admin\/[^/]+/)?.[0] ?? '/admin/users')
+    const allowed = routeRoles[adminRoute] ?? routeRoles['/admin/users']
     return allowed?.includes(role) ?? false
   }
 
@@ -186,7 +206,15 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
   }
 
   if (item.to === '/hrm' || target === '/hrm') {
-    return normalized === '/hrm'
+    return normalized === '/hrm' || normalized.startsWith('/hrm/')
+  }
+
+  if (target.startsWith('/hrm/')) {
+    return normalized === target
+  }
+
+  if (target.startsWith('/admin/')) {
+    return normalized === target
   }
 
   if (item.to === '/crm' || target === '/crm') {

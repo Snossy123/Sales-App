@@ -3,7 +3,9 @@ import type { AuthUser, Branch, DemoRole } from '../api/types'
 export function getUserRole(user: AuthUser | null): DemoRole {
   if (!user) return 'sales'
   if (user.demo_role) return user.demo_role
-  const roleName = user.roles?.[0]?.name?.toLowerCase() ?? ''
+  const roleNames = user.roles?.map((r) => r.name) ?? []
+  if (roleNames.includes('Admin')) return 'super_admin'
+  const roleName = roleNames[0]?.toLowerCase() ?? ''
   if (roleName.includes('super')) return 'super_admin'
   if (roleName.includes('crmspecialist') || roleName.includes('crm specialist')) return 'crm'
   if (roleName.includes('hrmanager') || roleName.includes('hr manager') || roleName.includes('hr_manager')) return 'hr_manager'

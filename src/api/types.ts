@@ -208,12 +208,14 @@ export interface SalesInvoice {
   balance_due: string | number
   payment_term: string
   payment_status: string
-  status?: InvoiceStatus
+  status?: InvoiceStatus | string
   customer_id: number
   customer?: Customer
   branch?: Branch
   installment_plan?: InstallmentPlan | null
   lines?: SalesInvoiceLine[]
+  notes?: string | null
+  is_order_request?: boolean
   created_by?: number
   reviewed_by?: number
   reviewed_at?: string
@@ -240,8 +242,12 @@ export interface Employee {
   salary?: string | number | null
   hire_date?: string | null
   status: string
+  branch_id?: number | null
+  department_id?: number | null
+  user_id?: number | null
   branch?: Branch
   department?: { id: number; name: string; name_ar?: string }
+  user?: { id: number; name: string; email?: string }
 }
 
 export interface Lead {
@@ -376,6 +382,33 @@ export interface CrmSettings {
   order_request_prefix?: string
 }
 
+export interface CrmActivity {
+  id: number
+  lead_id?: number | null
+  type: string
+  subject?: string | null
+  description?: string | null
+  lead?: Lead
+  user?: { id: number; name: string }
+}
+
+export interface CrmCallLog {
+  id: number
+  mobile_number?: string | null
+  mobile_name?: string | null
+  call_type?: string | null
+  duration?: number | null
+  lead?: Lead
+  user?: { id: number; name: string }
+}
+
+export interface CrmMarketplace {
+  id: number
+  marketplace: string
+  site_key?: string | null
+  site_id?: string | null
+}
+
 export interface CrmReportRow {
   name?: string
   contact_name?: string
@@ -491,6 +524,34 @@ export interface BalanceSheetReport {
   balanced: boolean
 }
 
+export interface IncomeStatementLine {
+  id: number
+  name: string
+  gl_code?: string | null
+  account_primary_type: AccountPrimaryType
+  balance: string | number
+}
+
+export interface IncomeStatementReport {
+  start_date?: string | null
+  end_date?: string | null
+  total_income: number
+  total_expenses: number
+  net_profit: number
+  lines: IncomeStatementLine[]
+}
+
+export interface ArAgeingContactRow {
+  contact_id?: number
+  name: string
+  '<1': number
+  '1_30': number
+  '31_60': number
+  '61_90': number
+  '>90': number
+  total_due: number
+}
+
 export interface AccountingBudget {
   id: number
   accounting_account_id: number
@@ -553,9 +614,9 @@ export interface HrmDashboard {
 
 export interface HrmLeaveType {
   id: number
-  name: string
-  max_days?: number | null
-  is_paid?: boolean
+  leave_type: string
+  max_leave_count?: number | null
+  leave_count_interval?: 'year' | 'month' | string | null
 }
 
 export interface HrmLeave {
@@ -637,4 +698,81 @@ export interface HrmPayrollRecord {
   employee?: Employee
   branch?: Branch
   creator?: { id: number; name: string }
+}
+
+export interface HrmAllowance {
+  id: number
+  description: string
+  type: 'allowance' | 'deduction' | string
+  amount: string | number
+  amount_type?: 'fixed' | 'percent' | string
+  applicable_date?: string | null
+  employees?: Employee[]
+}
+
+export interface HrmPayrollGroup {
+  id: number
+  name: string
+  branch_id?: number | null
+  status: string
+  payment_status?: string
+  gross_total?: string | number
+  payrollRecords?: HrmPayrollRecord[]
+  branch?: Branch
+  creator?: { id: number; name: string }
+}
+
+export interface AdminUser extends AuthUser {
+  branch_id?: number | null
+  roles?: (Role & { name: string })[]
+}
+
+export interface AdminRole {
+  id: number
+  name: string
+  permissions?: { id: number; name: string }[]
+  permissions_count?: number
+}
+
+export type PermissionGroups = Record<string, string[]>
+
+export interface ActivityLogEntry {
+  id: number
+  log_name?: string | null
+  description: string
+  event?: string | null
+  created_at?: string
+  causer?: { id: number; name: string; email?: string }
+  subject_type?: string | null
+  subject_id?: number | null
+  properties?: Record<string, unknown>
+}
+
+export interface OrganizationProfile {
+  id: number
+  name: string
+  name_ar?: string | null
+  code?: string
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  enabled_modules?: string[]
+  is_active?: boolean
+}
+
+export interface OrganizationSettings {
+  organization: OrganizationProfile
+  module_settings?: {
+    crm?: CrmSettings
+    hrm?: HrmSettings
+    accounting?: Record<string, unknown>
+  }
+}
+
+export interface HrmSettings {
+  grace_before_checkin?: number
+  grace_after_checkin?: number
+  grace_before_checkout?: number
+  grace_after_checkout?: number
+  payroll_ref_no_prefix?: string
 }

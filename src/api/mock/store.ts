@@ -29,6 +29,26 @@ function migrateState(state: DemoState): DemoState {
   if (!state.crmProposals?.length) state.crmProposals = seed.crmProposals
   if (!state.crmProposalTemplates?.length) state.crmProposalTemplates = seed.crmProposalTemplates
   if (!state.crmSettings) state.crmSettings = seed.crmSettings
+  if (!state.hrmSettings) state.hrmSettings = seed.hrmSettings
+  if (!state.employees?.length) {
+    state.employees = seed.employees
+    state.hrmLeaveTypes = seed.hrmLeaveTypes
+    state.hrmLeaves = seed.hrmLeaves
+    state.hrmShifts = seed.hrmShifts
+    state.hrmUserShifts = seed.hrmUserShifts
+    state.hrmAttendance = seed.hrmAttendance
+    state.hrmHolidays = seed.hrmHolidays
+    state.hrmAllowances = seed.hrmAllowances
+    state.hrmPayrollRecords = seed.hrmPayrollRecords
+    state.hrmPayrollGroups = seed.hrmPayrollGroups
+  }
+  if (!state.users.some((u) => u.demo_role === 'hr_manager')) {
+    const hrUser = seed.users.find((u) => u.demo_role === 'hr_manager')
+    if (hrUser) state.users.push(hrUser)
+  }
+  if (!state.adminRoles?.length) state.adminRoles = seed.adminRoles
+  if (!state.adminActivityLogs?.length) state.adminActivityLogs = seed.adminActivityLogs
+  if (!state.organizationProfile) state.organizationProfile = seed.organizationProfile
   return state
 }
 

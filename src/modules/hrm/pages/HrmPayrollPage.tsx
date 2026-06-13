@@ -10,6 +10,7 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { HrmSubNav } from '../components/HrmSubNav'
 import { useAuthStore } from '../../../stores/authStore'
 
 type PayrollRow = HrmPayrollRecord & Record<string, unknown>
@@ -101,6 +102,8 @@ export function HrmPayrollPage() {
           </button>
         }
       />
+
+      <HrmSubNav />
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />

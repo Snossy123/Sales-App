@@ -11,9 +11,23 @@ import type {
   CrmProposalTemplate,
   CrmSchedule,
   CrmSettings,
+  ActivityLogEntry,
+  AdminRole,
+  OrganizationProfile,
+  HrmSettings,
   Customer,
   DemoRole,
   Department,
+  Employee,
+  HrmAllowance,
+  HrmAttendance,
+  HrmHoliday,
+  HrmLeave,
+  HrmLeaveType,
+  HrmPayrollGroup,
+  HrmPayrollRecord,
+  HrmShift,
+  HrmUserShift,
   DepartmentStock,
   GpsProduct,
   GpsStock,
@@ -45,6 +59,20 @@ export interface DemoState {
   crmProposals: CrmProposal[]
   crmProposalTemplates: CrmProposalTemplate[]
   crmSettings: CrmSettings
+  hrmSettings: HrmSettings
+  employees: Employee[]
+  hrmLeaveTypes: HrmLeaveType[]
+  hrmLeaves: HrmLeave[]
+  hrmShifts: HrmShift[]
+  hrmUserShifts: HrmUserShift[]
+  hrmAttendance: HrmAttendance[]
+  hrmHolidays: HrmHoliday[]
+  hrmAllowances: (HrmAllowance & { employee_ids: number[] })[]
+  hrmPayrollRecords: HrmPayrollRecord[]
+  hrmPayrollGroups: (HrmPayrollGroup & { payroll_record_ids: number[] })[]
+  adminRoles: AdminRole[]
+  adminActivityLogs: ActivityLogEntry[]
+  organizationProfile: OrganizationProfile
   departments: Department[]
   branches: Branch[]
   warehouses: Warehouse[]
@@ -72,11 +100,26 @@ export interface DemoState {
     accountingLine?: number
     accountingAccount?: number
     budget?: number
+    journalEntry?: number
+    transfer?: number
     lead?: number
     crmSchedule?: number
     crmCampaign?: number
     crmProposal?: number
     crmProposalTemplate?: number
+    adminUser?: number
+    adminRole?: number
+    activityLog?: number
+    employee?: number
+    hrmLeaveType?: number
+    hrmLeave?: number
+    hrmShift?: number
+    hrmUserShift?: number
+    hrmAttendance?: number
+    hrmHoliday?: number
+    hrmAllowance?: number
+    hrmPayroll?: number
+    hrmPayrollGroup?: number
   }
 }
 
@@ -448,6 +491,202 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       roles: [{ id: 7, name: 'CrmSpecialist' }],
     },
+    {
+      id: 8,
+      name: 'منى — HR',
+      email: 'hr@demo.test',
+      password: 'demo',
+      organization_id: 1,
+      department_id: 1,
+      branch_id: 1,
+      demo_role: 'hr_manager',
+      organization: { id: 1, name: 'GPS Track Egypt', name_ar: 'شركة تتبع GPS' },
+      branch: branches[0],
+      roles: [{ id: 8, name: 'HrManager' }],
+    },
+  ]
+
+  const today = new Date().toISOString().split('T')[0]
+  const clockInTime = new Date()
+  clockInTime.setHours(9, 5, 0, 0)
+
+  const employees: Employee[] = [
+    {
+      id: 1,
+      employee_code: 'EMP-001',
+      name: 'محمد — مبيعات',
+      phone: '01099998888',
+      job_title: 'مندوب مبيعات',
+      salary: 8000,
+      hire_date: '2025-01-15',
+      status: 'active',
+      branch_id: 1,
+      department_id: 1,
+      user_id: 2,
+      branch: branches[0],
+      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      user: { id: 2, name: 'محمد — مبيعات', email: 'sales@demo.test' },
+    },
+    {
+      id: 2,
+      employee_code: 'EMP-002',
+      name: 'كريم — تحصيل',
+      phone: '01088887777',
+      job_title: 'محصل',
+      salary: 7000,
+      hire_date: '2025-03-01',
+      status: 'active',
+      branch_id: 1,
+      department_id: 1,
+      user_id: 4,
+      branch: branches[0],
+      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      user: { id: 4, name: 'كريم — تحصيل', email: 'collector@demo.test' },
+    },
+    {
+      id: 3,
+      employee_code: 'EMP-HR',
+      name: 'منى — HR',
+      phone: '01011112222',
+      job_title: 'مدير موارد بشرية',
+      salary: 12000,
+      hire_date: '2024-06-01',
+      status: 'active',
+      branch_id: 1,
+      department_id: 1,
+      user_id: 8,
+      branch: branches[0],
+      department: { id: departments[0].id, name: departments[0].name, name_ar: departments[0].name_ar ?? undefined },
+      user: { id: 8, name: 'منى — HR', email: 'hr@demo.test' },
+    },
+  ]
+
+  const hrmLeaveTypes: HrmLeaveType[] = [
+    { id: 1, leave_type: 'إجازة سنوية', max_leave_count: 21, leave_count_interval: 'year' },
+    { id: 2, leave_type: 'إجازة مرضية', max_leave_count: 7, leave_count_interval: 'year' },
+    { id: 3, leave_type: 'إجازة عارضة', max_leave_count: 2, leave_count_interval: 'month' },
+  ]
+
+  const leaveStart = new Date()
+  leaveStart.setDate(leaveStart.getDate() + 14)
+  const leaveEnd = new Date(leaveStart)
+  leaveEnd.setDate(leaveEnd.getDate() + 2)
+  const sickStart = new Date()
+  sickStart.setDate(sickStart.getDate() + 3)
+  const sickEnd = new Date(sickStart)
+  sickEnd.setDate(sickEnd.getDate() + 1)
+
+  const hrmLeaves: HrmLeave[] = [
+    {
+      id: 1,
+      hrm_leave_type_id: 1,
+      employee_id: 1,
+      start_date: leaveStart.toISOString().split('T')[0],
+      end_date: leaveEnd.toISOString().split('T')[0],
+      ref_no: 'LV-000001',
+      status: 'approved',
+      reason: 'إجازة مخططة',
+      changed_by: 8,
+    },
+    {
+      id: 2,
+      hrm_leave_type_id: 2,
+      employee_id: 2,
+      start_date: sickStart.toISOString().split('T')[0],
+      end_date: sickEnd.toISOString().split('T')[0],
+      ref_no: 'LV-000002',
+      status: 'pending',
+      reason: 'مراجعة طبية',
+    },
+  ]
+
+  const hrmShifts: HrmShift[] = [
+    {
+      id: 1,
+      name: 'وردية صباحية',
+      type: 'fixed_shift',
+      start_time: '09:00',
+      end_time: '17:00',
+      holidays: ['friday'],
+      is_allowed_auto_clockout: true,
+      auto_clockout_time: '23:00',
+    },
+  ]
+
+  const shiftStart = new Date()
+  shiftStart.setMonth(shiftStart.getMonth() - 2)
+  const hrmUserShifts: HrmUserShift[] = employees.map((emp, idx) => ({
+    id: idx + 1,
+    employee_id: emp.id,
+    hrm_shift_id: 1,
+    start_date: shiftStart.toISOString().split('T')[0],
+  }))
+
+  const hrmAttendance: HrmAttendance[] = [
+    {
+      id: 1,
+      employee_id: 1,
+      hrm_shift_id: 1,
+      date: today,
+      clock_in_time: clockInTime.toISOString(),
+      status: 'present',
+    },
+  ]
+
+  const holidayStart = new Date()
+  holidayStart.setMonth(holidayStart.getMonth() + 2)
+  const holidayEnd = new Date(holidayStart)
+  holidayEnd.setDate(holidayEnd.getDate() + 2)
+
+  const hrmHolidays: HrmHoliday[] = [
+    {
+      id: 1,
+      name: 'عيد الفطر',
+      start_date: holidayStart.toISOString().split('T')[0],
+      end_date: holidayEnd.toISOString().split('T')[0],
+      note: 'عطلة رسمية',
+    },
+  ]
+
+  const hrmAllowances: (HrmAllowance & { employee_ids: number[] })[] = [
+    {
+      id: 1,
+      description: 'بدل مواصلات',
+      type: 'allowance',
+      amount: 500,
+      amount_type: 'fixed',
+      employee_ids: [1],
+    },
+  ]
+
+  const hrmPayrollRecords: HrmPayrollRecord[] = [
+    {
+      id: 1,
+      employee_id: 1,
+      branch_id: 1,
+      ref_no: 'PR-000001',
+      duration: 1,
+      duration_unit: 'month',
+      rate: 8000,
+      allowances: [{ description: 'بدل مواصلات', amount: 500 }],
+      deductions: [],
+      gross_total: 8500,
+      final_total: 8500,
+      payment_status: 'due',
+      created_by: 8,
+    },
+  ]
+
+  const hrmPayrollGroups: (HrmPayrollGroup & { payroll_record_ids: number[] })[] = [
+    {
+      id: 1,
+      name: `مسير ${new Date().toISOString().slice(0, 7)}`,
+      branch_id: 1,
+      status: 'draft',
+      payment_status: 'due',
+      gross_total: 8500,
+      payroll_record_ids: [1],
+    },
   ]
 
   const leads: Lead[] = [
@@ -582,6 +821,80 @@ export function createSeedState(): DemoState {
     order_request_prefix: 'ORD',
   }
 
+  const hrmSettings: HrmSettings = {
+    grace_before_checkin: 15,
+    grace_after_checkin: 15,
+    grace_before_checkout: 15,
+    grace_after_checkout: 15,
+    payroll_ref_no_prefix: 'PR',
+  }
+
+  const organizationProfile: OrganizationProfile = {
+    id: 1,
+    name: 'GPS Track Egypt',
+    name_ar: 'شركة تتبع GPS',
+    code: 'GPS',
+    phone: '0225551234',
+    email: 'info@demo.test',
+    address: 'القاهرة، مصر',
+    enabled_modules: ['crm', 'hrm', 'accounting'],
+    is_active: true,
+  }
+
+  const adminRoles: AdminRole[] = [
+    {
+      id: 1,
+      name: 'Admin',
+      permissions_count: 12,
+      permissions: [
+        { id: 1, name: 'users.manage' },
+        { id: 2, name: 'roles.manage' },
+        { id: 3, name: 'settings.manage' },
+        { id: 4, name: 'audit.view' },
+      ],
+    },
+    {
+      id: 2,
+      name: 'Sales',
+      permissions_count: 6,
+      permissions: [
+        { id: 5, name: 'dashboard.view' },
+        { id: 6, name: 'sales.pos' },
+        { id: 7, name: 'crm.access_own_leads' },
+      ],
+    },
+    {
+      id: 3,
+      name: 'CrmSpecialist',
+      permissions_count: 8,
+      permissions: [{ id: 8, name: 'crm.leads.manage' }],
+    },
+  ]
+
+  const adminActivityLogs: ActivityLogEntry[] = [
+    {
+      id: 1,
+      log_name: 'admin',
+      description: 'Organization provisioned',
+      created_at: '2026-06-01T09:00:00',
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+    },
+    {
+      id: 2,
+      log_name: 'admin',
+      description: 'User roles synced',
+      created_at: '2026-06-10T14:30:00',
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+    },
+    {
+      id: 3,
+      log_name: 'admin',
+      description: 'Organization settings updated',
+      created_at: new Date().toISOString(),
+      causer: { id: 1, name: 'مدير النظام الأعلى', email: 'superadmin@demo.test' },
+    },
+  ]
+
   const portalUsers: DemoPortalUser[] = [
     {
       id: 101,
@@ -700,6 +1013,20 @@ export function createSeedState(): DemoState {
     crmProposals,
     crmProposalTemplates,
     crmSettings,
+    hrmSettings,
+    employees,
+    hrmLeaveTypes,
+    hrmLeaves,
+    hrmShifts,
+    hrmUserShifts,
+    hrmAttendance,
+    hrmHolidays,
+    hrmAllowances,
+    hrmPayrollRecords,
+    hrmPayrollGroups,
+    adminRoles,
+    adminActivityLogs,
+    organizationProfile,
     departments,
     branches,
     warehouses,
@@ -727,11 +1054,26 @@ export function createSeedState(): DemoState {
       accountingLine: 7,
       accountingAccount: 8,
       budget: 2,
+      journalEntry: 3,
+      transfer: 2,
       lead: 6,
       crmSchedule: 4,
       crmCampaign: 3,
       crmProposal: 2,
       crmProposalTemplate: 2,
+      adminUser: 8,
+      adminRole: 3,
+      activityLog: 3,
+      employee: 3,
+      hrmLeaveType: 3,
+      hrmLeave: 2,
+      hrmShift: 1,
+      hrmUserShift: 3,
+      hrmAttendance: 1,
+      hrmHoliday: 1,
+      hrmAllowance: 1,
+      hrmPayroll: 1,
+      hrmPayrollGroup: 1,
     },
   }
 }
