@@ -1,19 +1,39 @@
 import type { AuthUser, Branch, DemoRole } from '../api/types'
 
+function roleNames(user: AuthUser | null): string[] {
+  return user?.roles?.map((r) => r.name) ?? []
+}
+
+function hasRole(user: AuthUser | null, ...names: string[]): boolean {
+  const normalized = roleNames(user).map((n) => n.toLowerCase())
+  return names.some((name) => normalized.includes(name.toLowerCase()))
+}
+
+export function userHasPermission(user: AuthUser | null, permission: string): boolean {
+  return user?.permissions?.includes(permission) ?? false
+}
+
 export function getUserRole(user: AuthUser | null): DemoRole {
   if (!user) return 'sales'
   if (user.demo_role) return user.demo_role
-  const roleNames = user.roles?.map((r) => r.name) ?? []
-  if (roleNames.includes('Admin')) return 'super_admin'
-  const roleName = roleNames[0]?.toLowerCase() ?? ''
-  if (roleName.includes('super')) return 'super_admin'
-  if (roleName.includes('crmspecialist') || roleName.includes('crm specialist')) return 'crm'
-  if (roleName.includes('hrmanager') || roleName.includes('hr manager') || roleName.includes('hr_manager')) return 'hr_manager'
-  if (roleName.includes('accountant')) return 'accountant'
-  if (roleName.includes('admin')) return 'admin'
-  if (roleName.includes('collector')) return 'collector'
-  if (roleName.includes('review')) return 'reviewer'
-  if (roleName.includes('account')) return 'accountant'
+
+  if (hasRole(user, 'Admin')) return 'super_admin'
+  if (hasRole(user, 'BranchManager')) return 'admin'
+
+  const primary = roleNames(user)[0]?.toLowerCase() ?? ''
+  if (primary.includes('super')) return 'super_admin'
+  if (primary.includes('crmspecialist') || primary.includes('crm specialist')) return 'crm'
+  if (primary.includes('hrmanager') || primary.includes('hr manager') || primary.includes('hr_manager')) return 'hr_manager'
+  if (primary.includes('accountant')) return 'accountant'
+  if (primary.includes('collector')) return 'collector'
+  if (primary.includes('review')) return 'reviewer'
+  if (primary.includes('admin')) return 'admin'
+
+  if (userHasPermission(user, 'users.manage')) return 'super_admin'
+  if (userHasPermission(user, 'accounting.access_accounting_module')) return 'accountant'
+  if (userHasPermission(user, 'hr.employees.manage')) return 'hr_manager'
+  if (userHasPermission(user, 'crm.leads.manage')) return 'crm'
+
   return 'sales'
 }
 

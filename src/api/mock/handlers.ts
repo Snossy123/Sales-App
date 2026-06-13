@@ -11,7 +11,6 @@ import type {
   AccountingBudget,
   AccountingTransactionLine,
   Branch,
-  BranchAccountingMap,
   CheckoutPayload,
   Customer,
   DashboardStats,

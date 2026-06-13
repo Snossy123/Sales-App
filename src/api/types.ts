@@ -83,6 +83,7 @@ export interface AuthUser {
   branch?: Branch | null
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
+  permissions?: string[]
   demo_role?: DemoRole
   section?: UserSection
 }

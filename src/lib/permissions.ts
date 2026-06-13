@@ -1,5 +1,5 @@
 import type { AuthUser, DemoRole } from '../api/types'
-import { canAccessDepartment, getUserRole } from './access'
+import { canAccessDepartment, getUserRole, userHasPermission } from './access'
 
 export { getUserRole } from './access'
 
@@ -123,19 +123,22 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/accounting')) {
     const allowed = routeRoles[normalized] ?? routeRoles['/accounting']
-    return allowed?.includes(role) ?? false
+    if (allowed?.includes(role)) return true
+    return userHasPermission(user, 'accounting.access_accounting_module')
   }
 
   if (normalized.startsWith('/hrm')) {
     const hrmRoute = normalized === '/hrm' ? '/hrm' : (normalized.match(/^\/hrm\/[^/]+/)?.[0] ?? '/hrm')
     const allowed = routeRoles[hrmRoute] ?? routeRoles['/hrm']
-    return allowed?.includes(role) ?? false
+    if (allowed?.includes(role)) return true
+    return userHasPermission(user, 'hr.employees.manage')
   }
 
   if (normalized.startsWith('/admin')) {
     const adminRoute = normalized === '/admin/users' ? '/admin/users' : (normalized.match(/^\/admin\/[^/]+/)?.[0] ?? '/admin/users')
     const allowed = routeRoles[adminRoute] ?? routeRoles['/admin/users']
-    return allowed?.includes(role) ?? false
+    if (allowed?.includes(role)) return true
+    return userHasPermission(user, 'users.manage')
   }
 
   if (normalized.startsWith('/crm')) {
@@ -152,7 +155,19 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 export function getNavForUser(user: AuthUser | null): NavItem[] {
   const role = getUserRole(user)
   return navItems
-    .filter((item) => item.roles.includes(role))
+    .filter((item) => {
+      if (item.roles.includes(role)) return true
+      if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
+        return true
+      }
+      if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
+        return true
+      }
+      if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
+        return true
+      }
+      return false
+    })
     .map((item) => {
       if (item.dynamicTo && user) {
         const resolved = item.dynamicTo(user)

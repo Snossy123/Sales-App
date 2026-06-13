@@ -7,6 +7,14 @@ import { useAuthStore } from '../stores/authStore'
 import { getDefaultRoute } from '../lib/permissions'
 import { Icon } from '../components/Icon'
 
+const productionAccounts = [
+  { email: 'admin@stitch-smart.test', label: 'مدير النظام — كل الموديولات' },
+  { email: 'accountant@stitch-smart.test', label: 'المحاسبة' },
+  { email: 'hr@stitch-smart.test', label: 'الموارد البشرية' },
+  { email: 'crm@stitch-smart.test', label: 'CRM' },
+  { email: 'sales@stitch-smart.test', label: 'المبيعات' },
+]
+
 const demoAccounts = [
   { email: 'superadmin@demo.test', label: 'مدير النظام الأعلى', icon: 'admin_panel_settings' },
   { email: 'deptadmin@demo.test', label: 'مدير إدارة الدلتا', icon: 'corporate_fare' },
@@ -89,6 +97,22 @@ export function LoginPage() {
             <p className="mt-2 text-xs text-on-surface-variant">
               كلمة المرور: <span dir="ltr">demo</span>
             </p>
+          </div>
+        )}
+
+        {!isDemoMode && (
+          <div className="mb-6 rounded-lg border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
+            <p className="mb-2 font-semibold text-on-surface">حسابات النظام</p>
+            <ul className="space-y-1 text-xs">
+              {productionAccounts.map((acc) => (
+                <li key={acc.email}>
+                  <span className="text-on-surface">{acc.label}</span>
+                  {' — '}
+                  <span dir="ltr">{acc.email}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs">كلمة المرور الافتراضية: <span dir="ltr">password</span></p>
           </div>
         )}
 
