@@ -26,7 +26,7 @@ export function InvoiceReviewPage() {
         params: {
           per_page: 50,
           include: 'customer,lines,installmentPlan',
-          'filter[status]': 'pending_review',
+          'filter[review_status]': 'pending',
           'filter[branch_id]': branchId,
         },
       })

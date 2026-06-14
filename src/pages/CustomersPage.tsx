@@ -161,8 +161,8 @@ export function CustomersPage() {
           className="mb-md space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
         >
           <h3 className="text-sm font-bold text-on-surface">بيانات العميل — كما في عقد التقسيط</h3>
-          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
-            <label className="block text-sm">
+          <div className="grid grid-cols-12 gap-sm">
+            <label className="col-span-12 block text-sm sm:col-span-3">
               <span className="mb-xs block text-on-surface-variant">السيد *</span>
               <input
                 value={form.name}
@@ -171,7 +171,7 @@ export function CustomersPage() {
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
+            <label className="col-span-12 block text-sm sm:col-span-3">
               <span className="mb-xs block text-on-surface-variant">الرقم القومي</span>
               <input
                 value={form.national_id}
@@ -180,7 +180,33 @@ export function CustomersPage() {
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
+            <label className="col-span-12 block text-sm sm:col-span-6">
+              <span className="mb-xs block text-on-surface-variant">العنوان</span>
+              <input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              />
+            </label>
+            <label className="col-span-12 block text-sm sm:col-span-6">
+              <span className="mb-xs block text-on-surface-variant">السريال المستخدم</span>
+              <input
+                value={form.device_serial}
+                onChange={(e) => setForm({ ...form, device_serial: e.target.value })}
+                dir="ltr"
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              />
+            </label>
+            <label className="col-span-12 block text-sm sm:col-span-6">
+              <span className="mb-xs block text-on-surface-variant">رقم الشريحة</span>
+              <input
+                value={form.sim_number}
+                onChange={(e) => setForm({ ...form, sim_number: e.target.value })}
+                dir="ltr"
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              />
+            </label>
+            <label className="col-span-12 block text-sm sm:col-span-4">
               <span className="mb-xs block text-on-surface-variant">رقم العميل 1 *</span>
               <input
                 value={form.phone}
@@ -190,7 +216,7 @@ export function CustomersPage() {
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
+            <label className="col-span-12 block text-sm sm:col-span-4">
               <span className="mb-xs block text-on-surface-variant">رقم العميل 2</span>
               <input
                 value={form.phone_2}
@@ -199,42 +225,25 @@ export function CustomersPage() {
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
-              <span className="mb-xs block text-on-surface-variant">رقم الشريحة</span>
+            <label className="col-span-12 block text-sm sm:col-span-4">
+              <span className="mb-xs block text-on-surface-variant">رقم العميل 3</span>
               <input
-                value={form.sim_number}
-                onChange={(e) => setForm({ ...form, sim_number: e.target.value })}
+                value={form.phone_3}
+                onChange={(e) => setForm({ ...form, phone_3: e.target.value })}
                 dir="ltr"
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
-              <span className="mb-xs block text-on-surface-variant">اسم المستخدم</span>
-              <input
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                dir="ltr"
+            <label className="col-span-12 block text-sm">
+              <span className="mb-xs block text-on-surface-variant">علامة مميزة بالتفصيل</span>
+              <textarea
+                value={form.distinctive_mark}
+                onChange={(e) => setForm({ ...form, distinctive_mark: e.target.value })}
+                rows={2}
                 className="w-full rounded border border-outline-variant px-sm py-2"
               />
             </label>
-            <label className="block text-sm">
-              <span className="mb-xs block text-on-surface-variant">السريال</span>
-              <input
-                value={form.device_serial}
-                onChange={(e) => setForm({ ...form, device_serial: e.target.value })}
-                dir="ltr"
-                className="w-full rounded border border-outline-variant px-sm py-2"
-              />
-            </label>
-            <label className="block text-sm sm:col-span-2">
-              <span className="mb-xs block text-on-surface-variant">العنوان</span>
-              <input
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                className="w-full rounded border border-outline-variant px-sm py-2"
-              />
-            </label>
-            <label className="block text-sm sm:col-span-2 lg:col-span-3">
+            <label className="col-span-12 block text-sm">
               <span className="mb-xs block text-on-surface-variant">الموزع *</span>
               <select
                 value={form.distributor_id}

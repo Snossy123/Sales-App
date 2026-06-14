@@ -60,11 +60,26 @@ export function DistributorDetailPage() {
                 <StatusBadge status={distributor.status} />
               </div>
 
-              <div className="mt-md grid gap-sm sm:grid-cols-3">
+              <div className="mt-md grid gap-sm sm:grid-cols-3 lg:grid-cols-5">
                 <div className="rounded-lg bg-surface-container p-sm">
                   <p className="text-xs text-on-surface-variant">الفرع</p>
                   <p className="font-medium">
                     {distributor.branch?.name_ar ?? distributor.branch?.name ?? '—'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-surface-container p-sm">
+                  <p className="text-xs text-on-surface-variant">العمولة</p>
+                  <p className="font-medium tabular-nums">
+                    {Number(distributor.commission_percent ?? 0).toFixed(1)}%
+                  </p>
+                </div>
+                <div className="rounded-lg bg-surface-container p-sm">
+                  <p className="text-xs text-on-surface-variant">المعاملات المؤكدة</p>
+                  <p className="font-medium tabular-nums">
+                    {distributor.confirmed_transactions_count ?? 0}
+                    {distributor.commission_tier_threshold
+                      ? ` / ${distributor.commission_tier_threshold}`
+                      : ''}
                   </p>
                 </div>
                 <div className="rounded-lg bg-surface-container p-sm">

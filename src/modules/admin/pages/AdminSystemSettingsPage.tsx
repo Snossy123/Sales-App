@@ -495,6 +495,33 @@ export function AdminSystemSettingsPage() {
                         dir="ltr"
                       />
                     </SettingsField>
+                    <SettingsField label="غرامة يومية ثابتة (ج.م)">
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={form.sales.late_fee_daily_amount ?? 10}
+                        onChange={(e) =>
+                          patchSales({ late_fee_daily_amount: Number(e.target.value) })
+                        }
+                        className={settingsInputClass}
+                        dir="ltr"
+                      />
+                    </SettingsField>
+                    <SettingsField label="نوع غرامة التأخير">
+                      <select
+                        value={form.sales.late_fee_mode ?? 'daily_fixed'}
+                        onChange={(e) =>
+                          patchSales({
+                            late_fee_mode: e.target.value as 'daily_fixed' | 'percent',
+                          })
+                        }
+                        className={settingsInputClass}
+                      >
+                        <option value="daily_fixed">مبلغ يومي ثابت</option>
+                        <option value="percent">نسبة من القسط</option>
+                      </select>
+                    </SettingsField>
                     <SettingsField label="حد أدنى للمقدم (%)">
                       <input
                         type="number"
@@ -518,12 +545,44 @@ export function AdminSystemSettingsPage() {
                       className={settingsToggleClass}
                     />
                     <div>
-                      <p className="text-sm font-medium text-on-surface">مراجعة الفواتير قبل التأكيد</p>
+                      <p className="text-sm font-medium text-on-surface">مراجعة العقود (لا توقف التعاقد)</p>
                       <p className="text-xs text-on-surface-variant">
-                        عند التفعيل، تمر عمليات POS بحالة «قيد المراجعة» قبل تأكيد البيع
+                        التعاقد والأقساط تُنشأ فوراً؛ المراجعة تتم لاحقاً دون إيقاف العملية
                       </p>
                     </div>
                   </label>
+
+                  <label className="flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.sales.allow_negative_inventory ?? false}
+                      onChange={(e) => patchSales({ allow_negative_inventory: e.target.checked })}
+                      className={settingsToggleClass}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">السماح بالمخزون السالب</p>
+                      <p className="text-xs text-on-surface-variant">
+                        إتمام التعاقد بدون وحدات متاحة ثم تزويد المخزون لاحقاً
+                      </p>
+                    </div>
+                  </label>
+
+                  <SettingsField label="ترتيب المراجعة والأقساط">
+                    <select
+                      value={form.sales.review_installment_order ?? 'after_installments'}
+                      onChange={(e) =>
+                        patchSales({
+                          review_installment_order: e.target.value as
+                            | 'before_installments'
+                            | 'after_installments',
+                        })
+                      }
+                      className={settingsInputClass}
+                    >
+                      <option value="after_installments">الأقساط أولاً ثم المراجعة</option>
+                      <option value="before_installments">المراجعة أولاً ثم الأقساط</option>
+                    </select>
+                  </SettingsField>
                 </SettingsSectionCard>
               )}
 

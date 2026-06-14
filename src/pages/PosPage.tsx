@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
+  Branch,
   CheckoutPayload,
   Customer,
   Distributor,
@@ -19,27 +20,60 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
 import { useAuthStore } from '../stores/authStore'
+import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+
+type VehicleType = 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
+type IntervalType = 'monthly' | 'weekly'
+type RenewalType = 'annual' | 'permanent'
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
 
 export function PosPage() {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
-  const branchId = useAuthStore((s) => s.branchId)
+  const authBranchId = useAuthStore((s) => s.branchId)
+  const salesSettings = useOrgSettingsStore((s) => s.settings?.sales)
+  const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
+
+  const [selectedBranchId, setSelectedBranchId] = useState<number | ''>(authBranchId ?? '')
+  const [distributorSearch, setDistributorSearch] = useState('')
   const [distributorId, setDistributorId] = useState<number | ''>('')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
   const [installationFee, setInstallationFee] = useState(500)
   const [downPayment, setDownPayment] = useState(2500)
+  const [installmentAmount, setInstallmentAmount] = useState(500)
   const [installmentCount, setInstallmentCount] = useState(6)
-  const [firstDueDate, setFirstDueDate] = useState(
-    () => new Date().toISOString().split('T')[0],
-  )
+  const [intervalType, setIntervalType] = useState<IntervalType>('monthly')
+  const [firstDueDate, setFirstDueDate] = useState(() => new Date().toISOString().split('T')[0])
   const [technicianName, setTechnicianName] = useState('')
-  const [vehicleInfo, setVehicleInfo] = useState('')
-  const [subscriptionRenewalDate, setSubscriptionRenewalDate] = useState('')
+  const [vehicleType, setVehicleType] = useState<VehicleType | ''>('')
+  const [vehiclePlateLetters, setVehiclePlateLetters] = useState('')
+  const [vehiclePlateNumbers, setVehiclePlateNumbers] = useState('')
+  const [chassisNumber, setChassisNumber] = useState('')
+  const [engineNumber, setEngineNumber] = useState('')
+  const [renewalType, setRenewalType] = useState<RenewalType>('annual')
+  const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
   const [lastInvoiceId, setLastInvoiceId] = useState<number | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
+
+  const branchId = selectedBranchId || authBranchId
+
+  const branchesQuery = useQuery({
+    queryKey: ['branches', 'pos'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
 
   const distributorsQuery = useQuery({
     queryKey: ['distributors', 'pos', branchId],
@@ -56,8 +90,20 @@ export function PosPage() {
     enabled: Boolean(branchId),
   })
 
+  const filteredDistributors = useMemo(() => {
+    const q = distributorSearch.trim().toLowerCase()
+    const list = distributorsQuery.data ?? []
+    if (!q) return list
+    return list.filter(
+      (d) =>
+        d.code.toLowerCase().includes(q) ||
+        d.name.toLowerCase().includes(q) ||
+        (d.name_ar ?? '').toLowerCase().includes(q),
+    )
+  }, [distributorsQuery.data, distributorSearch])
+
   const customersQuery = useQuery({
-    queryKey: ['customers', 'pos', distributorId],
+    queryKey: ['customers', 'pos', distributorId, branchId],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 100,
@@ -114,28 +160,44 @@ export function PosPage() {
     onSuccess: (invoice) => {
       setLastInvoiceId(invoice.id)
       setSuccessMsg(
-        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — بانتظار مراجعة قسم التأكيد`,
+        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — الأقساط جاهزة${invoice.review_status === 'pending' ? ' (مراجعة لاحقة)' : ''}`,
       )
       setQuantity(1)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
     },
   })
 
   const unitPrice = productQuery.data?.sell_price ?? 0
   const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
+  const maxQuantity = allowNegativeInventory ? 999 : available
   const devicesTotal = quantity * Number(unitPrice)
   const totalEstimate = devicesTotal + Number(installationFee)
+  const subscriptionRenewalDate =
+    renewalType === 'annual' ? addDays(contractDate, 365) : undefined
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId || !warehouseId || quantity <= 0 || quantity > available) return
+    if (!customerId || !warehouseId || quantity <= 0) return
+    if (!allowNegativeInventory && quantity > available) return
 
     const units = unitsQuery.data ?? []
     const selectedUnits = units.slice(0, quantity)
-    if (selectedUnits.length < quantity) return
+
+    let lines: CheckoutPayload['lines']
+    if (selectedUnits.length >= quantity) {
+      lines = selectedUnits.map((unit) => ({
+        product_unit_id: unit.id,
+        unit_price: Number(unitPrice),
+      }))
+    } else if (allowNegativeInventory) {
+      lines = [{ quantity, unit_price: Number(unitPrice) }]
+    } else {
+      return
+    }
 
     const payload: CheckoutPayload = {
       customer_id: Number(customerId),
@@ -143,21 +205,26 @@ export function PosPage() {
       branch_id: branchId ?? undefined,
       payment_term: paymentTerm,
       installation_fee: installationFee,
+      invoice_date: contractDate,
       technician_name: technicianName.trim() || undefined,
-      vehicle_info: vehicleInfo.trim() || undefined,
-      subscription_renewal_date: subscriptionRenewalDate || undefined,
-      lines: selectedUnits.map((unit) => ({
-        product_unit_id: unit.id,
-        unit_price: Number(unitPrice),
-      })),
+      vehicle_type: vehicleType || undefined,
+      vehicle_plate_letters: vehiclePlateLetters.trim() || undefined,
+      vehicle_plate_numbers: vehiclePlateNumbers.trim() || undefined,
+      chassis_number: chassisNumber.trim() || undefined,
+      engine_number: engineNumber.trim() || undefined,
+      renewal_type: renewalType,
+      subscription_renewal_date: subscriptionRenewalDate,
+      lines,
     }
 
     if (paymentTerm === 'installment') {
       payload.installment_plan = {
         down_payment: downPayment,
         installment_count: installmentCount,
+        installment_amount: installmentAmount,
+        interval_type: intervalType,
+        interval_days: intervalType === 'weekly' ? 7 : 30,
         first_due_date: firstDueDate,
-        interval_days: 30,
       }
     }
 
@@ -167,7 +234,7 @@ export function PosPage() {
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="إنشاء تعاقد GPS مع رسوم التركيب وإرساله للمراجعة"
+      subtitle="إنشاء تعاقد GPS — الأقساط تُنشأ فوراً دون انتظار المراجعة"
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId ? (
@@ -177,8 +244,35 @@ export function PosPage() {
           <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
             <h2 className="font-semibold text-on-surface">بيانات العملية</h2>
 
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">الفرع</label>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => {
+                  const value = e.target.value ? Number(e.target.value) : ''
+                  setSelectedBranchId(value)
+                  setDistributorId('')
+                  setCustomerId('')
+                }}
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              >
+                <option value="">اختر الفرع</option>
+                {(branchesQuery.data ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name_ar || b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div data-tour="pos-distributor">
-              <label className="mb-xs block text-sm text-on-surface-variant">الموزع</label>
+              <label className="mb-xs block text-sm text-on-surface-variant">بحث الموزع</label>
+              <input
+                value={distributorSearch}
+                onChange={(e) => setDistributorSearch(e.target.value)}
+                placeholder="ابحث بالكود أو الاسم..."
+                className="mb-sm w-full rounded border border-outline-variant px-sm py-2"
+              />
               <select
                 value={distributorId}
                 onChange={(e) => {
@@ -190,7 +284,7 @@ export function PosPage() {
                 className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none"
               >
                 <option value="">اختر الموزع</option>
-                {distributorsQuery.data?.map((d) => (
+                {filteredDistributors.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.code} — {distributorLabel(d)}
                   </option>
@@ -216,6 +310,16 @@ export function PosPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">تاريخ التعاقد</label>
+              <input
+                type="date"
+                value={contractDate}
+                onChange={(e) => setContractDate(e.target.value)}
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              />
             </div>
 
             <div data-tour="pos-payment">
@@ -251,67 +355,170 @@ export function PosPage() {
             </div>
 
             {paymentTerm === 'installment' && (
-              <div className="grid gap-sm sm:grid-cols-3">
+              <>
                 <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">مقدم</label>
+                  <label className="mb-xs block text-sm text-on-surface-variant">نوع القسط</label>
+                  <div className="flex gap-sm">
+                    {(['monthly', 'weekly'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setIntervalType(type)
+                          setFirstDueDate(
+                            addDays(contractDate, type === 'weekly' ? 7 : 30),
+                          )
+                        }}
+                        className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
+                          intervalType === type
+                            ? 'border-primary bg-primary text-on-primary'
+                            : 'border-outline-variant bg-surface-container-low'
+                        }`}
+                      >
+                        {type === 'monthly' ? 'شهري' : 'أسبوعي'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid gap-sm sm:grid-cols-2">
+                  <div>
+                    <label className="mb-xs block text-xs text-on-surface-variant">مقدم</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={downPayment}
+                      onChange={(e) => setDownPayment(Number(e.target.value))}
+                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={installmentAmount}
+                      onChange={(e) => setInstallmentAmount(Number(e.target.value))}
+                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={installmentCount}
+                      onChange={(e) => setInstallmentCount(Number(e.target.value))}
+                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
+                    <input
+                      type="date"
+                      value={firstDueDate}
+                      onChange={(e) => setFirstDueDate(e.target.value)}
+                      className="w-full rounded border border-outline-variant px-sm py-2"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">الفني</label>
+              <input
+                value={technicianName}
+                onChange={(e) => setTechnicianName(e.target.value)}
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              />
+            </div>
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">نوع المركبة</label>
+              <select
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value as VehicleType | '')}
+                className="w-full rounded border border-outline-variant px-sm py-2"
+              >
+                <option value="">—</option>
+                <option value="car">سيارة</option>
+                <option value="tuk_tuk">توك توك</option>
+                <option value="motorcycle">دراجة نارية</option>
+                <option value="other">أخرى</option>
+              </select>
+            </div>
+
+            {(vehicleType === 'car' || vehicleType === 'motorcycle') && (
+              <div className="grid gap-sm sm:grid-cols-2">
+                <div>
+                  <label className="mb-xs block text-xs text-on-surface-variant">حروف اللوحة</label>
                   <input
-                    type="number"
-                    min={0}
-                    value={downPayment}
-                    onChange={(e) => setDownPayment(Number(e.target.value))}
-                    className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                    value={vehiclePlateLetters}
+                    onChange={(e) => setVehiclePlateLetters(e.target.value)}
+                    className="w-full rounded border border-outline-variant px-sm py-2"
                   />
                 </div>
                 <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط</label>
+                  <label className="mb-xs block text-xs text-on-surface-variant">أرقام اللوحة</label>
                   <input
-                    type="number"
-                    min={1}
-                    value={installmentCount}
-                    onChange={(e) => setInstallmentCount(Number(e.target.value))}
-                    className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-                  />
-                </div>
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
-                  <input
-                    type="date"
-                    value={firstDueDate}
-                    onChange={(e) => setFirstDueDate(e.target.value)}
+                    value={vehiclePlateNumbers}
+                    onChange={(e) => setVehiclePlateNumbers(e.target.value)}
+                    dir="ltr"
                     className="w-full rounded border border-outline-variant px-sm py-2"
                   />
                 </div>
               </div>
             )}
 
-            <div className="grid gap-sm sm:grid-cols-2">
-              <div>
-                <label className="mb-xs block text-sm text-on-surface-variant">الفني</label>
-                <input
-                  value={technicianName}
-                  onChange={(e) => setTechnicianName(e.target.value)}
-                  className="w-full rounded border border-outline-variant px-sm py-2"
-                />
+            {vehicleType === 'tuk_tuk' && (
+              <div className="grid gap-sm sm:grid-cols-2">
+                <div>
+                  <label className="mb-xs block text-xs text-on-surface-variant">رقم الشاسيه</label>
+                  <input
+                    value={chassisNumber}
+                    onChange={(e) => setChassisNumber(e.target.value)}
+                    dir="ltr"
+                    className="w-full rounded border border-outline-variant px-sm py-2"
+                  />
+                </div>
+                <div>
+                  <label className="mb-xs block text-xs text-on-surface-variant">رقم الموتور</label>
+                  <input
+                    value={engineNumber}
+                    onChange={(e) => setEngineNumber(e.target.value)}
+                    dir="ltr"
+                    className="w-full rounded border border-outline-variant px-sm py-2"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="mb-xs block text-sm text-on-surface-variant">المركبة</label>
-                <input
-                  value={vehicleInfo}
-                  onChange={(e) => setVehicleInfo(e.target.value)}
-                  className="w-full rounded border border-outline-variant px-sm py-2"
-                />
+            )}
+
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">نوع التجديد</label>
+              <div className="flex gap-sm">
+                {(['annual', 'permanent'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setRenewalType(type)}
+                    className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
+                      renewalType === type
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-outline-variant bg-surface-container-low'
+                    }`}
+                  >
+                    {type === 'annual' ? 'سنوي' : 'دائم'}
+                  </button>
+                ))}
               </div>
-              <div className="sm:col-span-2">
-                <label className="mb-xs block text-sm text-on-surface-variant">
-                  تاريخ تجديد اشتراك الجهاز
-                </label>
-                <input
-                  type="date"
-                  value={subscriptionRenewalDate}
-                  onChange={(e) => setSubscriptionRenewalDate(e.target.value)}
-                  className="w-full rounded border border-outline-variant px-sm py-2"
-                />
-              </div>
+              {renewalType === 'annual' && subscriptionRenewalDate && (
+                <p className="mt-xs text-xs text-on-surface-variant">
+                  تاريخ التجديد: {subscriptionRenewalDate}
+                </p>
+              )}
+              {renewalType === 'permanent' && (
+                <p className="mt-xs text-xs text-on-surface-variant">سيُذكر في العقد: دائم</p>
+              )}
             </div>
           </div>
 
@@ -320,6 +527,11 @@ export function PosPage() {
             className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
           >
             <h2 className="font-semibold text-on-surface">جهاز GPS</h2>
+            {allowNegativeInventory && (
+              <p className="rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
+                المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
+              </p>
+            )}
             <AsyncState
               isLoading={productQuery.isLoading || stockQuery.isLoading}
               isError={productQuery.isError || stockQuery.isError}
@@ -345,7 +557,7 @@ export function PosPage() {
                     <input
                       type="number"
                       min={1}
-                      max={available}
+                      max={maxQuantity}
                       value={quantity}
                       onChange={(e) => setQuantity(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
@@ -365,6 +577,12 @@ export function PosPage() {
                   <span>رسوم التركيب</span>
                   <span>{Number(installationFee).toLocaleString('ar-EG')} ج.م</span>
                 </div>
+                {paymentTerm === 'installment' && (
+                  <div className="flex justify-between tabular-nums">
+                    <span>مجموع الأقساط</span>
+                    <span>{(installmentAmount * installmentCount).toLocaleString('ar-EG')} ج.م</span>
+                  </div>
+                )}
               </div>
               <p className="mb-sm text-lg font-bold tabular-nums">
                 الإجمالي: {totalEstimate.toLocaleString('ar-EG')} ج.م
@@ -396,13 +614,14 @@ export function PosPage() {
                 disabled={
                   checkoutMutation.isPending ||
                   !customerId ||
+                  !branchId ||
                   quantity <= 0 ||
-                  quantity > available
+                  (!allowNegativeInventory && quantity > available)
                 }
                 className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                <Icon name="send" />
-                {checkoutMutation.isPending ? 'جاري الإرسال...' : 'إرسال للمراجعة'}
+                <Icon name="check_circle" />
+                {checkoutMutation.isPending ? 'جاري الحفظ...' : 'إتمام التعاقد'}
               </button>
             </div>
           </div>

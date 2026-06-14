@@ -66,20 +66,60 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
-      id: 'sales',
-      label: 'المبيعات',
-      icon: 'point_of_sale',
+      id: 'contracts',
+      label: 'قسم التعاقدات',
+      icon: 'edit_document',
       items: [
-        { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/accessories', icon: 'headphones', label: 'بيع الاكسسورات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/maintenance', icon: 'build', label: 'صيانة وسوفت وير', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'الفواتير', roles: ['super_admin', 'admin'] },
-        { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'admin', 'collector'] },
-        { to: '/daily-reports', icon: 'summarize', label: 'البيان اليومي', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'review',
+      label: 'قسم المراجعة',
+      icon: 'fact_check',
+      items: [
+        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة العقود', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'العقود', roles: ['super_admin', 'admin', 'reviewer'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'collection',
+      label: 'قسم التحصيل',
+      icon: 'payments',
+      items: [
+        { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', end: true, roles: ['super_admin', 'admin', 'collector'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'inventory',
+      label: 'المخزون',
+      icon: 'inventory_2',
+      items: [
+        { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', end: true, roles: ['super_admin', 'admin', 'sales'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'operations',
+      label: 'العمليات',
+      icon: 'work',
+      items: [
+        { to: '/customers', icon: 'group', label: 'العملاء', end: true, roles: ['super_admin', 'admin', 'sales', 'collector'] },
         { to: '/distributors', icon: 'local_shipping', label: 'الموزعين', roles: ['super_admin', 'admin', 'sales', 'collector'] },
-        { to: '/customers', icon: 'group', label: 'العملاء', roles: ['super_admin', 'admin', 'sales', 'collector'] },
+        { to: '/daily-reports', icon: 'summarize', label: 'البيان اليومي', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
       ],
     },
   },
@@ -126,7 +166,7 @@ export const navEntries: NavEntry[] = [
     type: 'group',
     group: {
       id: 'crm',
-      label: 'علاقات العملاء',
+      label: 'قسم المبيعات',
       icon: 'hub',
       items: [
         { to: '/crm', icon: 'hub', label: 'العملاء المحتملين', end: true, roles: ['super_admin', 'admin', 'crm'] },
@@ -153,7 +193,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/pos': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
-  '/invoices': ['super_admin', 'admin'],
+  '/invoices': ['super_admin', 'admin', 'reviewer'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
   '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
@@ -331,10 +371,10 @@ export function getRoleLabel(user: AuthUser | null): string {
   const labels: Record<DemoRole, string> = {
     super_admin: 'مدير النظام الأعلى',
     admin: 'مدير الإدارة',
-    sales: 'قسم المبيعات',
+    sales: 'قسم التعاقدات',
     reviewer: 'قسم المراجعة',
     collector: 'قسم التحصيل',
-    crm: 'قسم علاقات العملاء',
+    crm: 'قسم المبيعات',
     accountant: 'قسم المحاسبة',
     hr_manager: 'مدير الموارد البشرية',
   }

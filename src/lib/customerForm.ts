@@ -1,12 +1,13 @@
 const emptyCustomerForm = {
   name: '',
   national_id: '',
+  address: '',
+  device_serial: '',
+  sim_number: '',
   phone: '',
   phone_2: '',
-  sim_number: '',
-  username: '',
-  device_serial: '',
-  address: '',
+  phone_3: '',
+  distinctive_mark: '',
   distributor_id: '' as number | '',
 }
 

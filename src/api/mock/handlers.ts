@@ -253,8 +253,11 @@ function generateInstallmentItems(
 
   const financed = Number(invoice.total) - Number(plan.down_payment)
   const count = plan.installment_count
-  const base = Math.floor((financed / count) * 100) / 100
-  let remainder = Math.round((financed - base * count) * 100) / 100
+  const fixedAmount = plan.installment_amount != null ? Number(plan.installment_amount) : null
+  const base = fixedAmount ?? Math.floor((financed / count) * 100) / 100
+  let remainder = fixedAmount
+    ? Math.round((financed - base * count) * 100) / 100
+    : Math.round((financed - base * count) * 100) / 100
   const items = []
 
   for (let i = 0; i < count; i++) {
@@ -1035,6 +1038,10 @@ export function handleMockRequest(
     if (branchFilter) items = items.filter((i) => i.branch_id === Number(branchFilter))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((i) => i.status === statusFilter)
+    const reviewStatusFilter = params['filter[review_status]']
+    if (reviewStatusFilter) {
+      items = items.filter((i) => (i.review_status ?? 'pending') === reviewStatusFilter)
+    }
     return paginate(
       items.map((inv) => ({
         ...inv,
@@ -1100,14 +1107,22 @@ export function handleMockRequest(
         warehouse_id: warehouseId,
         customer_id: body.customer_id,
         distributor_id: customer.distributor_id,
-        status: 'pending_review',
+        status: 'confirmed',
+        review_status: 'pending',
         payment_term: body.payment_term,
         payment_status: downPayment >= total ? 'paid' : downPayment > 0 ? 'partial' : 'unpaid',
         total,
         paid_amount: downPayment,
         balance_due: Math.max(0, total - downPayment),
+        confirmed_at: new Date().toISOString(),
         technician_name: body.technician_name ?? null,
         vehicle_info: body.vehicle_info ?? null,
+        vehicle_type: body.vehicle_type ?? null,
+        vehicle_plate_letters: body.vehicle_plate_letters ?? null,
+        vehicle_plate_numbers: body.vehicle_plate_numbers ?? null,
+        chassis_number: body.chassis_number ?? null,
+        engine_number: body.engine_number ?? null,
+        renewal_type: body.renewal_type ?? null,
         subscription_renewal_date: body.subscription_renewal_date ?? null,
         lines: [
           {
@@ -1126,11 +1141,17 @@ export function handleMockRequest(
           id: invoiceId,
           down_payment: body.installment_plan.down_payment,
           installment_count: body.installment_plan.installment_count,
+          installment_amount: body.installment_plan.installment_amount,
+          interval_type: body.installment_plan.interval_type ?? 'monthly',
           interval_days: body.installment_plan.interval_days ?? 30,
           first_due_date: body.installment_plan.first_due_date,
           status: 'draft',
           items: [],
         }
+        generateInstallmentItems(s, invoice)
+        invoice.paid_amount = Number(body.installment_plan.down_payment)
+        invoice.balance_due = Math.max(0, total - invoice.paid_amount)
+        invoice.payment_status = invoice.balance_due <= 0 ? 'paid' : 'partial'
       }
 
       s.invoices.push(invoice)
@@ -1191,33 +1212,14 @@ export function handleMockRequest(
     mutateState((s) => {
       const invoice = s.invoices.find((i) => i.id === id)
       if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
-      if (invoice.status !== 'pending_review') {
-        throw mockError(422, 'الفاتورة ليست بانتظار المراجعة')
+      if (invoice.status !== 'confirmed') {
+        throw mockError(422, 'الفاتورة غير متاحة للمراجعة')
       }
+      if (invoice.review_status === 'approved') return
 
-      const stock = invoice.warehouse_id ? getStock(s, invoice.warehouse_id) : undefined
-      const qty = invoice.lines?.[0]?.quantity ?? 0
-      if (stock) {
-        stock.reserved -= qty
-        stock.quantity -= qty
-        stock.sold += qty
-      }
-
-      invoice.status = 'confirmed'
-      invoice.confirmed_at = new Date().toISOString()
-      invoice.reviewed_at = invoice.confirmed_at
+      invoice.review_status = 'approved'
+      invoice.reviewed_at = new Date().toISOString()
       invoice.reviewed_by = 3
-
-      if (invoice.payment_term === 'installment' && invoice.installment_plan) {
-        generateInstallmentItems(s, invoice)
-        invoice.paid_amount = Number(invoice.installment_plan.down_payment)
-        invoice.balance_due = Number(invoice.total) - invoice.paid_amount
-        invoice.payment_status = invoice.balance_due <= 0 ? 'paid' : 'partial'
-      } else {
-        invoice.paid_amount = Number(invoice.total)
-        invoice.balance_due = 0
-        invoice.payment_status = 'paid'
-      }
 
       updated = invoice
     })
@@ -1231,15 +1233,11 @@ export function handleMockRequest(
     mutateState((s) => {
       const invoice = s.invoices.find((i) => i.id === id)
       if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
-      if (invoice.status !== 'pending_review') {
-        throw mockError(422, 'الفاتورة ليست بانتظار المراجعة')
+      if (invoice.status !== 'confirmed') {
+        throw mockError(422, 'الفاتورة غير متاحة للمراجعة')
       }
 
-      const stock = invoice.warehouse_id ? getStock(s, invoice.warehouse_id) : undefined
-      const qty = invoice.lines?.[0]?.quantity ?? 0
-      if (stock) stock.reserved -= qty
-
-      invoice.status = 'rejected'
+      invoice.review_status = 'rejected'
       invoice.rejection_reason = body.reason ?? 'مرفوضة'
       invoice.reviewed_at = new Date().toISOString()
       invoice.reviewed_by = 3
@@ -2311,6 +2309,24 @@ export function handleMockRequest(
       },
       module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
     }
+  }
+
+  if (m === 'GET' && path === 'staff-options') {
+    return {
+      data: state.users.map((u) => ({ id: u.id, name: u.name })),
+    }
+  }
+
+  if (m === 'GET' && path === 'notifications') {
+    return { data: [], unread_count: 0 }
+  }
+
+  if (m === 'POST' && path === 'notifications/read-all') {
+    return { ok: true }
+  }
+
+  if (m === 'POST' && path.match(/^installments\/\d+\/reconcile$/)) {
+    return { ok: true, late_fee_waived: 0 }
   }
 
   const hrmResult = tryHandleHrmRequest(m, path, data, params, ctx)

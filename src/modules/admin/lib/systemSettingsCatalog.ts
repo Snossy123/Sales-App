@@ -27,10 +27,15 @@ export const DEFAULT_GENERAL: GeneralSettings = {
 export const DEFAULT_SALES: SalesSettings = {
   invoice_prefix: 'INV',
   require_invoice_review: true,
+  review_installment_order: 'after_installments',
+  block_contract_on_review: false,
+  allow_negative_inventory: false,
   default_payment_term: 'installment',
   max_installment_months: 24,
   installment_interval_days: 30,
   overdue_grace_days: 3,
+  late_fee_mode: 'daily_fixed',
+  late_fee_daily_amount: 10,
   late_fee_percent: 0,
   min_down_payment_percent: 10,
 }
@@ -80,7 +85,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   },
   {
     key: 'crm',
-    label: 'علاقات العملاء',
+    label: 'قسم المبيعات',
     description: 'العملاء المحتملون، الحملات، والعروض',
     settingsPath: '/crm/settings',
   },

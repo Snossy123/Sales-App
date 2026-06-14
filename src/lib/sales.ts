@@ -1,4 +1,4 @@
-import type { Distributor, InstallmentItem } from '../api/types'
+import type { Customer, Distributor, InstallmentItem } from '../api/types'
 import { formatDate as formatAccountingDate } from './accounting'
 
 export { formatDate } from './accounting'
@@ -106,6 +106,14 @@ export function normalizeInstallmentItem(item: InstallmentLike): InstallmentItem
       item.customer_name ?? item.sales_invoice?.customer?.name,
     customer_phone:
       item.customer_phone ?? item.sales_invoice?.customer?.phone,
+    customer_phones: item.customer_phones ?? [
+      item.sales_invoice?.customer?.phone,
+      (item.sales_invoice?.customer as Customer | undefined)?.phone_2,
+      (item.sales_invoice?.customer as Customer | undefined)?.phone_3,
+    ].filter(Boolean) as string[],
+    display_tier: item.display_tier,
+    late_fee_accrued: item.late_fee_accrued,
+    total_due: item.total_due ?? remaining,
     invoice_number:
       item.invoice_number ?? item.sales_invoice?.invoice_number,
     remaining,

@@ -15,6 +15,7 @@ interface DataTableProps<T> {
   emptyMessage?: string
   striped?: boolean
   dataTour?: string
+  rowClassName?: (row: T) => string
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -24,6 +25,7 @@ export function DataTable<T extends Record<string, unknown>>({
   emptyMessage = 'لا توجد بيانات',
   striped = true,
   dataTour,
+  rowClassName,
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
@@ -60,7 +62,8 @@ export function DataTable<T extends Record<string, unknown>>({
             <tr
               key={keyExtractor(row)}
               className={`border-b border-outline-variant/60 last:border-0 ${
-                striped && idx % 2 === 1 ? 'bg-surface-container-low/50' : ''
+                rowClassName?.(row) ??
+                (striped && idx % 2 === 1 ? 'bg-surface-container-low/50' : '')
               }`}
             >
               {columns.map((col) => (

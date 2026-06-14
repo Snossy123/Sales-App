@@ -1,4 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../components/Icon'
 import { SidebarNav } from '../components/SidebarNav'
 import { TourProvider } from '../components/tour/TourProvider'
@@ -8,6 +10,7 @@ import { useOrgSettingsBootstrap } from '../hooks/useOrgSettings'
 import { useSessionTimeout } from '../hooks/useSessionTimeout'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { api, isDemoMode } from '../api/client'
+import type { AppNotification } from '../api/types'
 import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
 
 export function AppShell() {
@@ -22,6 +25,28 @@ export function AppShell() {
   const navEntries = getNavEntriesForUser(user)
   const role = getUserRole(user)
   const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
+  const queryClient = useQueryClient()
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: AppNotification[]; unread_count: number }>(
+        '/notifications',
+      )
+      return data
+    },
+    refetchInterval: 60000,
+  })
+
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/notifications/read-all')
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  })
+
+  const unreadCount = notificationsQuery.data?.unread_count ?? 0
 
   const orgName = organization?.name_ar || organization?.name || 'نظام GPS'
   const logoUrl = general?.logo_url
@@ -57,7 +82,7 @@ export function AppShell() {
 
           {isDemoMode && (
             <div className="mb-sm rounded-lg bg-primary/5 px-sm py-xs text-xs text-on-surface-variant">
-              بيع → مراجعة → أقساط
+              تعاقد → أقساط → مراجعة
             </div>
           )}
 
@@ -92,13 +117,55 @@ export function AppShell() {
         <header className="sticky top-0 z-40 flex w-full items-center justify-end border-b border-outline-variant bg-surface px-margin py-base">
           <div className="flex flex-row-reverse items-center gap-md">
             <div className="flex flex-row-reverse gap-sm">
-              <button
-                type="button"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
-              >
-                <Icon name="notifications" className="text-primary no-flip" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-error" />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNotifications((v) => !v)}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+                >
+                  <Icon name="notifications" className="text-primary no-flip" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-outline-variant bg-surface-container-lowest shadow-lg">
+                    <div className="flex items-center justify-between border-b border-outline-variant px-sm py-xs">
+                      <span className="text-sm font-bold">الإشعارات</span>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => markAllReadMutation.mutate()}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          تعليم الكل كمقروء
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {(notificationsQuery.data?.data ?? []).length === 0 ? (
+                        <p className="p-sm text-center text-xs text-on-surface-variant">
+                          لا توجد إشعارات
+                        </p>
+                      ) : (
+                        notificationsQuery.data?.data.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`border-b border-outline-variant/50 px-sm py-xs text-right last:border-0 ${
+                              n.read_at ? 'opacity-60' : 'bg-primary/5'
+                            }`}
+                          >
+                            <p className="text-xs font-bold">{n.title}</p>
+                            <p className="text-xs text-on-surface-variant">{n.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mx-sm h-8 w-px bg-outline-variant" />
             <div className="flex items-center gap-sm">

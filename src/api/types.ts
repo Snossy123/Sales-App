@@ -219,11 +219,13 @@ export interface Customer {
   name: string
   phone: string
   phone_2?: string | null
+  phone_3?: string | null
   sim_number?: string | null
   username?: string | null
   device_serial?: string | null
   national_id?: string | null
   address?: string | null
+  distinctive_mark?: string | null
   city?: string | null
   status: string
   credit_score?: number | null
@@ -242,6 +244,10 @@ export interface Distributor {
   name_ar?: string | null
   phone?: string | null
   status: string
+  commission_percent?: string | number | null
+  commission_tier_threshold?: number | null
+  commission_tier_increment?: string | number | null
+  confirmed_transactions_count?: number | null
   notes?: string | null
   branch?: Branch
   customers_count?: number
@@ -266,8 +272,13 @@ export interface InstallmentItem {
   amount: string | number
   paid_amount: string | number
   status: string
+  display_tier?: 'upcoming' | 'grace' | 'overdue' | 'paid'
+  late_fee_accrued?: string | number
+  late_fee_waived_at?: string | null
+  total_due?: number
   customer_name?: string
   customer_phone?: string
+  customer_phones?: string[]
   invoice_number?: string
   remaining?: number
   branch_id?: number
@@ -277,7 +288,9 @@ export interface InstallmentPlan {
   id: number
   down_payment: string | number
   installment_count: number
+  installment_amount?: string | number | null
   interval_days?: number
+  interval_type?: 'monthly' | 'weekly'
   first_due_date?: string
   status?: string
   items?: InstallmentItem[]
@@ -297,6 +310,7 @@ export interface SalesInvoice {
   payment_term: string
   payment_status: string
   status?: InvoiceStatus | string
+  review_status?: 'pending' | 'approved' | 'rejected'
   customer_id: number
   distributor_id?: number | null
   customer?: Customer
@@ -307,7 +321,13 @@ export interface SalesInvoice {
   notes?: string | null
   technician_name?: string | null
   vehicle_info?: string | null
+  vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
+  vehicle_plate_letters?: string | null
+  vehicle_plate_numbers?: string | null
+  chassis_number?: string | null
+  engine_number?: string | null
   subscription_renewal_date?: string | null
+  renewal_type?: 'annual' | 'permanent' | null
   installation_fee?: string | number | null
   is_order_request?: boolean
   created_by?: number
@@ -428,6 +448,12 @@ export interface CheckoutPayload {
   notes?: string
   technician_name?: string
   vehicle_info?: string
+  vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
+  vehicle_plate_letters?: string
+  vehicle_plate_numbers?: string
+  chassis_number?: string
+  engine_number?: string
+  renewal_type?: 'annual' | 'permanent'
   subscription_renewal_date?: string
   lines: {
     product_unit_id?: number
@@ -439,6 +465,8 @@ export interface CheckoutPayload {
   installment_plan?: {
     down_payment: number
     installment_count: number
+    installment_amount?: number
+    interval_type?: 'monthly' | 'weekly'
     interval_days?: number
     first_due_date: string
   }
@@ -950,12 +978,27 @@ export interface GeneralSettings {
 export interface SalesSettings {
   invoice_prefix?: string
   require_invoice_review?: boolean
+  review_installment_order?: 'before_installments' | 'after_installments'
+  block_contract_on_review?: boolean
+  allow_negative_inventory?: boolean
   default_payment_term?: 'cash' | 'credit' | 'installment'
   max_installment_months?: number
   installment_interval_days?: number
   overdue_grace_days?: number
+  late_fee_mode?: 'daily_fixed' | 'percent'
+  late_fee_daily_amount?: number
   late_fee_percent?: number
   min_down_payment_percent?: number
+}
+
+export interface AppNotification {
+  id: string
+  type?: string
+  title: string
+  message: string
+  data?: Record<string, unknown>
+  read_at?: string | null
+  created_at?: string
 }
 
 export interface SecuritySettings {

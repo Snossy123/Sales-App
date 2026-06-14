@@ -30,7 +30,7 @@ export const MODULE_LABELS: Record<string, string> = {
   audit: 'سجل التدقيق',
   settings: 'إعدادات النظام',
   reports: 'التقارير المالية',
-  crm: 'علاقات العملاء',
+  crm: 'قسم المبيعات',
   hrm: 'الموارد البشرية',
   accounting: 'المحاسبة',
 }
@@ -57,10 +57,34 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     modules: ['branches'],
   },
   {
-    id: 'sales',
-    label: 'المبيعات',
-    icon: 'point_of_sale',
-    modules: ['warehouses', 'inventory', 'stock', 'customers', 'sales', 'installments'],
+    id: 'contracts',
+    label: 'قسم التعاقدات',
+    icon: 'edit_document',
+    modules: ['warehouses', 'sales'],
+  },
+  {
+    id: 'review',
+    label: 'قسم المراجعة',
+    icon: 'fact_check',
+    modules: ['sales'],
+  },
+  {
+    id: 'collection',
+    label: 'قسم التحصيل',
+    icon: 'payments',
+    modules: ['installments'],
+  },
+  {
+    id: 'inventory',
+    label: 'المخزون',
+    icon: 'inventory_2',
+    modules: ['inventory', 'stock'],
+  },
+  {
+    id: 'operations',
+    label: 'العمليات',
+    icon: 'work',
+    modules: ['customers'],
   },
   {
     id: 'system',
@@ -82,7 +106,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
   },
   {
     id: 'crm',
-    label: 'علاقات العملاء',
+    label: 'قسم المبيعات',
     icon: 'hub',
     modules: ['crm'],
   },

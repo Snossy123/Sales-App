@@ -112,6 +112,14 @@ export function InstallmentContractDocument({ invoice }: InstallmentContractDocu
             <span className="ic-field-value">{customer?.phone_2 ?? ''}</span>
           </div>
           <div className="ic-field-row">
+            <span className="ic-field-label">رقم العميل 3:</span>
+            <span className="ic-field-value">{customer?.phone_3 ?? ''}</span>
+          </div>
+          <div className="ic-field-row">
+            <span className="ic-field-label">علامة مميزة:</span>
+            <span className="ic-field-value">{customer?.distinctive_mark ?? ''}</span>
+          </div>
+          <div className="ic-field-row">
             <span className="ic-field-label">رقم الشريحة:</span>
             <span className="ic-field-value">{customer?.sim_number ?? ''}</span>
           </div>
@@ -153,7 +161,9 @@ export function InstallmentContractDocument({ invoice }: InstallmentContractDocu
         <span className="ic-summary-item">
           <strong>تاريخ تجديد اشتراك الجهاز:</strong>
           <span className="ic-summary-val">
-            {fmtDate(invoice.subscription_renewal_date ?? undefined)}
+            {invoice.renewal_type === 'permanent'
+              ? 'دائم'
+              : fmtDate(invoice.subscription_renewal_date ?? undefined)}
           </span>
         </span>
       </div>

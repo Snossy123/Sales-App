@@ -25,6 +25,9 @@ const emptyForm = {
   name: '',
   name_ar: '',
   phone: '',
+  commission_percent: 0,
+  commission_tier_threshold: 0,
+  commission_tier_increment: 0,
 }
 
 export function DistributorsPage() {
@@ -191,6 +194,38 @@ export function DistributorsPage() {
             dir="ltr"
             className="rounded border border-outline-variant px-sm py-2 text-sm"
           />
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="نسبة العمولة %"
+            value={form.commission_percent}
+            onChange={(e) => setForm({ ...form, commission_percent: Number(e.target.value) })}
+            className="rounded border border-outline-variant px-sm py-2 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="حد المعاملات للترقية"
+            value={form.commission_tier_threshold}
+            onChange={(e) =>
+              setForm({ ...form, commission_tier_threshold: Number(e.target.value) })
+            }
+            className="rounded border border-outline-variant px-sm py-2 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="زيادة العمولة المقترحة %"
+            value={form.commission_tier_increment}
+            onChange={(e) =>
+              setForm({ ...form, commission_tier_increment: Number(e.target.value) })
+            }
+            className="rounded border border-outline-variant px-sm py-2 text-sm sm:col-span-2"
+          />
           {createMutation.isError && (
             <p className="text-sm text-error sm:col-span-2">
               {getErrorMessage(createMutation.error)}
@@ -228,6 +263,16 @@ export function DistributorsPage() {
               header: 'الهاتف',
               className: 'tabular-nums',
               render: (row) => row.phone ?? '—',
+            },
+            {
+              key: 'commission_percent',
+              header: 'العمولة %',
+              render: (row) => Number(row.commission_percent ?? 0).toFixed(1),
+            },
+            {
+              key: 'confirmed_transactions_count',
+              header: 'المعاملات',
+              render: (row) => row.confirmed_transactions_count ?? 0,
             },
             {
               key: 'customers_count',
