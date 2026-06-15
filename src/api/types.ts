@@ -463,7 +463,7 @@ export interface CheckoutPayload {
     discount?: number
   }[]
   installment_plan?: {
-    down_payment: number
+    down_payment?: number
     installment_count: number
     installment_amount?: number
     interval_type?: 'monthly' | 'weekly'
