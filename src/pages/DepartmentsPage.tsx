@@ -8,6 +8,7 @@ import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
 import { DistributeStockModal } from '../components/DistributeStockModal'
+import { AddStockForm } from '../components/AddStockForm'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
@@ -43,8 +44,6 @@ export function DepartmentsPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
   const [form, setForm] = useState(emptyForm)
-  const [stockDeptId, setStockDeptId] = useState<number | ''>('')
-  const [stockQty, setStockQty] = useState(10)
 
   const allQuery = useQuery({
     queryKey: ['departments', 'admin', 'all'],
@@ -117,22 +116,6 @@ export function DepartmentsPage() {
       invalidate()
       closePanel()
       setSuccessToast('تم حذف الإدارة')
-    },
-  })
-
-  const addStockMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post<Department>('/department-stock/add', {
-        department_id: stockDeptId,
-        quantity: stockQty,
-      })
-      return data
-    },
-    onSuccess: () => {
-      invalidate()
-      closePanel()
-      setStockQty(10)
-      setSuccessToast('تمت إضافة الكمية للإدارة')
     },
   })
 
@@ -367,39 +350,17 @@ export function DepartmentsPage() {
       </Modal>
 
       <Modal open={panel === 'addStock'} onClose={closePanel} title="إضافة كمية للإدارة">
-        <form
-          onSubmit={(e) => { e.preventDefault(); addStockMutation.mutate() }}
-          className="grid gap-sm"
-        >
-          <select
-            value={stockDeptId}
-            onChange={(e) => setStockDeptId(Number(e.target.value))}
-            required
-            className={inputClass}
-          >
-            <option value="">اختر الإدارة</option>
-            {allQuery.data?.map((d) => (
-              <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={stockQty}
-            onChange={(e) => setStockQty(Number(e.target.value))}
-            placeholder="عدد القطع"
-            className={`${inputClass} tabular-nums`}
-          />
-          {addStockMutation.isError && (
-            <p className="text-sm text-error">{getErrorMessage(addStockMutation.error)}</p>
-          )}
-          <div className="flex gap-sm">
-            <button type="submit" disabled={addStockMutation.isPending} className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary">
-              إضافة للإدارة
-            </button>
-            <button type="button" onClick={closePanel} className="rounded-lg border px-md py-2 text-sm">إلغاء</button>
-          </div>
-        </form>
+        <AddStockForm
+          departments={allQuery.data ?? []}
+          submitLabel="إضافة للإدارة"
+          showCancel
+          onCancel={closePanel}
+          onSuccess={() => {
+            invalidate()
+            closePanel()
+            setSuccessToast('تمت إضافة الكمية للإدارة')
+          }}
+        />
       </Modal>
 
       <DistributeStockModal

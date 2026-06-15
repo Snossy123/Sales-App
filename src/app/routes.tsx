@@ -5,6 +5,7 @@ import { canAccessRoute, getDefaultRoute } from '../lib/permissions'
 import { LoginPage } from '../pages/LoginPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
+import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
 import { PosPage } from '../pages/PosPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
@@ -127,6 +128,7 @@ export function AppRoutes() {
             <Route path="branches/:id" element={<BranchDetailPage />} />
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory/add" element={<InventoryAddStockPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />
             <Route path="sales/maintenance" element={<MaintenanceServicesPage />} />

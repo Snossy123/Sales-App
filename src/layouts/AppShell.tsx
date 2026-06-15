@@ -48,7 +48,7 @@ export function AppShell() {
 
   const unreadCount = notificationsQuery.data?.unread_count ?? 0
 
-  const orgName = organization?.name_ar || organization?.name || 'نظام GPS'
+  const orgName = organization?.name_ar || organization?.name || 'العراقي'
   const logoUrl = general?.logo_url
 
   const handleLogout = async () => {

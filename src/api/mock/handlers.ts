@@ -1081,17 +1081,43 @@ export function handleMockRequest(
       const stock = getStock(s, warehouseId)
       if (!stock) throw mockError(422, 'المخزن غير موجود')
 
-      const line = body.lines[0]
-      const qty = line.quantity ?? body.lines.length ?? 1
-      const unitPrice = line.unit_price ?? s.gpsProduct.sell_price
+      const installationFeeGross = Number(body.installation_fee ?? 0)
+      const feeDiscount = Number(body.discount_amount ?? 0)
+      const installationFee = Math.max(0, installationFeeGross - feeDiscount)
+      let subtotal = 0
+      const invoiceLines = body.lines.map((line, index) => {
+        const price = Number(line.unit_price ?? s.gpsProduct.sell_price)
+        const discount = Number(line.discount ?? 0)
+        const lineTotal = Math.max(0, price - discount)
+        subtotal += lineTotal
+        return {
+          id: s.counters.invoice * 100 + index + 1,
+          product_id: s.gpsProduct.id,
+          product_unit_id: line.product_unit_id,
+          quantity: line.quantity ?? 1,
+          unit_price: price,
+          discount,
+          line_total: lineTotal,
+          serial_number: line.serial_number ?? null,
+          sim_number: line.sim_number ?? null,
+          vehicle_type: line.vehicle_type ?? null,
+          vehicle_plate_letters: line.vehicle_plate_letters ?? null,
+          vehicle_plate_numbers: line.vehicle_plate_numbers ?? null,
+          chassis_number: line.chassis_number ?? null,
+          engine_number: line.engine_number ?? null,
+          renewal_type: line.renewal_type ?? null,
+          subscription_renewal_date: line.subscription_renewal_date ?? null,
+          product_name_ar: s.gpsProduct.name_ar,
+        }
+      })
+      const qty = body.lines.length
       const available = stock.quantity - stock.reserved
       if (qty > available) {
         throw mockError(422, `الكمية المتاحة ${available} قطعة فقط`)
       }
 
       stock.reserved += qty
-      const installationFee = Number(body.installation_fee ?? 0)
-      const total = qty * Number(unitPrice) + installationFee
+      const total = subtotal + installationFee
       let downPayment = 0
       if (body.payment_term === 'installment' && body.installment_plan) {
         const count = Number(body.installment_plan.installment_count ?? 0)
@@ -1122,6 +1148,10 @@ export function handleMockRequest(
         balance_due: Math.max(0, total - downPayment),
         confirmed_at: new Date().toISOString(),
         technician_name: body.technician_name ?? null,
+        technician_id: body.technician_id ?? null,
+        subtotal,
+        discount_amount: feeDiscount,
+        installation_fee: installationFee,
         vehicle_info: body.vehicle_info ?? null,
         vehicle_type: body.vehicle_type ?? null,
         vehicle_plate_letters: body.vehicle_plate_letters ?? null,
@@ -1130,15 +1160,7 @@ export function handleMockRequest(
         engine_number: body.engine_number ?? null,
         renewal_type: body.renewal_type ?? null,
         subscription_renewal_date: body.subscription_renewal_date ?? null,
-        lines: [
-          {
-            id: invoiceId,
-            product_id: s.gpsProduct.id,
-            quantity: qty,
-            unit_price: unitPrice,
-            product_name_ar: s.gpsProduct.name_ar,
-          },
-        ],
+        lines: invoiceLines,
         created_by: 2,
       }
 

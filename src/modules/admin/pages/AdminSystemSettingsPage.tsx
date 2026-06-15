@@ -535,7 +535,48 @@ export function AdminSystemSettingsPage() {
                         dir="ltr"
                       />
                     </SettingsField>
+                    <SettingsField label="رسوم التركيب الافتراضية (ج.م)">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={form.sales.default_installation_fee ?? 500}
+                        onChange={(e) =>
+                          patchSales({ default_installation_fee: Number(e.target.value) })
+                        }
+                        className={settingsInputClass}
+                        dir="ltr"
+                      />
+                    </SettingsField>
                   </div>
+
+                  <label className="mb-sm flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.sales.enable_installation_fee ?? true}
+                      onChange={(e) => patchSales({ enable_installation_fee: e.target.checked })}
+                      className={settingsToggleClass}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">تفعيل رسوم التركيب</p>
+                      <p className="text-xs text-on-surface-variant">إظهار رسوم التركيب في نقطة البيع</p>
+                    </div>
+                  </label>
+
+                  <label className="mb-md flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.sales.allow_disable_installation_fee_in_sale ?? true}
+                      onChange={(e) =>
+                        patchSales({ allow_disable_installation_fee_in_sale: e.target.checked })
+                      }
+                      className={settingsToggleClass}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">السماح بإلغاء الرسوم أثناء البيع</p>
+                      <p className="text-xs text-on-surface-variant">يظهر خيار تعطيل رسوم التركيب في التعاقد</p>
+                    </div>
+                  </label>
 
                   <label className="flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
                     <input

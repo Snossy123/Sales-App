@@ -37,9 +37,7 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
       <section className="daily-report-sheet">
         <div className="dbr-header">
           <div className="dbr-logo">
-            Eleraqy
-            <br />
-            Trading
+            العراقي
           </div>
           <div className="dbr-title">
             بيان يومي فرع ( <span className="branch">{branchName}</span> ){' '}
@@ -111,9 +109,7 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
       <section className="daily-report-sheet">
         <div className="dbr-header">
           <div className="dbr-logo">
-            Eleraqy
-            <br />
-            Trading
+            العراقي
           </div>
           <div className="dbr-title">
             بيان يومي — فرع ( <span className="branch">{branchName}</span> )

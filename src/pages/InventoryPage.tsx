@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Administration, Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
+import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -10,6 +10,7 @@ import { DataTable } from '../components/DataTable'
 import { DistributeStockModal } from '../components/DistributeStockModal'
 import { FilterBar } from '../components/FilterBar'
 import { GpsProductCard } from '../components/GpsProductCard'
+import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
@@ -30,6 +31,8 @@ import { useAuthStore } from '../stores/authStore'
 const PER_PAGE = 10
 
 export function InventoryPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
   const isAdmin = role === 'super_admin' || role === 'admin'
@@ -41,6 +44,14 @@ export function InventoryPage() {
   const [distributeDeptId, setDistributeDeptId] = useState<number | undefined>()
   const [successToast, setSuccessToast] = useState('')
 
+  useEffect(() => {
+    const state = location.state as { stockAdded?: boolean } | null
+    if (state?.stockAdded) {
+      setSuccessToast('تم تسجيل المخزون بنجاح — يمكنك الآن توزيعه على الفروع')
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.pathname, location.state, navigate])
+
   const productQuery = useQuery({
     queryKey: ['gps-product'],
     queryFn: async () => {
@@ -50,12 +61,12 @@ export function InventoryPage() {
   })
 
   const departmentsQuery = useQuery({
-    queryKey: ['administrations', 'filter'],
+    queryKey: ['departments', 'inventory'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Administration>>('/administrations', {
+      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
         params: { per_page: 100 },
       })
-      return data.data as Department[]
+      return data.data
     },
   })
 
@@ -107,6 +118,17 @@ export function InventoryPage() {
       <PageHeader
         title="مخزون GPS"
         subtitle="عرض شامل لكل إدارة وفرع — الكمية المعلقة تظهر قبل التوزيع على الفروع"
+        actions={
+          isAdmin ? (
+            <Link
+              to="/inventory/add"
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            >
+              <Icon name="add" size={18} />
+              تسجيل مخزون جديد
+            </Link>
+          ) : undefined
+        }
       />
 
       {productQuery.data && (

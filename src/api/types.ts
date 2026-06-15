@@ -320,6 +320,7 @@ export interface SalesInvoice {
   lines?: SalesInvoiceLine[]
   notes?: string | null
   technician_name?: string | null
+  technician_id?: number | null
   vehicle_info?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
   vehicle_plate_letters?: string | null
@@ -343,8 +344,20 @@ export interface SalesInvoiceLine {
   product_unit_id?: number
   quantity?: number
   unit_price: string | number
+  discount?: string | number
+  line_total?: string | number
   product_name_ar?: string | null
   product_unit?: ProductUnit
+  serial_number?: string | null
+  sim_number?: string | null
+  vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
+  vehicle_plate_letters?: string | null
+  vehicle_plate_numbers?: string | null
+  chassis_number?: string | null
+  engine_number?: string | null
+  vehicle_info?: string | null
+  renewal_type?: 'annual' | 'permanent' | null
+  subscription_renewal_date?: string | null
 }
 
 export interface DailyReportTransaction {
@@ -447,6 +460,7 @@ export interface CheckoutPayload {
   invoice_date?: string
   notes?: string
   technician_name?: string
+  technician_id?: number
   vehicle_info?: string
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
   vehicle_plate_letters?: string
@@ -461,6 +475,15 @@ export interface CheckoutPayload {
     quantity?: number
     unit_price?: number
     discount?: number
+    serial_number?: string
+    sim_number?: string
+    vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
+    vehicle_plate_letters?: string
+    vehicle_plate_numbers?: string
+    chassis_number?: string
+    engine_number?: string
+    renewal_type?: 'annual' | 'permanent'
+    subscription_renewal_date?: string
   }[]
   installment_plan?: {
     down_payment?: number
@@ -989,6 +1012,9 @@ export interface SalesSettings {
   late_fee_daily_amount?: number
   late_fee_percent?: number
   min_down_payment_percent?: number
+  enable_installation_fee?: boolean
+  default_installation_fee?: number
+  allow_disable_installation_fee_in_sale?: boolean
 }
 
 export interface AppNotification {

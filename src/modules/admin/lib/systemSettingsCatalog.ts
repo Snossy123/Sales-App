@@ -38,6 +38,9 @@ export const DEFAULT_SALES: SalesSettings = {
   late_fee_daily_amount: 10,
   late_fee_percent: 0,
   min_down_payment_percent: 10,
+  enable_installation_fee: true,
+  default_installation_fee: 500,
+  allow_disable_installation_fee_in_sale: true,
 }
 
 export const DEFAULT_SECURITY: SecuritySettings = {

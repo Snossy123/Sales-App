@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { Administration, Branch, PaginatedResponse } from '../../api/types'
@@ -69,13 +69,13 @@ export function GpsManagementPage() {
               <Icon name="chevron_right" size={14} className="rotate-180" />
               <span className="font-body-sm text-body-sm font-bold text-on-surface">لوحة الإدارة</span>
             </nav>
-            <button
-              type="button"
+            <Link
+              to="/inventory/add"
               className="flex items-center gap-sm rounded-lg bg-primary px-lg py-md font-label-md text-on-primary shadow-sm transition-all hover:opacity-90 active:scale-95"
             >
               <Icon name="add" size={20} className="no-flip" />
               جهاز جديد
-            </button>
+            </Link>
           </div>
 
           <section>

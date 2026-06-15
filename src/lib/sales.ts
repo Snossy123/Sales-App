@@ -129,9 +129,15 @@ export function distributorLabel(distributor?: Distributor | null): string {
   return distributor.name_ar || distributor.name || distributor.code
 }
 
-export function contractPrintPath(invoiceId: number, autoPrint = false): string {
-  const suffix = autoPrint ? '?print=1' : ''
-  return `/invoices/${invoiceId}/contract-print${suffix}`
+export function contractPrintPath(
+  invoiceId: number,
+  options?: { autoPrint?: boolean; lineId?: number },
+): string {
+  const params = new URLSearchParams()
+  if (options?.autoPrint) params.set('print', '1')
+  if (options?.lineId) params.set('line', String(options.lineId))
+  const qs = params.toString()
+  return `/invoices/${invoiceId}/contract-print${qs ? `?${qs}` : ''}`
 }
 
 /** يُحسب المقدم تلقائياً: الإجمالي − (قيمة القسط × عدد الأقساط) */

@@ -7,6 +7,7 @@ import type {
   CheckoutPayload,
   Customer,
   Distributor,
+  Employee,
   GpsProduct,
   GpsStock,
   PaginatedResponse,
@@ -25,18 +26,26 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import { DiscountInput } from '../components/pos/DiscountInput'
+import {
+  createDeviceLine,
+  DeviceLineCard,
+  type DeviceLineDraft,
+} from '../components/pos/DeviceLineCard'
+import type { DiscountMode } from '../lib/discount'
 
-type VehicleType = 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
 type IntervalType = 'monthly' | 'weekly'
-type RenewalType = 'annual' | 'permanent'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
   d.setDate(d.getDate() + days)
   return d.toISOString().split('T')[0]
 }
+
+const selectClass = 'w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none'
 
 export function PosPage() {
   usePageTour('pos')
@@ -45,30 +54,39 @@ export function PosPage() {
   const authBranchId = useAuthStore((s) => s.branchId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
+  const enableInstallationFee = salesSettings?.enable_installation_fee ?? true
+  const defaultInstallationFee = salesSettings?.default_installation_fee ?? 500
+  const allowDisableFeeInSale = salesSettings?.allow_disable_installation_fee_in_sale ?? true
 
   const [selectedBranchId, setSelectedBranchId] = useState<number | ''>(authBranchId ?? '')
   const [distributorSearch, setDistributorSearch] = useState('')
   const [distributorId, setDistributorId] = useState<number | ''>('')
+  const [customerSearch, setCustomerSearch] = useState('')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
-  const [installationFee, setInstallationFee] = useState(500)
+  const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
+  const [applyInstallationFee, setApplyInstallationFee] = useState(true)
+  const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
+  const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
+  const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
+  const [feeDiscountMode, setFeeDiscountMode] = useState<DiscountMode>('amount')
   const [installmentAmount, setInstallmentAmount] = useState(500)
   const [installmentCount, setInstallmentCount] = useState(6)
   const [intervalType, setIntervalType] = useState<IntervalType>('monthly')
   const [firstDueDate, setFirstDueDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [technicianName, setTechnicianName] = useState('')
-  const [vehicleType, setVehicleType] = useState<VehicleType | ''>('')
-  const [vehiclePlateLetters, setVehiclePlateLetters] = useState('')
-  const [vehiclePlateNumbers, setVehiclePlateNumbers] = useState('')
-  const [chassisNumber, setChassisNumber] = useState('')
-  const [engineNumber, setEngineNumber] = useState('')
-  const [renewalType, setRenewalType] = useState<RenewalType>('annual')
+  const [technicianId, setTechnicianId] = useState<number | ''>('')
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [lastInvoiceId, setLastInvoiceId] = useState<number | null>(null)
+  const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
 
+  const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
   const branchId = selectedBranchId || authBranchId
+
+  useEffect(() => {
+    setInstallationFee(defaultInstallationFee)
+  }, [defaultInstallationFee])
 
   const branchesQuery = useQuery({
     queryKey: ['branches', 'pos'],
@@ -81,46 +99,62 @@ export function PosPage() {
   })
 
   const distributorsQuery = useQuery({
-    queryKey: ['distributors', 'pos', branchId],
+    queryKey: ['distributors', 'pos', branchId, debouncedDistributorSearch],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', {
-        params: {
-          per_page: 100,
-          'filter[status]': 'active',
-          ...(branchId ? { 'filter[branch_id]': branchId } : {}),
-        },
-      })
+      const params: Record<string, string | number> = {
+        per_page: 50,
+        'filter[status]': 'active',
+      }
+      if (branchId) params['filter[branch_id]'] = branchId
+      const q = debouncedDistributorSearch.trim()
+      if (q) {
+        if (/^\d+$/.test(q)) {
+          params['filter[code]'] = q
+        } else {
+          params['filter[name]'] = q
+        }
+      }
+      const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', { params })
       return data.data
     },
     enabled: Boolean(branchId),
   })
 
-  const filteredDistributors = useMemo(() => {
-    const q = distributorSearch.trim().toLowerCase()
-    const list = distributorsQuery.data ?? []
-    if (!q) return list
-    return list.filter(
-      (d) =>
-        d.code.toLowerCase().includes(q) ||
-        d.name.toLowerCase().includes(q) ||
-        (d.name_ar ?? '').toLowerCase().includes(q),
-    )
-  }, [distributorsQuery.data, distributorSearch])
-
   const customersQuery = useQuery({
-    queryKey: ['customers', 'pos', distributorId, branchId],
+    queryKey: ['customers', 'pos', distributorId, branchId, debouncedCustomerSearch],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {
+        per_page: 50,
+        'filter[status]': 'active',
+      }
+      if (distributorId) params['filter[distributor_id]'] = Number(distributorId)
+      if (branchId) params['filter[branch_id]'] = branchId
+      const q = debouncedCustomerSearch.trim()
+      if (q) {
+        if (/^01\d{8,9}$/.test(q.replace(/\s/g, ''))) {
+          params['filter[phone]'] = q.replace(/\s/g, '')
+        } else {
+          params['filter[name]'] = q
+        }
+      }
+      const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
+      return data.data
+    },
+    enabled: Boolean(distributorId),
+  })
+
+  const employeesQuery = useQuery({
+    queryKey: ['employees', 'pos', branchId],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 100,
         'filter[status]': 'active',
       }
-      if (distributorId) params['filter[distributor_id]'] = Number(distributorId)
       if (branchId) params['filter[branch_id]'] = branchId
-
-      const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
-    enabled: Boolean(distributorId),
+    enabled: Boolean(branchId),
   })
 
   const productQuery = useQuery({
@@ -157,30 +191,41 @@ export function PosPage() {
     enabled: Boolean(warehouseId),
   })
 
-  const checkoutMutation = useMutation({
-    mutationFn: async (payload: CheckoutPayload) => {
-      const { data } = await api.post<SalesInvoice>('/sales-invoices/checkout', payload)
-      return data
-    },
-    onSuccess: (invoice) => {
-      setLastInvoiceId(invoice.id)
-      setSuccessMsg(
-        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — الأقساط جاهزة${invoice.review_status === 'pending' ? ' (مراجعة لاحقة)' : ''}`,
-      )
-      setQuantity(1)
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
-      queryClient.invalidateQueries({ queryKey: ['product-units'] })
-      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
-    },
-  })
-
   const unitPrice = productQuery.data?.sell_price ?? 0
   const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
   const maxQuantity = allowNegativeInventory ? 999 : available
-  const devicesTotal = quantity * Number(unitPrice)
-  const totalEstimate = devicesTotal + Number(installationFee)
+
+  useEffect(() => {
+    const units = unitsQuery.data ?? []
+    setDeviceLines((prev) => {
+      const next: DeviceLineDraft[] = []
+      for (let i = 0; i < quantity; i++) {
+        const existing = prev[i]
+        const unit = units[i]
+        if (existing) {
+          next.push({
+            ...existing,
+            productUnitId: unit?.id ?? existing.productUnitId,
+            imei: unit?.imei ?? existing.imei,
+            unitPrice: Number(unitPrice),
+            serialNumber: existing.serialNumber || unit?.serial_number || '',
+          })
+        } else {
+          next.push(createDeviceLine(Number(unitPrice), unit))
+        }
+      }
+      return next
+    })
+  }, [quantity, unitPrice, unitsQuery.data])
+
+  const grossInstallationFee =
+    enableInstallationFee && applyInstallationFee ? Number(installationFee) : 0
+  const netInstallationFee = Math.max(0, grossInstallationFee - feeDiscountAmount)
+  const devicesSubtotal = deviceLines.reduce(
+    (sum, line) => sum + Math.max(0, line.unitPrice - line.discountAmount),
+    0,
+  )
+  const totalEstimate = devicesSubtotal + netInstallationFee
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const computedDownPayment = useMemo(
     () => computeInstallmentDownPayment(totalEstimate, installmentAmount, installmentCount),
@@ -198,48 +243,70 @@ export function PosPage() {
     computedDownPayment < minDownPayment - 0.009
 
   useEffect(() => {
-    const total = quantity * Number(unitPrice) + Number(installationFee)
-    if (total <= 0) return
-    setInstallmentAmount(suggestInstallmentAmount(total, installmentCount, minDownPercent))
-  }, [unitPrice, quantity, installationFee, installmentCount, minDownPercent])
-  const subscriptionRenewalDate =
-    renewalType === 'annual' ? addDays(contractDate, 365) : undefined
+    if (totalEstimate <= 0) return
+    setInstallmentAmount(suggestInstallmentAmount(totalEstimate, installmentCount, minDownPercent))
+  }, [totalEstimate, installmentCount, minDownPercent])
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (payload: CheckoutPayload) => {
+      const { data } = await api.post<SalesInvoice>('/sales-invoices/checkout', payload)
+      return data
+    },
+    onSuccess: (invoice) => {
+      setLastInvoice(invoice)
+      setSuccessMsg(
+        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 1} جهاز`,
+      )
+      setQuantity(1)
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['product-units'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    },
+  })
+
+  const updateDeviceLine = (index: number, line: DeviceLineDraft) => {
+    setDeviceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
+  }
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId || !warehouseId || quantity <= 0) return
+    if (!customerId || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
     if (!allowNegativeInventory && quantity > available) return
 
     const units = unitsQuery.data ?? []
-    const selectedUnits = units.slice(0, quantity)
+    const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
+      const unit = units[index]
+      const renewalDate =
+        line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
+      return {
+        product_unit_id: line.productUnitId ?? unit?.id,
+        unit_price: line.unitPrice,
+        discount: line.discountAmount,
+        serial_number: line.serialNumber.trim() || undefined,
+        sim_number: line.simNumber.trim() || undefined,
+        vehicle_type: line.vehicleType || undefined,
+        vehicle_plate_letters: line.vehiclePlateLetters.trim() || undefined,
+        vehicle_plate_numbers: line.vehiclePlateNumbers.trim() || undefined,
+        chassis_number: line.chassisNumber.trim() || undefined,
+        engine_number: line.engineNumber.trim() || undefined,
+        renewal_type: line.renewalType,
+        subscription_renewal_date: renewalDate,
+      }
+    })
 
-    let lines: CheckoutPayload['lines']
-    if (selectedUnits.length >= quantity) {
-      lines = selectedUnits.map((unit) => ({
-        product_unit_id: unit.id,
-        unit_price: Number(unitPrice),
-      }))
-    } else if (allowNegativeInventory) {
-      lines = [{ quantity, unit_price: Number(unitPrice) }]
-    } else {
-      return
-    }
+    if (!allowNegativeInventory && lines.some((l) => !l.product_unit_id)) return
 
     const payload: CheckoutPayload = {
       customer_id: Number(customerId),
       warehouse_id: warehouseId,
       branch_id: branchId ?? undefined,
       payment_term: paymentTerm,
-      installation_fee: installationFee,
+      installation_fee: grossInstallationFee,
+      discount_amount: feeDiscountAmount,
       invoice_date: contractDate,
-      technician_name: technicianName.trim() || undefined,
-      vehicle_type: vehicleType || undefined,
-      vehicle_plate_letters: vehiclePlateLetters.trim() || undefined,
-      vehicle_plate_numbers: vehiclePlateNumbers.trim() || undefined,
-      chassis_number: chassisNumber.trim() || undefined,
-      engine_number: engineNumber.trim() || undefined,
-      renewal_type: renewalType,
-      subscription_renewal_date: subscriptionRenewalDate,
+      technician_id: technicianId ? Number(technicianId) : undefined,
       lines,
     }
 
@@ -259,7 +326,7 @@ export function PosPage() {
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="إنشاء تعاقد GPS — الأقساط تُنشأ فوراً دون انتظار المراجعة"
+      subtitle="تعاقد GPS لكل جهاز — سريال وشريحة وخصم ومركبة لكل قطعة"
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId ? (
@@ -278,8 +345,9 @@ export function PosPage() {
                   setSelectedBranchId(value)
                   setDistributorId('')
                   setCustomerId('')
+                  setTechnicianId('')
                 }}
-                className="w-full rounded border border-outline-variant px-sm py-2"
+                className={selectClass}
               >
                 <option value="">اختر الفرع</option>
                 {(branchesQuery.data ?? []).map((b) => (
@@ -295,8 +363,8 @@ export function PosPage() {
               <input
                 value={distributorSearch}
                 onChange={(e) => setDistributorSearch(e.target.value)}
-                placeholder="ابحث بالكود أو الاسم..."
-                className="mb-sm w-full rounded border border-outline-variant px-sm py-2"
+                placeholder="ابحث بالكود أو الاسم أو الهاتف..."
+                className={`mb-sm ${selectClass}`}
               />
               <select
                 value={distributorId}
@@ -306,28 +374,42 @@ export function PosPage() {
                   setCustomerId('')
                 }}
                 required
-                className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none"
+                className={selectClass}
               >
-                <option value="">اختر الموزع</option>
-                {filteredDistributors.map((d) => (
+                <option value="">
+                  {distributorsQuery.isLoading ? 'جاري البحث...' : 'اختر الموزع'}
+                </option>
+                {(distributorsQuery.data ?? []).map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.code} — {distributorLabel(d)}
+                    {d.phone ? ` — ${d.phone}` : ''}
                   </option>
                 ))}
               </select>
             </div>
 
             <div data-tour="pos-customer">
-              <label className="mb-xs block text-sm text-on-surface-variant">العميل</label>
+              <label className="mb-xs block text-sm text-on-surface-variant">بحث العميل</label>
+              <input
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="ابحث بالاسم أو رقم الموبايل..."
+                disabled={!distributorId}
+                className={`mb-sm ${selectClass} disabled:opacity-50`}
+              />
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
                 required
                 disabled={!distributorId}
-                className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none disabled:opacity-50"
+                className={`${selectClass} disabled:opacity-50`}
               >
                 <option value="">
-                  {distributorId ? 'اختر العميل' : 'اختر الموزع أولاً'}
+                  {!distributorId
+                    ? 'اختر الموزع أولاً'
+                    : customersQuery.isLoading
+                      ? 'جاري البحث...'
+                      : 'اختر العميل'}
                 </option>
                 {customersQuery.data?.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -343,7 +425,7 @@ export function PosPage() {
                 type="date"
                 value={contractDate}
                 onChange={(e) => setContractDate(e.target.value)}
-                className="w-full rounded border border-outline-variant px-sm py-2"
+                className={selectClass}
               />
             </div>
 
@@ -367,17 +449,50 @@ export function PosPage() {
               </div>
             </div>
 
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">رسوم التركيب (ج.م)</label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={installationFee}
-                onChange={(e) => setInstallationFee(Number(e.target.value))}
-                className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-              />
-            </div>
+            {enableInstallationFee && (
+              <div className="space-y-sm rounded-lg border border-outline-variant/60 p-sm">
+                <div className="flex items-center justify-between gap-sm">
+                  <label className="text-sm font-medium text-on-surface">رسوم التركيب</label>
+                  {allowDisableFeeInSale && (
+                    <label className="flex items-center gap-xs text-sm">
+                      <input
+                        type="checkbox"
+                        checked={applyInstallationFee}
+                        onChange={(e) => setApplyInstallationFee(e.target.checked)}
+                      />
+                      تطبيق الرسوم
+                    </label>
+                  )}
+                </div>
+                {applyInstallationFee && (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={installationFee}
+                      onChange={(e) => setInstallationFee(Number(e.target.value))}
+                      className={`${selectClass} tabular-nums`}
+                    />
+                    <DiscountInput
+                      label="خصم رسوم التركيب"
+                      baseAmount={Number(installationFee)}
+                      amount={feeDiscountAmount}
+                      percent={feeDiscountPercent}
+                      mode={feeDiscountMode}
+                      onChange={({ amount, percent, mode }) => {
+                        setFeeDiscountAmount(amount)
+                        setFeeDiscountPercent(percent)
+                        setFeeDiscountMode(mode)
+                      }}
+                    />
+                    <p className="text-sm tabular-nums text-on-surface-variant">
+                      صافي الرسوم: <strong>{netInstallationFee.toLocaleString('ar-EG')} ج.م</strong>
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             {paymentTerm === 'installment' && (
               <>
@@ -390,9 +505,7 @@ export function PosPage() {
                         type="button"
                         onClick={() => {
                           setIntervalType(type)
-                          setFirstDueDate(
-                            addDays(contractDate, type === 'weekly' ? 7 : 30),
-                          )
+                          setFirstDueDate(addDays(contractDate, type === 'weekly' ? 7 : 30))
                         }}
                         className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
                           intervalType === type
@@ -414,7 +527,7 @@ export function PosPage() {
                       step="0.01"
                       value={installmentAmount}
                       onChange={(e) => setInstallmentAmount(Number(e.target.value))}
-                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                      className={`${selectClass} tabular-nums`}
                     />
                   </div>
                   <div>
@@ -425,7 +538,7 @@ export function PosPage() {
                       max={salesSettings?.max_installment_months ?? 24}
                       value={installmentCount}
                       onChange={(e) => setInstallmentCount(Number(e.target.value))}
-                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                      className={`${selectClass} tabular-nums`}
                     />
                   </div>
                   <div>
@@ -440,7 +553,7 @@ export function PosPage() {
                       type="date"
                       value={firstDueDate}
                       onChange={(e) => setFirstDueDate(e.target.value)}
-                      className="w-full rounded border border-outline-variant px-sm py-2"
+                      className={selectClass}
                     />
                   </div>
                 </div>
@@ -458,157 +571,87 @@ export function PosPage() {
             )}
 
             <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">الفني</label>
-              <input
-                value={technicianName}
-                onChange={(e) => setTechnicianName(e.target.value)}
-                className="w-full rounded border border-outline-variant px-sm py-2"
-              />
-            </div>
-
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">نوع المركبة</label>
+              <label className="mb-xs block text-sm text-on-surface-variant">الفني (دعم)</label>
               <select
-                value={vehicleType}
-                onChange={(e) => setVehicleType(e.target.value as VehicleType | '')}
-                className="w-full rounded border border-outline-variant px-sm py-2"
+                value={technicianId}
+                onChange={(e) => setTechnicianId(e.target.value ? Number(e.target.value) : '')}
+                className={selectClass}
               >
-                <option value="">—</option>
-                <option value="car">سيارة</option>
-                <option value="tuk_tuk">توك توك</option>
-                <option value="motorcycle">دراجة نارية</option>
-                <option value="other">أخرى</option>
-              </select>
-            </div>
-
-            {(vehicleType === 'car' || vehicleType === 'motorcycle') && (
-              <div className="grid gap-sm sm:grid-cols-2">
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">حروف اللوحة</label>
-                  <input
-                    value={vehiclePlateLetters}
-                    onChange={(e) => setVehiclePlateLetters(e.target.value)}
-                    className="w-full rounded border border-outline-variant px-sm py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">أرقام اللوحة</label>
-                  <input
-                    value={vehiclePlateNumbers}
-                    onChange={(e) => setVehiclePlateNumbers(e.target.value)}
-                    dir="ltr"
-                    className="w-full rounded border border-outline-variant px-sm py-2"
-                  />
-                </div>
-              </div>
-            )}
-
-            {vehicleType === 'tuk_tuk' && (
-              <div className="grid gap-sm sm:grid-cols-2">
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">رقم الشاسيه</label>
-                  <input
-                    value={chassisNumber}
-                    onChange={(e) => setChassisNumber(e.target.value)}
-                    dir="ltr"
-                    className="w-full rounded border border-outline-variant px-sm py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">رقم الموتور</label>
-                  <input
-                    value={engineNumber}
-                    onChange={(e) => setEngineNumber(e.target.value)}
-                    dir="ltr"
-                    className="w-full rounded border border-outline-variant px-sm py-2"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">نوع التجديد</label>
-              <div className="flex gap-sm">
-                {(['annual', 'permanent'] as const).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setRenewalType(type)}
-                    className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
-                      renewalType === type
-                        ? 'border-primary bg-primary text-on-primary'
-                        : 'border-outline-variant bg-surface-container-low'
-                    }`}
-                  >
-                    {type === 'annual' ? 'سنوي' : 'دائم'}
-                  </button>
+                <option value="">اختر موظف الدعم الفني</option>
+                {(employeesQuery.data ?? []).map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                    {emp.job_title ? ` — ${emp.job_title}` : ''}
+                  </option>
                 ))}
-              </div>
-              {renewalType === 'annual' && subscriptionRenewalDate && (
-                <p className="mt-xs text-xs text-on-surface-variant">
-                  تاريخ التجديد: {subscriptionRenewalDate}
-                </p>
-              )}
-              {renewalType === 'permanent' && (
-                <p className="mt-xs text-xs text-on-surface-variant">سيُذكر في العقد: دائم</p>
-              )}
+              </select>
             </div>
           </div>
 
-          <div
-            data-tour="pos-product"
-            className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
-          >
-            <h2 className="font-semibold text-on-surface">جهاز GPS</h2>
-            {allowNegativeInventory && (
-              <p className="rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
-                المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
-              </p>
-            )}
-            <AsyncState
-              isLoading={productQuery.isLoading || stockQuery.isLoading}
-              isError={productQuery.isError || stockQuery.isError}
-              error={productQuery.error ?? stockQuery.error}
-            >
-              {productQuery.data && (
-                <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
-                  <div className="mb-md flex items-center gap-sm">
-                    <Icon name="gps_fixed" className="text-primary" />
-                    <span className="font-medium">
-                      {productQuery.data.name_ar || productQuery.data.name}
-                    </span>
-                  </div>
-                  <p className="mb-sm text-sm text-on-surface-variant">
-                    متاح: <strong className="tabular-nums">{available}</strong> قطعة
-                  </p>
-                  <p className="mb-md tabular-nums text-sm">
-                    سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
-                  </p>
-
-                  <div>
-                    <label className="mb-xs block text-sm text-on-surface-variant">الكمية</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={maxQuantity}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-                    />
-                  </div>
-                </div>
+          <div data-tour="pos-product" className="space-y-md">
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+              <h2 className="mb-md font-semibold text-on-surface">أجهزة GPS</h2>
+              {allowNegativeInventory && (
+                <p className="mb-sm rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
+                  المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
+                </p>
               )}
-            </AsyncState>
+              <AsyncState
+                isLoading={productQuery.isLoading || stockQuery.isLoading}
+                isError={productQuery.isError || stockQuery.isError}
+                error={productQuery.error ?? stockQuery.error}
+              >
+                {productQuery.data && (
+                  <div className="mb-md rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
+                    <div className="mb-sm flex items-center gap-sm">
+                      <Icon name="gps_fixed" className="text-primary" />
+                      <span className="font-medium">
+                        {productQuery.data.name_ar || productQuery.data.name}
+                      </span>
+                    </div>
+                    <p className="mb-sm text-sm text-on-surface-variant">
+                      متاح: <strong className="tabular-nums">{available}</strong> قطعة
+                    </p>
+                    <p className="mb-md tabular-nums text-sm">
+                      سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                    </p>
+                    <div>
+                      <label className="mb-xs block text-sm text-on-surface-variant">عدد الأجهزة</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxQuantity}
+                        value={quantity}
+                        onChange={(e) => setQuantity(Number(e.target.value))}
+                        className={`${selectClass} tabular-nums`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </AsyncState>
 
-            <div className="border-t border-outline-variant pt-md">
+              <div className="space-y-md">
+                {deviceLines.map((line, index) => (
+                  <DeviceLineCard
+                    key={line.key}
+                    index={index}
+                    line={line}
+                    contractDate={contractDate}
+                    onChange={(next) => updateDeviceLine(index, next)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
               <div className="mb-sm space-y-1 text-sm text-on-surface-variant">
                 <div className="flex justify-between tabular-nums">
-                  <span>قيمة الأجهزة</span>
-                  <span>{devicesTotal.toLocaleString('ar-EG')} ج.م</span>
+                  <span>قيمة الأجهزة (بعد الخصم)</span>
+                  <span>{devicesSubtotal.toLocaleString('ar-EG')} ج.م</span>
                 </div>
                 <div className="flex justify-between tabular-nums">
-                  <span>رسوم التركيب</span>
-                  <span>{Number(installationFee).toLocaleString('ar-EG')} ج.م</span>
+                  <span>رسوم التركيب (صافي)</span>
+                  <span>{netInstallationFee.toLocaleString('ar-EG')} ج.م</span>
                 </div>
                 {paymentTerm === 'installment' && (
                   <>
@@ -631,20 +674,23 @@ export function PosPage() {
                   {getErrorMessage(checkoutMutation.error)}
                 </p>
               )}
-              {successMsg && (
+              {successMsg && lastInvoice && (
                 <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
                   <p>{successMsg}</p>
-                  {lastInvoiceId && (
-                    <Link
-                      to={contractPrintPath(lastInvoiceId, true)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-sm inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                    >
-                      <Icon name="print" size={18} />
-                      طباعة عقد التقسيط
-                    </Link>
-                  )}
+                  <div className="mt-sm flex flex-col gap-1">
+                    {(lastInvoice.lines ?? []).map((line, index) => (
+                      <Link
+                        key={line.id}
+                        to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                      >
+                        <Icon name="print" size={18} />
+                        طباعة عقد الجهاز {index + 1}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
               <button
@@ -655,6 +701,7 @@ export function PosPage() {
                   !customerId ||
                   !branchId ||
                   quantity <= 0 ||
+                  deviceLines.length === 0 ||
                   (!allowNegativeInventory && quantity > available) ||
                   installmentsExceedTotal ||
                   downPaymentTooLow

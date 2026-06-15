@@ -11,6 +11,7 @@ import '../styles/installment-contract.css'
 export function InstallmentContractPrintPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
+  const lineId = searchParams.get('line') ? Number(searchParams.get('line')) : undefined
   const autoPrint = searchParams.get('print') === '1'
 
   const query = useQuery({
@@ -48,7 +49,7 @@ export function InstallmentContractPrintPage() {
       </div>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        {query.data && <InstallmentContractDocument invoice={query.data} />}
+        {query.data && <InstallmentContractDocument invoice={query.data} lineId={lineId} />}
       </AsyncState>
     </div>
   )

@@ -200,7 +200,7 @@ export function InvoiceReviewPage() {
 
               <div className="flex flex-wrap gap-sm">
                 <Link
-                  to={contractPrintPath(selected.id, true)}
+                  to={contractPrintPath(selected.id, { autoPrint: true })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-1 items-center justify-center gap-xs rounded-lg border border-primary py-3 font-bold text-primary hover:bg-primary/5"
