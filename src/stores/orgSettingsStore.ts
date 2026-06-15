@@ -1,15 +1,17 @@
 import { create } from 'zustand'
-import type { GeneralSettings, OrganizationProfile, SecuritySettings } from '../api/types'
+import type { GeneralSettings, OrganizationProfile, SalesSettings, SecuritySettings } from '../api/types'
+import { DEFAULT_SALES } from '../modules/admin/lib/systemSettingsCatalog'
 import { applyThemeColor } from '../lib/theme'
 
 interface OrgSettingsState {
   organization: OrganizationProfile | null
   general: GeneralSettings | null
+  sales: SalesSettings | null
   security: SecuritySettings | null
   loaded: boolean
   setFromApi: (payload: {
     organization: OrganizationProfile
-    settings: { general: GeneralSettings; security: SecuritySettings }
+    settings: { general: GeneralSettings; sales?: SalesSettings; security: SecuritySettings }
   }) => void
   updateGeneral: (general: GeneralSettings) => void
   clear: () => void
@@ -18,6 +20,7 @@ interface OrgSettingsState {
 export const useOrgSettingsStore = create<OrgSettingsState>()((set) => ({
   organization: null,
   general: null,
+  sales: null,
   security: null,
   loaded: false,
 
@@ -26,6 +29,7 @@ export const useOrgSettingsStore = create<OrgSettingsState>()((set) => ({
     set({
       organization,
       general: settings.general,
+      sales: settings.sales ?? DEFAULT_SALES,
       security: settings.security,
       loaded: true,
     })
@@ -40,6 +44,7 @@ export const useOrgSettingsStore = create<OrgSettingsState>()((set) => ({
     set({
       organization: null,
       general: null,
+      sales: null,
       security: null,
       loaded: false,
     }),

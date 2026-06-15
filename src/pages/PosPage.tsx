@@ -37,7 +37,7 @@ export function PosPage() {
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const authBranchId = useAuthStore((s) => s.branchId)
-  const salesSettings = useOrgSettingsStore((s) => s.settings?.sales)
+  const salesSettings = useOrgSettingsStore((s) => s.sales)
   const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
 
   const [selectedBranchId, setSelectedBranchId] = useState<number | ''>(authBranchId ?? '')

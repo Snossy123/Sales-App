@@ -121,7 +121,7 @@ export function InstallmentCollectionPage() {
   const usersQuery = useQuery({
     queryKey: ['admin-users', 'reconcile'],
     queryFn: async () => {
-      const { data } = await api.get<{ data: AdminUser[] }>('/staff-options', {
+      const { data } = await api.get<{ data: AdminUser[] }>('/staff-options')
       return data.data
     },
   })
