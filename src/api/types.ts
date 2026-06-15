@@ -305,6 +305,8 @@ export interface SalesInvoice {
   branch_id?: number
   warehouse_id?: number
   total: string | number
+  subtotal?: string | number
+  discount_amount?: string | number
   paid_amount?: string | number
   balance_due: string | number
   payment_term: string
