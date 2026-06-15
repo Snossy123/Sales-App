@@ -133,3 +133,28 @@ export function contractPrintPath(invoiceId: number, autoPrint = false): string 
   const suffix = autoPrint ? '?print=1' : ''
   return `/invoices/${invoiceId}/contract-print${suffix}`
 }
+
+/** يُحسب المقدم تلقائياً: الإجمالي − (قيمة القسط × عدد الأقساط) */
+export function computeInstallmentDownPayment(
+  total: number,
+  installmentAmount: number,
+  installmentCount: number,
+): number {
+  const financed = installmentAmount * installmentCount
+  return Math.max(0, Math.round((total - financed) * 100) / 100)
+}
+
+export function computeMinDownPayment(total: number, minPercent = 10): number {
+  return Math.round(total * (minPercent / 100) * 100) / 100
+}
+
+export function suggestInstallmentAmount(
+  total: number,
+  installmentCount: number,
+  minDownPercent = 10,
+): number {
+  if (installmentCount < 1 || total <= 0) return 0
+  const minDown = computeMinDownPayment(total, minDownPercent)
+  const financed = Math.max(0, total - minDown)
+  return Math.floor((financed / installmentCount) * 100) / 100
+}

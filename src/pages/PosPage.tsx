@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
@@ -13,7 +13,13 @@ import type {
   ProductUnit,
   SalesInvoice,
 } from '../api/types'
-import { distributorLabel, contractPrintPath } from '../lib/sales'
+import {
+  contractPrintPath,
+  computeInstallmentDownPayment,
+  computeMinDownPayment,
+  distributorLabel,
+  suggestInstallmentAmount,
+} from '../lib/sales'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -47,7 +53,6 @@ export function PosPage() {
   const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
   const [installationFee, setInstallationFee] = useState(500)
-  const [downPayment, setDownPayment] = useState(2500)
   const [installmentAmount, setInstallmentAmount] = useState(500)
   const [installmentCount, setInstallmentCount] = useState(6)
   const [intervalType, setIntervalType] = useState<IntervalType>('monthly')
@@ -176,6 +181,27 @@ export function PosPage() {
   const maxQuantity = allowNegativeInventory ? 999 : available
   const devicesTotal = quantity * Number(unitPrice)
   const totalEstimate = devicesTotal + Number(installationFee)
+  const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
+  const computedDownPayment = useMemo(
+    () => computeInstallmentDownPayment(totalEstimate, installmentAmount, installmentCount),
+    [totalEstimate, installmentAmount, installmentCount],
+  )
+  const minDownPayment = useMemo(
+    () => computeMinDownPayment(totalEstimate, minDownPercent),
+    [totalEstimate, minDownPercent],
+  )
+  const installmentsExceedTotal =
+    paymentTerm === 'installment' && installmentAmount * installmentCount > totalEstimate + 0.009
+  const downPaymentTooLow =
+    paymentTerm === 'installment' &&
+    !installmentsExceedTotal &&
+    computedDownPayment < minDownPayment - 0.009
+
+  useEffect(() => {
+    const total = quantity * Number(unitPrice) + Number(installationFee)
+    if (total <= 0) return
+    setInstallmentAmount(suggestInstallmentAmount(total, installmentCount, minDownPercent))
+  }, [unitPrice, quantity, installationFee, installmentCount, minDownPercent])
   const subscriptionRenewalDate =
     renewalType === 'annual' ? addDays(contractDate, 365) : undefined
 
@@ -219,7 +245,6 @@ export function PosPage() {
 
     if (paymentTerm === 'installment') {
       payload.installment_plan = {
-        down_payment: downPayment,
         installment_count: installmentCount,
         installment_amount: installmentAmount,
         interval_type: intervalType,
@@ -382,20 +407,11 @@ export function PosPage() {
                 </div>
                 <div className="grid gap-sm sm:grid-cols-2">
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">مقدم</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={downPayment}
-                      onChange={(e) => setDownPayment(Number(e.target.value))}
-                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-                    />
-                  </div>
-                  <div>
                     <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
                     <input
                       type="number"
                       min={0}
+                      step="0.01"
                       value={installmentAmount}
                       onChange={(e) => setInstallmentAmount(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
@@ -406,10 +422,17 @@ export function PosPage() {
                     <input
                       type="number"
                       min={1}
+                      max={salesSettings?.max_installment_months ?? 24}
                       value={installmentCount}
                       onChange={(e) => setInstallmentCount(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
                     />
+                  </div>
+                  <div>
+                    <label className="mb-xs block text-xs text-on-surface-variant">المقدم (يُحسب تلقائياً)</label>
+                    <div className="rounded border border-outline-variant bg-surface-container-low px-sm py-2 text-sm font-medium tabular-nums">
+                      {computedDownPayment.toLocaleString('ar-EG')} ج.م
+                    </div>
                   </div>
                   <div>
                     <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
@@ -421,6 +444,16 @@ export function PosPage() {
                     />
                   </div>
                 </div>
+                {installmentsExceedTotal && (
+                  <p className="text-sm text-error">
+                    مجموع الأقساط يتجاوز الإجمالي — قلّل قيمة القسط أو عدد الأقساط.
+                  </p>
+                )}
+                {downPaymentTooLow && (
+                  <p className="text-sm text-error">
+                    المقدم المحسوب أقل من الحد الأدنى ({minDownPercent}% = {minDownPayment.toLocaleString('ar-EG')} ج.م)
+                  </p>
+                )}
               </>
             )}
 
@@ -578,10 +611,16 @@ export function PosPage() {
                   <span>{Number(installationFee).toLocaleString('ar-EG')} ج.م</span>
                 </div>
                 {paymentTerm === 'installment' && (
-                  <div className="flex justify-between tabular-nums">
-                    <span>مجموع الأقساط</span>
-                    <span>{(installmentAmount * installmentCount).toLocaleString('ar-EG')} ج.م</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between tabular-nums">
+                      <span>مجموع الأقساط</span>
+                      <span>{(installmentAmount * installmentCount).toLocaleString('ar-EG')} ج.م</span>
+                    </div>
+                    <div className="flex justify-between tabular-nums">
+                      <span>المقدم</span>
+                      <span>{computedDownPayment.toLocaleString('ar-EG')} ج.م</span>
+                    </div>
+                  </>
                 )}
               </div>
               <p className="mb-sm text-lg font-bold tabular-nums">
@@ -616,7 +655,9 @@ export function PosPage() {
                   !customerId ||
                   !branchId ||
                   quantity <= 0 ||
-                  (!allowNegativeInventory && quantity > available)
+                  (!allowNegativeInventory && quantity > available) ||
+                  installmentsExceedTotal ||
+                  downPaymentTooLow
                 }
                 className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
               >

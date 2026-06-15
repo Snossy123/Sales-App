@@ -1092,12 +1092,18 @@ export function handleMockRequest(
       stock.reserved += qty
       const installationFee = Number(body.installation_fee ?? 0)
       const total = qty * Number(unitPrice) + installationFee
-      const downPayment =
-        body.payment_term === 'installment'
-          ? Number(body.installment_plan?.down_payment ?? 0)
-          : body.payment_term === 'cash'
-            ? total
-            : 0
+      let downPayment = 0
+      if (body.payment_term === 'installment' && body.installment_plan) {
+        const count = Number(body.installment_plan.installment_count ?? 0)
+        const amount = Number(body.installment_plan.installment_amount ?? 0)
+        if (amount > 0 && count > 0) {
+          downPayment = Math.max(0, Math.round((total - amount * count) * 100) / 100)
+        } else {
+          downPayment = Number(body.installment_plan.down_payment ?? 0)
+        }
+      } else if (body.payment_term === 'cash') {
+        downPayment = total
+      }
       const invoiceId = s.counters.invoice++
       const invoice: SalesInvoice = {
         id: invoiceId,
@@ -1137,9 +1143,15 @@ export function handleMockRequest(
       }
 
       if (body.payment_term === 'installment' && body.installment_plan) {
+        const count = Number(body.installment_plan.installment_count ?? 0)
+        const amount = Number(body.installment_plan.installment_amount ?? 0)
+        const computedDown =
+          amount > 0 && count > 0
+            ? Math.max(0, Math.round((total - amount * count) * 100) / 100)
+            : Number(body.installment_plan.down_payment ?? 0)
         invoice.installment_plan = {
           id: invoiceId,
-          down_payment: body.installment_plan.down_payment,
+          down_payment: computedDown,
           installment_count: body.installment_plan.installment_count,
           installment_amount: body.installment_plan.installment_amount,
           interval_type: body.installment_plan.interval_type ?? 'monthly',
@@ -1149,7 +1161,7 @@ export function handleMockRequest(
           items: [],
         }
         generateInstallmentItems(s, invoice)
-        invoice.paid_amount = Number(body.installment_plan.down_payment)
+        invoice.paid_amount = computedDown
         invoice.balance_due = Math.max(0, total - invoice.paid_amount)
         invoice.payment_status = invoice.balance_due <= 0 ? 'paid' : 'partial'
       }
