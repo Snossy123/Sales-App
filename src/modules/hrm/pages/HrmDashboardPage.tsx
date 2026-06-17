@@ -73,6 +73,7 @@ export function HrmDashboardPage() {
                 <DataTable
                   data={result.stats.upcoming_leaves as (typeof result.stats.upcoming_leaves[0] & Record<string, unknown>)[]}
                   keyExtractor={(row) => row.id}
+                  pageSize={10}
                   columns={[
                     {
                       key: 'employee',
@@ -123,6 +124,7 @@ export function HrmDashboardPage() {
               dataTour="hrm-employees"
               data={result.employees as (Employee & Record<string, unknown>)[]}
               keyExtractor={(row) => row.id}
+              pageSize={10}
               columns={[
                 { key: 'employee_code', header: 'الكود' },
                 { key: 'name', header: 'الاسم' },

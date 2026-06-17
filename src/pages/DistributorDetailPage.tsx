@@ -100,6 +100,7 @@ export function DistributorDetailPage() {
               <DataTable
                 data={customers as unknown as Record<string, unknown>[]}
                 keyExtractor={(row) => row.id as number}
+                pageSize={10}
                 emptyMessage="لا يوجد عملاء مرتبطون بهذا الموزع"
                 columns={[
                   { key: 'name', header: 'الاسم' },
@@ -130,6 +131,7 @@ export function DistributorDetailPage() {
               <DataTable
                 data={invoices as unknown as Record<string, unknown>[]}
                 keyExtractor={(row) => row.id as number}
+                pageSize={10}
                 emptyMessage="لا توجد فواتير لهذا الموزع"
                 columns={[
                   { key: 'invoice_number', header: 'رقم الفاتورة' },

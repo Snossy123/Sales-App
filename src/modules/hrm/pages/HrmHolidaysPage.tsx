@@ -130,6 +130,7 @@ export function HrmHolidaysPage() {
         <DataTable<HolidayRow>
           data={rows as HolidayRow[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد عطلات مسجلة"
           columns={[
             { key: 'name', header: 'الاسم' },

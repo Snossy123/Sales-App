@@ -62,6 +62,7 @@ export function HrmLeaveTypesPage() {
         <DataTable<HrmLeaveType & Record<string, unknown>>
           data={(query.data ?? []) as (HrmLeaveType & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'leave_type', header: 'النوع' },
             { key: 'max_leave_count', header: 'الحد الأقصى', className: 'tabular-nums' },

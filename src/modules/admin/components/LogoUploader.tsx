@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../../../components/Icon'
+import { resolvePublicStorageUrl } from '../../../lib/storageUrl'
 
 interface LogoUploaderProps {
   logoUrl?: string | null
@@ -11,7 +12,7 @@ export function LogoUploader({ logoUrl, onUpload, uploading }: LogoUploaderProps
   const inputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
 
-  const displayUrl = preview ?? logoUrl
+  const displayUrl = preview ?? resolvePublicStorageUrl(logoUrl)
 
   const handleFile = async (file: File) => {
     const reader = new FileReader()

@@ -145,6 +145,7 @@ export function HrmShiftsPage() {
         <DataTable<ShiftRow>
           data={rows as ShiftRow[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد ورديات"
           columns={[
             { key: 'name', header: 'الاسم' },

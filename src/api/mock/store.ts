@@ -52,6 +52,8 @@ function migrateState(state: DemoState): DemoState {
   if (!state.generalSettings) state.generalSettings = seed.generalSettings
   if (!state.salesSettings) state.salesSettings = seed.salesSettings
   if (!state.securitySettings) state.securitySettings = seed.securitySettings
+  if (!state.messagingSettings) state.messagingSettings = seed.messagingSettings
+  if (!state.customerMessageLogs?.length) state.customerMessageLogs = seed.customerMessageLogs
   if (!state.distributors?.length) {
     state.distributors = seed.distributors
     state.customers = seed.customers
@@ -59,6 +61,10 @@ function migrateState(state: DemoState): DemoState {
   }
   if (!state.dailyBranchReports?.length) {
     state.dailyBranchReports = seed.dailyBranchReports
+  }
+  if (!state.services?.length) {
+    state.services = seed.services
+    if (!state.counters.service) state.counters.service = seed.counters.service
   }
   if (!state.counters.distributor) state.counters.distributor = seed.counters.distributor
   if (!state.counters.dailyBranchReport) {

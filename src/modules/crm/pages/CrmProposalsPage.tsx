@@ -221,6 +221,7 @@ export function CrmProposalsPage() {
           <DataTable<CrmProposal & Record<string, unknown>>
             data={(proposalsQuery.data?.data ?? []) as (CrmProposal & Record<string, unknown>)[]}
             keyExtractor={(row) => row.id}
+            pageSize={10}
             columns={[
               { key: 'subject', header: 'الموضوع' },
               {
@@ -249,6 +250,7 @@ export function CrmProposalsPage() {
           <DataTable<CrmProposalTemplate & Record<string, unknown>>
             data={(templatesQuery.data ?? []) as (CrmProposalTemplate & Record<string, unknown>)[]}
             keyExtractor={(row) => row.id}
+            pageSize={10}
             columns={[
               { key: 'subject', header: 'الموضوع' },
               {

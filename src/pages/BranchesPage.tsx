@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { getScopedDepartmentId, isSuperAdmin } from '../lib/access'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Branch, Department, PaginatedResponse } from '../api/types'
+import type { Administration, Branch, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -34,8 +34,16 @@ const emptyForm = {
   name_ar: '',
   name: '',
   address: '',
-  department_id: '' as number | '',
+  administration_id: '' as number | '',
   is_active: true,
+}
+
+function branchAdministration(branch: Branch): Administration | undefined {
+  return branch.administration ?? (branch.department as Administration | undefined)
+}
+
+function branchAdministrationId(branch: Branch): number | '' {
+  return branch.administration_id ?? branch.department_id ?? ''
 }
 
 const PER_PAGE = 10
@@ -63,10 +71,10 @@ export function BranchesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null)
   const [form, setForm] = useState(emptyForm)
 
-  const departmentsQuery = useQuery({
-    queryKey: ['departments', 'options'],
+  const administrationsQuery = useQuery({
+    queryKey: ['administrations', 'options'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<Administration>>('/administrations', {
         params: { per_page: 100 },
       })
       return data.data
@@ -76,7 +84,7 @@ export function BranchesPage() {
   const allBranchesQuery = useQuery({
     queryKey: ['branches', 'admin', 'all', deptFilter],
     queryFn: async () => {
-      const params: Record<string, string | number> = { per_page: 100 }
+      const params: Record<string, string | number> = { per_page: 100, include: 'administration' }
       if (deptFilter) {
         params['filter[administration_id]'] = Number(deptFilter)
       }
@@ -108,7 +116,7 @@ export function BranchesPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['branches'] })
-    queryClient.invalidateQueries({ queryKey: ['departments'] })
+    queryClient.invalidateQueries({ queryKey: ['administrations'] })
     queryClient.invalidateQueries({ queryKey: ['inventory'] })
     queryClient.invalidateQueries({ queryKey: ['warehouses'] })
   }
@@ -124,7 +132,7 @@ export function BranchesPage() {
     mutationFn: async () => {
       const payload = {
         ...form,
-        department_id: Number(form.department_id),
+        administration_id: Number(form.administration_id),
       }
       if (panel === 'edit' && editId) {
         const { data } = await api.put<Branch>(`/branches/${editId}`, payload)
@@ -151,14 +159,14 @@ export function BranchesPage() {
     },
   })
 
-  const openEdit = (branch: Branch & { department?: Department }) => {
+  const openEdit = (branch: Branch) => {
     setEditId(branch.id)
     setForm({
       code: branch.code,
       name_ar: branch.name_ar ?? '',
       name: branch.name,
       address: branch.address ?? '',
-      department_id: branch.department_id ?? '',
+      administration_id: branchAdministrationId(branch),
       is_active: branch.is_active ?? true,
     })
     setPanel('edit')
@@ -353,13 +361,13 @@ export function BranchesPage() {
             </div>
           ) : (
             <select
-              value={form.department_id}
-              onChange={(e) => setForm({ ...form, department_id: Number(e.target.value) })}
+              value={form.administration_id}
+              onChange={(e) => setForm({ ...form, administration_id: Number(e.target.value) })}
               required
               className={`${inputClass} sm:col-span-2`}
             >
               <option value="">اختر الإدارة</option>
-              {departmentsQuery.data?.map((d) => (
+              {administrationsQuery.data?.map((d) => (
                 <option key={d.id} value={d.id}>{d.name_ar || d.name}</option>
               ))}
             </select>

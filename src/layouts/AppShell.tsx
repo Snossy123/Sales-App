@@ -12,6 +12,7 @@ import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { api, isDemoMode } from '../api/client'
 import type { AppNotification } from '../api/types'
 import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
+import { resolvePublicStorageUrl } from '../lib/storageUrl'
 
 export function AppShell() {
   useContextData()
@@ -49,7 +50,7 @@ export function AppShell() {
   const unreadCount = notificationsQuery.data?.unread_count ?? 0
 
   const orgName = organization?.name_ar || organization?.name || 'العراقي'
-  const logoUrl = general?.logo_url
+  const logoUrl = resolvePublicStorageUrl(general?.logo_url)
 
   const handleLogout = async () => {
     try {
@@ -76,7 +77,6 @@ export function AppShell() {
             </div>
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-base font-black text-primary">{orgName}</span>
-              <span className="text-xs text-on-surface-variant">بيع وتقسيط الأجهزة</span>
             </div>
           </div>
 

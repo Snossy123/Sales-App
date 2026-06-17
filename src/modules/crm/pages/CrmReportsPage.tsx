@@ -106,6 +106,7 @@ export function CrmReportsPage() {
           <DataTable<CrmReportRow & Record<string, unknown>>
             data={(byUserQuery.data ?? []) as (CrmReportRow & Record<string, unknown>)[]}
             keyExtractor={(row) => `${row.name ?? 'user'}-${row.total}`}
+            pageSize={10}
             columns={[
               { key: 'name', header: 'المستخدم' },
               {
@@ -121,6 +122,7 @@ export function CrmReportsPage() {
           <DataTable<CrmReportRow & Record<string, unknown>>
             data={(byContactQuery.data ?? []) as (CrmReportRow & Record<string, unknown>)[]}
             keyExtractor={(row) => `${row.contact_name ?? 'contact'}-${row.total}`}
+            pageSize={10}
             columns={[
               { key: 'contact_name', header: 'جهة الاتصال' },
               {
@@ -149,6 +151,7 @@ export function CrmReportsPage() {
             <DataTable
               data={(conversionsQuery.data.conversions as unknown as Record<string, unknown>[])}
               keyExtractor={(row) => row.id as number}
+              pageSize={10}
               columns={[
                 { key: 'name', header: 'الاسم' },
                 { key: 'phone', header: 'الهاتف', className: 'tabular-nums' },

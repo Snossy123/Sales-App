@@ -16,6 +16,8 @@ import type {
   AdminRole,
   OrganizationProfile,
   GeneralSettings,
+  MessagingSettings,
+  CustomerMessageLogEntry,
   SalesSettings,
   SecuritySettings,
   HrmSettings,
@@ -24,6 +26,7 @@ import type {
   DemoRole,
   Department,
   Distributor,
+  Service,
   Section,
   Employee,
   HrmAllowance,
@@ -84,6 +87,8 @@ export interface DemoState {
   generalSettings: GeneralSettings
   salesSettings: SalesSettings
   securitySettings: SecuritySettings
+  messagingSettings: MessagingSettings
+  customerMessageLogs: CustomerMessageLogEntry[]
   departments: Department[]
   sections: Section[]
   branches: Branch[]
@@ -92,6 +97,7 @@ export interface DemoState {
   departmentStocks: DepartmentStock[]
   stocks: GpsStock[]
   distributors: Distributor[]
+  services: Service[]
   customers: Customer[]
   accountingAccounts: AccountingAccount[]
   journalEntries: AccountingAccTransMapping[]
@@ -110,6 +116,7 @@ export interface DemoState {
     invoice: number
     customer: number
     distributor: number
+    service: number
     dailyBranchReport: number
     installmentItem: number
     payment: number
@@ -287,6 +294,20 @@ export function createSeedState(): DemoState {
       phone: '01055556666',
       status: 'active',
     },
+  ]
+
+  const services: Service[] = [
+    { id: 1, code: 'SRV-FK', name: 'رسوم فك', name_ar: 'رسوم فك', category: 'installation', default_price: 100, is_active: true },
+    { id: 2, code: 'SRV-TRK', name: 'رسوم تركيب', name_ar: 'رسوم تركيب', category: 'installation', default_price: 500, is_active: true },
+    { id: 3, code: 'SRV-SFT', name: 'رسوم سوفت وير', name_ar: 'رسوم سوفت وير', category: 'software', default_price: 200, is_active: true },
+    { id: 4, code: 'SRV-SUB-Y', name: 'تجديد اشتراك سنة', name_ar: 'تجديد اشتراك سنة', category: 'subscription', default_price: 300, is_active: true },
+    { id: 5, code: 'SRV-SUB-L', name: 'تجديد اشتراك مدى الحياة', name_ar: 'تجديد اشتراك مدى الحياة', category: 'subscription', default_price: 1500, is_active: true },
+    { id: 6, code: 'SRV-MNT', name: 'رسوم صيانة', name_ar: 'رسوم صيانة', category: 'maintenance', default_price: 300, is_active: true },
+    { id: 7, code: 'SRV-RST', name: 'رسوم رسيت', name_ar: 'رسوم رسيت', category: 'software', default_price: 150, is_active: true },
+    { id: 8, code: 'SRV-USR', name: 'رسوم نقل يوزر', name_ar: 'رسوم نقل يوزر', category: 'transfer', default_price: 100, is_active: true },
+    { id: 9, code: 'SRV-OWN', name: 'رسوم نقل ملكية', name_ar: 'رسوم نقل ملكية', category: 'transfer', default_price: 200, is_active: true },
+    { id: 10, code: 'SRV-SIM', name: 'رسوم برمجة شريحة', name_ar: 'رسوم برمجة شريحة', category: 'software', default_price: 150, is_active: true },
+    { id: 11, code: 'SRV-EXT', name: 'إضافة جهاز خارج الشركة', name_ar: 'إضافة جهاز خارج الشركة', category: 'other', default_price: 250, is_active: true },
   ]
 
   const customers: Customer[] = [
@@ -988,6 +1009,50 @@ export function createSeedState(): DemoState {
     log_ip_addresses: true,
   }
 
+  const messagingSettings: MessagingSettings = {
+    whatsapp_enabled: true,
+    reminder_days_before: 1,
+    send_contract_welcome: true,
+    send_contract_approved: true,
+    send_installment_reminder: true,
+    send_installment_paid: true,
+    templates: {
+      contract_welcome:
+        'مرحباً {customer_name}،\nتم تسجيل تعاقدكم رقم {invoice_number} بإجمالي {total} ج.م.\n{review_note}\n{org_name}',
+      contract_approved:
+        'عزيزي {customer_name}،\nتم اعتماد تعاقدكم رقم {invoice_number}.\nالمقدم: {down_payment} ج.م\nعدد الأقساط: {installment_count}\nقيمة القسط: {installment_amount} ج.م\nأول استحقاق: {due_date}',
+      installment_reminder:
+        'تذكير: قسط مستحق لـ {customer_name}\nفاتورة {invoice_number}\nالمبلغ: {installment_amount} ج.م\nتاريخ الاستحقاق: {due_date}',
+      installment_paid:
+        'شكراً {customer_name}،\nتم استلام {paid_amount} ج.م لفاتورة {invoice_number}.\n{next_installment_note}',
+    },
+  }
+
+  const customerMessageLogs: CustomerMessageLogEntry[] = [
+    {
+      id: 1,
+      message_type: 'contract_welcome',
+      phone: '201012345678',
+      body: 'مرحباً أحمد، تم تسجيل تعاقدكم رقم INV-1001 بإجمالي 15000 ج.م.',
+      status: 'sent',
+      sent_at: new Date(Date.now() - 86400000).toISOString(),
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      customer: { id: 1, name: 'أحمد محمد', phone: '201012345678' },
+      sales_invoice: { id: 1, invoice_number: 'INV-1001' },
+    },
+    {
+      id: 2,
+      message_type: 'installment_reminder',
+      phone: '201098765432',
+      body: 'تذكير: قسط مستحق لـ سارة\nفاتورة INV-1002\nالمبلغ: 1250 ج.م',
+      status: 'sent',
+      sent_at: new Date(Date.now() - 3600000).toISOString(),
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+      customer: { id: 2, name: 'سارة علي', phone: '201098765432' },
+      sales_invoice: { id: 2, invoice_number: 'INV-1002' },
+    },
+  ]
+
   const adminRoles: AdminRole[] = [
     {
       id: 1,
@@ -1276,6 +1341,8 @@ export function createSeedState(): DemoState {
     generalSettings,
     salesSettings,
     securitySettings,
+    messagingSettings,
+    customerMessageLogs,
     departments,
     sections,
     branches,
@@ -1284,6 +1351,7 @@ export function createSeedState(): DemoState {
     departmentStocks,
     stocks,
     distributors,
+    services,
     customers,
     invoices,
     dailyBranchReports,
@@ -1302,6 +1370,7 @@ export function createSeedState(): DemoState {
       invoice: 5,
       customer: 4,
       distributor: 4,
+      service: 12,
       dailyBranchReport: 2,
       installmentItem: 10,
       payment: 1,

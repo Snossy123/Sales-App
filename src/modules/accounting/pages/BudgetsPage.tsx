@@ -148,6 +148,7 @@ export function BudgetsPage() {
         <DataTable<AccountingBudget & Record<string, unknown>>
           data={(query.data ?? []) as (AccountingBudget & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             {
               key: 'account',

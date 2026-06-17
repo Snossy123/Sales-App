@@ -57,6 +57,7 @@ export function CrmCallLogsPage() {
         <DataTable<CrmCallLog & Record<string, unknown>>
           data={(query.data ?? []) as (CrmCallLog & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'mobile_name', header: 'الاسم', render: (row) => row.mobile_name ?? row.lead?.name ?? '—' },
             { key: 'mobile_number', header: 'الرقم', render: (row) => row.mobile_number ?? '—' },

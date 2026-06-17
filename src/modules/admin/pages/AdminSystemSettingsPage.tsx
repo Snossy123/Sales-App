@@ -3,9 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type {
   GeneralSettings,
+  MessagingSettings,
   OrganizationSettings,
   SalesSettings,
   SecuritySettings,
+  CustomerMessageLogEntry,
+  PaginatedResponse,
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
@@ -20,8 +23,10 @@ import { SettingsTabNav } from '../components/SettingsTabNav'
 import {
   CURRENCY_OPTIONS,
   DEFAULT_GENERAL,
+  DEFAULT_MESSAGING,
   DEFAULT_SALES,
   DEFAULT_SECURITY,
+  MESSAGING_PLACEHOLDERS,
   mergeSettings,
   MODULE_DEFINITIONS,
   PAYMENT_TERM_OPTIONS,
@@ -39,10 +44,12 @@ interface FormState {
   general: GeneralSettings
   sales: SalesSettings
   security: SecuritySettings
+  messaging: MessagingSettings
 }
 
 function buildForm(data: OrganizationSettings): FormState {
   const org = data.organization
+  const messagingPartial = data.settings?.messaging
   return {
     name: org.name ?? '',
     name_ar: org.name_ar ?? '',
@@ -53,12 +60,33 @@ function buildForm(data: OrganizationSettings): FormState {
     general: mergeSettings(DEFAULT_GENERAL, data.settings?.general),
     sales: mergeSettings(DEFAULT_SALES, data.settings?.sales),
     security: mergeSettings(DEFAULT_SECURITY, data.settings?.security),
+    messaging: {
+      ...mergeSettings(DEFAULT_MESSAGING, messagingPartial),
+      templates: {
+        ...DEFAULT_MESSAGING.templates,
+        ...messagingPartial?.templates,
+      },
+    },
   }
 }
 
 function formatUpdatedAt(value?: string | null) {
   if (!value) return '—'
   return new Date(value).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+const MESSAGE_TYPE_LABELS: Record<string, string> = {
+  contract_welcome: 'ترحيب التعاقد',
+  contract_approved: 'اعتماد التعاقد',
+  installment_reminder: 'تذكير قسط',
+  installment_paid: 'تأكيد سداد',
+}
+
+const MESSAGE_STATUS_LABELS: Record<string, string> = {
+  sent: 'مُرسل',
+  queued: 'في الانتظار',
+  failed: 'فشل',
+  skipped: 'تخطي',
 }
 
 export function AdminSystemSettingsPage() {
@@ -75,6 +103,17 @@ export function AdminSystemSettingsPage() {
       const { data } = await api.get<OrganizationSettings>('/admin/settings')
       return data
     },
+  })
+
+  const logsQuery = useQuery({
+    queryKey: ['messaging', 'logs'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<CustomerMessageLogEntry>>('/messaging/logs', {
+        params: { per_page: 50 },
+      })
+      return data
+    },
+    enabled: activeTab === 'messaging',
   })
 
   useEffect(() => {
@@ -103,6 +142,7 @@ export function AdminSystemSettingsPage() {
           general: payload.general,
           sales: payload.sales,
           security: payload.security,
+          messaging: payload.messaging,
         },
       })
       return data
@@ -171,6 +211,24 @@ export function AdminSystemSettingsPage() {
     setForm((prev) => (prev ? { ...prev, security: { ...prev.security, ...partial } } : prev))
   }
 
+  const patchMessaging = (partial: Partial<MessagingSettings>) => {
+    setForm((prev) => (prev ? { ...prev, messaging: { ...prev.messaging, ...partial } } : prev))
+  }
+
+  const patchTemplate = (key: keyof NonNullable<MessagingSettings['templates']>, value: string) => {
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            messaging: {
+              ...prev.messaging,
+              templates: { ...prev.messaging.templates, [key]: value },
+            },
+          }
+        : prev,
+    )
+  }
+
   const toggleModule = (key: string) => {
     if (!form) return
     const enabled = form.enabled_modules.includes(key)
@@ -205,8 +263,7 @@ export function AdminSystemSettingsPage() {
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {form && (
           <>
-            <div className="mb-md grid gap-sm sm:grid-cols-2 lg:grid-cols-4">
-              <KpiCard label="كود المنظمة" value={query.data?.organization.code ?? '—'} icon="tag" />
+            <div className="mb-md grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
               <KpiCard
                 label="حالة النظام"
                 value={query.data?.organization.is_active ? 'نشط' : 'موقوف'}
@@ -252,14 +309,6 @@ export function AdminSystemSettingsPage() {
                         value={form.name_ar}
                         onChange={(e) => patch('name_ar', e.target.value)}
                         className={settingsInputClass}
-                      />
-                    </SettingsField>
-                    <SettingsField label="كود المنظمة">
-                      <input
-                        value={query.data?.organization.code ?? ''}
-                        readOnly
-                        className={`${settingsInputClass} bg-surface-container text-on-surface-variant`}
-                        dir="ltr"
                       />
                     </SettingsField>
                     <SettingsField label="لون النظام">
@@ -624,6 +673,163 @@ export function AdminSystemSettingsPage() {
                       <option value="before_installments">المراجعة أولاً ثم الأقساط</option>
                     </select>
                   </SettingsField>
+                </SettingsSectionCard>
+              )}
+
+              {activeTab === 'messaging' && (
+                <SettingsSectionCard
+                  title="رسائل واتساب للعملاء"
+                  description="تذكير الأقساط، ترحيب التعاقد، وتأكيد السداد — إعدادات API من ملف .env"
+                >
+                  <label className="mb-md flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.messaging.whatsapp_enabled ?? false}
+                      onChange={(e) => patchMessaging({ whatsapp_enabled: e.target.checked })}
+                      className={settingsToggleClass}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">تفعيل إرسال واتساب</p>
+                      <p className="text-xs text-on-surface-variant">
+                        في التطوير يُسجَّل في الـ log — اربط مزود API عبر WHATSAPP_DRIVER=http
+                      </p>
+                    </div>
+                  </label>
+
+                  <div className="mb-md grid gap-md sm:grid-cols-2">
+                    <SettingsField label="أيام التذكير قبل الاستحقاق">
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={form.messaging.reminder_days_before ?? 1}
+                        onChange={(e) =>
+                          patchMessaging({ reminder_days_before: Number(e.target.value) })
+                        }
+                        className={settingsInputClass}
+                        dir="ltr"
+                      />
+                    </SettingsField>
+                  </div>
+
+                  <div className="mb-md grid gap-sm sm:grid-cols-2">
+                    {(
+                      [
+                        ['send_contract_welcome', 'رسالة ترحيب عند التعاقد'],
+                        ['send_contract_approved', 'رسالة بعد اعتماد المراجعة'],
+                        ['send_installment_reminder', 'تذكير قبل موعد القسط'],
+                        ['send_installment_paid', 'تأكيد بعد سداد القسط'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.messaging[key] ?? true}
+                          onChange={(e) => patchMessaging({ [key]: e.target.checked })}
+                          className={settingsToggleClass}
+                        />
+                        <span className="text-sm text-on-surface">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <p className="mb-sm text-xs text-on-surface-variant">
+                    المتغيرات المتاحة: {MESSAGING_PLACEHOLDERS}
+                  </p>
+
+                  <div className="grid gap-md">
+                    {(
+                      [
+                        ['contract_welcome', 'قالب ترحيب التعاقد'],
+                        ['contract_approved', 'قالب اعتماد التعاقد'],
+                        ['installment_reminder', 'قالب تذكير القسط'],
+                        ['installment_paid', 'قالب تأكيد السداد'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <SettingsField key={key} label={label}>
+                        <textarea
+                          rows={4}
+                          value={form.messaging.templates?.[key] ?? ''}
+                          onChange={(e) => patchTemplate(key, e.target.value)}
+                          className={settingsInputClass}
+                        />
+                      </SettingsField>
+                    ))}
+                  </div>
+                </SettingsSectionCard>
+              )}
+
+              {activeTab === 'messaging' && (
+                <SettingsSectionCard
+                  title="سجل الرسائل الأخير"
+                  description="آخر الرسائل المرسلة أو المتخطاة — مفيد قبل ربط مزود واتساب حقيقي"
+                >
+                  {logsQuery.isLoading && (
+                    <p className="text-sm text-on-surface-variant">جاري تحميل السجل...</p>
+                  )}
+                  {logsQuery.isError && (
+                    <p className="text-sm text-error">{getErrorMessage(logsQuery.error)}</p>
+                  )}
+                  {logsQuery.data && logsQuery.data.data.length === 0 && (
+                    <p className="text-sm text-on-surface-variant">لا توجد رسائل مسجّلة بعد.</p>
+                  )}
+                  {logsQuery.data && logsQuery.data.data.length > 0 && (
+                    <div className="overflow-x-auto rounded-lg border border-outline-variant">
+                      <table className="w-full text-sm">
+                        <thead className="bg-surface-container-low text-on-surface-variant">
+                          <tr>
+                            <th className="px-md py-sm text-start font-medium">الوقت</th>
+                            <th className="px-md py-sm text-start font-medium">العميل</th>
+                            <th className="px-md py-sm text-start font-medium">النوع</th>
+                            <th className="px-md py-sm text-start font-medium">الحالة</th>
+                            <th className="px-md py-sm text-start font-medium">الفاتورة</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {logsQuery.data.data.map((log) => (
+                            <tr key={log.id} className="border-t border-outline-variant">
+                              <td className="px-md py-sm whitespace-nowrap" dir="ltr">
+                                {formatUpdatedAt(log.sent_at ?? log.created_at)}
+                              </td>
+                              <td className="px-md py-sm">
+                                {log.customer?.name ?? '—'}
+                                {log.phone ? (
+                                  <span className="block text-xs text-on-surface-variant" dir="ltr">
+                                    {log.phone}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="px-md py-sm">
+                                {MESSAGE_TYPE_LABELS[log.message_type] ?? log.message_type}
+                              </td>
+                              <td className="px-md py-sm">
+                                <span
+                                  className={
+                                    log.status === 'sent'
+                                      ? 'text-primary'
+                                      : log.status === 'failed'
+                                        ? 'text-error'
+                                        : 'text-on-surface-variant'
+                                  }
+                                >
+                                  {MESSAGE_STATUS_LABELS[log.status] ?? log.status}
+                                </span>
+                                {log.error && log.status === 'skipped' ? (
+                                  <span className="block text-xs text-on-surface-variant">{log.error}</span>
+                                ) : null}
+                              </td>
+                              <td className="px-md py-sm" dir="ltr">
+                                {log.sales_invoice?.invoice_number ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </SettingsSectionCard>
               )}
 

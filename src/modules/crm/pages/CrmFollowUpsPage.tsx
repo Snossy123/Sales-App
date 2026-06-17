@@ -149,6 +149,7 @@ export function CrmFollowUpsPage() {
         <DataTable<CrmSchedule & Record<string, unknown>>
           data={rows as (CrmSchedule & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'title', header: 'العنوان' },
             {

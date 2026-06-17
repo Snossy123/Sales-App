@@ -1,11 +1,12 @@
-import type { GeneralSettings, SalesSettings, SecuritySettings } from '../../../api/types'
+import type { GeneralSettings, MessagingSettings, SalesSettings, SecuritySettings } from '../../../api/types'
 
-export type SettingsTab = 'branding' | 'regional' | 'sales' | 'security' | 'modules'
+export type SettingsTab = 'branding' | 'regional' | 'sales' | 'security' | 'messaging' | 'modules'
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'branding', label: 'الهوية والعلامة', icon: 'badge' },
   { id: 'regional', label: 'الإقليم والتنسيق', icon: 'language' },
   { id: 'sales', label: 'المبيعات والتقسيط', icon: 'point_of_sale' },
+  { id: 'messaging', label: 'رسائل واتساب', icon: 'chat' },
   { id: 'security', label: 'الأمان والجلسات', icon: 'shield' },
   { id: 'modules', label: 'الوحدات', icon: 'widgets' },
 ]
@@ -50,6 +51,28 @@ export const DEFAULT_SECURITY: SecuritySettings = {
   audit_log_retention_days: 365,
   log_ip_addresses: true,
 }
+
+export const DEFAULT_MESSAGING: MessagingSettings = {
+  whatsapp_enabled: false,
+  reminder_days_before: 1,
+  send_contract_welcome: true,
+  send_contract_approved: true,
+  send_installment_reminder: true,
+  send_installment_paid: true,
+  templates: {
+    contract_welcome:
+      'مرحباً {customer_name}،\nتم تسجيل تعاقدكم رقم {invoice_number} بإجمالي {total} ج.م.\n{review_note}\n{org_name}',
+    contract_approved:
+      'عزيزي {customer_name}،\nتم اعتماد تعاقدكم رقم {invoice_number}.\nالمقدم: {down_payment} ج.م\nعدد الأقساط: {installment_count}\nقيمة القسط: {installment_amount} ج.م\nأول استحقاق: {due_date}',
+    installment_reminder:
+      'تذكير: قسط مستحق لـ {customer_name}\nفاتورة {invoice_number}\nالمبلغ: {installment_amount} ج.م\nتاريخ الاستحقاق: {due_date}',
+    installment_paid:
+      'شكراً {customer_name}،\nتم استلام {paid_amount} ج.م لفاتورة {invoice_number}.\n{next_installment_note}',
+  },
+}
+
+export const MESSAGING_PLACEHOLDERS =
+  '{customer_name}, {invoice_number}, {total}, {down_payment}, {installment_amount}, {installment_count}, {due_date}, {paid_amount}, {next_installment_note}, {org_name}, {org_phone}'
 
 export const CURRENCY_OPTIONS = [
   { value: 'EGP', label: 'جنيه مصري (EGP)' },

@@ -114,6 +114,7 @@ export function TransfersPage() {
         <DataTable<AccountingAccTransMapping & Record<string, unknown>>
           data={(query.data ?? []) as (AccountingAccTransMapping & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'ref_no', header: 'المرجع', render: (row) => row.ref_no ?? `#${row.id}` },
             {

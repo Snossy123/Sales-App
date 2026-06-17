@@ -1,11 +1,17 @@
 import { Link } from 'react-router-dom'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { DashboardStats, Department, PaginatedResponse } from '../api/types'
+import type { DashboardInstallmentSummary, DashboardStats, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
-import { DataTable } from '../components/DataTable'
+import { DataTable, type Column } from '../components/DataTable'
+import {
+  DashboardPeriodFilter,
+  invoicesLabelForPeriod,
+  salesLabelForPeriod,
+  type DashboardPeriod,
+} from '../components/DashboardPeriodFilter'
 import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
 import { KpiCard } from '../components/KpiCard'
@@ -27,6 +33,15 @@ import { useAuthStore } from '../stores/authStore'
 
 function formatDate(value: string, locale = 'ar-EG') {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value))
+}
+
+function daysOverdueFromRow(row: DashboardInstallmentSummary): number {
+  if (row.days_overdue != null) return row.days_overdue
+  const due = new Date(row.due_date)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  due.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 const quickActions = [
@@ -55,10 +70,13 @@ export function DashboardPage() {
   const fmtDate = (value: string) => formatDate(value, locale)
   const visibleActions = quickActions.filter((a) => a.roles.includes(role))
 
+  const [period, setPeriod] = useState<DashboardPeriod>('day')
+  const [overdueOpen, setOverdueOpen] = useState(true)
+
   const query = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', period],
     queryFn: async () => {
-      const { data } = await api.get<DashboardStats>('/dashboard')
+      const { data } = await api.get<DashboardStats>('/dashboard', { params: { period } })
       return data
     },
   })
@@ -91,6 +109,61 @@ export function DashboardPage() {
 
   const overdueList = query.data?.overdue_installments_list ?? []
   const hasOverdue = (query.data?.overdue_installments ?? 0) > 0
+
+  const overdueColumns = useMemo(
+    () =>
+      [
+        {
+          key: 'customer_name',
+          header: 'العميل',
+          render: (row: Record<string, unknown>) => {
+            const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
+            return String(row.customer_name ?? inv?.customer?.name ?? '—')
+          },
+        },
+        {
+          key: 'amount',
+          header: 'قيمة القسط',
+          render: (row: Record<string, unknown>) => fmtMoney(Number(row.amount)),
+        },
+        {
+          key: 'installment_count',
+          header: 'عدد الأقساط',
+          render: (row: Record<string, unknown>) =>
+            row.installment_count != null ? String(row.installment_count) : '—',
+        },
+        {
+          key: 'remaining',
+          header: 'المتبقي',
+          render: (row: Record<string, unknown>) => {
+            const remaining =
+              row.remaining ?? Number(row.amount) - Number(row.paid_amount ?? 0)
+            return fmtMoney(Number(remaining))
+          },
+        },
+        {
+          key: 'status',
+          header: 'الحالة',
+          render: () => <StatusBadge status="overdue" />,
+        },
+        {
+          key: 'due_date',
+          header: 'تاريخ الاستحقاق',
+          render: (row: Record<string, unknown>) => fmtDate(String(row.due_date)),
+        },
+        {
+          key: 'days_overdue',
+          header: 'أيام من الاستحقاق',
+          render: (row: Record<string, unknown>) => {
+            const days = daysOverdueFromRow(row as unknown as DashboardInstallmentSummary)
+            return (
+              <span className="font-medium tabular-nums text-error">{days} يوم</span>
+            )
+          },
+        },
+      ] satisfies Column<Record<string, unknown>>[],
+    [fmtMoney, fmtDate],
+  )
 
   const todayLabel = new Intl.DateTimeFormat('ar-EG', {
     weekday: 'long',
@@ -126,6 +199,8 @@ export function DashboardPage() {
         </div>
       )}
 
+      <DashboardPeriodFilter value={period} onChange={setPeriod} />
+
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {query.data && (
           <>
@@ -145,71 +220,50 @@ export function DashboardPage() {
             {hasOverdue && (
               <section
                 data-tour="dashboard-overdue"
-                className="mb-md rounded-xl border border-error/30 bg-error/5 p-md"
+                className="mb-md overflow-hidden rounded-xl border border-error/30 bg-error/5"
               >
-                <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
-                  <div className="flex items-center gap-sm">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-error/15 text-error">
+                <div className="flex flex-wrap items-center justify-between gap-sm p-md pb-0">
+                  <button
+                    type="button"
+                    onClick={() => setOverdueOpen((v) => !v)}
+                    className="flex flex-1 items-center gap-sm text-start"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-error/15 text-error">
                       <Icon name="warning" size={22} />
                     </div>
-                    <div>
-                      <h2 className="text-base font-bold text-on-surface">الأقساط المتأخرة في السداد</h2>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-xs">
+                        <h2 className="text-base font-bold text-on-surface">الأقساط المتأخرة في السداد</h2>
+                        <Icon
+                          name="expand_more"
+                          size={22}
+                          className={`text-on-surface-variant transition-transform ${overdueOpen ? 'rotate-180' : ''}`}
+                        />
+                      </div>
                       <p className="text-xs text-on-surface-variant">
                         {query.data.overdue_installments} قسط تجاوز تاريخ الاستحقاق
                       </p>
                     </div>
-                  </div>
+                  </button>
                   <Link
                     to="/installments"
-                    className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error hover:opacity-90"
+                    className="shrink-0 rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error hover:opacity-90"
                   >
                     متابعة التحصيل
                   </Link>
                 </div>
 
-                <DataTable<Record<string, unknown>>
-                  data={overdueList as unknown as Record<string, unknown>[]}
-                  keyExtractor={(row) => Number(row.id)}
-                  columns={[
-                    {
-                      key: 'customer_name',
-                      header: 'العميل',
-                      render: (row) => {
-                        const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
-                        return String(row.customer_name ?? inv?.customer?.name ?? '—')
-                      },
-                    },
-                    {
-                      key: 'invoice_number',
-                      header: 'الفاتورة',
-                      render: (row) => {
-                        const inv = row.sales_invoice as { invoice_number?: string } | undefined
-                        return String(row.invoice_number ?? inv?.invoice_number ?? '—')
-                      },
-                    },
-                    {
-                      key: 'due_date',
-                      header: 'تاريخ الاستحقاق',
-                      render: (row) => fmtDate(String(row.due_date)),
-                    },
-                    {
-                      key: 'remaining',
-                      header: 'المتبقي',
-                      render: (row) => {
-                        const remaining =
-                          row.remaining ??
-                          Number(row.amount) - Number(row.paid_amount ?? 0)
-                        return fmtMoney(Number(remaining))
-                      },
-                    },
-                    {
-                      key: 'status',
-                      header: 'الحالة',
-                      render: () => <StatusBadge status="overdue" />,
-                    },
-                  ]}
-                  emptyMessage="لا توجد أقساط متأخرة"
-                />
+                {overdueOpen && (
+                  <div className="p-md pt-sm">
+                    <DataTable
+                      data={overdueList as unknown as Record<string, unknown>[]}
+                      keyExtractor={(row) => Number(row.id)}
+                      pageSize={10}
+                      columns={overdueColumns}
+                      emptyMessage="لا توجد أقساط متأخرة"
+                    />
+                  </div>
+                )}
               </section>
             )}
 
@@ -220,11 +274,15 @@ export function DashboardPage() {
             >
               <KpiCard label="مخزون GPS المتاح" value={query.data.available_units} icon="gps_fixed" />
               <KpiCard
-                label="مبيعات اليوم"
+                label={salesLabelForPeriod(period)}
                 value={fmtMoney(query.data.sales_today)}
                 icon="payments"
               />
-              <KpiCard label="فواتير اليوم" value={query.data.invoices_today} icon="receipt_long" />
+              <KpiCard
+                label={invoicesLabelForPeriod(period)}
+                value={query.data.invoices_today}
+                icon="receipt_long"
+              />
               <KpiCard label="إجمالي العملاء" value={query.data.customers_count} icon="group" />
             </div>
 
@@ -310,99 +368,42 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-md lg:grid-cols-2">
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-                <div className="mb-sm flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-on-surface">آخر الفواتير</h3>
-                  <Link to="/invoices" className="text-xs font-medium text-primary hover:underline">
-                    عرض الكل
-                  </Link>
-                </div>
-                <DataTable<Record<string, unknown>>
-                  data={(query.data.recent_invoices ?? []) as unknown as Record<string, unknown>[]}
-                  keyExtractor={(row) => Number(row.id)}
-                  columns={[
-                    {
-                      key: 'invoice_number',
-                      header: 'الفاتورة',
-                      render: (row) => String(row.invoice_number ?? '—'),
-                    },
-                    {
-                      key: 'customer',
-                      header: 'العميل',
-                      render: (row) =>
-                        (row.customer as { name?: string } | undefined)?.name ?? '—',
-                    },
-                    {
-                      key: 'total',
-                      header: 'الإجمالي',
-                      render: (row) => fmtMoney(Number(row.total)),
-                    },
-                    {
-                      key: 'status',
-                      header: 'الحالة',
-                      render: (row) => (
-                        <StatusBadge status={String(row.status)} />
-                      ),
-                    },
-                  ]}
-                  emptyMessage="لا توجد فواتير"
-                />
+            <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+              <div className="mb-sm flex items-center justify-between">
+                <h3 className="text-sm font-bold text-on-surface">آخر الفواتير</h3>
+                <Link to="/invoices" className="text-xs font-medium text-primary hover:underline">
+                  عرض الكل
+                </Link>
               </div>
-
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-                <div className="mb-sm flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-on-surface">أقساط متأخرة</h3>
-                  {hasOverdue && (
-                    <Link to="/installments" className="text-xs font-medium text-primary hover:underline">
-                      عرض الكل ({query.data.overdue_installments})
-                    </Link>
-                  )}
-                </div>
-                <DataTable<Record<string, unknown>>
-                  data={overdueList as unknown as Record<string, unknown>[]}
-                  keyExtractor={(row) => Number(row.id)}
-                  columns={[
-                    {
-                      key: 'customer_name',
-                      header: 'العميل',
-                      render: (row) => {
-                        const inv = row.sales_invoice as { customer?: { name?: string } } | undefined
-                        return String(row.customer_name ?? inv?.customer?.name ?? '—')
-                      },
-                    },
-                    {
-                      key: 'invoice_number',
-                      header: 'الفاتورة',
-                      render: (row) => {
-                        const inv = row.sales_invoice as { invoice_number?: string } | undefined
-                        return String(row.invoice_number ?? inv?.invoice_number ?? '—')
-                      },
-                    },
-                    {
-                      key: 'due_date',
-                      header: 'تاريخ الاستحقاق',
-                      render: (row) => fmtDate(String(row.due_date)),
-                    },
-                    {
-                      key: 'remaining',
-                      header: 'المتبقي',
-                      render: (row) => {
-                        const remaining =
-                          row.remaining ??
-                          Number(row.amount) - Number(row.paid_amount ?? 0)
-                        return fmtMoney(Number(remaining))
-                      },
-                    },
-                    {
-                      key: 'status',
-                      header: 'الحالة',
-                      render: () => <StatusBadge status="overdue" />,
-                    },
-                  ]}
-                  emptyMessage="لا توجد أقساط متأخرة"
-                />
-              </div>
+              <DataTable<Record<string, unknown>>
+                data={(query.data.recent_invoices ?? []) as unknown as Record<string, unknown>[]}
+                keyExtractor={(row) => Number(row.id)}
+                pageSize={10}
+                columns={[
+                  {
+                    key: 'invoice_number',
+                    header: 'الفاتورة',
+                    render: (row) => String(row.invoice_number ?? '—'),
+                  },
+                  {
+                    key: 'customer',
+                    header: 'العميل',
+                    render: (row) =>
+                      (row.customer as { name?: string } | undefined)?.name ?? '—',
+                  },
+                  {
+                    key: 'total',
+                    header: 'الإجمالي',
+                    render: (row) => fmtMoney(Number(row.total)),
+                  },
+                  {
+                    key: 'status',
+                    header: 'الحالة',
+                    render: (row) => <StatusBadge status={String(row.status)} />,
+                  },
+                ]}
+                emptyMessage="لا توجد فواتير"
+              />
             </div>
           </>
         )}

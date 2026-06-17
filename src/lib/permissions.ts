@@ -79,6 +79,18 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
+      id: 'services',
+      label: 'الخدمات',
+      icon: 'home_repair_service',
+      items: [
+        { to: '/services', icon: 'home_repair_service', label: 'الخدمات', end: true, roles: ['super_admin', 'admin'] },
+        { to: '/services/add', icon: 'add_circle', label: 'إضافة خدمة', roles: ['super_admin', 'admin'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
       id: 'review',
       label: 'قسم المراجعة',
       icon: 'fact_check',
@@ -206,6 +218,8 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/pos': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
+  '/services': ['super_admin', 'admin'],
+  '/services/add': ['super_admin', 'admin'],
   '/invoices': ['super_admin', 'admin', 'reviewer'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
@@ -290,6 +304,10 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/distributors/')) {
     return routeRoles['/distributors']?.includes(role) ?? false
+  }
+
+  if (normalized.startsWith('/services/')) {
+    return routeRoles['/services']?.includes(role) ?? false
   }
 
   if (normalized.match(/^\/daily-reports\/\d+\/print$/)) {

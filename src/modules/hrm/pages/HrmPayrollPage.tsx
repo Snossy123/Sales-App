@@ -133,6 +133,7 @@ export function HrmPayrollPage() {
         <DataTable<PayrollRow>
           data={rows as PayrollRow[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد سجلات رواتب"
           columns={[
             { key: 'ref_no', header: 'المرجع', render: (row) => row.ref_no || `#${row.id}` },

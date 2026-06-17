@@ -92,6 +92,7 @@ export function CustomerDetailPage() {
                 <DataTable
                   data={customer.guarantors as unknown as Record<string, unknown>[]}
                   keyExtractor={(row) => row.id as number}
+                  pageSize={10}
                   columns={[
                     { key: 'name', header: 'الاسم' },
                     { key: 'national_id', header: 'الرقم القومي' },

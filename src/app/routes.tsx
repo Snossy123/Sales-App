@@ -9,6 +9,8 @@ import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
 import { PosPage } from '../pages/PosPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
+import { ServicesPage } from '../pages/ServicesPage'
+import { ServiceFormPage } from '../pages/ServiceFormPage'
 import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
@@ -133,6 +135,9 @@ export function AppRoutes() {
             <Route path="pos" element={<PosPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />
             <Route path="sales/maintenance" element={<MaintenanceServicesPage />} />
+            <Route path="services" element={<ServicesPage />} />
+            <Route path="services/add" element={<ServiceFormPage />} />
+            <Route path="services/:id/edit" element={<ServiceFormPage />} />
             <Route path="daily-reports" element={<DailyBranchReportPage />} />
             <Route path="daily-reports/:id/print" element={<DailyBranchReportPrintPage />} />
             <Route path="distributors" element={<DistributorsPage />} />

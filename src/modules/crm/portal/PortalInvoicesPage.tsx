@@ -28,6 +28,7 @@ export function PortalInvoicesPage() {
         <DataTable<SalesInvoice & Record<string, unknown>>
           data={(query.data?.data ?? []) as (SalesInvoice & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             {
               key: 'invoice_number',

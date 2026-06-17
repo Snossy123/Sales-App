@@ -34,6 +34,7 @@ export function PortalLedgerPage() {
         <DataTable<LedgerRow & Record<string, unknown>>
           data={(query.data?.data ?? []) as (LedgerRow & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             {
               key: 'paid_at',

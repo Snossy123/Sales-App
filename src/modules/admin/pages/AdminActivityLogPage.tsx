@@ -255,6 +255,7 @@ export function AdminActivityLogPage() {
         <DataTable<ActivityLogEntry & Record<string, unknown>>
           data={entries as (ActivityLogEntry & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد سجلات مطابقة"
           columns={[
             { key: 'id', header: '#', render: (row) => row.id },

@@ -58,6 +58,7 @@ export function CrmMarketplacePage() {
         <DataTable<CrmMarketplace & Record<string, unknown>>
           data={(query.data ?? []) as (CrmMarketplace & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'marketplace', header: 'المنصة' },
             { key: 'site_key', header: 'مفتاح الموقع', render: (row) => row.site_key ?? '—' },

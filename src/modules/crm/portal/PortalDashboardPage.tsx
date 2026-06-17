@@ -62,6 +62,7 @@ export function PortalDashboardPage() {
         <DataTable<SalesInvoice & Record<string, unknown>>
           data={recentInvoices as (SalesInvoice & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             {
               key: 'invoice_number',

@@ -38,6 +38,7 @@ export function AdminRolesPage() {
         <DataTable<AdminRole & Record<string, unknown>>
           data={(rolesQuery.data ?? []) as (AdminRole & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'name', header: 'الدور' },
             {

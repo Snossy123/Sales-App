@@ -1,3 +1,4 @@
+import type { InputHTMLAttributes } from 'react'
 import type { Branch, Customer, Distributor } from '../../api/types'
 import {
   amountFromPercent,
@@ -13,9 +14,34 @@ export type TransactionSource = 'branch' | 'distributor'
 
 const labelClass = 'mb-xs block text-xs text-on-surface-variant'
 const inputClass =
-  'w-full rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm focus:border-primary focus:outline-none'
-const accentBox =
-  'flex h-full min-w-0 flex-col gap-sm rounded-lg border border-primary/15 bg-primary/5 p-sm'
+  'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm focus:border-primary focus:outline-none'
+
+const sourceToggle = (active: boolean) =>
+  `flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+    active
+      ? 'border-primary bg-primary text-on-primary'
+      : 'border-outline-variant bg-surface-container-lowest text-on-surface'
+  }`
+
+const modeToggle = (active: boolean) =>
+  `flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+    active ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+  }`
+
+function PrefixedInput({
+  prefix,
+  className = '',
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { prefix: string }) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute start-2 top-1/2 -translate-y-1/2 text-xs text-on-surface-variant">
+        {prefix}
+      </span>
+      <input {...props} className={`${inputClass} ps-9 tabular-nums ${className}`} />
+    </div>
+  )
+}
 
 export interface PosContractHeaderProps {
   transactionSource: TransactionSource
@@ -62,13 +88,6 @@ export interface PosContractHeaderProps {
   deviceCount: number
   netInstallationFeeTotal: number
 }
-
-const sourceToggle = (active: boolean) =>
-  `flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
-    active
-      ? 'border-primary bg-primary text-on-primary'
-      : 'border-outline-variant bg-surface-container-lowest text-on-surface'
-  }`
 
 export function PosContractHeader({
   transactionSource,
@@ -130,111 +149,129 @@ export function PosContractHeader({
     })
   }
 
-  return (
-    <section className="w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
-      <div className="border-b border-outline-variant/60 bg-surface-container-low px-md py-sm">
-        <h2 className="text-sm font-semibold text-on-surface">بيانات التعاقد</h2>
-      </div>
+  const decQty = () => onQuantityChange(Math.max(1, quantity - 1))
+  const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
 
-      <div className="flex flex-wrap items-end gap-md p-md xl:flex-nowrap">
-        {/* مصدر التعاقد */}
-        <div className="w-full shrink-0 sm:w-auto sm:min-w-[9rem]">
-          <label className={labelClass}>مصدر التعاقد</label>
-          <div className="flex gap-xs">
-            {(
-              [
-                { id: 'branch' as const, label: 'فرع' },
-                { id: 'distributor' as const, label: 'موزع' },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onTransactionSourceChange(item.id)}
-                className={sourceToggle(transactionSource === item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
+  const feeFieldsDisabled = !enableInstallationFee || !applyInstallationFee
+
+  return (
+    <section className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+      {/* ── بيانات التعاقد ── */}
+      <div className="p-md">
+        <div className="mb-md flex items-center gap-xs">
+          <Icon name="description" className="text-primary" size={20} />
+          <h2 className="text-sm font-semibold text-on-surface">بيانات التعاقد</h2>
+        </div>
+
+        <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <label className={labelClass}>مصدر التعاقد</label>
+            <div className="flex gap-xs">
+              {(
+                [
+                  { id: 'branch' as const, label: 'فرع' },
+                  { id: 'distributor' as const, label: 'موزع' },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onTransactionSourceChange(item.id)}
+                  className={sourceToggle(transactionSource === item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            {transactionSource === 'branch' ? (
+              <SearchableSelect
+                data-tour="pos-source"
+                label="الفرع"
+                options={filteredBranches}
+                value={selectedBranch}
+                onChange={onBranchChange}
+                onSearchChange={onBranchSearchChange}
+                getOptionValue={(b) => b.id}
+                getOptionLabel={(b) => b.name_ar || b.name}
+                placeholder="ابحث باسم الفرع..."
+                loading={branchesLoading}
+                emptyMessage="لا يوجد فرع مطابق"
+              />
+            ) : (
+              <SearchableSelect
+                data-tour="pos-source"
+                label="الموزع"
+                options={distributors}
+                value={selectedDistributor}
+                onChange={onDistributorChange}
+                onSearchChange={onDistributorSearchChange}
+                getOptionValue={(d) => d.id}
+                getOptionLabel={(d) =>
+                  `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
+                }
+                placeholder="ابحث بالكود أو الاسم..."
+                loading={distributorsLoading}
+                emptyMessage="لا يوجد موزع مطابق"
+              />
+            )}
+          </div>
+
+          <div>
+            <SearchableSelect
+              data-tour="pos-customer"
+              label="العميل"
+              options={customers}
+              value={selectedCustomer}
+              onChange={onCustomerChange}
+              onSearchChange={onCustomerSearchChange}
+              getOptionValue={(c) => c.id}
+              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+              placeholder="ابحث بالاسم أو الموبايل..."
+              loading={customersLoading}
+              emptyMessage="لا يوجد عميل مطابق"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>تاريخ التعاقد</label>
+            <div className="relative">
+              <input
+                type="date"
+                value={contractDate}
+                onChange={(e) => onContractDateChange(e.target.value)}
+                className={`${inputClass} pe-9`}
+              />
+              <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                <Icon name="calendar_today" size={18} />
+              </span>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* موزع / فرع */}
-        <div className="min-w-[11rem] flex-1">
-          {transactionSource === 'branch' ? (
-            <SearchableSelect
-              data-tour="pos-source"
-              label="الفرع"
-              options={filteredBranches}
-              value={selectedBranch}
-              onChange={onBranchChange}
-              onSearchChange={onBranchSearchChange}
-              getOptionValue={(b) => b.id}
-              getOptionLabel={(b) => b.name_ar || b.name}
-              placeholder="ابحث باسم الفرع..."
-              loading={branchesLoading}
-              emptyMessage="لا يوجد فرع مطابق"
-            />
-          ) : (
-            <SearchableSelect
-              data-tour="pos-source"
-              label="الموزع"
-              options={distributors}
-              value={selectedDistributor}
-              onChange={onDistributorChange}
-              onSearchChange={onDistributorSearchChange}
-              getOptionValue={(d) => d.id}
-              getOptionLabel={(d) =>
-                `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
-              }
-              placeholder="ابحث بالكود أو الاسم..."
-              loading={distributorsLoading}
-              emptyMessage="لا يوجد موزع مطابق"
-            />
-          )}
-        </div>
+      <div className="border-t border-outline-variant/60" />
 
-        {/* عميل */}
-        <div className="min-w-[11rem] flex-1">
-          <SearchableSelect
-            data-tour="pos-customer"
-            label="العميل"
-            options={customers}
-            value={selectedCustomer}
-            onChange={onCustomerChange}
-            onSearchChange={onCustomerSearchChange}
-            getOptionValue={(c) => c.id}
-            getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-            placeholder="ابحث بالاسم أو الموبايل..."
-            loading={customersLoading}
-            emptyMessage="لا يوجد عميل مطابق"
-          />
-        </div>
-
-        {/* تاريخ */}
-        <div className="w-full shrink-0 sm:w-auto sm:min-w-[10.5rem]">
-          <label className={labelClass}>تاريخ التعاقد</label>
-          <input
-            type="date"
-            value={contractDate}
-            onChange={(e) => onContractDateChange(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
-        {/* منتج + كمية */}
-        <div className="w-full shrink-0 xl:w-[14rem]" data-tour="pos-product">
-          <label className={labelClass}>المنتج والكمية</label>
-          <div className={accentBox}>
+      {/* ── المنتج والأسعار ── */}
+      <div className="p-md">
+        <div className="flex flex-wrap items-end gap-md lg:flex-nowrap">
+          {/* المنتج */}
+          <div className="min-w-[10rem] flex-1" data-tour="pos-product">
+            <label className={labelClass}>المنتج</label>
             {productLoading ? (
-              <p className="text-xs text-on-surface-variant">جاري التحميل...</p>
+              <p className="py-2 text-xs text-on-surface-variant">جاري التحميل...</p>
             ) : (
               <>
-                <div className="flex items-center gap-xs">
-                  <Icon name="gps_fixed" className="shrink-0 text-primary" size={18} />
-                  <span className="truncate text-sm font-medium">{productName ?? 'GPS'}</span>
+                <div className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-2">
+                  <Icon name="inventory_2" className="shrink-0 text-primary" size={20} />
+                  <span className="flex-1 truncate text-sm font-medium">
+                    {productName ?? 'GPS'}
+                  </span>
+                  <Icon name="expand_more" className="shrink-0 text-on-surface-variant" size={20} />
                 </div>
-                <p className="text-xs text-on-surface-variant">
+                <p className="mt-xs text-xs text-on-surface-variant">
                   متاح: <strong className="tabular-nums">{available}</strong> — سعر:{' '}
                   <strong className="tabular-nums">
                     {Number(unitPrice).toLocaleString('ar-EG')} ج.م
@@ -243,131 +280,161 @@ export function PosContractHeader({
                 {allowNegativeInventory && (
                   <p className="text-xs text-amber-800">المخزون السالب مفعّل</p>
                 )}
-                <div>
-                  <label className="mb-xs block text-xs text-on-surface-variant">عدد الأجهزة</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={maxQuantity}
-                    value={quantity}
-                    onChange={(e) => onQuantityChange(Number(e.target.value))}
-                    className={`${inputClass} tabular-nums`}
-                  />
-                </div>
               </>
             )}
           </div>
-        </div>
 
-        {/* رسوم التركيب */}
-        {enableInstallationFee && (
-          <div className="min-w-[16rem] flex-1">
-            <div className={accentBox}>
-              <div className="flex flex-wrap items-center gap-sm">
-                <span className="text-sm font-medium text-on-surface">رسوم التركيب</span>
-                {allowDisableFeeInSale && (
-                  <label className="ms-auto flex items-center gap-xs text-xs text-on-surface-variant">
+          {/* عدد الأجهزة */}
+          <div className="shrink-0">
+            <label className={labelClass}>عدد الأجهزة</label>
+            <div className="flex items-center overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+              <button
+                type="button"
+                onClick={decQty}
+                disabled={quantity <= 1}
+                className="flex h-10 w-10 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-40"
+                aria-label="تقليل"
+              >
+                <Icon name="remove" size={20} />
+              </button>
+              <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
+                {quantity}
+              </span>
+              <button
+                type="button"
+                onClick={incQty}
+                disabled={quantity >= maxQuantity}
+                className="flex h-10 w-10 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-40"
+                aria-label="زيادة"
+              >
+                <Icon name="add" size={20} />
+              </button>
+            </div>
+          </div>
+
+          {enableInstallationFee && (
+            <>
+              <div className="hidden h-12 w-px shrink-0 self-center bg-outline-variant/60 lg:block" />
+
+              {/* تطبيق */}
+              {allowDisableFeeInSale && (
+                <div className="shrink-0 pb-2">
+                  <label className="flex cursor-pointer items-center gap-xs text-sm text-on-surface">
                     <input
                       type="checkbox"
                       checked={applyInstallationFee}
                       onChange={(e) => onApplyInstallationFeeChange(e.target.checked)}
-                      className="rounded border-outline-variant"
+                      className="h-4 w-4 rounded border-outline-variant accent-primary"
                     />
                     تطبيق
                   </label>
-                )}
-                <input
+                </div>
+              )}
+
+              {/* رسوم التركيب */}
+              <div className="min-w-[7rem] shrink-0">
+                <label className={labelClass}>رسوم التركيب</label>
+                <PrefixedInput
+                  prefix="ج.م"
                   type="number"
                   min={0}
                   step="0.01"
                   value={installationFeePerUnit}
-                  disabled={!applyInstallationFee}
+                  disabled={feeFieldsDisabled}
                   onChange={(e) => onInstallationFeeChange(Number(e.target.value))}
-                  className={`${inputClass} w-24 tabular-nums disabled:opacity-50`}
+                  className="disabled:opacity-50"
                 />
               </div>
 
-              {applyInstallationFee && (
-                <>
-                  <div className="flex items-center justify-between gap-sm">
-                    <span className="text-xs text-on-surface-variant">خصم الرسوم</span>
-                    <div className="flex gap-1 rounded-lg border border-outline-variant p-0.5 text-xs">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onFeeDiscountChange({
-                            amount: feeDiscountAmount,
-                            percent: feeDiscountPercent,
-                            mode: 'amount',
-                          })
-                        }
-                        className={`rounded px-2 py-0.5 ${
-                          feeDiscountMode === 'amount' ? 'bg-primary text-on-primary' : ''
-                        }`}
-                      >
-                        مبلغ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onFeeDiscountChange({
-                            amount: feeDiscountAmount,
-                            percent: feeDiscountPercent,
-                            mode: 'percent',
-                          })
-                        }
-                        className={`rounded px-2 py-0.5 ${
-                          feeDiscountMode === 'percent' ? 'bg-primary text-on-primary' : ''
-                        }`}
-                      >
-                        %
-                      </button>
-                    </div>
-                  </div>
+              {/* نوع الخصم */}
+              <div className="shrink-0">
+                <label className={labelClass}>نوع الخصم</label>
+                <div className="flex overflow-hidden rounded-lg border border-outline-variant p-0.5">
+                  <button
+                    type="button"
+                    disabled={feeFieldsDisabled}
+                    onClick={() =>
+                      onFeeDiscountChange({
+                        amount: feeDiscountAmount,
+                        percent: feeDiscountPercent,
+                        mode: 'percent',
+                      })
+                    }
+                    className={`${modeToggle(feeDiscountMode === 'percent')} disabled:opacity-50`}
+                  >
+                    %
+                  </button>
+                  <button
+                    type="button"
+                    disabled={feeFieldsDisabled}
+                    onClick={() =>
+                      onFeeDiscountChange({
+                        amount: feeDiscountAmount,
+                        percent: feeDiscountPercent,
+                        mode: 'amount',
+                      })
+                    }
+                    className={`${modeToggle(feeDiscountMode === 'amount')} disabled:opacity-50`}
+                  >
+                    مبلغ
+                  </button>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-xs">
-                    <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">
-                        الخصم (ج.م)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={installationFeePerUnit}
-                        step="0.01"
-                        value={feeDiscountAmount || ''}
-                        onChange={(e) => handleFeeDiscountAmount(Number(e.target.value))}
-                        className={`${inputClass} tabular-nums`}
-                        dir="ltr"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">
-                        الخصم (%)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
-                        value={feeDiscountPercent || ''}
-                        onChange={(e) => handleFeeDiscountPercent(Number(e.target.value))}
-                        className={`${inputClass} tabular-nums`}
-                        dir="ltr"
-                      />
-                    </div>
-                  </div>
+              {/* الخصم ج.م */}
+              <div className="min-w-[6.5rem] shrink-0">
+                <label className={labelClass}>الخصم (ج.م)</label>
+                <PrefixedInput
+                  prefix="ج.م"
+                  type="number"
+                  min={0}
+                  max={installationFeePerUnit}
+                  step="0.01"
+                  value={feeDiscountAmount || ''}
+                  disabled={feeFieldsDisabled}
+                  onChange={(e) => handleFeeDiscountAmount(Number(e.target.value))}
+                  dir="ltr"
+                  className="disabled:opacity-50"
+                />
+              </div>
 
-                  <p className="text-xs tabular-nums text-on-surface-variant">
-                    صافي × {deviceCount}:{' '}
-                    <strong>{netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م</strong>
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+              {/* الخصم % */}
+              <div className="min-w-[6rem] shrink-0">
+                <label className={labelClass}>الخصم (%)</label>
+                <PrefixedInput
+                  prefix="%"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={feeDiscountPercent || ''}
+                  disabled={feeFieldsDisabled}
+                  onChange={(e) => handleFeeDiscountPercent(Number(e.target.value))}
+                  dir="ltr"
+                  className="disabled:opacity-50"
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* ── شريط الصافي ── */}
+      {enableInstallationFee && applyInstallationFee && (
+        <div className="flex items-center gap-sm border-t border-primary/10 bg-primary/5 px-md py-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
+            <Icon name="account_balance_wallet" className="text-primary" size={18} />
+          </div>
+          <span className="text-sm font-semibold text-primary tabular-nums">
+            صافي: {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
+            {deviceCount > 1 && (
+              <span className="ms-xs text-xs font-normal text-on-surface-variant">
+                ({deviceCount} × جهاز)
+              </span>
+            )}
+          </span>
+        </div>
+      )}
     </section>
   )
 }

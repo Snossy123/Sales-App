@@ -42,6 +42,7 @@ export function CrmOrderRequestsPage() {
         <DataTable<SalesInvoice & Record<string, unknown>>
           data={(query.data ?? []) as (SalesInvoice & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'invoice_number', header: 'الرقم' },
             { key: 'customer', header: 'العميل', render: (row) => row.customer?.name ?? '—' },

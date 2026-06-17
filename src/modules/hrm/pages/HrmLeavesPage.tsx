@@ -140,6 +140,7 @@ export function HrmLeavesPage() {
         <DataTable<LeaveRow>
           data={rows as LeaveRow[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد طلبات إجازة"
           columns={[
             { key: 'ref_no', header: 'المرجع', render: (row) => row.ref_no || `#${row.id}` },

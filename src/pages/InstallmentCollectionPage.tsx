@@ -325,6 +325,7 @@ export function InstallmentCollectionPage() {
               <DataTable<InstallmentRow>
                 data={filteredRows}
                 keyExtractor={(row) => row.id}
+                pageSize={10}
                 emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
                 rowClassName={(row) => tierRowClass(String(row.display_tier ?? row.status))}
                 columns={[

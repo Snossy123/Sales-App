@@ -98,6 +98,7 @@ export function AccountingDashboardPage() {
             <DataTable<AccountingAccTransMapping & Record<string, unknown>>
               data={(dashboard.recent_entries ?? []) as (AccountingAccTransMapping & Record<string, unknown>)[]}
               keyExtractor={(row) => row.id}
+              pageSize={10}
               emptyMessage="لا توجد قيود حديثة"
               columns={[
                 { key: 'ref_no', header: 'المرجع', render: (row) => row.ref_no ?? `#${row.id}` },

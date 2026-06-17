@@ -136,6 +136,7 @@ export function HrmEmployeesPage() {
         <DataTable<Employee & Record<string, unknown>>
           data={(query.data ?? []) as (Employee & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'employee_code', header: 'الكود' },
             { key: 'name', header: 'الاسم' },

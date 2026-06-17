@@ -188,6 +188,7 @@ export function CrmCampaignsPage() {
         <DataTable<CrmCampaign & Record<string, unknown>>
           data={rows as (CrmCampaign & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'name', header: 'الاسم' },
             {

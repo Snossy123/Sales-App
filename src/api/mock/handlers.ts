@@ -17,6 +17,7 @@ import type {
   DashboardStats,
   Department,
   Distributor,
+  Service,
   GpsStock,
   InventoryOverviewRow,
   LoginResponse,
@@ -62,6 +63,21 @@ function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number |
   if (branchIds == null) return true
   if (branchId == null) return false
   return branchIds.includes(branchId)
+}
+
+function enrichBranch(state: DemoState, branch: Branch): Branch {
+  const adminId = branch.administration_id ?? branch.department_id
+  const administration = adminId
+    ? state.departments.find((d) => d.id === adminId)
+    : undefined
+
+  return {
+    ...branch,
+    administration_id: adminId ?? branch.administration_id,
+    department_id: adminId ?? branch.department_id,
+    administration: administration as Branch['administration'],
+    department: administration,
+  }
 }
 
 function paginate<T>(items: T[], params?: Record<string, unknown>): PaginatedResponse<T> {
@@ -371,12 +387,36 @@ export function handleMockRequest(
   if (m === 'GET' && path === 'dashboard') {
     const branchId = ctx.branchId
     const warehouseId = ctx.warehouseId
-    const today = new Date().toISOString().split('T')[0]
+    const period = String(params.period ?? 'day')
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+
+    const inPeriod = (dateStr: string): boolean => {
+      const d = new Date(dateStr)
+      if (period === 'all') return true
+      if (period === 'day') return dateStr === todayStr
+      if (period === 'week') {
+        const start = new Date(today)
+        start.setDate(today.getDate() - today.getDay())
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(start)
+        end.setDate(start.getDate() + 6)
+        end.setHours(23, 59, 59, 999)
+        return d >= start && d <= end
+      }
+      if (period === 'month') {
+        return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
+      }
+      if (period === 'year') {
+        return d.getFullYear() === today.getFullYear()
+      }
+      return dateStr === todayStr
+    }
 
     const branchInvoices = state.invoices.filter(
       (i) => !branchId || i.branch_id === branchId,
     )
-    const todayInvoices = branchInvoices.filter((i) => i.invoice_date === today)
+    const periodInvoices = branchInvoices.filter((i) => inPeriod(i.invoice_date))
     const confirmed = branchInvoices.filter((i) => i.status === 'confirmed')
 
     let outstanding = 0
@@ -398,6 +438,11 @@ export function handleMockRequest(
           overdue++
           if (overdueList.length < 10) {
             const customer = state.customers.find((c) => c.id === inv.customer_id)
+            const planCount = inv.installment_plan?.installment_count
+            const daysOverdue = Math.max(
+              0,
+              Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)),
+            )
             overdueList.push({
               id: item.id,
               due_date: item.due_date,
@@ -406,6 +451,8 @@ export function handleMockRequest(
               status: 'overdue',
               remaining,
               installment_number: item.installment_number,
+              installment_count: planCount,
+              days_overdue: daysOverdue,
               customer_name: customer?.name,
               customer_phone: customer?.phone,
               invoice_number: inv.invoice_number,
@@ -426,17 +473,21 @@ export function handleMockRequest(
     const availableQty = stock ? stock.quantity - stock.reserved : state.stocks.reduce((s, x) => s + x.quantity - x.reserved, 0)
 
     const stats: DashboardStats = {
-      sales_today: todayInvoices
+      period,
+      sales_today: periodInvoices
         .filter((i) => i.status === 'confirmed')
         .reduce((s, i) => s + Number(i.total), 0),
-      invoices_today: todayInvoices.length,
+      invoices_today: periodInvoices.length,
       customers_count: state.customers.filter((c) => !branchId || c.branch_id === branchId).length,
       available_units: availableQty,
-      pending_reviews: branchInvoices.filter((i) => i.status === 'pending_review').length,
+      pending_reviews: branchInvoices.filter((i) => i.status === 'pending_review' && inPeriod(i.invoice_date)).length,
       overdue_installments: overdue,
       due_this_week: dueWeek,
       outstanding_balance: outstanding,
-      recent_invoices: branchInvoices.slice(0, 5).map((inv) => ({
+      recent_invoices: branchInvoices
+        .filter((i) => inPeriod(i.invoice_date))
+        .slice(0, 5)
+        .map((inv) => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         invoice_date: inv.invoice_date,
@@ -446,7 +497,7 @@ export function handleMockRequest(
         customer: state.customers.find((c) => c.id === inv.customer_id),
       })),
       pending_review_invoices: branchInvoices
-        .filter((i) => i.status === 'pending_review')
+        .filter((i) => i.status === 'pending_review' && inPeriod(i.invoice_date))
         .slice(0, 5)
         .map((inv) => ({
           id: inv.id,
@@ -592,12 +643,12 @@ export function handleMockRequest(
     const branch = state.branches.find((b) => b.id === id)
     if (!branch) throw mockError(404, 'الفرع غير موجود')
     const scope = getApiDepartmentScope(ctx)
-    if (scope != null && branch.department_id !== scope) {
+    const adminId = branch.administration_id ?? branch.department_id
+    if (scope != null && adminId !== scope) {
       throw mockError(403, 'غير مصرح بعرض هذا الفرع')
     }
     return {
-      ...branch,
-      department: state.departments.find((d) => d.id === branch.department_id),
+      ...enrichBranch(state, branch),
       warehouses: state.warehouses.filter((w) => w.branch_id === branch.id),
     }
   }
@@ -606,7 +657,7 @@ export function handleMockRequest(
     let items = [...state.branches]
     const scope = getApiDepartmentScope(ctx)
     if (scope != null) {
-      items = items.filter((b) => b.department_id === scope)
+      items = items.filter((b) => (b.administration_id ?? b.department_id) === scope)
     }
     const deptFilter = params['filter[department_id]']
     const adminFilter = params['filter[administration_id]'] ?? deptFilter
@@ -615,8 +666,7 @@ export function handleMockRequest(
     }
     return paginate(
       items.map((b) => ({
-        ...b,
-        department: state.departments.find((d) => d.id === b.department_id),
+        ...enrichBranch(state, b),
         warehouses: state.warehouses.filter((w) => w.branch_id === b.id),
       })),
       params,
@@ -625,21 +675,25 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'branches') {
     const body = data as Partial<Branch>
+    const adminId = body.administration_id ?? body.department_id
     const scope = getApiDepartmentScope(ctx)
     if (scope != null) {
-      if (body.department_id != null && body.department_id !== scope) {
+      if (adminId != null && adminId !== scope) {
         throw mockError(403, 'لا يمكن إنشاء فرع خارج إدارتك')
       }
+      body.administration_id = scope
       body.department_id = scope
     }
     let created: Branch | undefined
     mutateState((s) => {
-      if (!body.department_id) throw mockError(422, 'يجب اختيار الإدارة')
+      const resolvedAdminId = body.administration_id ?? body.department_id
+      if (!resolvedAdminId) throw mockError(422, 'يجب اختيار الإدارة')
       const id = s.counters.branch++
       const whId = s.counters.warehouse++
       const branch: Branch = {
         id,
-        department_id: body.department_id,
+        administration_id: resolvedAdminId,
+        department_id: resolvedAdminId,
         name: body.name ?? body.name_ar ?? '',
         name_ar: body.name_ar ?? body.name ?? '',
         code: body.code ?? `B${id}`,
@@ -664,10 +718,7 @@ export function handleMockRequest(
         reserved: 0,
         sold: 0,
       })
-      created = {
-        ...branch,
-        department: s.departments.find((d) => d.id === branch.department_id),
-      }
+      created = enrichBranch(s, branch)
     })
     return created
   }
@@ -685,11 +736,12 @@ export function handleMockRequest(
       if (body.address != null) branch.address = body.address
       if (body.phone != null) branch.phone = body.phone
       if (body.is_active != null) branch.is_active = body.is_active
-      if (body.department_id != null) branch.department_id = body.department_id
-      updated = {
-        ...branch,
-        department: s.departments.find((d) => d.id === branch.department_id),
+      const adminId = body.administration_id ?? body.department_id
+      if (adminId != null) {
+        branch.administration_id = adminId
+        branch.department_id = adminId
       }
+      updated = enrichBranch(s, branch)
     })
     return updated
   }
@@ -1119,6 +1171,91 @@ export function handleMockRequest(
       throw mockError(404, 'الموزع غير موجود')
     }
     return enrichDistributor(state, distributor)
+  }
+
+  if (m === 'GET' && path === 'services') {
+    let items = [...(state.services ?? [])]
+    const categoryFilter = params['filter[category]']
+    if (categoryFilter) items = items.filter((s) => s.category === categoryFilter)
+    const activeFilter = params['filter[is_active]']
+    if (activeFilter != null) {
+      const active = activeFilter === '1' || activeFilter === 'true'
+      items = items.filter((s) => s.is_active === active)
+    }
+    const nameFilter = params['filter[name]']
+    if (nameFilter) {
+      const q = nameFilter.toLowerCase()
+      items = items.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) || (s.name_ar ?? '').toLowerCase().includes(q),
+      )
+    }
+    items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+    return paginate(items, params)
+  }
+
+  if (m === 'POST' && path === 'services') {
+    const body = data as Partial<Service>
+    if (!body.name?.trim()) throw mockError(422, 'اسم الخدمة مطلوب')
+    if (body.code && (state.services ?? []).some((s) => s.code === body.code)) {
+      throw mockError(422, 'كود الخدمة مستخدم بالفعل')
+    }
+    let created: Service | undefined
+    mutateState((s) => {
+      if (!s.services) s.services = []
+      created = {
+        id: s.counters.service++,
+        code: body.code?.trim() || null,
+        name: body.name!.trim(),
+        name_ar: body.name_ar?.trim() || body.name!.trim(),
+        category: body.category ?? 'other',
+        default_price: Number(body.default_price ?? 0),
+        is_active: body.is_active ?? true,
+        description: body.description?.trim() || null,
+      }
+      s.services.push(created)
+    })
+    return created
+  }
+
+  if (m === 'GET' && path.match(/^services\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const service = (state.services ?? []).find((s) => s.id === id)
+    if (!service) throw mockError(404, 'الخدمة غير موجودة')
+    return service
+  }
+
+  if (m === 'PUT' && path.match(/^services\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as Partial<Service>
+    if (
+      body.code &&
+      (state.services ?? []).some((s) => s.code === body.code && s.id !== id)
+    ) {
+      throw mockError(422, 'كود الخدمة مستخدم بالفعل')
+    }
+    let updated: Service | undefined
+    mutateState((s) => {
+      const service = (s.services ?? []).find((item) => item.id === id)
+      if (!service) throw mockError(404, 'الخدمة غير موجودة')
+      if (body.code !== undefined) service.code = body.code?.trim() || null
+      if (body.name != null) service.name = body.name.trim()
+      if (body.name_ar !== undefined) service.name_ar = body.name_ar?.trim() || null
+      if (body.category != null) service.category = body.category
+      if (body.default_price != null) service.default_price = Number(body.default_price)
+      if (body.is_active != null) service.is_active = body.is_active
+      if (body.description !== undefined) service.description = body.description?.trim() || null
+      updated = service
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^services\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    mutateState((s) => {
+      s.services = (s.services ?? []).filter((service) => service.id !== id)
+    })
+    return { message: 'تم حذف الخدمة' }
   }
 
   if (m === 'GET' && path === 'sales-invoices') {
@@ -2365,6 +2502,13 @@ export function handleMockRequest(
     return paginate(logs, params)
   }
 
+  if (m === 'GET' && path === 'messaging/logs') {
+    const logs = [...state.customerMessageLogs].sort(
+      (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+    )
+    return paginate(logs, params)
+  }
+
   if (m === 'GET' && path === 'admin/settings') {
     return {
       organization: state.organizationProfile,
@@ -2372,6 +2516,7 @@ export function handleMockRequest(
         general: state.generalSettings,
         sales: state.salesSettings,
         security: state.securitySettings,
+        messaging: state.messagingSettings,
       },
       module_settings: {
         crm: state.crmSettings,
@@ -2401,6 +2546,17 @@ export function handleMockRequest(
       if (settings?.general) s.generalSettings = { ...s.generalSettings, ...settings.general }
       if (settings?.sales) s.salesSettings = { ...s.salesSettings, ...settings.sales }
       if (settings?.security) s.securitySettings = { ...s.securitySettings, ...settings.security }
+      if (settings?.messaging) {
+        const m = settings.messaging
+        s.messagingSettings = {
+          ...s.messagingSettings,
+          ...m,
+          templates: {
+            ...s.messagingSettings.templates,
+            ...(m.templates as Record<string, string> | undefined),
+          },
+        }
+      }
       s.adminActivityLogs.unshift({
         id: (s.counters.activityLog = (s.counters.activityLog ?? 3) + 1),
         log_name: 'admin',
@@ -2416,6 +2572,7 @@ export function handleMockRequest(
         general: s.generalSettings,
         sales: s.salesSettings,
         security: s.securitySettings,
+        messaging: s.messagingSettings,
       },
       module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
     }
@@ -2439,6 +2596,7 @@ export function handleMockRequest(
         general: s.generalSettings,
         sales: s.salesSettings,
         security: s.securitySettings,
+        messaging: s.messagingSettings,
       },
       module_settings: { crm: s.crmSettings, hrm: s.hrmSettings, accounting: s.accountingSettings },
     }

@@ -72,6 +72,7 @@ export function CrmActivitiesPage() {
         <DataTable<CrmActivity & Record<string, unknown>>
           data={(query.data ?? []) as (CrmActivity & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'type', header: 'النوع', render: (row) => ACTIVITY_TYPES.find((t) => t.value === row.type)?.label ?? row.type },
             { key: 'subject', header: 'الموضوع', render: (row) => row.subject ?? '—' },

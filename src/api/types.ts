@@ -127,6 +127,7 @@ export interface LoginResponse {
 }
 
 export interface DashboardStats {
+  period?: string
   sales_today: number
   invoices_today: number
   customers_count: number
@@ -158,6 +159,8 @@ export interface DashboardInstallmentSummary {
   status: string
   remaining?: number
   installment_number?: number
+  installment_count?: number
+  days_overdue?: number
   customer_name?: string
   customer_phone?: string
   invoice_number?: string
@@ -255,6 +258,25 @@ export interface Distributor {
   sales_invoices_count?: number
   customers?: Customer[]
   sales_invoices?: SalesInvoice[]
+}
+
+export type ServiceCategory =
+  | 'maintenance'
+  | 'software'
+  | 'subscription'
+  | 'installation'
+  | 'transfer'
+  | 'other'
+
+export interface Service {
+  id: number
+  code?: string | null
+  name: string
+  name_ar?: string | null
+  category: ServiceCategory
+  default_price: string | number
+  is_active: boolean
+  description?: string | null
 }
 
 export interface Guarantor {
@@ -1059,12 +1081,43 @@ export interface SecuritySettings {
   log_ip_addresses?: boolean
 }
 
+export interface MessagingTemplateSettings {
+  contract_welcome?: string
+  contract_approved?: string
+  installment_reminder?: string
+  installment_paid?: string
+}
+
+export interface MessagingSettings {
+  whatsapp_enabled?: boolean
+  reminder_days_before?: number
+  send_contract_welcome?: boolean
+  send_contract_approved?: boolean
+  send_installment_reminder?: boolean
+  send_installment_paid?: boolean
+  templates?: MessagingTemplateSettings
+}
+
+export interface CustomerMessageLogEntry {
+  id: number
+  message_type: string
+  phone?: string | null
+  body: string
+  status: string
+  error?: string | null
+  sent_at?: string | null
+  created_at?: string
+  customer?: { id: number; name: string; phone?: string }
+  sales_invoice?: { id: number; invoice_number?: string }
+}
+
 export interface OrganizationSettings {
   organization: OrganizationProfile
   settings: {
     general: GeneralSettings
     sales: SalesSettings
     security: SecuritySettings
+    messaging?: MessagingSettings
   }
   module_settings?: {
     crm?: CrmSettings

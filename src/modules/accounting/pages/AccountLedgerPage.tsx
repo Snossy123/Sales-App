@@ -110,6 +110,7 @@ export function AccountLedgerPage() {
             >
               data={rows as (AccountingTransactionLine & { running_balance: number } & Record<string, unknown>)[]}
               keyExtractor={(row) => row.id}
+              pageSize={10}
               emptyMessage="لا توجد حركات في هذه الفترة"
               columns={[
                 {

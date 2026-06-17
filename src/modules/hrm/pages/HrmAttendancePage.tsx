@@ -122,6 +122,7 @@ export function HrmAttendancePage() {
         <DataTable<AttendanceRow>
           data={rows as AttendanceRow[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="لا توجد سجلات حضور"
           columns={[
             { key: 'date', header: 'التاريخ' },

@@ -162,6 +162,7 @@ export function ReportsPage() {
                 dataTour="reports-table"
                 data={trialQuery.data.accounts as (TrialBalanceRow & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.id}
+                pageSize={10}
                 columns={[
                   { key: 'gl_code', header: 'الكود', render: (row) => row.gl_code ?? '—' },
                   { key: 'name', header: 'الحساب' },
@@ -219,6 +220,7 @@ export function ReportsPage() {
                 dataTour="reports-table"
                 data={(arQuery.data.report as ArAgeingContactRow[]).map((row) => ({ ...row })) as (ArAgeingContactRow & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.contact_id ?? row.name}
+                pageSize={10}
                 emptyMessage="لا توجد ذمم مدينة"
                 columns={[
                   { key: 'name', header: 'العميل' },
@@ -257,6 +259,7 @@ export function ReportsPage() {
                 dataTour="reports-table"
                 data={incomeQuery.data.lines as (IncomeStatementReport['lines'][number] & Record<string, unknown>)[]}
                 keyExtractor={(row) => row.id}
+                pageSize={10}
                 columns={[
                   { key: 'gl_code', header: 'الكود', render: (row) => row.gl_code ?? '—' },
                   { key: 'name', header: 'الحساب' },

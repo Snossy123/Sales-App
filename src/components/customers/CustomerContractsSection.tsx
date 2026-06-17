@@ -131,6 +131,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <DataTable
                         data={installmentItems as unknown as Record<string, unknown>[]}
                         keyExtractor={(row) => `${invoice.id}-${row.id as number}`}
+                        pageSize={10}
                         columns={[
                           {
                             key: 'invoice_number',

@@ -79,6 +79,7 @@ export function HrmAllowancesPage() {
         <DataTable<HrmAllowance & Record<string, unknown>>
           data={(query.data ?? []) as (HrmAllowance & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'description', header: 'الوصف' },
             { key: 'type', header: 'النوع', render: (row) => row.type === 'allowance' ? 'بدل' : 'خصم' },

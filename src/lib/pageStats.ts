@@ -129,7 +129,9 @@ export function filterDepartments(
 
 export function computeBranchKpis(branches: Branch[]): BranchKpis {
   const active = branches.filter((b) => b.is_active !== false).length
-  const deptIds = new Set(branches.map((b) => b.department_id).filter(Boolean))
+  const deptIds = new Set(
+    branches.map((b) => b.administration_id ?? b.department_id).filter(Boolean),
+  )
   return {
     total: branches.length,
     active,
@@ -138,10 +140,15 @@ export function computeBranchKpis(branches: Branch[]): BranchKpis {
   }
 }
 
+function branchAdminName(branch: Branch): string {
+  const admin = branch.administration ?? (branch.department as { name_ar?: string; name?: string } | undefined)
+  return admin?.name_ar || admin?.name || 'غير محدد'
+}
+
 export function computeBranchByDeptData(branches: Branch[]) {
   const counts = new Map<string, number>()
   for (const b of branches) {
-    const name = b.department?.name_ar || b.department?.name || 'غير محدد'
+    const name = branchAdminName(b)
     counts.set(name, (counts.get(name) ?? 0) + 1)
   }
   return Array.from(counts.entries()).map(([name, count]) => ({ name, count }))

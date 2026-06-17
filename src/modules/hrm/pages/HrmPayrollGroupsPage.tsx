@@ -86,6 +86,7 @@ export function HrmPayrollGroupsPage() {
         <DataTable<HrmPayrollGroup & Record<string, unknown>>
           data={(query.data ?? []) as (HrmPayrollGroup & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           columns={[
             { key: 'name', header: 'الاسم' },
             { key: 'gross_total', header: 'الإجمالي', className: 'tabular-nums', render: (row) => Number(row.gross_total ?? 0).toLocaleString('ar-EG') },

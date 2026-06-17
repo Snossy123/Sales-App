@@ -87,6 +87,7 @@ export function TransactionMapPage() {
         <DataTable<SalesInvoice & Record<string, unknown>>
           data={(listQuery.data ?? []) as (SalesInvoice & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
+          pageSize={10}
           emptyMessage="كل فواتير المبيعات مربوطة"
           columns={[
             { key: 'invoice_number', header: 'رقم الفاتورة' },
