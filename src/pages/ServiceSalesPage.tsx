@@ -61,25 +61,25 @@ export function ServiceSalesPage({
   })
 
   const customersQuery = useQuery({
-    queryKey: ['customers', saleCategory, distributorId],
+    queryKey: ['customers', saleCategory, branchId],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 100,
         'filter[status]': 'active',
       }
-      if (distributorId) params['filter[distributor_id]'] = Number(distributorId)
       if (branchId) params['filter[branch_id]'] = branchId
 
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data
     },
-    enabled: Boolean(distributorId),
+    enabled: Boolean(branchId),
   })
 
   const saleMutation = useMutation({
     mutationFn: async () => {
       const { data } = await api.post<SalesInvoice>('/sales-invoices/service-checkout', {
         customer_id: Number(customerId),
+        distributor_id: Number(distributorId),
         branch_id: branchId ?? undefined,
         sale_category: saleCategory,
         payment_term: 'cash',
@@ -120,7 +120,7 @@ export function ServiceSalesPage({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId) return
+    if (!customerId || !distributorId) return
     if (lines.some((line) => !line.description.trim() || line.unit_price <= 0)) return
     saleMutation.mutate()
   }
@@ -158,11 +158,11 @@ export function ServiceSalesPage({
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
               required
-              disabled={!distributorId}
+              disabled={!branchId}
               className="w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none disabled:opacity-50"
             >
               <option value="">
-                {distributorId ? 'اختر العميل' : 'اختر الموزع أولاً'}
+                {branchId ? 'اختر العميل' : 'اختر الفرع أولاً'}
               </option>
               {customersQuery.data?.map((c) => (
                 <option key={c.id} value={c.id}>

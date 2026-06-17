@@ -31,7 +31,7 @@ function formatDate(value: string, locale = 'ar-EG') {
 
 const quickActions = [
   { to: '/pos', icon: 'point_of_sale', label: 'بيع جديد', roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/customers', icon: 'group_add', label: 'عميل جديد', roles: ['super_admin', 'admin', 'sales', 'collector'] },
+  { to: '/customers/add', icon: 'group_add', label: 'عميل جديد', roles: ['super_admin', 'admin', 'sales'] },
   { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
   { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
   { to: '/inventory', icon: 'inventory_2', label: 'المخزون', roles: ['super_admin', 'admin', 'sales'] },

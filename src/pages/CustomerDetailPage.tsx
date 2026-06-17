@@ -2,20 +2,28 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Customer, SalesInvoice } from '../api/types'
+import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
+import { CustomerContractsSection } from '../components/customers/CustomerContractsSection'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { StatusBadge } from '../components/StatusBadge'
-import { formatInvoiceDate, distributorLabel } from '../lib/sales'
+import { getUserRole } from '../lib/permissions'
+import { useAuthStore } from '../stores/authStore'
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const user = useAuthStore((s) => s.user)
+  const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
 
   const query = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
-        params: { include: 'branch,distributor,guarantors,salesInvoices.installmentPlan.items' },
+        params: {
+          include: 'branch,guarantors,salesInvoices.installmentPlan.items',
+          sales_invoice_status: 'all',
+        },
       })
       return data
     },
@@ -27,26 +35,6 @@ export function CustomerDetailPage() {
     customer?.sales_invoices ??
     (customer as Customer & { salesInvoices?: SalesInvoice[] })?.salesInvoices ??
     []
-
-  const installmentRows = invoices
-    .filter((inv) => inv.status === 'confirmed' && inv.payment_term === 'installment')
-    .flatMap((inv) => {
-      const plan = inv.installment_plan ?? (inv as SalesInvoice & { installmentPlan?: SalesInvoice['installment_plan'] }).installmentPlan
-      const items = plan?.items ?? []
-      return items.map((item) => {
-        const installmentNumber =
-          (item as { installment_number?: number; sequence?: number }).installment_number ??
-          (item as { sequence?: number }).sequence
-
-        return {
-          invoice_id: inv.id,
-          invoice_number: inv.invoice_number,
-          invoice_date: inv.invoice_date,
-          ...item,
-          installment_number: installmentNumber,
-        }
-      })
-    })
 
   return (
     <div>
@@ -75,39 +63,25 @@ export function CustomerDetailPage() {
                       الرقم القومي: {customer.national_id}
                     </p>
                   )}
-                  {customer.distributor && (
-                    <p className="mt-xs text-sm text-on-surface-variant">
-                      الموزع:{' '}
-                      <Link
-                        to={`/distributors/${customer.distributor.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {customer.distributor.code} — {distributorLabel(customer.distributor)}
-                      </Link>
-                    </p>
-                  )}
                 </div>
                 <StatusBadge status={customer.status} />
               </div>
               {customer.address && (
                 <p className="mt-sm text-sm text-on-surface-variant">{customer.address}</p>
               )}
+              {customer.distinctive_mark && (
+                <p className="mt-sm text-sm text-on-surface-variant">
+                  علامة مميزة: {customer.distinctive_mark}
+                </p>
+              )}
               <dl className="mt-md grid gap-2 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-on-surface-variant">رقم العميل 2</dt>
+                  <dt className="text-on-surface-variant">رقم الهاتف 2</dt>
                   <dd className="tabular-nums">{customer.phone_2 ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-on-surface-variant">رقم الشريحة</dt>
-                  <dd className="tabular-nums">{customer.sim_number ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-on-surface-variant">اسم المستخدم</dt>
-                  <dd>{customer.username ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-on-surface-variant">السريال</dt>
-                  <dd className="tabular-nums">{customer.device_serial ?? '—'}</dd>
+                  <dt className="text-on-surface-variant">رقم الهاتف 3</dt>
+                  <dd className="tabular-nums">{customer.phone_3 ?? '—'}</dd>
                 </div>
               </dl>
             </div>
@@ -120,83 +94,24 @@ export function CustomerDetailPage() {
                   keyExtractor={(row) => row.id as number}
                   columns={[
                     { key: 'name', header: 'الاسم' },
+                    { key: 'national_id', header: 'الرقم القومي' },
                     { key: 'phone', header: 'الهاتف' },
+                    { key: 'address', header: 'العنوان' },
                     { key: 'relationship', header: 'الصلة' },
                   ]}
                 />
               </section>
             )}
 
-            <section className="mb-md">
-              <h2 className="mb-sm text-lg font-semibold">الفواتير المؤكدة</h2>
-              <DataTable
-                data={invoices as unknown as Record<string, unknown>[]}
-                keyExtractor={(row) => row.id as number}
-                emptyMessage="لا توجد فواتير مؤكدة"
-                columns={[
-                  { key: 'invoice_number', header: 'رقم' },
-                  {
-                    key: 'invoice_date',
-                    header: 'التاريخ',
-                    render: (row) => formatInvoiceDate(String(row.invoice_date)),
-                  },
-                  {
-                    key: 'total',
-                    header: 'الإجمالي',
-                    render: (row) => `${Number(row.total).toLocaleString('ar-EG')} ج.م`,
-                  },
-                  {
-                    key: 'payment_term',
-                    header: 'الدفع',
-                    render: (row) =>
-                      row.payment_term === 'installment' ? 'تقسيط' : 'نقدي',
-                  },
-                  {
-                    key: 'payment_status',
-                    header: 'السداد',
-                    render: (row) => (
-                      <StatusBadge status={String(row.payment_status)} />
-                    ),
-                  },
-                ]}
+            <div className="mb-md">
+              <CustomerAttachmentsSection
+                mode="view"
+                customerId={customer.id}
+                canManage={canManage}
               />
-            </section>
+            </div>
 
-            {installmentRows.length > 0 && (
-              <section>
-                <h2 className="mb-sm text-lg font-semibold">جدول الأقساط (بعد التأكيد)</h2>
-                <DataTable
-                  data={installmentRows as Record<string, unknown>[]}
-                  keyExtractor={(row) => `${row.invoice_id}-${row.id}`}
-                  columns={[
-                    { key: 'invoice_number', header: 'فاتورة' },
-                    { key: 'installment_number', header: 'قسط' },
-                    {
-                      key: 'due_date',
-                      header: 'الاستحقاق',
-                      render: (row) => formatInvoiceDate(String(row.due_date)),
-                    },
-                    {
-                      key: 'amount',
-                      header: 'المبلغ',
-                      render: (row) => Number(row.amount).toLocaleString('ar-EG'),
-                    },
-                    {
-                      key: 'paid_amount',
-                      header: 'المدفوع',
-                      render: (row) => Number(row.paid_amount).toLocaleString('ar-EG'),
-                    },
-                    {
-                      key: 'status',
-                      header: 'الحالة',
-                      render: (row) => (
-                        <StatusBadge status={String(row.status)} />
-                      ),
-                    },
-                  ]}
-                />
-              </section>
-            )}
+            <CustomerContractsSection invoices={invoices} />
           </>
         )}
       </AsyncState>

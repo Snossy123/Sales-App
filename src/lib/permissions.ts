@@ -114,11 +114,22 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
+      id: 'customers',
+      label: 'العملاء',
+      icon: 'group',
+      items: [
+        { to: '/customers', icon: 'groups', label: 'العملاء', end: true, roles: ['super_admin', 'admin', 'sales', 'collector'] },
+        { to: '/customers/add', icon: 'person_add', label: 'إضافة عميل', roles: ['super_admin', 'admin', 'sales'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
       id: 'operations',
       label: 'العمليات',
       icon: 'work',
       items: [
-        { to: '/customers', icon: 'group', label: 'العملاء', end: true, roles: ['super_admin', 'admin', 'sales', 'collector'] },
         { to: '/distributors', icon: 'local_shipping', label: 'الموزعين', roles: ['super_admin', 'admin', 'sales', 'collector'] },
         { to: '/daily-reports', icon: 'summarize', label: 'البيان اليومي', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector'] },
       ],
@@ -201,6 +212,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
   '/distributors': ['super_admin', 'admin', 'sales', 'collector'],
   '/customers': ['super_admin', 'admin', 'sales', 'collector'],
+  '/customers/add': ['super_admin', 'admin', 'sales'],
   '/accounting': ['super_admin', 'admin', 'accountant'],
   '/accounting/chart-of-accounts': ['super_admin', 'admin', 'accountant'],
   '/accounting/journal-entries': ['super_admin', 'admin', 'accountant'],
@@ -267,6 +279,10 @@ function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
 export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   const role = getUserRole(user)
   const normalized = path.replace(/\/$/, '') || '/'
+
+  if (normalized === '/customers/add') {
+    return routeRoles['/customers/add']?.includes(role) ?? false
+  }
 
   if (normalized.startsWith('/customers/')) {
     return routeRoles['/customers']?.includes(role) ?? false

@@ -10,6 +10,7 @@ import { PosPage } from '../pages/PosPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
 import { CustomersPage } from '../pages/CustomersPage'
+import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
 import { DistributorsPage } from '../pages/DistributorsPage'
 import { DistributorDetailPage } from '../pages/DistributorDetailPage'
@@ -137,6 +138,7 @@ export function AppRoutes() {
             <Route path="distributors" element={<DistributorsPage />} />
             <Route path="distributors/:id" element={<DistributorDetailPage />} />
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/add" element={<CustomerAddPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />

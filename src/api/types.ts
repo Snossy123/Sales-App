@@ -233,6 +233,7 @@ export interface Customer {
   branch?: Branch
   distributor?: Distributor
   guarantors?: Guarantor[]
+  media?: MediaFile[]
   sales_invoices?: SalesInvoice[]
 }
 
@@ -260,7 +261,20 @@ export interface Guarantor {
   id: number
   name: string
   phone: string
+  national_id?: string | null
+  address?: string | null
   relationship?: string | null
+}
+
+export interface MediaFile {
+  id: number
+  file_name: string
+  mime_type?: string | null
+  size: number
+  description?: string | null
+  url: string
+  uploaded_by?: number | null
+  created_at?: string | null
 }
 
 export interface InstallmentItem {
@@ -454,6 +468,7 @@ export interface Lead {
 
 export interface CheckoutPayload {
   customer_id: number
+  distributor_id: number
   warehouse_id: number
   branch_id?: number
   payment_term: 'cash' | 'credit' | 'installment'
@@ -499,6 +514,7 @@ export interface CheckoutPayload {
 
 export interface ServiceCheckoutPayload {
   customer_id: number
+  distributor_id: number
   branch_id?: number
   sale_category: 'accessories' | 'maintenance'
   payment_term?: 'cash' | 'credit' | 'installment'

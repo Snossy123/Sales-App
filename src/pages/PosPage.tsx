@@ -121,13 +121,12 @@ export function PosPage() {
   })
 
   const customersQuery = useQuery({
-    queryKey: ['customers', 'pos', distributorId, branchId, debouncedCustomerSearch],
+    queryKey: ['customers', 'pos', branchId, debouncedCustomerSearch],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 50,
         'filter[status]': 'active',
       }
-      if (distributorId) params['filter[distributor_id]'] = Number(distributorId)
       if (branchId) params['filter[branch_id]'] = branchId
       const q = debouncedCustomerSearch.trim()
       if (q) {
@@ -140,7 +139,7 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data
     },
-    enabled: Boolean(distributorId),
+    enabled: Boolean(branchId),
   })
 
   const employeesQuery = useQuery({
@@ -272,7 +271,7 @@ export function PosPage() {
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
+    if (!customerId || !distributorId || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
     if (!allowNegativeInventory && quantity > available) return
 
     const units = unitsQuery.data ?? []
@@ -300,6 +299,7 @@ export function PosPage() {
 
     const payload: CheckoutPayload = {
       customer_id: Number(customerId),
+      distributor_id: Number(distributorId),
       warehouse_id: warehouseId,
       branch_id: branchId ?? undefined,
       payment_term: paymentTerm,
@@ -394,19 +394,19 @@ export function PosPage() {
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
                 placeholder="ابحث بالاسم أو رقم الموبايل..."
-                disabled={!distributorId}
+                disabled={!branchId}
                 className={`mb-sm ${selectClass} disabled:opacity-50`}
               />
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
                 required
-                disabled={!distributorId}
+                disabled={!branchId}
                 className={`${selectClass} disabled:opacity-50`}
               >
                 <option value="">
-                  {!distributorId
-                    ? 'اختر الموزع أولاً'
+                  {!branchId
+                    ? 'اختر الفرع أولاً'
                     : customersQuery.isLoading
                       ? 'جاري البحث...'
                       : 'اختر العميل'}
@@ -699,6 +699,7 @@ export function PosPage() {
                 disabled={
                   checkoutMutation.isPending ||
                   !customerId ||
+                  !distributorId ||
                   !branchId ||
                   quantity <= 0 ||
                   deviceLines.length === 0 ||

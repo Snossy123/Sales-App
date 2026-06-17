@@ -25,6 +25,8 @@ import type {
   SalesInvoice,
   TransactionMapPayload,
   TrialBalanceReport,
+  MediaFile,
+  Guarantor,
 } from '../types'
 import { loadState, mutateState, resetState, saveState } from './store'
 import type { AuthUser } from '../types'
@@ -90,23 +92,42 @@ function addDays(date: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
-function enrichCustomer(state: DemoState, customer: Customer): Customer {
-  const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
-  const invoices = state.invoices
-    .filter((i) => i.customer_id === customer.id && i.status === 'confirmed')
-    .map((inv) => ({
-      ...inv,
-      customer: undefined,
-      installment_plan: inv.installment_plan
-        ? { ...inv.installment_plan, items: inv.installment_plan.items ?? [] }
-        : null,
-    }))
+function getCustomerMedia(state: DemoState): (MediaFile & { customer_id: number })[] {
+  const extended = state as DemoState & { customerMedia?: (MediaFile & { customer_id: number })[] }
+  if (!extended.customerMedia) extended.customerMedia = []
+  return extended.customerMedia
+}
+
+function enrichCustomer(
+  state: DemoState,
+  customer: Customer,
+  invoiceStatus: 'confirmed' | 'unconfirmed' | 'all' = 'all',
+): Customer {
+  const distributor = customer.distributor_id
+    ? state.distributors.find((d) => d.id === customer.distributor_id)
+    : undefined
+  let invoices = state.invoices.filter((i) => i.customer_id === customer.id)
+
+  if (invoiceStatus === 'confirmed') {
+    invoices = invoices.filter((i) => i.status === 'confirmed')
+  } else if (invoiceStatus === 'unconfirmed') {
+    invoices = invoices.filter((i) => i.status !== 'confirmed')
+  }
+
+  const salesInvoices = invoices.map((inv) => ({
+    ...inv,
+    customer: undefined,
+    installment_plan: inv.installment_plan
+      ? { ...inv.installment_plan, items: inv.installment_plan.items ?? [] }
+      : null,
+  }))
+
   return {
     ...customer,
     distributor: distributor
       ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
       : undefined,
-    sales_invoices: invoices,
+    sales_invoices: salesInvoices,
   }
 }
 
@@ -819,36 +840,38 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'customers') {
-    const body = data as Partial<Customer>
+    const body = data as Partial<Customer> & { guarantors?: Omit<Guarantor, 'id'>[] }
     const branchId = body.branch_id ?? ctx.branchId ?? 1
     if (!isBranchInScope(state, ctx, branchId)) {
       throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
-    }
-    if (!body.distributor_id) {
-      throw mockError(422, 'يجب اختيار موزع للعميل')
-    }
-    const distributor = state.distributors.find((d) => d.id === body.distributor_id)
-    if (!distributor) throw mockError(422, 'الموزع غير موجود')
-    if (distributor.branch_id !== branchId) {
-      throw mockError(422, 'فرع العميل يجب أن يطابق فرع الموزع')
     }
     let created: Customer | undefined
     mutateState((s) => {
       const customer: Customer = {
         id: s.counters.customer++,
         branch_id: branchId,
-        distributor_id: body.distributor_id,
+        distributor_id: null,
         name: body.name ?? '',
         phone: body.phone ?? '',
         phone_2: body.phone_2 ?? null,
+        phone_3: body.phone_3 ?? null,
         sim_number: body.sim_number ?? null,
         username: body.username ?? null,
         device_serial: body.device_serial ?? null,
         national_id: body.national_id ?? null,
         address: body.address ?? null,
+        distinctive_mark: body.distinctive_mark ?? null,
         city: body.city ?? null,
         status: 'active',
         credit_score: 70,
+        guarantors: (body.guarantors ?? []).map((g, index) => ({
+          id: index + 1,
+          name: g.name,
+          phone: g.phone,
+          national_id: g.national_id ?? null,
+          address: g.address ?? null,
+          relationship: g.relationship ?? null,
+        })),
       }
       s.customers.push(customer)
       created = customer
@@ -856,12 +879,71 @@ export function handleMockRequest(
     return enrichCustomer(state, created!)
   }
 
+  if (m === 'GET' && path.match(/^customers\/\d+\/media$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    const media = getCustomerMedia(state).filter((m) => m.customer_id === customerId)
+    return { data: media }
+  }
+
+  if (m === 'POST' && path.match(/^customers\/\d+\/media$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+
+    let fileName = 'attachment.pdf'
+    let description: string | null = null
+    if (data instanceof FormData) {
+      const file = data.get('file')
+      if (file && typeof file === 'object' && 'name' in file) {
+        fileName = String((file as File).name)
+      }
+      const desc = data.get('description')
+      if (typeof desc === 'string' && desc.trim()) description = desc.trim()
+    }
+
+    let created: MediaFile | undefined
+    mutateState((s) => {
+      const mediaCounter = (s.counters as { media?: number }).media ?? 0
+      ;(s.counters as { media?: number }).media = mediaCounter + 1
+      const item: MediaFile & { customer_id: number } = {
+        id: mediaCounter + 1,
+        customer_id: customerId,
+        file_name: fileName,
+        mime_type: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        size: 1024,
+        description,
+        url: `https://demo.local/media/${customerId}/${encodeURIComponent(fileName)}`,
+        uploaded_by: ctx.user?.id ?? null,
+        created_at: new Date().toISOString(),
+      }
+      getCustomerMedia(s).push(item)
+      created = item
+    })
+    return created
+  }
+
+  if (m === 'DELETE' && path.match(/^customers\/\d+\/media\/\d+$/)) {
+    const parts = path.split('/')
+    const customerId = Number(parts[1])
+    const mediaId = Number(parts[3])
+    mutateState((s) => {
+      const list = getCustomerMedia(s)
+      const index = list.findIndex((m) => m.id === mediaId && m.customer_id === customerId)
+      if (index === -1) throw mockError(404, 'المرفق غير موجود')
+      list.splice(index, 1)
+    })
+    return { message: 'تم حذف المرفق.' }
+  }
+
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {
     const id = Number(path.split('/')[1])
     const customer = state.customers.find((c) => c.id === id)
     if (!customer) throw mockError(404, 'العميل غير موجود')
     if (!isBranchInScope(state, ctx, customer.branch_id)) throw mockError(404, 'العميل غير موجود')
-    return enrichCustomer(state, customer)
+    const invoiceStatus = (params.sales_invoice_status as 'confirmed' | 'unconfirmed' | 'all') || 'confirmed'
+    return enrichCustomer(state, customer, invoiceStatus)
   }
 
   if (m === 'GET' && path === 'daily-branch-reports') {
@@ -1073,9 +1155,12 @@ export function handleMockRequest(
     let created: SalesInvoice | undefined
     mutateState((s) => {
       const customer = s.customers.find((c) => c.id === body.customer_id)
-      if (!customer?.distributor_id) {
-        throw mockError(422, 'يجب ربط العميل بموزع قبل إتمام عملية البيع')
+      if (!customer) throw mockError(422, 'العميل غير موجود')
+      if (!body.distributor_id) {
+        throw mockError(422, 'يجب اختيار موزع للتعاقد')
       }
+      const distributor = s.distributors.find((d) => d.id === body.distributor_id)
+      if (!distributor) throw mockError(422, 'الموزع غير موجود')
 
       const warehouseId = body.warehouse_id
       const stock = getStock(s, warehouseId)
@@ -1138,7 +1223,7 @@ export function handleMockRequest(
         branch_id: body.branch_id ?? ctx.branchId ?? stock.branch_id,
         warehouse_id: warehouseId,
         customer_id: body.customer_id,
-        distributor_id: customer.distributor_id,
+        distributor_id: body.distributor_id,
         status: 'confirmed',
         review_status: 'pending',
         payment_term: body.payment_term,
@@ -1197,6 +1282,7 @@ export function handleMockRequest(
   if (m === 'POST' && path === 'sales-invoices/service-checkout') {
     const body = data as {
       customer_id: number
+      distributor_id: number
       branch_id?: number
       sale_category: string
       notes?: string
@@ -1205,8 +1291,9 @@ export function handleMockRequest(
     let created: SalesInvoice | undefined
     mutateState((s) => {
       const customer = s.customers.find((c) => c.id === body.customer_id)
-      if (!customer?.distributor_id) {
-        throw mockError(422, 'يجب ربط العميل بموزع قبل إتمام عملية البيع')
+      if (!customer) throw mockError(422, 'العميل غير موجود')
+      if (!body.distributor_id) {
+        throw mockError(422, 'يجب اختيار موزع للتعاقد')
       }
 
       const subtotal = body.items.reduce(
@@ -1220,7 +1307,7 @@ export function handleMockRequest(
         invoice_date: new Date().toISOString().split('T')[0],
         branch_id: body.branch_id ?? ctx.branchId ?? 1,
         customer_id: body.customer_id,
-        distributor_id: customer.distributor_id,
+        distributor_id: body.distributor_id,
         status: 'confirmed',
         payment_term: 'cash',
         payment_status: 'paid',
