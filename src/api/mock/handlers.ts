@@ -1156,11 +1156,10 @@ export function handleMockRequest(
     mutateState((s) => {
       const customer = s.customers.find((c) => c.id === body.customer_id)
       if (!customer) throw mockError(422, 'العميل غير موجود')
-      if (!body.distributor_id) {
-        throw mockError(422, 'يجب اختيار موزع للتعاقد')
-      }
-      const distributor = s.distributors.find((d) => d.id === body.distributor_id)
-      if (!distributor) throw mockError(422, 'الموزع غير موجود')
+      const distributor = body.distributor_id
+        ? s.distributors.find((d) => d.id === body.distributor_id)
+        : undefined
+      if (body.distributor_id && !distributor) throw mockError(422, 'الموزع غير موجود')
 
       const warehouseId = body.warehouse_id
       const stock = getStock(s, warehouseId)
@@ -1220,10 +1219,10 @@ export function handleMockRequest(
         id: invoiceId,
         invoice_number: `INV-2026-${String(invoiceId).padStart(4, '0')}`,
         invoice_date: body.invoice_date ?? new Date().toISOString().split('T')[0],
-        branch_id: body.branch_id ?? ctx.branchId ?? stock.branch_id,
+        branch_id: body.branch_id ?? distributor?.branch_id ?? ctx.branchId ?? stock.branch_id,
         warehouse_id: warehouseId,
         customer_id: body.customer_id,
-        distributor_id: body.distributor_id,
+        distributor_id: body.distributor_id ?? null,
         status: 'confirmed',
         review_status: 'pending',
         payment_term: body.payment_term,

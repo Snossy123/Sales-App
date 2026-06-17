@@ -5,12 +5,12 @@ export const posTour: TourConfig = {
   route: '/pos',
   steps: [
     {
-      id: 'distributor',
-      target: '[data-tour="pos-distributor"]',
-      title: { ar: 'اختيار الموزع', en: 'Select distributor' },
+      id: 'source',
+      target: '[data-tour="pos-source"]',
+      title: { ar: 'مصدر التعاقد', en: 'Contract source' },
       content: {
-        ar: 'ابدأ باختيار الموزع المسؤول عن عملية البيع.',
-        en: 'Start by selecting the distributor responsible for this sale.',
+        ar: 'حدد إن كان التعاقد عبر فرع أو عبر موزع، ثم ابحث واختر من القائمة.',
+        en: 'Choose whether the contract goes through a branch or distributor, then search and pick from the list.',
       },
       placement: 'bottom',
     },
@@ -19,8 +19,8 @@ export const posTour: TourConfig = {
       target: '[data-tour="pos-customer"]',
       title: { ar: 'اختيار العميل', en: 'Select customer' },
       content: {
-        ar: 'اختر العميل المرتبط بالموزع. يمكنك إضافة عميل جديد من شاشة العملاء.',
-        en: 'Pick the customer linked to the distributor. Add new customers from the Customers screen.',
+        ar: 'ابحث عن العميل بالاسم أو رقم الموبايل واختره من نفس الحقل. يمكنك إضافة عميل جديد من شاشة العملاء.',
+        en: 'Search for the customer by name or phone and select from the same field. Add new customers from the Customers screen.',
       },
       placement: 'bottom',
     },

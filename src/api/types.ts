@@ -468,7 +468,7 @@ export interface Lead {
 
 export interface CheckoutPayload {
   customer_id: number
-  distributor_id: number
+  distributor_id?: number
   warehouse_id: number
   branch_id?: number
   payment_term: 'cash' | 'credit' | 'installment'

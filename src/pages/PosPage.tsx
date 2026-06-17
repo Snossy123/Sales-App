@@ -29,6 +29,7 @@ import { usePageTour } from '../hooks/usePageTour'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { DiscountInput } from '../components/pos/DiscountInput'
 import {
   createDeviceLine,
@@ -38,6 +39,7 @@ import {
 import type { DiscountMode } from '../lib/discount'
 
 type IntervalType = 'monthly' | 'weekly'
+type TransactionSource = 'branch' | 'distributor'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -51,18 +53,19 @@ export function PosPage() {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
-  const authBranchId = useAuthStore((s) => s.branchId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
   const enableInstallationFee = salesSettings?.enable_installation_fee ?? true
   const defaultInstallationFee = salesSettings?.default_installation_fee ?? 500
   const allowDisableFeeInSale = salesSettings?.allow_disable_installation_fee_in_sale ?? true
 
-  const [selectedBranchId, setSelectedBranchId] = useState<number | ''>(authBranchId ?? '')
+  const [transactionSource, setTransactionSource] = useState<TransactionSource>('distributor')
+  const [branchSearch, setBranchSearch] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
   const [distributorSearch, setDistributorSearch] = useState('')
-  const [distributorId, setDistributorId] = useState<number | ''>('')
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
-  const [customerId, setCustomerId] = useState<number | ''>('')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
@@ -82,7 +85,26 @@ export function PosPage() {
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
-  const branchId = selectedBranchId || authBranchId
+
+  const resolvedBranchId =
+    transactionSource === 'branch'
+      ? selectedBranch?.id ?? ''
+      : selectedDistributor?.branch_id ?? ''
+
+  const resetTransactionSelections = () => {
+    setSelectedBranch(null)
+    setSelectedDistributor(null)
+    setSelectedCustomer(null)
+    setBranchSearch('')
+    setDistributorSearch('')
+    setCustomerSearch('')
+    setTechnicianId('')
+  }
+
+  const handleTransactionSourceChange = (source: TransactionSource) => {
+    setTransactionSource(source)
+    resetTransactionSelections()
+  }
 
   useEffect(() => {
     setInstallationFee(defaultInstallationFee)
@@ -98,14 +120,24 @@ export function PosPage() {
     },
   })
 
+  const filteredBranches = useMemo(() => {
+    const q = branchSearch.trim().toLowerCase()
+    const branches = branchesQuery.data ?? []
+    if (!q) return branches
+    return branches.filter((b) => {
+      const name = (b.name_ar || b.name || '').toLowerCase()
+      const code = (b.code || '').toLowerCase()
+      return name.includes(q) || code.includes(q)
+    })
+  }, [branchesQuery.data, branchSearch])
+
   const distributorsQuery = useQuery({
-    queryKey: ['distributors', 'pos', branchId, debouncedDistributorSearch],
+    queryKey: ['distributors', 'pos', debouncedDistributorSearch],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 50,
         'filter[status]': 'active',
       }
-      if (branchId) params['filter[branch_id]'] = branchId
       const q = debouncedDistributorSearch.trim()
       if (q) {
         if (/^\d+$/.test(q)) {
@@ -117,17 +149,16 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', { params })
       return data.data
     },
-    enabled: Boolean(branchId),
+    enabled: transactionSource === 'distributor',
   })
 
   const customersQuery = useQuery({
-    queryKey: ['customers', 'pos', branchId, debouncedCustomerSearch],
+    queryKey: ['customers', 'pos', debouncedCustomerSearch],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 50,
         'filter[status]': 'active',
       }
-      if (branchId) params['filter[branch_id]'] = branchId
       const q = debouncedCustomerSearch.trim()
       if (q) {
         if (/^01\d{8,9}$/.test(q.replace(/\s/g, ''))) {
@@ -139,21 +170,21 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data
     },
-    enabled: Boolean(branchId),
+    enabled: Boolean(warehouseId),
   })
 
   const employeesQuery = useQuery({
-    queryKey: ['employees', 'pos', branchId],
+    queryKey: ['employees', 'pos', resolvedBranchId],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 100,
         'filter[status]': 'active',
       }
-      if (branchId) params['filter[branch_id]'] = branchId
+      if (resolvedBranchId) params['filter[branch_id]'] = resolvedBranchId
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
-    enabled: Boolean(branchId),
+    enabled: Boolean(resolvedBranchId),
   })
 
   const productQuery = useQuery({
@@ -271,7 +302,10 @@ export function PosPage() {
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (!customerId || !distributorId || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
+    const customerId = selectedCustomer?.id
+    const sourceReady =
+      transactionSource === 'branch' ? Boolean(selectedBranch) : Boolean(selectedDistributor)
+    if (!customerId || !sourceReady || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
     if (!allowNegativeInventory && quantity > available) return
 
     const units = unitsQuery.data ?? []
@@ -298,16 +332,19 @@ export function PosPage() {
     if (!allowNegativeInventory && lines.some((l) => !l.product_unit_id)) return
 
     const payload: CheckoutPayload = {
-      customer_id: Number(customerId),
-      distributor_id: Number(distributorId),
+      customer_id: customerId,
       warehouse_id: warehouseId,
-      branch_id: branchId ?? undefined,
+      branch_id: resolvedBranchId || undefined,
       payment_term: paymentTerm,
       installation_fee: grossInstallationFee,
       discount_amount: feeDiscountAmount,
       invoice_date: contractDate,
       technician_id: technicianId ? Number(technicianId) : undefined,
       lines,
+    }
+
+    if (transactionSource === 'distributor' && selectedDistributor) {
+      payload.distributor_id = selectedDistributor.id
     }
 
     if (paymentTerm === 'installment') {
@@ -337,87 +374,75 @@ export function PosPage() {
             <h2 className="font-semibold text-on-surface">بيانات العملية</h2>
 
             <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">الفرع</label>
-              <select
-                value={selectedBranchId}
-                onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : ''
-                  setSelectedBranchId(value)
-                  setDistributorId('')
-                  setCustomerId('')
-                  setTechnicianId('')
-                }}
-                className={selectClass}
-              >
-                <option value="">اختر الفرع</option>
-                {(branchesQuery.data ?? []).map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name_ar || b.name}
-                  </option>
+              <label className="mb-xs block text-sm text-on-surface-variant">مصدر التعاقد</label>
+              <div className="flex gap-sm">
+                {(
+                  [
+                    { id: 'branch' as const, label: 'تعاقد عبر فرع' },
+                    { id: 'distributor' as const, label: 'تعاقد عبر موزع' },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleTransactionSourceChange(item.id)}
+                    className={`flex-1 rounded-lg border py-sm text-sm font-medium transition-colors ${
+                      transactionSource === item.id
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-outline-variant bg-surface-container-low hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
-            <div data-tour="pos-distributor">
-              <label className="mb-xs block text-sm text-on-surface-variant">بحث الموزع</label>
-              <input
-                value={distributorSearch}
-                onChange={(e) => setDistributorSearch(e.target.value)}
+            {transactionSource === 'branch' ? (
+              <SearchableSelect
+                data-tour="pos-source"
+                label="الفرع"
+                options={filteredBranches}
+                value={selectedBranch}
+                onChange={setSelectedBranch}
+                onSearchChange={setBranchSearch}
+                getOptionValue={(b) => b.id}
+                getOptionLabel={(b) => b.name_ar || b.name}
+                placeholder="ابحث باسم الفرع..."
+                loading={branchesQuery.isLoading}
+                emptyMessage="لا يوجد فرع مطابق"
+              />
+            ) : (
+              <SearchableSelect
+                data-tour="pos-source"
+                label="الموزع"
+                options={distributorsQuery.data ?? []}
+                value={selectedDistributor}
+                onChange={setSelectedDistributor}
+                onSearchChange={setDistributorSearch}
+                getOptionValue={(d) => d.id}
+                getOptionLabel={(d) =>
+                  `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
+                }
                 placeholder="ابحث بالكود أو الاسم أو الهاتف..."
-                className={`mb-sm ${selectClass}`}
+                loading={distributorsQuery.isLoading}
+                emptyMessage="لا يوجد موزع مطابق"
               />
-              <select
-                value={distributorId}
-                onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : ''
-                  setDistributorId(value)
-                  setCustomerId('')
-                }}
-                required
-                className={selectClass}
-              >
-                <option value="">
-                  {distributorsQuery.isLoading ? 'جاري البحث...' : 'اختر الموزع'}
-                </option>
-                {(distributorsQuery.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.code} — {distributorLabel(d)}
-                    {d.phone ? ` — ${d.phone}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            )}
 
-            <div data-tour="pos-customer">
-              <label className="mb-xs block text-sm text-on-surface-variant">بحث العميل</label>
-              <input
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="ابحث بالاسم أو رقم الموبايل..."
-                disabled={!branchId}
-                className={`mb-sm ${selectClass} disabled:opacity-50`}
-              />
-              <select
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
-                required
-                disabled={!branchId}
-                className={`${selectClass} disabled:opacity-50`}
-              >
-                <option value="">
-                  {!branchId
-                    ? 'اختر الفرع أولاً'
-                    : customersQuery.isLoading
-                      ? 'جاري البحث...'
-                      : 'اختر العميل'}
-                </option>
-                {customersQuery.data?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} — {c.phone}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              data-tour="pos-customer"
+              label="العميل"
+              options={customersQuery.data ?? []}
+              value={selectedCustomer}
+              onChange={setSelectedCustomer}
+              onSearchChange={setCustomerSearch}
+              getOptionValue={(c) => c.id}
+              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+              placeholder="ابحث بالاسم أو رقم الموبايل..."
+              loading={customersQuery.isLoading}
+              emptyMessage="لا يوجد عميل مطابق"
+            />
 
             <div>
               <label className="mb-xs block text-sm text-on-surface-variant">تاريخ التعاقد</label>
@@ -698,9 +723,8 @@ export function PosPage() {
                 data-tour="pos-submit"
                 disabled={
                   checkoutMutation.isPending ||
-                  !customerId ||
-                  !distributorId ||
-                  !branchId ||
+                  !selectedCustomer ||
+                  (transactionSource === 'branch' ? !selectedBranch : !selectedDistributor) ||
                   quantity <= 0 ||
                   deviceLines.length === 0 ||
                   (!allowNegativeInventory && quantity > available) ||
