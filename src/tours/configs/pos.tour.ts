@@ -39,10 +39,10 @@ export const posTour: TourConfig = {
       target: '[data-tour="pos-product"]',
       title: { ar: 'المنتج والكمية', en: 'Product & quantity' },
       content: {
-        ar: 'اختر جهاز GPS من المخزون المتاح وأدخل الكمية المطلوبة.',
-        en: 'Select a GPS device from available stock and enter the quantity.',
+        ar: 'من الهيدر: اختر عدد الأجهزة وتحقق من السعر والمخزون المتاح.',
+        en: 'From the header: set device count and verify price and available stock.',
       },
-      placement: 'top',
+      placement: 'bottom',
     },
     {
       id: 'submit',

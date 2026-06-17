@@ -15,7 +15,6 @@ import type {
   SalesInvoice,
 } from '../api/types'
 import { contractPrintPath } from '../lib/sales'
-import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
@@ -42,9 +41,6 @@ function addDays(dateStr: string, days: number): string {
   d.setDate(d.getDate() + days)
   return d.toISOString().split('T')[0]
 }
-
-const selectClass =
-  'w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none'
 
 export function PosPage() {
   usePageTour('pos')
@@ -362,16 +358,18 @@ export function PosPage() {
     checkoutMutation.mutate(payload)
   }
 
+  const stickySummary = deviceLines.length > 1
+
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="بيانات التعاقد في الأعلى — لكل جهاز: دفع، فني، سريال، شريحة، ومركبة"
+      subtitle="الهيدر: بيانات التعاقد والمنتج — كل جهاز بعرض كامل تحته"
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId ? (
         <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
       ) : (
-        <form onSubmit={handleCheckout} className="mx-auto flex max-w-3xl flex-col gap-md">
+        <form onSubmit={handleCheckout} className="flex w-full flex-col gap-md">
           <PosContractHeader
             transactionSource={transactionSource}
             onTransactionSourceChange={handleTransactionSourceChange}
@@ -392,6 +390,14 @@ export function PosPage() {
             customersLoading={customersQuery.isLoading}
             contractDate={contractDate}
             onContractDateChange={setContractDate}
+            productName={productQuery.data?.name_ar || productQuery.data?.name}
+            available={available}
+            unitPrice={Number(unitPrice)}
+            quantity={quantity}
+            maxQuantity={maxQuantity}
+            onQuantityChange={setQuantity}
+            productLoading={productQuery.isLoading || stockQuery.isLoading}
+            allowNegativeInventory={allowNegativeInventory}
             enableInstallationFee={enableInstallationFee}
             applyInstallationFee={applyInstallationFee}
             onApplyInstallationFeeChange={setApplyInstallationFee}
@@ -410,78 +416,46 @@ export function PosPage() {
             netInstallationFeeTotal={netInstallationFeeTotal}
           />
 
-          <div data-tour="pos-product" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-            <h2 className="mb-md font-semibold text-on-surface">أجهزة GPS</h2>
-            {allowNegativeInventory && (
-              <p className="mb-sm rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
-                المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
-              </p>
-            )}
-            <AsyncState
-              isLoading={productQuery.isLoading || stockQuery.isLoading}
-              isError={productQuery.isError || stockQuery.isError}
-              error={productQuery.error ?? stockQuery.error}
-            >
-              {productQuery.data && (
-                <div className="mb-md rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
-                  <div className="mb-sm flex items-center gap-sm">
-                    <Icon name="gps_fixed" className="text-primary" />
-                    <span className="font-medium">
-                      {productQuery.data.name_ar || productQuery.data.name}
-                    </span>
-                  </div>
-                  <p className="mb-sm text-sm text-on-surface-variant">
-                    متاح: <strong className="tabular-nums">{available}</strong> قطعة
-                  </p>
-                  <p className="mb-md tabular-nums text-sm">
-                    سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
-                  </p>
-                  <div>
-                    <label className="mb-xs block text-sm text-on-surface-variant">عدد الأجهزة</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={maxQuantity}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className={`${selectClass} tabular-nums`}
-                    />
-                  </div>
-                </div>
-              )}
-            </AsyncState>
-
-            <div className="space-y-md">
-              {deviceLines.map((line, index) => (
-                <DeviceLineCard
-                  key={line.key}
-                  index={index}
-                  line={line}
-                  contractDate={contractDate}
-                  onChange={(next) => updateDeviceLine(index, next)}
-                  minDownPercent={minDownPercent}
-                  maxInstallmentCount={maxInstallmentCount}
-                  employees={employeesQuery.data ?? []}
-                  employeesLoading={employeesQuery.isLoading}
-                  branchReady={Boolean(resolvedBranchId)}
-                />
-              ))}
-            </div>
+          <div className="flex w-full flex-col gap-md">
+            {deviceLines.map((line, index) => (
+              <DeviceLineCard
+                key={line.key}
+                index={index}
+                line={line}
+                contractDate={contractDate}
+                onChange={(next) => updateDeviceLine(index, next)}
+                minDownPercent={minDownPercent}
+                maxInstallmentCount={maxInstallmentCount}
+                employees={employeesQuery.data ?? []}
+                employeesLoading={employeesQuery.isLoading}
+                branchReady={Boolean(resolvedBranchId)}
+              />
+            ))}
           </div>
 
-          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-            <div className="mb-sm space-y-1 text-sm text-on-surface-variant">
-              <div className="flex justify-between tabular-nums">
+          <div
+            className={`w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-md ${
+              stickySummary ? 'sticky bottom-0 z-10 border-t shadow-md' : ''
+            }`}
+          >
+            <div className="mb-sm grid gap-sm text-sm text-on-surface-variant md:grid-cols-3">
+              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
                 <span>قيمة الأجهزة (بعد الخصم)</span>
-                <span>{devicesSubtotal.toLocaleString('ar-EG')} ج.م</span>
+                <span className="font-medium text-on-surface">
+                  {devicesSubtotal.toLocaleString('ar-EG')} ج.م
+                </span>
               </div>
-              <div className="flex justify-between tabular-nums">
+              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
                 <span>رسوم التركيب ({deviceLines.length} × جهاز)</span>
-                <span>{netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م</span>
+                <span className="font-medium text-on-surface">
+                  {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
+                </span>
               </div>
-              <div className="flex justify-between tabular-nums font-medium text-on-surface">
+              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
                 <span>المطلوب عند التعاقد</span>
-                <span>{paidAtCheckout.toLocaleString('ar-EG')} ج.م</span>
+                <span className="font-medium text-on-surface">
+                  {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+                </span>
               </div>
             </div>
             <p className="mb-sm text-lg font-bold tabular-nums">

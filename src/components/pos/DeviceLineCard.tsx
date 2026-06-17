@@ -144,17 +144,21 @@ export function DeviceLineCard({
   }
 
   return (
-    <div className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-low p-md">
-      <div className="flex items-center justify-between gap-sm">
-        <h3 className="font-medium text-on-surface">جهاز {index + 1}</h3>
-        {line.imei && (
-          <span className="text-xs text-on-surface-variant" dir="ltr">
-            IMEI: {line.imei}
+    <div className="w-full space-y-md rounded-lg border border-outline-variant bg-surface-container-low p-md">
+      <div className="flex items-center justify-between gap-sm border-b border-outline-variant/50 pb-sm">
+        <h3 className="text-base font-semibold text-on-surface">جهاز {index + 1}</h3>
+        <div className="flex items-center gap-md text-sm tabular-nums text-on-surface-variant">
+          {line.imei && (
+            <span dir="ltr">IMEI: {line.imei}</span>
+          )}
+          <span>
+            صافي: <strong className="text-on-surface">{net.toLocaleString('ar-EG')} ج.م</strong>
           </span>
-        )}
+        </div>
       </div>
 
-      <div className="grid gap-sm sm:grid-cols-2">
+      {/* سريال | شريحة | username */}
+      <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="mb-xs block text-xs text-on-surface-variant">السريال (جهاز)</label>
           <input
@@ -177,226 +181,235 @@ export function DeviceLineCard({
             autoComplete="off"
           />
         </div>
-      </div>
-
-      <div>
-        <label className="mb-xs block text-xs text-on-surface-variant">اسم المستخدم (تطبيق التتبع)</label>
-        <input
-          value={line.username}
-          onChange={(e) => patch({ username: e.target.value })}
-          placeholder="username لكل جهاز"
-          className={inputClass}
-          dir="ltr"
-          autoComplete="off"
-        />
-      </div>
-
-      <DiscountInput
-        label="خصم الجهاز"
-        baseAmount={line.unitPrice}
-        amount={line.discountAmount}
-        percent={line.discountPercent}
-        mode={line.discountMode}
-        onChange={({ amount, percent, mode }) =>
-          patch({ discountAmount: amount, discountPercent: percent, discountMode: mode })
-        }
-      />
-
-      <p className="text-sm tabular-nums text-on-surface-variant">
-        صافي الجهاز: <strong>{net.toLocaleString('ar-EG')} ج.م</strong>
-      </p>
-
-      <div data-tour={index === 0 ? 'pos-payment' : undefined}>
-        <label className="mb-xs block text-xs text-on-surface-variant">طريقة الدفع</label>
-        <div className="flex gap-sm">
-          {(['cash', 'installment'] as const).map((term) => (
-            <button
-              key={term}
-              type="button"
-              onClick={() => (term === 'installment' ? switchToInstallment() : patch({ paymentTerm: 'cash' }))}
-              className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
-                line.paymentTerm === term
-                  ? 'border-primary bg-primary text-on-primary'
-                  : 'border-outline-variant bg-surface-container-lowest'
-              }`}
-            >
-              {term === 'cash' ? 'نقدي' : 'تقسيط'}
-            </button>
-          ))}
+        <div className="sm:col-span-2 lg:col-span-1">
+          <label className="mb-xs block text-xs text-on-surface-variant">اسم المستخدم (تطبيق التتبع)</label>
+          <input
+            value={line.username}
+            onChange={(e) => patch({ username: e.target.value })}
+            placeholder="username لكل جهاز"
+            className={inputClass}
+            dir="ltr"
+            autoComplete="off"
+          />
         </div>
       </div>
 
-      {line.paymentTerm === 'installment' && (
-        <div className="space-y-sm rounded-lg border border-outline-variant/60 p-sm">
-          <div>
-            <label className="mb-xs block text-xs text-on-surface-variant">نوع القسط</label>
+      <div className="grid gap-md lg:grid-cols-12">
+        {/* خصم + دفع */}
+        <div className="space-y-sm lg:col-span-4">
+          <DiscountInput
+            label="خصم الجهاز"
+            baseAmount={line.unitPrice}
+            amount={line.discountAmount}
+            percent={line.discountPercent}
+            mode={line.discountMode}
+            onChange={({ amount, percent, mode }) =>
+              patch({ discountAmount: amount, discountPercent: percent, discountMode: mode })
+            }
+          />
+
+          <div data-tour={index === 0 ? 'pos-payment' : undefined}>
+            <label className="mb-xs block text-xs text-on-surface-variant">طريقة الدفع</label>
             <div className="flex gap-sm">
-              {(['monthly', 'weekly'] as const).map((type) => (
+              {(['cash', 'installment'] as const).map((term) => (
                 <button
-                  key={type}
+                  key={term}
                   type="button"
                   onClick={() =>
-                    patch({
-                      intervalType: type,
-                      firstDueDate: addDays(contractDate, type === 'weekly' ? 7 : 30),
-                    })
+                    term === 'installment' ? switchToInstallment() : patch({ paymentTerm: 'cash' })
                   }
                   className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
-                    line.intervalType === type
+                    line.paymentTerm === term
                       ? 'border-primary bg-primary text-on-primary'
                       : 'border-outline-variant bg-surface-container-lowest'
                   }`}
                 >
-                  {type === 'monthly' ? 'شهري' : 'أسبوعي'}
+                  {term === 'cash' ? 'نقدي' : 'تقسيط'}
                 </button>
               ))}
             </div>
           </div>
-          <div className="grid gap-sm sm:grid-cols-2">
+        </div>
+
+        {/* تقسيط */}
+        {line.paymentTerm === 'installment' && (
+          <div className="space-y-sm rounded-lg border border-outline-variant/60 p-sm lg:col-span-5">
             <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={line.installmentAmount}
-                onChange={(e) => patch({ installmentAmount: Number(e.target.value) })}
-                className={`${selectClass} tabular-nums`}
-              />
-            </div>
-            <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">المقدم</label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={line.downPayment}
-                onChange={(e) => patch({ downPayment: Number(e.target.value) })}
-                className={`${selectClass} tabular-nums`}
-              />
-            </div>
-            <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط (يُحسب)</label>
-              <div className="rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm font-medium tabular-nums">
-                {computedCount > 0 ? computedCount : '—'}
+              <label className="mb-xs block text-xs text-on-surface-variant">نوع القسط</label>
+              <div className="flex gap-sm">
+                {(['monthly', 'weekly'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() =>
+                      patch({
+                        intervalType: type,
+                        firstDueDate: addDays(contractDate, type === 'weekly' ? 7 : 30),
+                      })
+                    }
+                    className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
+                      line.intervalType === type
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-outline-variant bg-surface-container-lowest'
+                    }`}
+                  >
+                    {type === 'monthly' ? 'شهري' : 'أسبوعي'}
+                  </button>
+                ))}
               </div>
             </div>
-            <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
-              <input
-                type="date"
-                value={line.firstDueDate}
-                onChange={(e) => patch({ firstDueDate: e.target.value })}
-                className={selectClass}
-              />
+            <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={line.installmentAmount}
+                  onChange={(e) => patch({ installmentAmount: Number(e.target.value) })}
+                  className={`${selectClass} tabular-nums`}
+                />
+              </div>
+              <div>
+                <label className="mb-xs block text-xs text-on-surface-variant">المقدم</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={line.downPayment}
+                  onChange={(e) => patch({ downPayment: Number(e.target.value) })}
+                  className={`${selectClass} tabular-nums`}
+                />
+              </div>
+              <div>
+                <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط</label>
+                <div className="rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm font-medium tabular-nums">
+                  {computedCount > 0 ? computedCount : '—'}
+                </div>
+              </div>
+              <div>
+                <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
+                <input
+                  type="date"
+                  value={line.firstDueDate}
+                  onChange={(e) => patch({ firstDueDate: e.target.value })}
+                  className={selectClass}
+                />
+              </div>
             </div>
+            {!validation.valid &&
+              validation.errors.map((msg) => (
+                <p key={msg} className="text-xs text-error">
+                  {msg}
+                </p>
+              ))}
           </div>
-          {!validation.valid &&
-            validation.errors.map((msg) => (
-              <p key={msg} className="text-xs text-error">
-                {msg}
-              </p>
-            ))}
+        )}
+
+        {/* فني */}
+        <div className={line.paymentTerm === 'installment' ? 'lg:col-span-3' : 'lg:col-span-8'}>
+          <SearchableSelect
+            label="الفني (دعم)"
+            options={filteredEmployees}
+            value={line.technician}
+            onChange={(technician) => patch({ technician })}
+            onSearchChange={setTechnicianSearch}
+            getOptionValue={(emp) => emp.id}
+            getOptionLabel={(emp) =>
+              `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+            }
+            placeholder="ابحث باسم الفني..."
+            loading={employeesLoading}
+            disabled={!branchReady}
+            emptyMessage={branchReady ? 'لا يوجد فني مطابق' : 'اختر فرع/موزع أولاً'}
+          />
         </div>
-      )}
-
-      <SearchableSelect
-        label="الفني (دعم)"
-        options={filteredEmployees}
-        value={line.technician}
-        onChange={(technician) => patch({ technician })}
-        onSearchChange={setTechnicianSearch}
-        getOptionValue={(emp) => emp.id}
-        getOptionLabel={(emp) =>
-          `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
-        }
-        placeholder="ابحث باسم الفني..."
-        loading={employeesLoading}
-        disabled={!branchReady}
-        emptyMessage={branchReady ? 'لا يوجد فني مطابق' : 'اختر فرع/موزع أولاً'}
-      />
-
-      <div>
-        <label className="mb-xs block text-xs text-on-surface-variant">نوع المركبة</label>
-        <select
-          value={line.vehicleType}
-          onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
-          className={inputClass}
-        >
-          <option value="">—</option>
-          <option value="car">سيارة</option>
-          <option value="tuk_tuk">توك توك</option>
-          <option value="motorcycle">دراجة نارية</option>
-          <option value="other">أخرى</option>
-        </select>
       </div>
 
-      {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
-        <div className="grid gap-sm sm:grid-cols-2">
-          <div>
-            <label className="mb-xs block text-xs text-on-surface-variant">حروف اللوحة</label>
-            <input
-              value={line.vehiclePlateLetters}
-              onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="mb-xs block text-xs text-on-surface-variant">أرقام اللوحة</label>
-            <input
-              value={line.vehiclePlateNumbers}
-              onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
-              dir="ltr"
-              className={inputClass}
-            />
-          </div>
+      {/* مركبة + تجديد */}
+      <div className="grid gap-sm lg:grid-cols-12">
+        <div className="lg:col-span-3">
+          <label className="mb-xs block text-xs text-on-surface-variant">نوع المركبة</label>
+          <select
+            value={line.vehicleType}
+            onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
+            className={inputClass}
+          >
+            <option value="">—</option>
+            <option value="car">سيارة</option>
+            <option value="tuk_tuk">توك توك</option>
+            <option value="motorcycle">دراجة نارية</option>
+            <option value="other">أخرى</option>
+          </select>
         </div>
-      )}
 
-      {line.vehicleType === 'tuk_tuk' && (
-        <div className="grid gap-sm sm:grid-cols-2">
-          <div>
-            <label className="mb-xs block text-xs text-on-surface-variant">رقم الشاسيه</label>
-            <input
-              value={line.chassisNumber}
-              onChange={(e) => patch({ chassisNumber: e.target.value })}
-              dir="ltr"
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="mb-xs block text-xs text-on-surface-variant">رقم الموتور</label>
-            <input
-              value={line.engineNumber}
-              onChange={(e) => patch({ engineNumber: e.target.value })}
-              dir="ltr"
-              className={inputClass}
-            />
-          </div>
-        </div>
-      )}
-
-      <div>
-        <label className="mb-xs block text-xs text-on-surface-variant">نوع التجديد</label>
-        <div className="flex gap-sm">
-          {(['annual', 'permanent'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => patch({ renewalType: type })}
-              className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
-                line.renewalType === type
-                  ? 'border-primary bg-primary text-on-primary'
-                  : 'border-outline-variant bg-surface-container-lowest'
-              }`}
-            >
-              {type === 'annual' ? 'سنوي' : 'دائم'}
-            </button>
-          ))}
-        </div>
-        {line.renewalType === 'annual' && renewalDate && (
-          <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
+        {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
+          <>
+            <div className="lg:col-span-3">
+              <label className="mb-xs block text-xs text-on-surface-variant">حروف اللوحة</label>
+              <input
+                value={line.vehiclePlateLetters}
+                onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <label className="mb-xs block text-xs text-on-surface-variant">أرقام اللوحة</label>
+              <input
+                value={line.vehiclePlateNumbers}
+                onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
+                dir="ltr"
+                className={inputClass}
+              />
+            </div>
+          </>
         )}
+
+        {line.vehicleType === 'tuk_tuk' && (
+          <>
+            <div className="lg:col-span-3">
+              <label className="mb-xs block text-xs text-on-surface-variant">رقم الشاسيه</label>
+              <input
+                value={line.chassisNumber}
+                onChange={(e) => patch({ chassisNumber: e.target.value })}
+                dir="ltr"
+                className={inputClass}
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <label className="mb-xs block text-xs text-on-surface-variant">رقم الموتور</label>
+              <input
+                value={line.engineNumber}
+                onChange={(e) => patch({ engineNumber: e.target.value })}
+                dir="ltr"
+                className={inputClass}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="lg:col-span-3">
+          <label className="mb-xs block text-xs text-on-surface-variant">نوع التجديد</label>
+          <div className="flex gap-sm">
+            {(['annual', 'permanent'] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => patch({ renewalType: type })}
+                className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
+                  line.renewalType === type
+                    ? 'border-primary bg-primary text-on-primary'
+                    : 'border-outline-variant bg-surface-container-lowest'
+                }`}
+              >
+                {type === 'annual' ? 'سنوي' : 'دائم'}
+              </button>
+            ))}
+          </div>
+          {line.renewalType === 'annual' && renewalDate && (
+            <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
+          )}
+        </div>
       </div>
     </div>
   )
