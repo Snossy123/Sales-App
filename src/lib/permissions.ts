@@ -472,6 +472,14 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
     return normalized === target
   }
 
+  if (item.to === '/invoices/review' || target === '/invoices/review') {
+    return normalized === '/invoices/review'
+  }
+
+  if (item.to === '/invoices' || target === '/invoices') {
+    return normalized === '/invoices' || /^\/invoices\/\d+/.test(normalized)
+  }
+
   if (item.end) return normalized === target
   return normalized === target || normalized.startsWith(`${target}/`)
 }

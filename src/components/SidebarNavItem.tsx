@@ -20,9 +20,9 @@ export function SidebarNavItem({ item, user, pathname, variant = 'standalone' }:
       <NavLink
         to={navTo}
         end={item.end}
-        className={`flex items-center gap-xs rounded-md py-xs pl-md pr-sm text-sm transition-all ${
+        className={`relative flex items-center gap-xs rounded-md py-xs pe-sm ps-md text-sm transition-all ${
           isActive
-            ? 'border-s-[3px] border-primary bg-primary/10 font-semibold text-primary'
+            ? 'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:end-0 before:w-[3px] before:rounded-full before:bg-primary'
             : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
         }`}
       >
