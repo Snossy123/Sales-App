@@ -1,14 +1,21 @@
 import type { Branch, Customer, Distributor } from '../../api/types'
-import type { DiscountMode } from '../../lib/discount'
+import {
+  amountFromPercent,
+  clampDiscountAmount,
+  percentFromAmount,
+  type DiscountMode,
+} from '../../lib/discount'
 import { distributorLabel } from '../../lib/sales'
 import { Icon } from '../Icon'
 import { SearchableSelect } from '../SearchableSelect'
-import { DiscountInput } from './DiscountInput'
 
 export type TransactionSource = 'branch' | 'distributor'
 
-const selectClass =
-  'w-full rounded border border-outline-variant px-sm py-2 text-sm focus:border-primary focus:outline-none'
+const labelClass = 'mb-xs block text-xs text-on-surface-variant'
+const inputClass =
+  'w-full rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm focus:border-primary focus:outline-none'
+const accentBox =
+  'flex h-full min-w-0 flex-col gap-sm rounded-lg border border-primary/15 bg-primary/5 p-sm'
 
 export interface PosContractHeaderProps {
   transactionSource: TransactionSource
@@ -56,6 +63,13 @@ export interface PosContractHeaderProps {
   netInstallationFeeTotal: number
 }
 
+const sourceToggle = (active: boolean) =>
+  `flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
+    active
+      ? 'border-primary bg-primary text-on-primary'
+      : 'border-outline-variant bg-surface-container-lowest text-on-surface'
+  }`
+
 export function PosContractHeader({
   transactionSource,
   onTransactionSourceChange,
@@ -97,14 +111,35 @@ export function PosContractHeader({
   deviceCount,
   netInstallationFeeTotal,
 }: PosContractHeaderProps) {
-  return (
-    <section className="w-full border-b border-outline-variant bg-surface-container-lowest pb-md">
-      <h2 className="mb-md font-semibold text-on-surface">بيانات التعاقد</h2>
+  const handleFeeDiscountAmount = (raw: number) => {
+    const amount = clampDiscountAmount(installationFeePerUnit, raw)
+    onFeeDiscountChange({
+      amount,
+      percent: percentFromAmount(installationFeePerUnit, amount),
+      mode: 'amount',
+    })
+  }
 
-      <div className="grid gap-md md:grid-cols-2 lg:grid-cols-12">
-        {/* مصدر التعاقد — 2 cols */}
-        <div className="lg:col-span-2">
-          <label className="mb-xs block text-sm text-on-surface-variant">مصدر التعاقد</label>
+  const handleFeeDiscountPercent = (raw: number) => {
+    const percent = Math.min(100, Math.max(0, raw))
+    const amount = amountFromPercent(installationFeePerUnit, percent)
+    onFeeDiscountChange({
+      amount,
+      percent,
+      mode: 'percent',
+    })
+  }
+
+  return (
+    <section className="w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
+      <div className="border-b border-outline-variant/60 bg-surface-container-low px-md py-sm">
+        <h2 className="text-sm font-semibold text-on-surface">بيانات التعاقد</h2>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-md p-md xl:flex-nowrap">
+        {/* مصدر التعاقد */}
+        <div className="w-full shrink-0 sm:w-auto sm:min-w-[9rem]">
+          <label className={labelClass}>مصدر التعاقد</label>
           <div className="flex gap-xs">
             {(
               [
@@ -116,11 +151,7 @@ export function PosContractHeader({
                 key={item.id}
                 type="button"
                 onClick={() => onTransactionSourceChange(item.id)}
-                className={`flex-1 rounded-lg border py-sm text-sm font-medium transition-colors ${
-                  transactionSource === item.id
-                    ? 'border-primary bg-primary text-on-primary'
-                    : 'border-outline-variant bg-surface-container-low hover:bg-surface-container-high'
-                }`}
+                className={sourceToggle(transactionSource === item.id)}
               >
                 {item.label}
               </button>
@@ -128,8 +159,8 @@ export function PosContractHeader({
           </div>
         </div>
 
-        {/* موزع/فرع — 2 cols */}
-        <div className="md:col-span-1 lg:col-span-2">
+        {/* موزع / فرع */}
+        <div className="min-w-[11rem] flex-1">
           {transactionSource === 'branch' ? (
             <SearchableSelect
               data-tour="pos-source"
@@ -163,8 +194,8 @@ export function PosContractHeader({
           )}
         </div>
 
-        {/* عميل — 2 cols */}
-        <div className="md:col-span-1 lg:col-span-2">
+        {/* عميل */}
+        <div className="min-w-[11rem] flex-1">
           <SearchableSelect
             data-tour="pos-customer"
             label="العميل"
@@ -180,21 +211,21 @@ export function PosContractHeader({
           />
         </div>
 
-        {/* تاريخ — 2 cols */}
-        <div className="lg:col-span-2">
-          <label className="mb-xs block text-sm text-on-surface-variant">تاريخ التعاقد</label>
+        {/* تاريخ */}
+        <div className="w-full shrink-0 sm:w-auto sm:min-w-[10.5rem]">
+          <label className={labelClass}>تاريخ التعاقد</label>
           <input
             type="date"
             value={contractDate}
             onChange={(e) => onContractDateChange(e.target.value)}
-            className={selectClass}
+            className={inputClass}
           />
         </div>
 
-        {/* منتج GPS + الكمية — 2 cols */}
-        <div className="md:col-span-2 lg:col-span-2" data-tour="pos-product">
-          <label className="mb-xs block text-sm text-on-surface-variant">المنتج والكمية</label>
-          <div className="space-y-xs rounded-lg border border-outline-variant/60 bg-surface-container-low p-sm">
+        {/* منتج + كمية */}
+        <div className="w-full shrink-0 xl:w-[14rem]" data-tour="pos-product">
+          <label className={labelClass}>المنتج والكمية</label>
+          <div className={accentBox}>
             {productLoading ? (
               <p className="text-xs text-on-surface-variant">جاري التحميل...</p>
             ) : (
@@ -220,7 +251,7 @@ export function PosContractHeader({
                     max={maxQuantity}
                     value={quantity}
                     onChange={(e) => onQuantityChange(Number(e.target.value))}
-                    className={`${selectClass} tabular-nums`}
+                    className={`${inputClass} tabular-nums`}
                   />
                 </div>
               </>
@@ -228,41 +259,105 @@ export function PosContractHeader({
           </div>
         </div>
 
-        {/* رسوم التركيب — 2 cols */}
+        {/* رسوم التركيب */}
         {enableInstallationFee && (
-          <div className="md:col-span-2 lg:col-span-2">
-            <div className="space-y-xs rounded-lg border border-outline-variant/60 bg-surface-container-low p-sm">
-              <div className="flex items-center justify-between gap-sm">
-                <label className="text-sm font-medium text-on-surface">رسوم التركيب</label>
+          <div className="min-w-[16rem] flex-1">
+            <div className={accentBox}>
+              <div className="flex flex-wrap items-center gap-sm">
+                <span className="text-sm font-medium text-on-surface">رسوم التركيب</span>
                 {allowDisableFeeInSale && (
-                  <label className="flex items-center gap-xs text-xs">
+                  <label className="ms-auto flex items-center gap-xs text-xs text-on-surface-variant">
                     <input
                       type="checkbox"
                       checked={applyInstallationFee}
                       onChange={(e) => onApplyInstallationFeeChange(e.target.checked)}
+                      className="rounded border-outline-variant"
                     />
                     تطبيق
                   </label>
                 )}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={installationFeePerUnit}
+                  disabled={!applyInstallationFee}
+                  onChange={(e) => onInstallationFeeChange(Number(e.target.value))}
+                  className={`${inputClass} w-24 tabular-nums disabled:opacity-50`}
+                />
               </div>
+
               {applyInstallationFee && (
                 <>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={installationFeePerUnit}
-                    onChange={(e) => onInstallationFeeChange(Number(e.target.value))}
-                    className={`${selectClass} tabular-nums`}
-                  />
-                  <DiscountInput
-                    label="خصم الرسوم"
-                    baseAmount={Number(installationFeePerUnit)}
-                    amount={feeDiscountAmount}
-                    percent={feeDiscountPercent}
-                    mode={feeDiscountMode}
-                    onChange={onFeeDiscountChange}
-                  />
+                  <div className="flex items-center justify-between gap-sm">
+                    <span className="text-xs text-on-surface-variant">خصم الرسوم</span>
+                    <div className="flex gap-1 rounded-lg border border-outline-variant p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onFeeDiscountChange({
+                            amount: feeDiscountAmount,
+                            percent: feeDiscountPercent,
+                            mode: 'amount',
+                          })
+                        }
+                        className={`rounded px-2 py-0.5 ${
+                          feeDiscountMode === 'amount' ? 'bg-primary text-on-primary' : ''
+                        }`}
+                      >
+                        مبلغ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onFeeDiscountChange({
+                            amount: feeDiscountAmount,
+                            percent: feeDiscountPercent,
+                            mode: 'percent',
+                          })
+                        }
+                        className={`rounded px-2 py-0.5 ${
+                          feeDiscountMode === 'percent' ? 'bg-primary text-on-primary' : ''
+                        }`}
+                      >
+                        %
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-xs">
+                    <div>
+                      <label className="mb-xs block text-xs text-on-surface-variant">
+                        الخصم (ج.م)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={installationFeePerUnit}
+                        step="0.01"
+                        value={feeDiscountAmount || ''}
+                        onChange={(e) => handleFeeDiscountAmount(Number(e.target.value))}
+                        className={`${inputClass} tabular-nums`}
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-xs block text-xs text-on-surface-variant">
+                        الخصم (%)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        value={feeDiscountPercent || ''}
+                        onChange={(e) => handleFeeDiscountPercent(Number(e.target.value))}
+                        className={`${inputClass} tabular-nums`}
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
                   <p className="text-xs tabular-nums text-on-surface-variant">
                     صافي × {deviceCount}:{' '}
                     <strong>{netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م</strong>

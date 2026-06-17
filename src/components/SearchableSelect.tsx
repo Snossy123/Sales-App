@@ -86,7 +86,7 @@ export function SearchableSelect<T>({
   return (
     <div ref={rootRef} className="relative" data-tour={dataTour}>
       {label ? (
-        <label className="mb-xs block text-sm text-on-surface-variant">{label}</label>
+        <label className="mb-xs block text-xs text-on-surface-variant">{label}</label>
       ) : null}
       <div className="relative">
         <input

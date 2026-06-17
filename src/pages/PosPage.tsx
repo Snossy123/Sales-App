@@ -169,7 +169,7 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
-    enabled: Boolean(resolvedBranchId),
+    enabled: Boolean(warehouseId),
   })
 
   const productQuery = useQuery({
@@ -428,7 +428,6 @@ export function PosPage() {
                 maxInstallmentCount={maxInstallmentCount}
                 employees={employeesQuery.data ?? []}
                 employeesLoading={employeesQuery.isLoading}
-                branchReady={Boolean(resolvedBranchId)}
               />
             ))}
           </div>

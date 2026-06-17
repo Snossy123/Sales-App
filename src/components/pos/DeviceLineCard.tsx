@@ -117,7 +117,6 @@ interface DeviceLineCardProps {
   maxInstallmentCount: number
   employees: Employee[]
   employeesLoading: boolean
-  branchReady: boolean
 }
 
 export function DeviceLineCard({
@@ -129,7 +128,6 @@ export function DeviceLineCard({
   maxInstallmentCount,
   employees,
   employeesLoading,
-  branchReady,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -256,8 +254,7 @@ export function DeviceLineCard({
                 }
                 placeholder="ابحث باسم الفني..."
                 loading={employeesLoading}
-                disabled={!branchReady}
-                emptyMessage={branchReady ? 'لا يوجد فني مطابق' : 'اختر فرع/موزع أولاً'}
+                emptyMessage="لا يوجد فني مطابق"
               />
             </div>
           </div>
