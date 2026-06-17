@@ -362,6 +362,11 @@ export interface SalesInvoiceLine {
   unit_price: string | number
   discount?: string | number
   line_total?: string | number
+  payment_term?: 'cash' | 'installment' | null
+  technician_id?: number | null
+  username?: string | null
+  technician?: { id: number; name: string; job_title?: string | null } | null
+  installment_plan?: InstallmentPlan | null
   product_name_ar?: string | null
   product_unit?: ProductUnit
   serial_number?: string | null
@@ -471,21 +476,11 @@ export interface CheckoutPayload {
   distributor_id?: number
   warehouse_id: number
   branch_id?: number
-  payment_term: 'cash' | 'credit' | 'installment'
+  payment_term?: 'cash' | 'credit' | 'installment' | 'mixed'
   discount_amount?: number
   installation_fee?: number
   invoice_date?: string
   notes?: string
-  technician_name?: string
-  technician_id?: number
-  vehicle_info?: string
-  vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
-  vehicle_plate_letters?: string
-  vehicle_plate_numbers?: string
-  chassis_number?: string
-  engine_number?: string
-  renewal_type?: 'annual' | 'permanent'
-  subscription_renewal_date?: string
   lines: {
     product_unit_id?: number
     product_id?: number
@@ -494,6 +489,9 @@ export interface CheckoutPayload {
     discount?: number
     serial_number?: string
     sim_number?: string
+    username?: string
+    payment_term?: 'cash' | 'installment'
+    technician_id?: number
     vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
     vehicle_plate_letters?: string
     vehicle_plate_numbers?: string
@@ -501,6 +499,14 @@ export interface CheckoutPayload {
     engine_number?: string
     renewal_type?: 'annual' | 'permanent'
     subscription_renewal_date?: string
+    installment_plan?: {
+      down_payment?: number
+      installment_count: number
+      installment_amount?: number
+      interval_type?: 'monthly' | 'weekly'
+      interval_days?: number
+      first_due_date: string
+    }
   }[]
   installment_plan?: {
     down_payment?: number

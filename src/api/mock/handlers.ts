@@ -23,6 +23,8 @@ import type {
   PaginatedResponse,
   CrmMarketplace,
   SalesInvoice,
+  SalesInvoiceLine,
+  InstallmentPlan,
   TransactionMapPayload,
   TrialBalanceReport,
   MediaFile,
@@ -268,11 +270,16 @@ function refreshInvoicePayment(invoice: SalesInvoice): void {
 function generateInstallmentItems(
   state: DemoState,
   invoice: SalesInvoice,
+  line?: SalesInvoiceLine,
+  planOverride?: InstallmentPlan,
 ): void {
-  const plan = invoice.installment_plan
+  const plan = planOverride ?? line?.installment_plan ?? invoice.installment_plan
   if (!plan) return
 
-  const financed = Number(invoice.total) - Number(plan.down_payment)
+  const financedBase = line
+    ? Number(line.line_total ?? 0)
+    : Number(invoice.total)
+  const financed = financedBase - Number(plan.down_payment)
   const count = plan.installment_count
   const fixedAmount = plan.installment_amount != null ? Number(plan.installment_amount) : null
   const base = fixedAmount ?? Math.floor((financed / count) * 100) / 100
@@ -1167,13 +1174,17 @@ export function handleMockRequest(
 
       const installationFeeGross = Number(body.installation_fee ?? 0)
       const feeDiscount = Number(body.discount_amount ?? 0)
-      const installationFee = Math.max(0, installationFeeGross - feeDiscount)
+      const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
+      const installationFee = installationFeePerUnit * body.lines.length
       let subtotal = 0
       const invoiceLines = body.lines.map((line, index) => {
         const price = Number(line.unit_price ?? s.gpsProduct.sell_price)
         const discount = Number(line.discount ?? 0)
         const lineTotal = Math.max(0, price - discount)
         subtotal += lineTotal
+        const technician = line.technician_id
+          ? s.employees.find((e) => e.id === line.technician_id)
+          : undefined
         return {
           id: s.counters.invoice * 100 + index + 1,
           product_id: s.gpsProduct.id,
@@ -1182,6 +1193,10 @@ export function handleMockRequest(
           unit_price: price,
           discount,
           line_total: lineTotal,
+          payment_term: line.payment_term ?? 'cash',
+          technician_id: line.technician_id ?? null,
+          username: line.username ?? null,
+          technician: technician ? { id: technician.id, name: technician.name } : null,
           serial_number: line.serial_number ?? null,
           sim_number: line.sim_number ?? null,
           vehicle_type: line.vehicle_type ?? null,
@@ -1202,18 +1217,23 @@ export function handleMockRequest(
 
       stock.reserved += qty
       const total = subtotal + installationFee
-      let downPayment = 0
-      if (body.payment_term === 'installment' && body.installment_plan) {
-        const count = Number(body.installment_plan.installment_count ?? 0)
-        const amount = Number(body.installment_plan.installment_amount ?? 0)
-        if (amount > 0 && count > 0) {
-          downPayment = Math.max(0, Math.round((total - amount * count) * 100) / 100)
-        } else {
-          downPayment = Number(body.installment_plan.down_payment ?? 0)
+
+      const lineTerms = body.lines.map((l) => l.payment_term ?? 'cash')
+      const uniqueTerms = [...new Set(lineTerms)]
+      const paymentTerm =
+        uniqueTerms.length > 1 ? 'mixed' : (uniqueTerms[0] as SalesInvoice['payment_term'])
+
+      let paidAmount = installationFee
+      body.lines.forEach((line, index) => {
+        const lineTotal = Number(invoiceLines[index].line_total ?? 0)
+        if ((line.payment_term ?? 'cash') === 'cash') {
+          paidAmount += lineTotal
+        } else if (line.installment_plan) {
+          paidAmount += Number(line.installment_plan.down_payment ?? 0)
         }
-      } else if (body.payment_term === 'cash') {
-        downPayment = total
-      }
+      })
+      paidAmount = Math.round(paidAmount * 100) / 100
+
       const invoiceId = s.counters.invoice++
       const invoice: SalesInvoice = {
         id: invoiceId,
@@ -1225,16 +1245,16 @@ export function handleMockRequest(
         distributor_id: body.distributor_id ?? null,
         status: 'confirmed',
         review_status: 'pending',
-        payment_term: body.payment_term,
-        payment_status: downPayment >= total ? 'paid' : downPayment > 0 ? 'partial' : 'unpaid',
+        payment_term: paymentTerm,
+        payment_status: paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
         total,
-        paid_amount: downPayment,
-        balance_due: Math.max(0, total - downPayment),
+        paid_amount: paidAmount,
+        balance_due: Math.max(0, total - paidAmount),
         confirmed_at: new Date().toISOString(),
-        technician_name: body.technician_name ?? null,
-        technician_id: body.technician_id ?? null,
+        technician_name: null,
+        technician_id: null,
         subtotal,
-        discount_amount: feeDiscount,
+        discount_amount: feeDiscount * body.lines.length,
         installation_fee: installationFee,
         vehicle_info: body.vehicle_info ?? null,
         vehicle_type: body.vehicle_type ?? null,
@@ -1248,29 +1268,30 @@ export function handleMockRequest(
         created_by: 2,
       }
 
-      if (body.payment_term === 'installment' && body.installment_plan) {
-        const count = Number(body.installment_plan.installment_count ?? 0)
-        const amount = Number(body.installment_plan.installment_amount ?? 0)
-        const computedDown =
-          amount > 0 && count > 0
-            ? Math.max(0, Math.round((total - amount * count) * 100) / 100)
-            : Number(body.installment_plan.down_payment ?? 0)
-        invoice.installment_plan = {
-          id: invoiceId,
-          down_payment: computedDown,
-          installment_count: body.installment_plan.installment_count,
-          installment_amount: body.installment_plan.installment_amount,
-          interval_type: body.installment_plan.interval_type ?? 'monthly',
-          interval_days: body.installment_plan.interval_days ?? 30,
-          first_due_date: body.installment_plan.first_due_date,
-          status: 'draft',
+      body.lines.forEach((lineInput, index) => {
+        if (lineInput.payment_term !== 'installment' || !lineInput.installment_plan) return
+        const invLine = invoiceLines[index]
+        const planData = lineInput.installment_plan
+        const count = Number(planData.installment_count ?? 0)
+        const amount = Number(planData.installment_amount ?? 0)
+        const down =
+          planData.down_payment != null && planData.down_payment !== ''
+            ? Number(planData.down_payment)
+            : Math.max(0, Math.round((Number(invLine.line_total) - amount * count) * 100) / 100)
+        const plan = {
+          id: invoiceId * 10 + index + 1,
+          down_payment: down,
+          installment_count: count,
+          installment_amount: planData.installment_amount,
+          interval_type: planData.interval_type ?? 'monthly',
+          interval_days: planData.interval_days ?? 30,
+          first_due_date: planData.first_due_date,
+          status: 'draft' as const,
           items: [],
         }
-        generateInstallmentItems(s, invoice)
-        invoice.paid_amount = computedDown
-        invoice.balance_due = Math.max(0, total - invoice.paid_amount)
-        invoice.payment_status = invoice.balance_due <= 0 ? 'paid' : 'partial'
-      }
+        invLine.installment_plan = plan
+        generateInstallmentItems(s, invoice, invLine, plan)
+      })
 
       s.invoices.push(invoice)
       created = invoice

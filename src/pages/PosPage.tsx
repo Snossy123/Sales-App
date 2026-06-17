@@ -7,20 +7,13 @@ import type {
   CheckoutPayload,
   Customer,
   Distributor,
-  Employee,
   GpsProduct,
   GpsStock,
   PaginatedResponse,
   ProductUnit,
   SalesInvoice,
 } from '../api/types'
-import {
-  contractPrintPath,
-  computeInstallmentDownPayment,
-  computeMinDownPayment,
-  distributorLabel,
-  suggestInstallmentAmount,
-} from '../lib/sales'
+import { contractPrintPath } from '../lib/sales'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -29,17 +22,19 @@ import { usePageTour } from '../hooks/usePageTour'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
-import { SearchableSelect } from '../components/SearchableSelect'
-import { DiscountInput } from '../components/pos/DiscountInput'
 import {
   createDeviceLine,
   DeviceLineCard,
+  lineInstallmentCount,
+  lineNetTotal,
+  validateInstallmentLine,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
+import {
+  PosContractHeader,
+  type TransactionSource,
+} from '../components/pos/PosContractHeader'
 import type { DiscountMode } from '../lib/discount'
-
-type IntervalType = 'monthly' | 'weekly'
-type TransactionSource = 'branch' | 'distributor'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -47,7 +42,8 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
-const selectClass = 'w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none'
+const selectClass =
+  'w-full rounded border border-outline-variant px-sm py-2 focus:border-primary focus:outline-none'
 
 export function PosPage() {
   usePageTour('pos')
@@ -58,6 +54,8 @@ export function PosPage() {
   const enableInstallationFee = salesSettings?.enable_installation_fee ?? true
   const defaultInstallationFee = salesSettings?.default_installation_fee ?? 500
   const allowDisableFeeInSale = salesSettings?.allow_disable_installation_fee_in_sale ?? true
+  const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
+  const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
   const [transactionSource, setTransactionSource] = useState<TransactionSource>('distributor')
   const [branchSearch, setBranchSearch] = useState('')
@@ -66,7 +64,6 @@ export function PosPage() {
   const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [paymentTerm, setPaymentTerm] = useState<'cash' | 'installment'>('installment')
   const [quantity, setQuantity] = useState(1)
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
   const [applyInstallationFee, setApplyInstallationFee] = useState(true)
@@ -74,11 +71,6 @@ export function PosPage() {
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
   const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
   const [feeDiscountMode, setFeeDiscountMode] = useState<DiscountMode>('amount')
-  const [installmentAmount, setInstallmentAmount] = useState(500)
-  const [installmentCount, setInstallmentCount] = useState(6)
-  const [intervalType, setIntervalType] = useState<IntervalType>('monthly')
-  const [firstDueDate, setFirstDueDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [technicianId, setTechnicianId] = useState<number | ''>('')
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
@@ -98,17 +90,13 @@ export function PosPage() {
     setBranchSearch('')
     setDistributorSearch('')
     setCustomerSearch('')
-    setTechnicianId('')
   }
 
   const handleTransactionSourceChange = (source: TransactionSource) => {
     setTransactionSource(source)
     resetTransactionSelections()
+    setDeviceLines((prev) => prev.map((line) => ({ ...line, technician: null })))
   }
-
-  useEffect(() => {
-    setInstallationFee(defaultInstallationFee)
-  }, [defaultInstallationFee])
 
   const branchesQuery = useQuery({
     queryKey: ['branches', 'pos'],
@@ -181,7 +169,10 @@ export function PosPage() {
         'filter[status]': 'active',
       }
       if (resolvedBranchId) params['filter[branch_id]'] = resolvedBranchId
-      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
+      const { data } = await api.get<PaginatedResponse<{ id: number; name: string; job_title?: string }>>(
+        '/employees',
+        { params },
+      )
       return data.data
     },
     enabled: Boolean(resolvedBranchId),
@@ -241,41 +232,46 @@ export function PosPage() {
             serialNumber: existing.serialNumber || unit?.serial_number || '',
           })
         } else {
-          next.push(createDeviceLine(Number(unitPrice), unit))
+          next.push(
+            createDeviceLine(Number(unitPrice), unit, {
+              contractDate,
+              minDownPercent,
+            }),
+          )
         }
       }
       return next
     })
-  }, [quantity, unitPrice, unitsQuery.data])
+  }, [quantity, unitPrice, unitsQuery.data, contractDate, minDownPercent])
 
-  const grossInstallationFee =
+  const grossInstallationFeePerUnit =
     enableInstallationFee && applyInstallationFee ? Number(installationFee) : 0
-  const netInstallationFee = Math.max(0, grossInstallationFee - feeDiscountAmount)
-  const devicesSubtotal = deviceLines.reduce(
-    (sum, line) => sum + Math.max(0, line.unitPrice - line.discountAmount),
-    0,
+  const netInstallationFeePerUnit = Math.max(0, grossInstallationFeePerUnit - feeDiscountAmount)
+  const netInstallationFeeTotal = netInstallationFeePerUnit * deviceLines.length
+
+  const devicesSubtotal = deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)
+  const totalEstimate = devicesSubtotal + netInstallationFeeTotal
+
+  const paidAtCheckout = useMemo(() => {
+    let paid = netInstallationFeeTotal
+    for (const line of deviceLines) {
+      const net = lineNetTotal(line)
+      if (line.paymentTerm === 'cash') {
+        paid += net
+      } else {
+        paid += line.downPayment
+      }
+    }
+    return paid
+  }, [deviceLines, netInstallationFeeTotal])
+
+  const allInstallmentLinesValid = deviceLines.every(
+    (line) => validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid,
   )
-  const totalEstimate = devicesSubtotal + netInstallationFee
-  const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
-  const computedDownPayment = useMemo(
-    () => computeInstallmentDownPayment(totalEstimate, installmentAmount, installmentCount),
-    [totalEstimate, installmentAmount, installmentCount],
-  )
-  const minDownPayment = useMemo(
-    () => computeMinDownPayment(totalEstimate, minDownPercent),
-    [totalEstimate, minDownPercent],
-  )
-  const installmentsExceedTotal =
-    paymentTerm === 'installment' && installmentAmount * installmentCount > totalEstimate + 0.009
-  const downPaymentTooLow =
-    paymentTerm === 'installment' &&
-    !installmentsExceedTotal &&
-    computedDownPayment < minDownPayment - 0.009
 
   useEffect(() => {
-    if (totalEstimate <= 0) return
-    setInstallmentAmount(suggestInstallmentAmount(totalEstimate, installmentCount, minDownPercent))
-  }, [totalEstimate, installmentCount, minDownPercent])
+    setInstallationFee(defaultInstallationFee)
+  }, [defaultInstallationFee])
 
   const checkoutMutation = useMutation({
     mutationFn: async (payload: CheckoutPayload) => {
@@ -307,18 +303,22 @@ export function PosPage() {
       transactionSource === 'branch' ? Boolean(selectedBranch) : Boolean(selectedDistributor)
     if (!customerId || !sourceReady || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
     if (!allowNegativeInventory && quantity > available) return
+    if (!allInstallmentLinesValid) return
 
     const units = unitsQuery.data ?? []
     const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
       const unit = units[index]
       const renewalDate =
         line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
-      return {
+      const base = {
         product_unit_id: line.productUnitId ?? unit?.id,
         unit_price: line.unitPrice,
         discount: line.discountAmount,
         serial_number: line.serialNumber.trim() || undefined,
         sim_number: line.simNumber.trim() || undefined,
+        username: line.username.trim() || undefined,
+        payment_term: line.paymentTerm,
+        technician_id: line.technician?.id,
         vehicle_type: line.vehicleType || undefined,
         vehicle_plate_letters: line.vehiclePlateLetters.trim() || undefined,
         vehicle_plate_numbers: line.vehiclePlateNumbers.trim() || undefined,
@@ -327,6 +327,22 @@ export function PosPage() {
         renewal_type: line.renewalType,
         subscription_renewal_date: renewalDate,
       }
+
+      if (line.paymentTerm === 'installment') {
+        return {
+          ...base,
+          installment_plan: {
+            installment_count: lineInstallmentCount(line, maxInstallmentCount),
+            installment_amount: line.installmentAmount,
+            down_payment: line.downPayment,
+            interval_type: line.intervalType,
+            interval_days: line.intervalType === 'weekly' ? 7 : 30,
+            first_due_date: line.firstDueDate,
+          },
+        }
+      }
+
+      return base
     })
 
     if (!allowNegativeInventory && lines.some((l) => !l.product_unit_id)) return
@@ -335,26 +351,14 @@ export function PosPage() {
       customer_id: customerId,
       warehouse_id: warehouseId,
       branch_id: resolvedBranchId || undefined,
-      payment_term: paymentTerm,
-      installation_fee: grossInstallationFee,
+      installation_fee: grossInstallationFeePerUnit,
       discount_amount: feeDiscountAmount,
       invoice_date: contractDate,
-      technician_id: technicianId ? Number(technicianId) : undefined,
       lines,
     }
 
     if (transactionSource === 'distributor' && selectedDistributor) {
       payload.distributor_id = selectedDistributor.id
-    }
-
-    if (paymentTerm === 'installment') {
-      payload.installment_plan = {
-        installment_count: installmentCount,
-        installment_amount: installmentAmount,
-        interval_type: intervalType,
-        interval_days: intervalType === 'weekly' ? 7 : 30,
-        first_due_date: firstDueDate,
-      }
     }
 
     checkoutMutation.mutate(payload)
@@ -363,380 +367,172 @@ export function PosPage() {
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="تعاقد GPS لكل جهاز — سريال وشريحة وخصم ومركبة لكل قطعة"
+      subtitle="بيانات التعاقد في الأعلى — لكل جهاز: دفع، فني، سريال، شريحة، ومركبة"
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId ? (
         <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
       ) : (
-        <form onSubmit={handleCheckout} className="grid gap-md lg:grid-cols-2">
-          <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-            <h2 className="font-semibold text-on-surface">بيانات العملية</h2>
+        <form onSubmit={handleCheckout} className="mx-auto flex max-w-3xl flex-col gap-md">
+          <PosContractHeader
+            transactionSource={transactionSource}
+            onTransactionSourceChange={handleTransactionSourceChange}
+            branchSearch={branchSearch}
+            selectedBranch={selectedBranch}
+            onBranchChange={setSelectedBranch}
+            onBranchSearchChange={setBranchSearch}
+            filteredBranches={filteredBranches}
+            branchesLoading={branchesQuery.isLoading}
+            distributorSearch={distributorSearch}
+            selectedDistributor={selectedDistributor}
+            onDistributorChange={setSelectedDistributor}
+            onDistributorSearchChange={setDistributorSearch}
+            distributors={distributorsQuery.data ?? []}
+            distributorsLoading={distributorsQuery.isLoading}
+            customerSearch={customerSearch}
+            selectedCustomer={selectedCustomer}
+            onCustomerChange={setSelectedCustomer}
+            onCustomerSearchChange={setCustomerSearch}
+            customers={customersQuery.data ?? []}
+            customersLoading={customersQuery.isLoading}
+            contractDate={contractDate}
+            onContractDateChange={setContractDate}
+            enableInstallationFee={enableInstallationFee}
+            applyInstallationFee={applyInstallationFee}
+            onApplyInstallationFeeChange={setApplyInstallationFee}
+            allowDisableFeeInSale={allowDisableFeeInSale}
+            installationFeePerUnit={installationFee}
+            onInstallationFeeChange={setInstallationFee}
+            feeDiscountAmount={feeDiscountAmount}
+            feeDiscountPercent={feeDiscountPercent}
+            feeDiscountMode={feeDiscountMode}
+            onFeeDiscountChange={({ amount, percent, mode }) => {
+              setFeeDiscountAmount(amount)
+              setFeeDiscountPercent(percent)
+              setFeeDiscountMode(mode)
+            }}
+            deviceCount={deviceLines.length}
+            netInstallationFeeTotal={netInstallationFeeTotal}
+          />
 
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">مصدر التعاقد</label>
-              <div className="flex gap-sm">
-                {(
-                  [
-                    { id: 'branch' as const, label: 'تعاقد عبر فرع' },
-                    { id: 'distributor' as const, label: 'تعاقد عبر موزع' },
-                  ] as const
-                ).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleTransactionSourceChange(item.id)}
-                    className={`flex-1 rounded-lg border py-sm text-sm font-medium transition-colors ${
-                      transactionSource === item.id
-                        ? 'border-primary bg-primary text-on-primary'
-                        : 'border-outline-variant bg-surface-container-low hover:bg-surface-container-high'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {transactionSource === 'branch' ? (
-              <SearchableSelect
-                data-tour="pos-source"
-                label="الفرع"
-                options={filteredBranches}
-                value={selectedBranch}
-                onChange={setSelectedBranch}
-                onSearchChange={setBranchSearch}
-                getOptionValue={(b) => b.id}
-                getOptionLabel={(b) => b.name_ar || b.name}
-                placeholder="ابحث باسم الفرع..."
-                loading={branchesQuery.isLoading}
-                emptyMessage="لا يوجد فرع مطابق"
-              />
-            ) : (
-              <SearchableSelect
-                data-tour="pos-source"
-                label="الموزع"
-                options={distributorsQuery.data ?? []}
-                value={selectedDistributor}
-                onChange={setSelectedDistributor}
-                onSearchChange={setDistributorSearch}
-                getOptionValue={(d) => d.id}
-                getOptionLabel={(d) =>
-                  `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
-                }
-                placeholder="ابحث بالكود أو الاسم أو الهاتف..."
-                loading={distributorsQuery.isLoading}
-                emptyMessage="لا يوجد موزع مطابق"
-              />
+          <div data-tour="pos-product" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+            <h2 className="mb-md font-semibold text-on-surface">أجهزة GPS</h2>
+            {allowNegativeInventory && (
+              <p className="mb-sm rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
+                المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
+              </p>
             )}
-
-            <SearchableSelect
-              data-tour="pos-customer"
-              label="العميل"
-              options={customersQuery.data ?? []}
-              value={selectedCustomer}
-              onChange={setSelectedCustomer}
-              onSearchChange={setCustomerSearch}
-              getOptionValue={(c) => c.id}
-              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-              placeholder="ابحث بالاسم أو رقم الموبايل..."
-              loading={customersQuery.isLoading}
-              emptyMessage="لا يوجد عميل مطابق"
-            />
-
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">تاريخ التعاقد</label>
-              <input
-                type="date"
-                value={contractDate}
-                onChange={(e) => setContractDate(e.target.value)}
-                className={selectClass}
-              />
-            </div>
-
-            <div data-tour="pos-payment">
-              <label className="mb-xs block text-sm text-on-surface-variant">طريقة الدفع</label>
-              <div className="flex gap-sm">
-                {(['cash', 'installment'] as const).map((term) => (
-                  <button
-                    key={term}
-                    type="button"
-                    onClick={() => setPaymentTerm(term)}
-                    className={`flex-1 rounded-lg border py-sm text-sm font-medium transition-colors ${
-                      paymentTerm === term
-                        ? 'border-primary bg-primary text-on-primary'
-                        : 'border-outline-variant bg-surface-container-low hover:bg-surface-container-high'
-                    }`}
-                  >
-                    {term === 'cash' ? 'نقدي' : 'تقسيط'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {enableInstallationFee && (
-              <div className="space-y-sm rounded-lg border border-outline-variant/60 p-sm">
-                <div className="flex items-center justify-between gap-sm">
-                  <label className="text-sm font-medium text-on-surface">رسوم التركيب</label>
-                  {allowDisableFeeInSale && (
-                    <label className="flex items-center gap-xs text-sm">
-                      <input
-                        type="checkbox"
-                        checked={applyInstallationFee}
-                        onChange={(e) => setApplyInstallationFee(e.target.checked)}
-                      />
-                      تطبيق الرسوم
-                    </label>
-                  )}
-                </div>
-                {applyInstallationFee && (
-                  <>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={installationFee}
-                      onChange={(e) => setInstallationFee(Number(e.target.value))}
-                      className={`${selectClass} tabular-nums`}
-                    />
-                    <DiscountInput
-                      label="خصم رسوم التركيب"
-                      baseAmount={Number(installationFee)}
-                      amount={feeDiscountAmount}
-                      percent={feeDiscountPercent}
-                      mode={feeDiscountMode}
-                      onChange={({ amount, percent, mode }) => {
-                        setFeeDiscountAmount(amount)
-                        setFeeDiscountPercent(percent)
-                        setFeeDiscountMode(mode)
-                      }}
-                    />
-                    <p className="text-sm tabular-nums text-on-surface-variant">
-                      صافي الرسوم: <strong>{netInstallationFee.toLocaleString('ar-EG')} ج.م</strong>
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            {paymentTerm === 'installment' && (
-              <>
-                <div>
-                  <label className="mb-xs block text-sm text-on-surface-variant">نوع القسط</label>
-                  <div className="flex gap-sm">
-                    {(['monthly', 'weekly'] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setIntervalType(type)
-                          setFirstDueDate(addDays(contractDate, type === 'weekly' ? 7 : 30))
-                        }}
-                        className={`flex-1 rounded-lg border py-sm text-sm font-medium ${
-                          intervalType === type
-                            ? 'border-primary bg-primary text-on-primary'
-                            : 'border-outline-variant bg-surface-container-low'
-                        }`}
-                      >
-                        {type === 'monthly' ? 'شهري' : 'أسبوعي'}
-                      </button>
-                    ))}
+            <AsyncState
+              isLoading={productQuery.isLoading || stockQuery.isLoading}
+              isError={productQuery.isError || stockQuery.isError}
+              error={productQuery.error ?? stockQuery.error}
+            >
+              {productQuery.data && (
+                <div className="mb-md rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
+                  <div className="mb-sm flex items-center gap-sm">
+                    <Icon name="gps_fixed" className="text-primary" />
+                    <span className="font-medium">
+                      {productQuery.data.name_ar || productQuery.data.name}
+                    </span>
                   </div>
-                </div>
-                <div className="grid gap-sm sm:grid-cols-2">
+                  <p className="mb-sm text-sm text-on-surface-variant">
+                    متاح: <strong className="tabular-nums">{available}</strong> قطعة
+                  </p>
+                  <p className="mb-md tabular-nums text-sm">
+                    سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                  </p>
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={installmentAmount}
-                      onChange={(e) => setInstallmentAmount(Number(e.target.value))}
-                      className={`${selectClass} tabular-nums`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط</label>
+                    <label className="mb-xs block text-sm text-on-surface-variant">عدد الأجهزة</label>
                     <input
                       type="number"
                       min={1}
-                      max={salesSettings?.max_installment_months ?? 24}
-                      value={installmentCount}
-                      onChange={(e) => setInstallmentCount(Number(e.target.value))}
+                      max={maxQuantity}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Number(e.target.value))}
                       className={`${selectClass} tabular-nums`}
                     />
                   </div>
-                  <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">المقدم (يُحسب تلقائياً)</label>
-                    <div className="rounded border border-outline-variant bg-surface-container-low px-sm py-2 text-sm font-medium tabular-nums">
-                      {computedDownPayment.toLocaleString('ar-EG')} ج.م
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
-                    <input
-                      type="date"
-                      value={firstDueDate}
-                      onChange={(e) => setFirstDueDate(e.target.value)}
-                      className={selectClass}
-                    />
-                  </div>
                 </div>
-                {installmentsExceedTotal && (
-                  <p className="text-sm text-error">
-                    مجموع الأقساط يتجاوز الإجمالي — قلّل قيمة القسط أو عدد الأقساط.
-                  </p>
-                )}
-                {downPaymentTooLow && (
-                  <p className="text-sm text-error">
-                    المقدم المحسوب أقل من الحد الأدنى ({minDownPercent}% = {minDownPayment.toLocaleString('ar-EG')} ج.م)
-                  </p>
-                )}
-              </>
-            )}
+              )}
+            </AsyncState>
 
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">الفني (دعم)</label>
-              <select
-                value={technicianId}
-                onChange={(e) => setTechnicianId(e.target.value ? Number(e.target.value) : '')}
-                className={selectClass}
-              >
-                <option value="">اختر موظف الدعم الفني</option>
-                {(employeesQuery.data ?? []).map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                    {emp.job_title ? ` — ${emp.job_title}` : ''}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-md">
+              {deviceLines.map((line, index) => (
+                <DeviceLineCard
+                  key={line.key}
+                  index={index}
+                  line={line}
+                  contractDate={contractDate}
+                  onChange={(next) => updateDeviceLine(index, next)}
+                  minDownPercent={minDownPercent}
+                  maxInstallmentCount={maxInstallmentCount}
+                  employees={employeesQuery.data ?? []}
+                  employeesLoading={employeesQuery.isLoading}
+                  branchReady={Boolean(resolvedBranchId)}
+                />
+              ))}
             </div>
           </div>
 
-          <div data-tour="pos-product" className="space-y-md">
-            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-              <h2 className="mb-md font-semibold text-on-surface">أجهزة GPS</h2>
-              {allowNegativeInventory && (
-                <p className="mb-sm rounded-lg bg-amber-500/10 px-sm py-xs text-xs text-amber-800">
-                  المخزون السالب مفعّل — يمكن التعاقد بدون وحدات متاحة
-                </p>
-              )}
-              <AsyncState
-                isLoading={productQuery.isLoading || stockQuery.isLoading}
-                isError={productQuery.isError || stockQuery.isError}
-                error={productQuery.error ?? stockQuery.error}
-              >
-                {productQuery.data && (
-                  <div className="mb-md rounded-lg border border-outline-variant/60 bg-surface-container-low p-md">
-                    <div className="mb-sm flex items-center gap-sm">
-                      <Icon name="gps_fixed" className="text-primary" />
-                      <span className="font-medium">
-                        {productQuery.data.name_ar || productQuery.data.name}
-                      </span>
-                    </div>
-                    <p className="mb-sm text-sm text-on-surface-variant">
-                      متاح: <strong className="tabular-nums">{available}</strong> قطعة
-                    </p>
-                    <p className="mb-md tabular-nums text-sm">
-                      سعر الوحدة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
-                    </p>
-                    <div>
-                      <label className="mb-xs block text-sm text-on-surface-variant">عدد الأجهزة</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={maxQuantity}
-                        value={quantity}
-                        onChange={(e) => setQuantity(Number(e.target.value))}
-                        className={`${selectClass} tabular-nums`}
-                      />
-                    </div>
-                  </div>
-                )}
-              </AsyncState>
-
-              <div className="space-y-md">
-                {deviceLines.map((line, index) => (
-                  <DeviceLineCard
-                    key={line.key}
-                    index={index}
-                    line={line}
-                    contractDate={contractDate}
-                    onChange={(next) => updateDeviceLine(index, next)}
-                  />
-                ))}
+          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+            <div className="mb-sm space-y-1 text-sm text-on-surface-variant">
+              <div className="flex justify-between tabular-nums">
+                <span>قيمة الأجهزة (بعد الخصم)</span>
+                <span>{devicesSubtotal.toLocaleString('ar-EG')} ج.م</span>
+              </div>
+              <div className="flex justify-between tabular-nums">
+                <span>رسوم التركيب ({deviceLines.length} × جهاز)</span>
+                <span>{netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م</span>
+              </div>
+              <div className="flex justify-between tabular-nums font-medium text-on-surface">
+                <span>المطلوب عند التعاقد</span>
+                <span>{paidAtCheckout.toLocaleString('ar-EG')} ج.م</span>
               </div>
             </div>
-
-            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-              <div className="mb-sm space-y-1 text-sm text-on-surface-variant">
-                <div className="flex justify-between tabular-nums">
-                  <span>قيمة الأجهزة (بعد الخصم)</span>
-                  <span>{devicesSubtotal.toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="flex justify-between tabular-nums">
-                  <span>رسوم التركيب (صافي)</span>
-                  <span>{netInstallationFee.toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                {paymentTerm === 'installment' && (
-                  <>
-                    <div className="flex justify-between tabular-nums">
-                      <span>مجموع الأقساط</span>
-                      <span>{(installmentAmount * installmentCount).toLocaleString('ar-EG')} ج.م</span>
-                    </div>
-                    <div className="flex justify-between tabular-nums">
-                      <span>المقدم</span>
-                      <span>{computedDownPayment.toLocaleString('ar-EG')} ج.م</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              <p className="mb-sm text-lg font-bold tabular-nums">
-                الإجمالي: {totalEstimate.toLocaleString('ar-EG')} ج.م
+            <p className="mb-sm text-lg font-bold tabular-nums">
+              إجمالي التعاقد: {totalEstimate.toLocaleString('ar-EG')} ج.م
+            </p>
+            {checkoutMutation.isError && (
+              <p className="mb-sm text-sm text-error">
+                {getErrorMessage(checkoutMutation.error)}
               </p>
-              {checkoutMutation.isError && (
-                <p className="mb-sm text-sm text-error">
-                  {getErrorMessage(checkoutMutation.error)}
-                </p>
-              )}
-              {successMsg && lastInvoice && (
-                <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
-                  <p>{successMsg}</p>
-                  <div className="mt-sm flex flex-col gap-1">
-                    {(lastInvoice.lines ?? []).map((line, index) => (
-                      <Link
-                        key={line.id}
-                        to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                      >
-                        <Icon name="print" size={18} />
-                        طباعة عقد الجهاز {index + 1}
-                      </Link>
-                    ))}
-                  </div>
+            )}
+            {successMsg && lastInvoice && (
+              <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
+                <p>{successMsg}</p>
+                <div className="mt-sm flex flex-col gap-1">
+                  {(lastInvoice.lines ?? []).map((line, index) => (
+                    <Link
+                      key={line.id}
+                      to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                    >
+                      <Icon name="print" size={18} />
+                      طباعة عقد الجهاز {index + 1}
+                    </Link>
+                  ))}
                 </div>
-              )}
-              <button
-                type="submit"
-                data-tour="pos-submit"
-                disabled={
-                  checkoutMutation.isPending ||
-                  !selectedCustomer ||
-                  (transactionSource === 'branch' ? !selectedBranch : !selectedDistributor) ||
-                  quantity <= 0 ||
-                  deviceLines.length === 0 ||
-                  (!allowNegativeInventory && quantity > available) ||
-                  installmentsExceedTotal ||
-                  downPaymentTooLow
-                }
-                className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                <Icon name="check_circle" />
-                {checkoutMutation.isPending ? 'جاري الحفظ...' : 'إتمام التعاقد'}
-              </button>
-            </div>
+              </div>
+            )}
+            <button
+              type="submit"
+              data-tour="pos-submit"
+              disabled={
+                checkoutMutation.isPending ||
+                !selectedCustomer ||
+                (transactionSource === 'branch' ? !selectedBranch : !selectedDistributor) ||
+                quantity <= 0 ||
+                deviceLines.length === 0 ||
+                (!allowNegativeInventory && quantity > available) ||
+                !allInstallmentLinesValid
+              }
+              className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <Icon name="check_circle" />
+              {checkoutMutation.isPending ? 'جاري الحفظ...' : 'إتمام التعاقد'}
+            </button>
           </div>
         </form>
       )}

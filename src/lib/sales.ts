@@ -150,6 +150,20 @@ export function computeInstallmentDownPayment(
   return Math.max(0, Math.round((total - financed) * 100) / 100)
 }
 
+/** يُحسب عدد الأقساط تلقائياً من المقدم وقيمة القسط */
+export function computeInstallmentCount(
+  total: number,
+  installmentAmount: number,
+  downPayment: number,
+  maxCount = 24,
+): number {
+  if (installmentAmount <= 0 || total <= 0) return 0
+  const financed = Math.max(0, total - downPayment)
+  if (financed <= 0) return 0
+  const count = Math.ceil((financed - 0.001) / installmentAmount)
+  return Math.min(maxCount, Math.max(1, count))
+}
+
 export function computeMinDownPayment(total: number, minPercent = 10): number {
   return Math.round(total * (minPercent / 100) * 100) / 100
 }

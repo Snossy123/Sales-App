@@ -1,4 +1,4 @@
-import type { Customer, InstallmentItem, SalesInvoice, SalesInvoiceLine } from '../../api/types'
+import type { Customer, InstallmentItem, InstallmentPlan, SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import { formatInvoiceDate } from '../../lib/sales'
 import '../../styles/installment-contract.css'
 
@@ -46,26 +46,38 @@ function resolveVehicle(line?: SalesInvoiceLine, invoice?: SalesInvoice): string
   return invoice?.vehicle_info ?? ''
 }
 
-function buildInstallmentRows(invoice: SalesInvoice, line?: SalesInvoiceLine): string[] {
-  const plan = invoice.installment_plan
+function resolveUsername(line?: SalesInvoiceLine, customer?: Customer | null): string {
+  return line?.username ?? customer?.username ?? ''
+}
+
+function resolveTechnician(line?: SalesInvoiceLine, invoice?: SalesInvoice): string {
+  return line?.technician?.name ?? invoice?.technician_name ?? ''
+}
+
+function resolveLinePlan(line?: SalesInvoiceLine, invoice?: SalesInvoice): InstallmentPlan | null | undefined {
+  return line?.installment_plan ?? invoice?.installment_plan
+}
+
+function buildInstallmentRows(line?: SalesInvoiceLine, invoice?: SalesInvoice): string[] {
+  const plan = resolveLinePlan(line, invoice)
   const items: InstallmentItem[] = plan?.items ?? []
   const rows: string[] = Array.from({ length: 30 }, () => '')
-  const lineTotal = Number(line?.line_total ?? invoice.subtotal ?? invoice.total)
-  const invoiceTotal = Number(invoice.total) || 1
-  const share = line ? lineTotal / invoiceTotal : 1
 
   items.forEach((item) => {
     const num = item.installment_number
     if (num >= 1 && num <= 30) {
-      const paid = Number(item.paid_amount ?? 0) * share
-      const amount = Number(item.amount) * share
+      const paid = Number(item.paid_amount ?? 0)
+      const amount = Number(item.amount)
       rows[num - 1] = paid >= amount ? '✓' : fmtMoney(amount)
     }
   })
 
   if (plan && items.length === 0 && plan.installment_count > 0) {
-    const financed = (Number(invoice.total) - Number(plan.down_payment ?? 0)) * share
-    const perInstallment = Math.floor((financed / plan.installment_count) * 100) / 100
+    const lineTotal = Number(line?.line_total ?? invoice?.subtotal ?? invoice?.total ?? 0)
+    const financed = lineTotal - Number(plan.down_payment ?? 0)
+    const fixed = plan.installment_amount != null ? Number(plan.installment_amount) : null
+    const perInstallment =
+      fixed ?? Math.floor((financed / plan.installment_count) * 100) / 100
     for (let i = 0; i < Math.min(plan.installment_count, 30); i++) {
       rows[i] = fmtMoney(perInstallment)
     }
@@ -82,10 +94,22 @@ interface InstallmentContractDocumentProps {
 export function InstallmentContractDocument({ invoice, lineId }: InstallmentContractDocumentProps) {
   const customer = invoice.customer
   const line = resolveLine(invoice, lineId)
-  const installmentRows = buildInstallmentRows(invoice, line)
+  const plan = resolveLinePlan(line, invoice)
+  const installmentRows = buildInstallmentRows(line, invoice)
   const devicePrice = Number(line?.line_total ?? invoice.subtotal ?? 0)
   const renewalType = line?.renewal_type ?? invoice.renewal_type
   const renewalDate = line?.subscription_renewal_date ?? invoice.subscription_renewal_date
+  const lineCount = invoice.lines?.length ?? 1
+  const installShare = Number(invoice.installation_fee ?? 0) / lineCount
+  const linePaid =
+    line?.payment_term === 'cash'
+      ? Number(line?.line_total ?? 0)
+      : Number(plan?.down_payment ?? 0)
+  const paidForDevice = linePaid + installShare
+  const balanceForDevice =
+    line?.payment_term === 'cash'
+      ? 0
+      : Math.max(0, Number(line?.line_total ?? 0) - Number(plan?.down_payment ?? 0))
 
   const renderTableCol = (start: number, end: number) => (
     <div className="ic-table-col">
@@ -160,7 +184,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           </div>
           <div className="ic-field-row">
             <span className="ic-field-label">اسم المستخدم:</span>
-            <span className="ic-field-value">{customer?.username ?? ''}</span>
+            <span className="ic-field-value">{resolveUsername(line, customer)}</span>
           </div>
           <div className="ic-field-row">
             <span className="ic-field-label">السريال:</span>
@@ -186,15 +210,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
         </span>
         <span className="ic-summary-item">
           <strong>تم دفع مبلغ:</strong>
-          <span className="ic-summary-val">{fmtMoney(invoice.paid_amount)}</span>
+          <span className="ic-summary-val">{fmtMoney(paidForDevice)}</span>
         </span>
         <span className="ic-summary-item">
           <strong>متبقى مبلغ:</strong>
-          <span className="ic-summary-val">{fmtMoney(invoice.balance_due)}</span>
+          <span className="ic-summary-val">{fmtMoney(balanceForDevice)}</span>
         </span>
         <span className="ic-oval">
           <strong>الفني:</strong>
-          <span className="ic-summary-val">{invoice.technician_name ?? ''}</span>
+          <span className="ic-summary-val">{resolveTechnician(line, invoice)}</span>
         </span>
         <span className="ic-oval">
           <strong>المركبة:</strong>

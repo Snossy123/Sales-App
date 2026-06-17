@@ -29,8 +29,8 @@ export const posTour: TourConfig = {
       target: '[data-tour="pos-payment"]',
       title: { ar: 'نوع الدفع', en: 'Payment type' },
       content: {
-        ar: 'حدد نقدي أو تقسيط. عند التقسيط، أدخل المقدم وعدد الأقساط وتاريخ أول استحقاق.',
-        en: 'Choose cash or installment. For installments, enter down payment, count, and first due date.',
+        ar: 'لكل جهاز: حدد نقدي أو تقسيط. عند التقسيط أدخل قيمة القسط والمقدم — يُحسب عدد الأقساط تلقائياً.',
+        en: 'Per device: choose cash or installment. For installments enter installment amount and down payment — count is auto-calculated.',
       },
       placement: 'bottom',
     },
