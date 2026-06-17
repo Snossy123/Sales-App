@@ -22,6 +22,8 @@ interface DataTableProps<T> {
    * rows per page and renders pagination controls below the table.
    */
   pageSize?: number
+  /** Changing this value resets to page 1 (e.g. branch id, search query). */
+  pageKey?: string | number
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -33,16 +35,20 @@ export function DataTable<T extends Record<string, unknown>>({
   dataTour,
   rowClassName,
   pageSize,
+  pageKey,
 }: DataTableProps<T>) {
   const paginate = typeof pageSize === 'number' && pageSize > 0
   const total = data.length
   const lastPage = paginate ? Math.max(1, Math.ceil(total / pageSize)) : 1
   const [page, setPage] = useState(1)
 
-  // Reset to the first page whenever the dataset size changes (e.g. filtering).
   useEffect(() => {
     setPage(1)
-  }, [total])
+  }, [pageKey])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, lastPage))
+  }, [lastPage, total])
 
   const currentPage = Math.min(page, lastPage)
   const visibleRows = paginate
@@ -61,7 +67,7 @@ export function DataTable<T extends Record<string, unknown>>({
   }
 
   return (
-    <>
+    <div className="min-w-0">
       <div
         data-tour={dataTour}
         className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest"
@@ -104,7 +110,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </tbody>
         </table>
       </div>
-      {paginate && lastPage > 1 && (
+      {paginate && total > 0 && (
         <Pagination
           currentPage={currentPage}
           lastPage={lastPage}
@@ -112,6 +118,6 @@ export function DataTable<T extends Record<string, unknown>>({
           onPageChange={setPage}
         />
       )}
-    </>
+    </div>
   )
 }

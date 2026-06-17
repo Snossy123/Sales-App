@@ -321,11 +321,13 @@ export function InstallmentCollectionPage() {
               onClear={clearFilters}
             />
 
-            <div className="grid gap-md lg:grid-cols-2">
+            <div className="grid gap-md lg:grid-cols-[minmax(0,1fr)_min(22rem,38%)]">
+              <div className="min-w-0">
               <DataTable<InstallmentRow>
                 data={filteredRows}
                 keyExtractor={(row) => row.id}
                 pageSize={10}
+                pageKey={`${selectedBranchId}-${customerSearch}-${statusFilter}`}
                 emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
                 rowClassName={(row) => tierRowClass(String(row.display_tier ?? row.status))}
                 columns={[
@@ -409,6 +411,7 @@ export function InstallmentCollectionPage() {
                   },
                 ]}
               />
+              </div>
 
               {selected ? (
                 <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md">
