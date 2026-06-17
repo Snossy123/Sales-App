@@ -12,19 +12,16 @@ const selectClass =
 export interface PosContractHeaderProps {
   transactionSource: TransactionSource
   onTransactionSourceChange: (source: TransactionSource) => void
-  branchSearch: string
   selectedBranch: Branch | null
   onBranchChange: (branch: Branch | null) => void
   onBranchSearchChange: (q: string) => void
   filteredBranches: Branch[]
   branchesLoading: boolean
-  distributorSearch: string
   selectedDistributor: Distributor | null
   onDistributorChange: (distributor: Distributor | null) => void
   onDistributorSearchChange: (q: string) => void
   distributors: Distributor[]
   distributorsLoading: boolean
-  customerSearch: string
   selectedCustomer: Customer | null
   onCustomerChange: (customer: Customer | null) => void
   onCustomerSearchChange: (q: string) => void
@@ -53,19 +50,16 @@ export interface PosContractHeaderProps {
 export function PosContractHeader({
   transactionSource,
   onTransactionSourceChange,
-  branchSearch,
   selectedBranch,
   onBranchChange,
   onBranchSearchChange,
   filteredBranches,
   branchesLoading,
-  distributorSearch,
   selectedDistributor,
   onDistributorChange,
   onDistributorSearchChange,
   distributors,
   distributorsLoading,
-  customerSearch,
   selectedCustomer,
   onCustomerChange,
   onCustomerSearchChange,

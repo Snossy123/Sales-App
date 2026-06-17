@@ -1177,7 +1177,7 @@ export function handleMockRequest(
       const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
       const installationFee = installationFeePerUnit * body.lines.length
       let subtotal = 0
-      const invoiceLines = body.lines.map((line, index) => {
+      const invoiceLines: SalesInvoiceLine[] = body.lines.map((line, index) => {
         const price = Number(line.unit_price ?? s.gpsProduct.sell_price)
         const discount = Number(line.discount ?? 0)
         const lineTotal = Math.max(0, price - discount)
@@ -1256,14 +1256,6 @@ export function handleMockRequest(
         subtotal,
         discount_amount: feeDiscount * body.lines.length,
         installation_fee: installationFee,
-        vehicle_info: body.vehicle_info ?? null,
-        vehicle_type: body.vehicle_type ?? null,
-        vehicle_plate_letters: body.vehicle_plate_letters ?? null,
-        vehicle_plate_numbers: body.vehicle_plate_numbers ?? null,
-        chassis_number: body.chassis_number ?? null,
-        engine_number: body.engine_number ?? null,
-        renewal_type: body.renewal_type ?? null,
-        subscription_renewal_date: body.subscription_renewal_date ?? null,
         lines: invoiceLines,
         created_by: 2,
       }
@@ -1275,10 +1267,10 @@ export function handleMockRequest(
         const count = Number(planData.installment_count ?? 0)
         const amount = Number(planData.installment_amount ?? 0)
         const down =
-          planData.down_payment != null && planData.down_payment !== ''
+          planData.down_payment != null
             ? Number(planData.down_payment)
             : Math.max(0, Math.round((Number(invLine.line_total) - amount * count) * 100) / 100)
-        const plan = {
+        const plan: InstallmentPlan = {
           id: invoiceId * 10 + index + 1,
           down_payment: down,
           installment_count: count,

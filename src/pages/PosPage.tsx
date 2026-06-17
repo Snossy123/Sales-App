@@ -7,6 +7,7 @@ import type {
   CheckoutPayload,
   Customer,
   Distributor,
+  Employee,
   GpsProduct,
   GpsStock,
   PaginatedResponse,
@@ -169,10 +170,7 @@ export function PosPage() {
         'filter[status]': 'active',
       }
       if (resolvedBranchId) params['filter[branch_id]'] = resolvedBranchId
-      const { data } = await api.get<PaginatedResponse<{ id: number; name: string; job_title?: string }>>(
-        '/employees',
-        { params },
-      )
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
     enabled: Boolean(resolvedBranchId),
@@ -377,19 +375,16 @@ export function PosPage() {
           <PosContractHeader
             transactionSource={transactionSource}
             onTransactionSourceChange={handleTransactionSourceChange}
-            branchSearch={branchSearch}
             selectedBranch={selectedBranch}
             onBranchChange={setSelectedBranch}
             onBranchSearchChange={setBranchSearch}
             filteredBranches={filteredBranches}
             branchesLoading={branchesQuery.isLoading}
-            distributorSearch={distributorSearch}
             selectedDistributor={selectedDistributor}
             onDistributorChange={setSelectedDistributor}
             onDistributorSearchChange={setDistributorSearch}
             distributors={distributorsQuery.data ?? []}
             distributorsLoading={distributorsQuery.isLoading}
-            customerSearch={customerSearch}
             selectedCustomer={selectedCustomer}
             onCustomerChange={setSelectedCustomer}
             onCustomerSearchChange={setCustomerSearch}
