@@ -186,7 +186,7 @@ export function BranchesPage() {
               setPanel('create')
               setForm({
                 ...emptyForm,
-                department_id: scopedDeptId ?? '',
+                administration_id: scopedDeptId ?? '',
               })
               setEditId(null)
             }}
@@ -259,7 +259,7 @@ export function BranchesPage() {
                 onChange: (v: string) => { setDeptFilter(v); setPage(1) },
                 options: [
                   { value: '', label: 'كل الإدارات' },
-                  ...(departmentsQuery.data?.map((d) => ({
+                  ...(administrationsQuery.data?.map((d) => ({
                     value: String(d.id),
                     label: d.name_ar || d.name,
                   })) ?? []),
@@ -300,11 +300,11 @@ export function BranchesPage() {
             { key: 'code', header: 'الكود' },
             { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
             {
-              key: 'department',
+              key: 'administration',
               header: 'الإدارة',
               render: (row) => {
-                const dept = row.department as Department | undefined
-                return dept?.name_ar || dept?.name || '—'
+                const admin = branchAdministration(row as Branch)
+                return admin?.name_ar || admin?.name || '—'
               },
             },
             { key: 'address', header: 'العنوان' },
@@ -357,7 +357,7 @@ export function BranchesPage() {
         >
           {scopedDeptId ? (
             <div className={`${inputClass} sm:col-span-2 bg-surface-container-low text-on-surface-variant`}>
-              الإدارة: {departmentsQuery.data?.find((d) => d.id === scopedDeptId)?.name_ar || 'إدارتك'}
+              الإدارة: {administrationsQuery.data?.find((d) => d.id === scopedDeptId)?.name_ar || 'إدارتك'}
             </div>
           ) : (
             <select
