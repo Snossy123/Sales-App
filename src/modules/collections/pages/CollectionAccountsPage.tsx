@@ -107,7 +107,7 @@ export function CollectionAccountsPage() {
       <PageHeader
         title="حسابات التحويل"
         subtitle="إدارة حسابات التحصيل الخارجي لكل رقم هاتف"
-        action={
+        actions={
           <button
             type="button"
             onClick={openCreate}

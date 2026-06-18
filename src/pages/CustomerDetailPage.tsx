@@ -195,7 +195,7 @@ export function CustomerDetailPage() {
         payment={refundTarget}
         open={Boolean(refundTarget)}
         onClose={() => setRefundTarget(null)}
-        invalidateKeys={[['payment-transactions', 'customer', id]]}
+        invalidateKeys={id ? [['payment-transactions', 'customer', id]] : undefined}
       />
     </div>
   )

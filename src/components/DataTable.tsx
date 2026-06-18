@@ -26,7 +26,7 @@ interface DataTableProps<T> {
   pageKey?: string | number
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   keyExtractor,

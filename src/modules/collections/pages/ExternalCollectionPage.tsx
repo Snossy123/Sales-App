@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../../api/client'
-import type { CollectionPaymentAccount, InstallmentItem } from '../../api/types'
-import { AsyncState } from '../../components/AsyncState'
-import { DataTable } from '../../components/DataTable'
-import { FilterBar } from '../../components/FilterBar'
-import { Icon } from '../../components/Icon'
-import { SalesPageShell } from '../../components/SalesPageShell'
-import { StatusBadge } from '../../components/StatusBadge'
-import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
+import { api, getErrorMessage } from '../../../api/client'
+import type { CollectionPaymentAccount, InstallmentItem } from '../../../api/types'
+import { AsyncState } from '../../../components/AsyncState'
+import { DataTable } from '../../../components/DataTable'
+import { FilterBar } from '../../../components/FilterBar'
+import { Icon } from '../../../components/Icon'
+import { SalesPageShell } from '../../../components/SalesPageShell'
+import { StatusBadge } from '../../../components/StatusBadge'
+import { formatInvoiceDate, normalizeInstallmentItem } from '../../../lib/sales'
 
 type InstallmentRow = InstallmentItem & Record<string, unknown>
 

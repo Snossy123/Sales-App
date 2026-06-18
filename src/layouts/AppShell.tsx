@@ -12,6 +12,7 @@ import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { api, isDemoMode } from '../api/client'
 import type { AppNotification } from '../api/types'
 import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
+import { resolvePublicStorageUrl } from '../lib/storageUrl'
 import { ChatbotWidget } from '../components/help/ChatbotWidget'
 
 export function AppShell() {

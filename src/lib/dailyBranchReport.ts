@@ -218,7 +218,13 @@ export function formToPayload(form: DailyBranchReportFormState, branchId: number
 export function reportToForm(report: DailyBranchReport): DailyBranchReportFormState {
   const base = createEmptyDailyReportForm(report.report_date)
 
-  const fillTransactions = [...(report.transactions ?? [])]
+  const fillTransactions: DailyReportTransactionRow[] = (report.transactions ?? []).map((row) => ({
+    customer_name: row.customer_name ?? '',
+    promoter_name: row.promoter_name ?? '',
+    distributor_id: row.distributor_id ?? '',
+    transaction_type: row.transaction_type ?? '',
+    amount: row.amount === 0 || row.amount ? Number(row.amount) : '',
+  }))
   while (fillTransactions.length < TRANSACTION_ROW_COUNT) {
     fillTransactions.push({ customer_name: '', promoter_name: '', distributor_id: '', transaction_type: '', amount: 0 })
   }
