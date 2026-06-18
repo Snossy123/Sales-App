@@ -26,6 +26,7 @@ export function getUserRole(user: AuthUser | null): DemoRole {
   if (primary.includes('hrmanager') || primary.includes('hr manager') || primary.includes('hr_manager')) return 'hr_manager'
   if (primary.includes('accountant')) return 'accountant'
   if (primary.includes('collector')) return 'collector'
+  if (primary.includes('callcenter') || primary.includes('call_center')) return 'call_center'
   if (primary.includes('review')) return 'reviewer'
   if (primary.includes('admin')) return 'admin'
 

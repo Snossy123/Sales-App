@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../api/client'
 import type { ActivityLogEntry, AdminUser, PaginatedResponse } from '../../../api/types'
@@ -15,6 +16,8 @@ import {
   translateActivityDescription,
   translateEvent,
   translateLogName,
+  getActivitySubjectLabel,
+  getActivitySubjectRoute,
   type ActivityAction,
 } from '../lib/activityLogLabels'
 import { computeActivityLogInsights, exportActivityLogCsv } from '../lib/activityLogInsights'
@@ -286,6 +289,24 @@ export function AdminActivityLogPage() {
               render: (row) => translateLogName(row.log_name as string | null),
             },
             {
+              key: 'subject',
+              header: 'المصدر',
+              render: (row) => {
+                const subjectType = row.subject_type as string | null | undefined
+                const subjectId = row.subject_id as number | null | undefined
+                const route = getActivitySubjectRoute(subjectType, subjectId ?? null)
+                const label = getActivitySubjectLabel(subjectType)
+                if (route && subjectId != null) {
+                  return (
+                    <Link to={route} className="text-primary hover:underline">
+                      {label} #{subjectId}
+                    </Link>
+                  )
+                }
+                return subjectType ? `${label} #${subjectId ?? '—'}` : '—'
+              },
+            },
+            {
               key: 'details',
               header: '',
               render: (row) => (
@@ -329,7 +350,20 @@ export function AdminActivityLogPage() {
               </div>
               <div>
                 <p className="text-on-surface-variant">الكيان</p>
-                <p className="font-medium">{selected.subject_type ?? '—'}</p>
+                <p className="font-medium">
+                  {(() => {
+                    const route = getActivitySubjectRoute(selected.subject_type, selected.subject_id)
+                    const label = getActivitySubjectLabel(selected.subject_type)
+                    if (route && selected.subject_id != null) {
+                      return (
+                        <Link to={route} className="text-primary hover:underline">
+                          {label} #{selected.subject_id}
+                        </Link>
+                      )
+                    }
+                    return selected.subject_type ?? '—'
+                  })()}
+                </p>
               </div>
             </div>
             <div>

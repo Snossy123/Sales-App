@@ -59,7 +59,11 @@ export const navEntries: NavEntry[] = [
         { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin', 'admin'] },
         { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
         { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin', 'admin'] },
+        { to: '/admin/trash', icon: 'delete', label: 'سلة المهملات', roles: ['super_admin', 'admin'] },
+        { to: '/admin/faq', icon: 'quiz', label: 'إدارة الأسئلة', roles: ['super_admin', 'admin'] },
         { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
+        { to: '/help/faq', icon: 'help', label: 'المساعدة', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
+        { to: '/feedback', icon: 'feedback', label: 'ملاحظات', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
       ],
     },
   },
@@ -108,6 +112,9 @@ export const navEntries: NavEntry[] = [
       icon: 'payments',
       items: [
         { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', end: true, roles: ['super_admin', 'admin', 'collector'] },
+        { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'collector'] },
+        { to: '/call-center/collections', icon: 'phone_in_talk', label: 'التحصيلات الخارجية', roles: ['super_admin', 'admin', 'call_center'] },
+        { to: '/admin/collection-accounts', icon: 'account_balance', label: 'حسابات التحويل', roles: ['super_admin', 'admin'] },
       ],
     },
   },
@@ -223,6 +230,13 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/invoices': ['super_admin', 'admin', 'reviewer'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
+  '/payments': ['super_admin', 'admin', 'collector'],
+  '/help/faq': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
+  '/feedback': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
+  '/admin/trash': ['super_admin', 'admin'],
+  '/admin/faq': ['super_admin', 'admin'],
+  '/call-center/collections': ['super_admin', 'admin', 'call_center'],
+  '/admin/collection-accounts': ['super_admin', 'admin'],
   '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
   '/distributors': ['super_admin', 'admin', 'sales', 'collector'],
   '/customers': ['super_admin', 'admin', 'sales', 'collector'],
@@ -395,6 +409,7 @@ export function getDefaultRoute(user: AuthUser | null): string {
   const role = getUserRole(user)
   if (role === 'reviewer') return '/invoices/review'
   if (role === 'collector') return '/installments'
+  if (role === 'call_center') return '/call-center/collections'
   if (role === 'crm') return '/crm'
   if (role === 'hr_manager') return '/hrm'
   if (role === 'accountant') return '/accounting'
@@ -410,6 +425,7 @@ export function getRoleLabel(user: AuthUser | null): string {
     sales: 'قسم التعاقدات',
     reviewer: 'قسم المراجعة',
     collector: 'قسم التحصيل',
+    call_center: 'مركز الاتصال',
     crm: 'قسم المبيعات',
     accountant: 'قسم المحاسبة',
     hr_manager: 'مدير الموارد البشرية',

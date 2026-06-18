@@ -1543,6 +1543,11 @@ export function handleMockRequest(
           customer_name: customer?.name,
           customer_phone: customer?.phone,
           remaining: Number(item.amount) - Number(item.paid_amount),
+          remaining_installments: Math.max(
+            0,
+            (inv.installment_plan?.installment_count ?? 1) - (item.installment_number ?? 1),
+          ),
+          has_open_reconciliation: false,
           sales_invoice: {
             id: inv.id,
             invoice_number: inv.invoice_number,
@@ -2459,6 +2464,7 @@ export function handleMockRequest(
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage', 'stock.transfer',
       'customers.manage', 'sales.pos', 'sales.invoices.view', 'installments.collect', 'installments.view',
+      'installments.reconcile', 'external_collections.collect', 'collection_accounts.manage',
       'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'reports.financial',
       'crm.access_all_leads', 'crm.access_own_leads', 'crm.access_all_schedule', 'crm.access_own_schedule',
       'crm.access_all_campaigns', 'crm.access_own_campaigns', 'crm.access_contact_login', 'crm.access_sources',
@@ -2617,7 +2623,35 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path.match(/^installments\/\d+\/reconcile$/)) {
-    return { ok: true, late_fee_waived: 0 }
+    return { id: 1, status: 'open', late_fee_waived: 0 }
+  }
+
+  if (m === 'POST' && path.match(/^installments\/reconciliations\/\d+\/close$/)) {
+    return { id: 1, status: 'closed', late_fee_waived: 0 }
+  }
+
+  if (m === 'GET' && path === 'collection-accounts/active') {
+    return {
+      data: [
+        {
+          id: 1,
+          phone: '01099998888',
+          payment_method: 'bank_transfer',
+          account_number: '1234567890',
+          beneficiary_name: 'حساب تجريبي',
+          bank_name: 'البنك الأهلي',
+          is_active: true,
+        },
+      ],
+    }
+  }
+
+  if (m === 'GET' && path === 'collection-accounts') {
+    return paginate([], params)
+  }
+
+  if (m === 'POST' && path === 'external-collections/collect') {
+    return { id: 1, collection_channel: 'external', amount: (data as { amount?: number }).amount ?? 0 }
   }
 
   const hrmResult = tryHandleHrmRequest(m, path, data, params, ctx)

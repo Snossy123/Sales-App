@@ -26,7 +26,7 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
   const movements = report.movements ?? []
 
   const transactionRows = Array.from({ length: TRANSACTION_ROW_COUNT }, (_, index) => {
-    return transactions[index] ?? { customer_name: '', transaction_type: '', amount: 0 }
+    return transactions[index] ?? { customer_name: '', promoter_name: '', transaction_type: '', amount: 0 }
   })
 
   const transferRows = transfers.length > 0 ? transfers : [{ customer_name: '', amount: 0, reference: '' }]
@@ -81,6 +81,7 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
               <tr>
                 <th className="dbr-num">#</th>
                 <th>اسم العميل</th>
+                <th>المروج / الموزع</th>
                 <th>الحالة</th>
                 <th>المبلغ</th>
               </tr>
@@ -90,12 +91,13 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
                 <tr key={index}>
                   <td className="dbr-num">{index + 1}</td>
                   <td>{row.customer_name ?? ''}</td>
+                  <td>{row.promoter_name ?? ''}</td>
                   <td>{row.transaction_type ?? ''}</td>
                   <td>{fmtMoney(row.amount)}</td>
                 </tr>
               ))}
               <tr className="dbr-total-row">
-                <td colSpan={3}>الاجمالي</td>
+                <td colSpan={4}>الاجمالي</td>
                 <td>{fmtMoney(report.total_amount)}</td>
               </tr>
             </tbody>

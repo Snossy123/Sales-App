@@ -22,6 +22,11 @@ import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintP
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
+import { PaymentsPage } from '../pages/PaymentsPage'
+import { FaqPage } from '../pages/FaqPage'
+import { FeedbackPage } from '../pages/FeedbackPage'
+import { ExternalCollectionPage } from '../modules/collections/pages/ExternalCollectionPage'
+import { CollectionAccountsPage } from '../modules/collections/pages/CollectionAccountsPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
 import { DepartmentDetailPage } from '../pages/DepartmentDetailPage'
 import { BranchesPage } from '../pages/BranchesPage'
@@ -51,6 +56,8 @@ import { AdminUsersPage } from '../modules/admin/pages/AdminUsersPage'
 import { AdminRolesPage } from '../modules/admin/pages/AdminRolesPage'
 import { AdminRolePermissionsPage } from '../modules/admin/pages/AdminRolePermissionsPage'
 import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPage'
+import { AdminFaqPage } from '../modules/admin/pages/AdminFaqPage'
+import { TrashPage } from '../modules/admin/pages/TrashPage'
 import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
 import { CrmPipelinePage } from '../modules/crm/pages/CrmPipelinePage'
 import { CrmFollowUpsPage } from '../modules/crm/pages/CrmFollowUpsPage'
@@ -149,6 +156,11 @@ export function AppRoutes() {
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="help/faq" element={<FaqPage />} />
+            <Route path="feedback" element={<FeedbackPage />} />
+            <Route path="call-center/collections" element={<ExternalCollectionPage />} />
+            <Route path="admin/collection-accounts" element={<CollectionAccountsPage />} />
             <Route path="accounting" element={<AccountingDashboardPage />} />
             <Route path="accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
             <Route path="accounting/chart-of-accounts/:id/ledger" element={<AccountLedgerPage />} />
@@ -173,6 +185,8 @@ export function AppRoutes() {
             <Route path="admin/roles" element={<AdminRolesPage />} />
             <Route path="admin/roles/:roleId/permissions" element={<AdminRolePermissionsPage />} />
             <Route path="admin/activity-log" element={<AdminActivityLogPage />} />
+            <Route path="admin/trash" element={<TrashPage />} />
+            <Route path="admin/faq" element={<AdminFaqPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<CrmPipelinePage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />

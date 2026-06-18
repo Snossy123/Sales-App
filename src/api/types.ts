@@ -90,6 +90,7 @@ export type DemoRole =
   | 'sales'
   | 'reviewer'
   | 'collector'
+  | 'call_center'
   | 'crm'
   | 'hr_manager'
   | 'accountant'
@@ -317,7 +318,33 @@ export interface InstallmentItem {
   customer_phones?: string[]
   invoice_number?: string
   remaining?: number
+  remaining_installments?: number
+  has_open_reconciliation?: boolean
+  open_reconciliation_id?: number | null
   branch_id?: number
+}
+
+export interface CollectionPaymentAccount {
+  id: number
+  phone: string
+  payment_method: 'wallet' | 'instapay' | 'bank_transfer'
+  account_number: string
+  beneficiary_name: string
+  bank_name?: string | null
+  is_active: boolean
+  transaction_limit?: number | null
+  transactions_count?: number
+}
+
+export interface InstallmentReconciliation {
+  id: number
+  installment_item_id: number
+  responsible_user_id: number
+  late_fee_waived: string | number
+  notes?: string | null
+  status: 'open' | 'closed'
+  closed_at?: string | null
+  closed_by?: number | null
 }
 
 export interface InstallmentPlan {
@@ -405,6 +432,8 @@ export interface SalesInvoiceLine {
 
 export interface DailyReportTransaction {
   customer_name?: string
+  promoter_name?: string
+  distributor_id?: number | null
   transaction_type?: string
   amount?: number | string
 }

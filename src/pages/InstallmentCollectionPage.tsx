@@ -6,6 +6,7 @@ import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
+import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import {
@@ -107,6 +108,18 @@ export function InstallmentCollectionPage() {
   const [showReconcile, setShowReconcile] = useState(false)
   const [responsibleUserId, setResponsibleUserId] = useState<number | ''>('')
   const [reconcileNotes, setReconcileNotes] = useState('')
+  const [adjustNextDueDate, setAdjustNextDueDate] = useState(false)
+  const [dueDateShiftDays, setDueDateShiftDays] = useState(0)
+  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
+
+  interface PaymentRow {
+    id: number
+    transaction_number?: string
+    amount: string | number
+    refunded_amount?: string | number
+    status: string
+    paid_at?: string
+  }
 
   const branchesQuery = useQuery({
     queryKey: ['branches', 'installments'],
@@ -203,14 +216,41 @@ export function InstallmentCollectionPage() {
 
   const selectedBranch = branchStats.find((s) => s.branch.id === selectedBranchId)?.branch
 
+  const installmentPaymentsQuery = useQuery({
+    queryKey: ['payment-transactions', 'installment', selected?.id],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: PaymentRow[] }>('/payment-transactions', {
+        params: { installment_item_id: selected!.id, per_page: 20, status: 'active' },
+      })
+      return (data as { data?: PaymentRow[] }).data ?? []
+    },
+    enabled: Boolean(selected?.id),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (itemId: number) => {
+      await api.delete(`/installments/${itemId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['trash'] })
+      setSelected(null)
+    },
+  })
+
   const collectMutation = useMutation({
     mutationFn: async () => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
-      const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, {
+      const payload: Record<string, unknown> = {
         installment_item_id: selected.id,
         amount,
         payment_method: paymentMethod,
-      })
+      }
+      if (adjustNextDueDate && Number(selected.late_fee_accrued ?? 0) > 0) {
+        payload.adjust_next_due_date = true
+        if (dueDateShiftDays > 0) payload.due_date_shift_days = dueDateShiftDays
+      }
+      const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
     onSuccess: () => {
@@ -219,6 +259,19 @@ export function InstallmentCollectionPage() {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       setSelected(null)
       setAmount(0)
+      setAdjustNextDueDate(false)
+      setDueDateShiftDays(0)
+    },
+  })
+
+  const closeReconcileMutation = useMutation({
+    mutationFn: async (reconciliationId: number) => {
+      const { data } = await api.post(`/installments/reconciliations/${reconciliationId}/close`, {})
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      setSelected(null)
     },
   })
 
@@ -243,6 +296,12 @@ export function InstallmentCollectionPage() {
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
     setShowReconcile(false)
+    setAdjustNextDueDate(false)
+    const dueDate = row.due_date ? new Date(String(row.due_date)) : null
+    const daysLate = dueDate
+      ? Math.max(1, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+      : 1
+    setDueDateShiftDays(daysLate)
   }
 
   const toggleBranch = (branchId: number) => {
@@ -352,28 +411,31 @@ export function InstallmentCollectionPage() {
                     render: (row) => row.installment_number ?? '—',
                   },
                   {
+                    key: 'remaining_installments',
+                    header: 'الأقساط المتبقية',
+                    render: (row) => row.remaining_installments ?? '—',
+                  },
+                  {
+                    key: 'amount',
+                    header: 'مبلغ القسط',
+                    render: (row) => Number(row.amount).toLocaleString('ar-EG'),
+                  },
+                  {
                     key: 'due_date',
                     header: 'الاستحقاق',
                     render: (row) => formatInvoiceDate(String(row.due_date)),
                   },
                   {
-                    key: 'amount',
-                    header: 'المبلغ',
-                    render: (row) => Number(row.amount).toLocaleString('ar-EG'),
-                  },
-                  {
-                    key: 'late_fee_accrued',
-                    header: 'غرامة',
+                    key: 'reconciliation',
+                    header: 'تصالح',
                     render: (row) =>
-                      Number(row.late_fee_accrued ?? 0) > 0
-                        ? Number(row.late_fee_accrued).toLocaleString('ar-EG')
-                        : '—',
-                  },
-                  {
-                    key: 'total_due',
-                    header: 'الإجمالي',
-                    render: (row) =>
-                      Number(row.total_due ?? row.remaining ?? 0).toLocaleString('ar-EG'),
+                      row.has_open_reconciliation ? (
+                        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
+                          مفتوح
+                        </span>
+                      ) : (
+                        '—'
+                      ),
                   },
                   {
                     key: 'status',
@@ -406,6 +468,17 @@ export function InstallmentCollectionPage() {
                             تصالح
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('نقل القسط إلى سلة المهملات؟')) {
+                              deleteMutation.mutate(row.id as number)
+                            }
+                          }}
+                          className="text-xs text-error hover:underline"
+                        >
+                          حذف
+                        </button>
                       </div>
                     ),
                   },
@@ -469,7 +542,39 @@ export function InstallmentCollectionPage() {
                       onChange={(e) => setAmount(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
                     />
+                    {Number(selected.late_fee_accrued ?? 0) > 0 && (
+                      <div className="mt-sm space-y-sm rounded-lg border border-outline-variant bg-surface-container-high p-sm">
+                        <label className="flex items-center gap-xs text-sm">
+                          <input
+                            type="checkbox"
+                            checked={adjustNextDueDate}
+                            onChange={(e) => setAdjustNextDueDate(e.target.checked)}
+                          />
+                          تأجيل تاريخ استحقاق القسط التالي
+                        </label>
+                        {adjustNextDueDate && (
+                          <div>
+                            <label className="mb-xs block text-xs text-on-surface-variant">
+                              عدد أيام التأجيل
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={dueDateShiftDays}
+                              onChange={(e) => setDueDateShiftDays(Number(e.target.value))}
+                              className="w-full rounded border border-outline-variant px-sm py-2 text-sm tabular-nums"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
+
+                  {selected.has_open_reconciliation && (
+                    <p className="mb-sm rounded-lg bg-orange-50 px-sm py-2 text-sm text-orange-800">
+                      يوجد تصالح مفتوح — يجب إغلاقه قبل التحصيل
+                    </p>
+                  )}
 
                   {collectMutation.isError && (
                     <p className="mb-sm text-sm text-error">{getErrorMessage(collectMutation.error)}</p>
@@ -478,19 +583,59 @@ export function InstallmentCollectionPage() {
                     <p className="mb-sm text-sm text-secondary">تم التحصيل بنجاح</p>
                   )}
 
+                  {(installmentPaymentsQuery.data ?? []).length > 0 && (
+                    <div className="mb-md rounded-lg border border-outline-variant bg-surface-container-high p-sm">
+                      <h4 className="mb-sm text-sm font-semibold">آخر مدفوعات هذا القسط</h4>
+                      <ul className="space-y-1 text-sm">
+                        {(installmentPaymentsQuery.data ?? []).map((p) => (
+                          <li key={p.id} className="flex items-center justify-between gap-2">
+                            <span className="tabular-nums">
+                              {Number(p.amount).toLocaleString('ar-EG')} ج.م
+                              {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG')}` : ''}
+                            </span>
+                            {p.status === 'active' && Number(p.amount) > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setRefundTarget(p)}
+                                className="text-xs text-primary hover:underline"
+                              >
+                                استرداد
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => collectMutation.mutate()}
-                    disabled={collectMutation.isPending || amount <= 0}
+                    disabled={
+                      collectMutation.isPending ||
+                      amount <= 0 ||
+                      Boolean(selected.has_open_reconciliation)
+                    }
                     className="mb-sm flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-3 font-bold text-on-primary disabled:opacity-60"
                   >
                     <Icon name="payments" />
                     {collectMutation.isPending ? 'جاري التحصيل...' : 'تأكيد التحصيل'}
                   </button>
 
-                  {showReconcile && selected.display_tier === 'overdue' && (
+                  {selected.has_open_reconciliation && selected.open_reconciliation_id && (
+                    <button
+                      type="button"
+                      onClick={() => closeReconcileMutation.mutate(selected.open_reconciliation_id!)}
+                      disabled={closeReconcileMutation.isPending}
+                      className="mb-sm w-full rounded-lg border border-secondary py-2 text-sm font-bold text-secondary"
+                    >
+                      {closeReconcileMutation.isPending ? 'جاري الإغلاق...' : 'إغلاق التصالح وإعفاء الغرامة'}
+                    </button>
+                  )}
+
+                  {showReconcile && selected.display_tier === 'overdue' && !selected.has_open_reconciliation && (
                     <div className="mt-md rounded-lg border border-outline-variant bg-surface-container-high p-sm">
-                      <h4 className="mb-sm font-semibold">تصالح — إعفاء غرامة</h4>
+                      <h4 className="mb-sm font-semibold">تصالح — تسجيل حالة مفتوحة</h4>
                       <label className="mb-xs block text-xs text-on-surface-variant">
                         المسؤول الذي تحدث معه العميل *
                       </label>
@@ -546,6 +691,14 @@ export function InstallmentCollectionPage() {
           )
         )}
       </AsyncState>
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        open={Boolean(refundTarget)}
+        onClose={() => setRefundTarget(null)}
+        invalidateKeys={[['payment-transactions'], ['installments']]}
+        onSuccess={() => installmentPaymentsQuery.refetch()}
+      />
     </SalesPageShell>
   )
 }

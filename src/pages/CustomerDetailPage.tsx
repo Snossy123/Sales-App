@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from '../api/client'
 import type { Customer, SalesInvoice } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
@@ -7,14 +8,35 @@ import { CustomerContractsSection } from '../components/customers/CustomerContra
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
+import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { StatusBadge } from '../components/StatusBadge'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
+
+interface PaymentRow {
+  id: number
+  transaction_number?: string
+  amount: string | number
+  refunded_amount?: string | number
+  status: string
+  payment_source?: string
+  paid_at?: string
+  sales_invoice?: { invoice_number?: string }
+}
+
+const sourceLabels: Record<string, string> = {
+  installment: 'قسط',
+  external: 'تحصيل خارجي',
+  down_payment: 'مقدم',
+  pos_cash: 'نقدي POS',
+}
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const user = useAuthStore((s) => s.user)
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
+  const canRefund = ['super_admin', 'admin', 'collector'].includes(getUserRole(user))
+  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
 
   const query = useQuery({
     queryKey: ['customer', id],
@@ -26,6 +48,17 @@ export function CustomerDetailPage() {
         },
       })
       return data
+    },
+    enabled: Boolean(id),
+  })
+
+  const paymentsQuery = useQuery({
+    queryKey: ['payment-transactions', 'customer', id],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: PaymentRow[] }>('/payment-transactions', {
+        params: { customer_id: id, per_page: 50 },
+      })
+      return (data as { data?: PaymentRow[] }).data ?? []
     },
     enabled: Boolean(id),
   })
@@ -104,6 +137,47 @@ export function CustomerDetailPage() {
               </section>
             )}
 
+            <section className="mb-md">
+              <h2 className="mb-sm text-lg font-semibold">سجل المدفوعات</h2>
+              <DataTable<PaymentRow>
+                data={paymentsQuery.data ?? []}
+                keyExtractor={(r) => r.id}
+                pageSize={10}
+                emptyMessage="لا توجد مدفوعات"
+                columns={[
+                  { key: 'transaction_number', header: 'رقم العملية' },
+                  { key: 'invoice', header: 'فاتورة', render: (r) => r.sales_invoice?.invoice_number ?? '—' },
+                  {
+                    key: 'source',
+                    header: 'المصدر',
+                    render: (r) => sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—',
+                  },
+                  {
+                    key: 'amount',
+                    header: 'المبلغ',
+                    render: (r) => Number(r.amount).toLocaleString('ar-EG'),
+                  },
+                  { key: 'status', header: 'الحالة' },
+                  {
+                    key: 'actions',
+                    header: '',
+                    render: (r) =>
+                      canRefund && r.status === 'active' && Number(r.amount) > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setRefundTarget(r)}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          استرداد
+                        </button>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                ]}
+              />
+            </section>
+
             <div className="mb-md">
               <CustomerAttachmentsSection
                 mode="view"
@@ -116,6 +190,13 @@ export function CustomerDetailPage() {
           </>
         )}
       </AsyncState>
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        open={Boolean(refundTarget)}
+        onClose={() => setRefundTarget(null)}
+        invalidateKeys={[['payment-transactions', 'customer', id]]}
+      />
     </div>
   )
 }

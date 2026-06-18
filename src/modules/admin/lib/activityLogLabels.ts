@@ -63,3 +63,30 @@ export function inferActivityAction(description: string, event?: string | null):
 export function getActionLabel(description: string, event?: string | null): string {
   return ACTION_LABELS[inferActivityAction(description, event)]
 }
+
+const SUBJECT_ROUTE_BUILDERS: Record<string, (id: number) => string> = {
+  'App\\Models\\Customer': (id) => `/customers/${id}`,
+  'App\\Models\\SalesInvoice': (id) => `/invoices?id=${id}`,
+  'App\\Models\\PaymentTransaction': (id) => `/payments?highlight=${id}`,
+  'App\\Models\\InstallmentItem': (id) => `/installments?item=${id}`,
+  'App\\Models\\InstallmentReconciliation': (id) => `/installments?reconciliation=${id}`,
+}
+
+const SUBJECT_LABELS: Record<string, string> = {
+  'App\\Models\\Customer': 'عميل',
+  'App\\Models\\SalesInvoice': 'عقد / فاتورة',
+  'App\\Models\\PaymentTransaction': 'عملية دفع',
+  'App\\Models\\InstallmentItem': 'قسط',
+  'App\\Models\\InstallmentReconciliation': 'تصالح',
+}
+
+export function getActivitySubjectRoute(subjectType?: string | null, subjectId?: number | null): string | null {
+  if (!subjectType || subjectId == null) return null
+  const builder = SUBJECT_ROUTE_BUILDERS[subjectType]
+  return builder ? builder(subjectId) : null
+}
+
+export function getActivitySubjectLabel(subjectType?: string | null): string {
+  if (!subjectType) return '—'
+  return SUBJECT_LABELS[subjectType] ?? subjectType.split('\\').pop() ?? subjectType
+}

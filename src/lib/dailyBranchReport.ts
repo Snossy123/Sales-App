@@ -7,6 +7,8 @@ export const ATTENDANCE_ROW_COUNT = 8
 
 export interface DailyReportTransactionRow {
   customer_name: string
+  promoter_name: string
+  distributor_id?: number | ''
   transaction_type: string
   amount: number | ''
 }
@@ -83,6 +85,8 @@ export function formatReportHeaderDateLong(dateStr: string): string {
 function emptyTransactionRows(): DailyReportTransactionRow[] {
   return Array.from({ length: TRANSACTION_ROW_COUNT }, () => ({
     customer_name: '',
+    promoter_name: '',
+    distributor_id: '',
     transaction_type: '',
     amount: '',
   }))
@@ -216,7 +220,7 @@ export function reportToForm(report: DailyBranchReport): DailyBranchReportFormSt
 
   const fillTransactions = [...(report.transactions ?? [])]
   while (fillTransactions.length < TRANSACTION_ROW_COUNT) {
-    fillTransactions.push({ customer_name: '', transaction_type: '', amount: 0 })
+    fillTransactions.push({ customer_name: '', promoter_name: '', distributor_id: '', transaction_type: '', amount: 0 })
   }
 
   const fillAttendance = [...(report.attendance ?? [])]
@@ -263,6 +267,8 @@ export function reportToForm(report: DailyBranchReport): DailyBranchReportFormSt
     })),
     transactions: fillTransactions.slice(0, TRANSACTION_ROW_COUNT).map((row) => ({
       customer_name: row.customer_name ?? '',
+      promoter_name: row.promoter_name ?? '',
+      distributor_id: row.distributor_id ?? '',
       transaction_type: row.transaction_type ?? '',
       amount: row.amount === 0 || row.amount ? Number(row.amount) : '',
     })),

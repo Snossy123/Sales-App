@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Branch, DailyBranchReport } from '../api/types'
+import type { Branch, DailyBranchReport, Distributor } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -40,6 +40,14 @@ export function DailyBranchReportPage() {
       return data
     },
     enabled: Boolean(branchId),
+  })
+
+  const distributorsQuery = useQuery({
+    queryKey: ['distributors', 'daily-report'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Distributor[] }>('/distributors', { params: { per_page: 200 } })
+      return data.data ?? []
+    },
   })
 
   const existingQuery = useQuery({
@@ -243,7 +251,7 @@ export function DailyBranchReportPage() {
                 <h3 className="mb-sm font-bold">معاملات اليوم ({TRANSACTION_ROW_COUNT} صف)</h3>
                 <div className="max-h-[520px] space-y-1 overflow-y-auto">
                   {form.transactions.map((row, index) => (
-                    <div key={index} className="grid grid-cols-[2rem_1fr_1fr_5rem] gap-1">
+                    <div key={index} className="grid grid-cols-[2rem_1fr_1fr_1fr_5rem] gap-1">
                       <span className="pt-2 text-center text-xs text-on-surface-variant">
                         {index + 1}
                       </span>
@@ -255,6 +263,25 @@ export function DailyBranchReportPage() {
                           transactions[index] = {
                             ...transactions[index],
                             customer_name: e.target.value,
+                          }
+                          updateForm({ transactions })
+                        }}
+                        className={inputClass}
+                      />
+                      <input
+                        placeholder="المروج / الموزع"
+                        list="distributor-names"
+                        value={row.promoter_name}
+                        onChange={(e) => {
+                          const name = e.target.value
+                          const match = (distributorsQuery.data ?? []).find(
+                            (d) => d.name === name || d.name_ar === name,
+                          )
+                          const transactions = [...form.transactions]
+                          transactions[index] = {
+                            ...transactions[index],
+                            promoter_name: name,
+                            distributor_id: match?.id ?? '',
                           }
                           updateForm({ transactions })
                         }}
@@ -292,6 +319,11 @@ export function DailyBranchReportPage() {
                     </div>
                   ))}
                 </div>
+                <datalist id="distributor-names">
+                  {(distributorsQuery.data ?? []).map((d) => (
+                    <option key={d.id} value={d.name_ar || d.name} />
+                  ))}
+                </datalist>
                 <datalist id="transaction-types">
                   {transactionTypeSuggestions.map((type) => (
                     <option key={type} value={type} />
