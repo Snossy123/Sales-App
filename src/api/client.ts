@@ -31,6 +31,8 @@ axiosApi.interceptors.request.use((config) => {
     config.headers['X-Department-Id'] = String(departmentId)
   }
 
+  config.headers['X-CLIENT-KEY'] = window.location.pathname
+
   const user = useAuthStore.getState().user
   if (user?.organization_id) {
     config.headers['X-Organization-Id'] = String(user.organization_id)
