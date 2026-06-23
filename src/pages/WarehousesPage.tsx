@@ -18,11 +18,16 @@ function isHubWarehouse(warehouse: Warehouse): boolean {
 }
 
 function hubWarehouseForAdministration(warehouses: Warehouse[], administrationId: number): Warehouse | undefined {
+  const hubCode = `${HUB_WAREHOUSE_PREFIX}${administrationId}`
   return warehouses.find(
-    (warehouse) =>
-      isHubWarehouse(warehouse) &&
-      warehouse.branch?.administration_id === administrationId,
+    (warehouse) => warehouse.code === hubCode || (isHubWarehouse(warehouse) && warehouse.branch?.administration_id === administrationId),
   )
+}
+
+function administrationName(administrations: Administration[], administrationId?: number): string {
+  if (!administrationId) return '—'
+  const administration = administrations.find((item) => item.id === administrationId)
+  return administration?.name_ar || administration?.name || '—'
 }
 
 export function WarehousesPage() {
@@ -33,7 +38,7 @@ export function WarehousesPage() {
     queryKey: ['warehouses', 'all'],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Warehouse>>('/warehouses', {
-        params: { per_page: 200, include: 'branch.administration' },
+        params: { per_page: 200, include: 'branch' },
       })
       return data.data
     },
@@ -195,9 +200,10 @@ export function WarehousesPage() {
               key: 'administration',
               header: 'الإدارة',
               render: (row) =>
-                row.branch?.administration?.name_ar ||
-                row.branch?.administration?.name ||
-                '—',
+                administrationName(
+                  administrations,
+                  row.branch?.administration_id ?? row.branch?.department_id,
+                ),
             },
             {
               key: 'code',
