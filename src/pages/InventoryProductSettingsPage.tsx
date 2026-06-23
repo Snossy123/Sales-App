@@ -12,11 +12,8 @@ import { ToastBanner } from '../components/ToastBanner'
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 const emptyForm = {
-  name: 'GPS Tracker',
   name_ar: 'جهاز GPS',
   brand: '',
-  model_code: 'GPS-PRO',
-  cost_price: '',
   sell_price: '',
 }
 
@@ -24,32 +21,20 @@ type GpsProductForm = typeof emptyForm
 
 function toForm(product: GpsProduct): GpsProductForm {
   return {
-    name: product.name,
-    name_ar: product.name_ar ?? '',
+    name_ar: product.name_ar || product.name,
     brand: product.brand ?? '',
-    model_code: product.model_code ?? 'GPS-PRO',
-    cost_price: product.cost_price != null ? String(product.cost_price) : '',
     sell_price: String(product.sell_price),
   }
 }
 
-function toPayload(form: GpsProductForm, isNew: boolean) {
-  const payload: Record<string, unknown> = {
-    name: form.name.trim(),
-    name_ar: form.name_ar.trim() || null,
+function toPayload(form: GpsProductForm) {
+  const nameAr = form.name_ar.trim()
+  return {
+    name_ar: nameAr,
+    name: nameAr,
     brand: form.brand.trim() || null,
     sell_price: Number(form.sell_price),
   }
-
-  if (form.cost_price !== '') {
-    payload.cost_price = Number(form.cost_price)
-  }
-
-  if (isNew) {
-    payload.model_code = form.model_code.trim()
-  }
-
-  return payload
 }
 
 export function InventoryProductSettingsPage() {
@@ -88,7 +73,7 @@ export function InventoryProductSettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.put<GpsProduct>('/gps-product', toPayload(form, isNew))
+      const { data } = await api.put<GpsProduct>('/gps-product', toPayload(form))
       return data
     },
     onSuccess: () => {
@@ -146,95 +131,45 @@ export function InventoryProductSettingsPage() {
           className="mx-auto max-w-lg space-y-md rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
         >
           <div>
-            <label htmlFor="gps-product-name" className="mb-1 block text-sm font-medium text-on-surface-variant">
-              اسم المنتج (EN)
+            <label htmlFor="gps-product-name-ar" className="mb-1 block text-sm font-medium text-on-surface-variant">
+              اسم المنتج
             </label>
             <input
-              id="gps-product-name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              id="gps-product-name-ar"
+              value={form.name_ar}
+              onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
               required
               className={inputClass}
             />
           </div>
 
           <div>
-            <label htmlFor="gps-product-name-ar" className="mb-1 block text-sm font-medium text-on-surface-variant">
-              اسم المنتج (عربي)
+            <label htmlFor="gps-product-brand" className="mb-1 block text-sm font-medium text-on-surface-variant">
+              الماركة
             </label>
             <input
-              id="gps-product-name-ar"
-              value={form.name_ar}
-              onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
+              id="gps-product-brand"
+              value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}
               className={inputClass}
             />
           </div>
 
-          <div className="grid gap-sm sm:grid-cols-2">
-            <div>
-              <label htmlFor="gps-product-brand" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                الماركة
-              </label>
-              <input
-                id="gps-product-brand"
-                value={form.brand}
-                onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                className={inputClass}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="gps-product-code" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                كود الموديل
-              </label>
-              <input
-                id="gps-product-code"
-                value={form.model_code}
-                onChange={(e) => setForm({ ...form, model_code: e.target.value })}
-                required
-                disabled={!isNew}
-                dir="ltr"
-                className={`${inputClass} tabular-nums ${!isNew ? 'bg-surface-container text-on-surface-variant' : ''}`}
-              />
-              {!isNew && (
-                <p className="mt-1 text-xs text-on-surface-variant">لا يمكن تغيير الكود بعد الإعداد.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-sm sm:grid-cols-2">
-            <div>
-              <label htmlFor="gps-product-cost" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                سعر التكلفة (ج.م)
-              </label>
-              <input
-                id="gps-product-cost"
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.cost_price}
-                onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
-                dir="ltr"
-                className={`${inputClass} tabular-nums`}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="gps-product-sell" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                سعر البيع (ج.م)
-              </label>
-              <input
-                id="gps-product-sell"
-                type="number"
-                min={0.01}
-                step="0.01"
-                value={form.sell_price}
-                onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-                required
-                dir="ltr"
-                className={`${inputClass} tabular-nums`}
-              />
-            </div>
+          <div>
+            <label htmlFor="gps-product-sell" className="mb-1 block text-sm font-medium text-on-surface-variant">
+              سعر البيع (ج.م)
+            </label>
+            <input
+              id="gps-product-sell"
+              type="number"
+              min={0.01}
+              step="0.01"
+              value={form.sell_price}
+              onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
+              required
+              dir="ltr"
+              className={`${inputClass} tabular-nums`}
+            />
           </div>
 
           {saveMutation.isError && (

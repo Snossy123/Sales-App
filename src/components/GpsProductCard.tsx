@@ -48,9 +48,7 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
           {product.name_ar || product.name}
         </p>
         <div className="mt-xs flex flex-wrap items-center gap-sm text-sm text-on-surface-variant">
-          <span>
-            {product.brand} — {product.model_code} —
-          </span>
+          {product.brand && <span>{product.brand} — </span>}
           <span className="flex items-center gap-xs">
             سعر البيع:
             {editing && canEditPrice ? (
