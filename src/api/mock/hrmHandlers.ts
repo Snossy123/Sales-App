@@ -182,6 +182,7 @@ function ensureEmployeeUser(state: DemoState, employee: Employee): void {
     branch_id: employee.branch_id ?? undefined,
     section_id: employee.department_id ?? undefined,
     roles: [{ id: 2, name: 'Sales' }],
+    demo_role: 'sales',
     data_scope: 'branch',
     data_scope_label: 'فرع',
     permissions: ['scope.branch', 'sales.pos'],

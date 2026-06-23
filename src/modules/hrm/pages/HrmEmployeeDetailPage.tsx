@@ -364,7 +364,7 @@ export function HrmEmployeeDetailPage() {
                     photoUrl={employee.profile_photo_url}
                     variant="employee"
                     layout="vertical"
-                    queryKeys={[['employee', id], ['employees']]}
+                    queryKeys={[['employee', id ?? ''], ['employees']]}
                   />
                 </div>
               </div>

@@ -231,7 +231,7 @@ export function DistributorDetailPage() {
                       layout="vertical"
                       canEdit={canEdit}
                       queryKeys={[
-                        ['distributor', id],
+                        ['distributor', id ?? ''],
                         ['customer', String(distributor.customer.id)],
                         ['distributors'],
                       ]}

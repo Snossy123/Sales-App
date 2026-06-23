@@ -479,7 +479,7 @@ export function handleMockRequest(
     }
 
     const branchInvoices = state.invoices.filter((i) => {
-      if (scopedBranchIds) return scopedBranchIds.includes(i.branch_id)
+      if (scopedBranchIds) return i.branch_id != null && scopedBranchIds.includes(i.branch_id)
       return true
     })
     const periodInvoices = branchInvoices.filter((i) => inPeriod(i.invoice_date))
@@ -1501,7 +1501,7 @@ export function handleMockRequest(
     let items = [...state.invoices]
     const scopedBranchIds = getScopedBranchIds(state, ctx)
     if (scopedBranchIds != null) {
-      items = items.filter((i) => scopedBranchIds.includes(i.branch_id))
+      items = items.filter((i) => i.branch_id != null && scopedBranchIds.includes(i.branch_id))
     }
     const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((i) => i.branch_id === Number(branchFilter))
@@ -2378,11 +2378,11 @@ export function handleMockRequest(
     let leads = [...state.leads]
     const scopedBranchIds = getScopedBranchIds(state, ctx)
     if (scopedBranchIds) {
-      leads = leads.filter((l) => l.branch_id != null && scopedBranchIds.includes(l.branch_id))
+      leads = leads.filter((l) => l.branch?.id != null && scopedBranchIds.includes(l.branch.id))
     }
     const branchFilter = params['filter[branch_id]']
     if (branchFilter) {
-      leads = leads.filter((l) => l.branch_id === Number(branchFilter))
+      leads = leads.filter((l) => l.branch?.id === Number(branchFilter))
     }
     return paginate(leads, params)
   }
@@ -2990,13 +2990,13 @@ export function handleMockRequest(
     return { id: 1, collection_channel: 'external', amount: (data as { amount?: number }).amount ?? 0 }
   }
 
-  const chatResult = tryHandleChatRequest(m, path, data, ctx.user?.id)
+  const chatResult = tryHandleChatRequest(m, path, data as Record<string, unknown> | undefined, ctx.user?.id)
   if (chatResult !== null) return chatResult
 
   const hrmResult = tryHandleHrmRequest(m, path, data, params, ctx)
   if (hrmResult !== undefined) return hrmResult
 
-  const pricingResult = tryHandlePricingRequest(m, path, data, params)
+  const pricingResult = tryHandlePricingRequest(m, path, data as Record<string, unknown> | undefined, params)
   if (pricingResult !== null) return pricingResult
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)

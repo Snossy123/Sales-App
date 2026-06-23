@@ -68,7 +68,7 @@ export function HrmPayrollPage() {
     mutationFn: async () => {
       const payload = {
         employee_id: Number(form.employee_id),
-        branch_id: branchId ?? undefined,
+        branch_id: user?.branch_id ?? undefined,
         duration: Number(form.duration),
         duration_unit: form.duration_unit,
         rate: form.rate ? Number(form.rate) : undefined,

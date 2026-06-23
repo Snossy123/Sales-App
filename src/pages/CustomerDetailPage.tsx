@@ -197,7 +197,7 @@ export function CustomerDetailPage() {
                     variant="customer"
                     layout="vertical"
                     canEdit={canManage}
-                    queryKeys={[['customer', id], ['customers']]}
+                    queryKeys={[['customer', id ?? ''], ['customers']]}
                   />
                 </div>
               </div>

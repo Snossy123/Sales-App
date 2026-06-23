@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../../../components/Icon'
-import { formatRoleLabel, isProtectedRoleSlug } from '../../../lib/roleCatalog'
+import { isProtectedRoleSlug } from '../../../lib/roleCatalog'
 import {
   getAllPermissions,
   groupPermissionsByModule,

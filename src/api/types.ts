@@ -157,6 +157,7 @@ export interface DashboardInvoiceSummary {
   status: string
   payment_term?: string
   customer?: { id: number; name: string; phone?: string }
+  lines?: Array<{ id?: number }>
 }
 
 export interface DashboardInstallmentSummary {

@@ -81,7 +81,7 @@ export function tryHandleChatRequest(
 
   if (m === 'GET' && path === 'chat/contacts') {
     const contacts = state.users
-      .filter((u) => u.id !== userId && u.user_type !== 'customer_portal')
+      .filter((u) => u.id !== userId)
       .map((u) => ({ id: u.id, name: u.name, email: u.email }))
     return { data: contacts }
   }

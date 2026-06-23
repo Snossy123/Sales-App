@@ -176,6 +176,7 @@ export interface DemoState {
     hrmAllowance?: number
     hrmPayroll?: number
     hrmPayrollGroup?: number
+    user?: number
   }
 }
 

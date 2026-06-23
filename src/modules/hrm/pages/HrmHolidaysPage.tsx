@@ -109,7 +109,7 @@ export function HrmHolidaysPage() {
             onClick={() => {
               setPanel('create')
               setEditId(null)
-              setForm({ ...emptyForm, branch_id: branchId ?? '' })
+              setForm({ ...emptyForm, branch_id: user?.branch_id ?? '' })
             }}
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >

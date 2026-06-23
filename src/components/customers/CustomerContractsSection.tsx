@@ -182,7 +182,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                             key: 'paid_amount',
                             header: 'مسدد',
                             render: (row) =>
-                              formatContractMoney(Number((row as InstallmentItem).paid_amount ?? 0)),
+                              formatContractMoney(Number((row as unknown as InstallmentItem).paid_amount ?? 0)),
                           },
                           {
                             key: 'remaining',
@@ -196,7 +196,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                             key: 'paid_at',
                             header: 'تاريخ السداد',
                             render: (row) => {
-                              const paidAt = (row as InstallmentItem).paid_at
+                              const paidAt = (row as unknown as InstallmentItem).paid_at
                               return paidAt ? formatInvoiceDate(paidAt) : '—'
                             },
                           },
