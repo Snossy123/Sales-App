@@ -292,6 +292,12 @@ export function DepartmentsPage() {
         onClose={closePanel}
         title={panel === 'edit' ? 'تعديل إدارة' : 'إضافة إدارة'}
       >
+        {panel === 'create' && (
+          <p className="mb-md text-sm text-on-surface-variant">
+            يُنشأ مخزن مركزي تلقائياً لمقر هذه الإدارة عند الحفظ — يمكنك مراجعته من صفحة{' '}
+            <Link to="/inventory/warehouses" className="text-primary hover:underline">المخازن</Link>.
+          </p>
+        )}
         <form onSubmit={handleSave} className="grid gap-sm sm:grid-cols-2">
           <input
             placeholder="الاسم بالعربية"

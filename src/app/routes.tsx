@@ -7,6 +7,7 @@ import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
 import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
 import { InventoryProductSettingsPage } from '../pages/InventoryProductSettingsPage'
+import { WarehousesPage } from '../pages/WarehousesPage'
 import { PosPage } from '../pages/PosPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
@@ -153,6 +154,7 @@ export function AppRoutes() {
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/add" element={<InventoryAddStockPage />} />
             <Route path="inventory/settings" element={<InventoryProductSettingsPage />} />
+            <Route path="inventory/warehouses" element={<WarehousesPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="pricing/catalog" element={<PricingCatalogPage />} />
             <Route path="pricing/promotions" element={<PromotionsPage />} />

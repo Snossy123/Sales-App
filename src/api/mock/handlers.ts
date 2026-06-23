@@ -600,6 +600,42 @@ export function handleMockRequest(
     return enrichDepartment(state, dept)
   }
 
+  if (m === 'POST' && path === 'administrations/ensure-hubs') {
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح')
+    const results: Array<{ administration_id: number; warehouse_id: number; warehouse_code: string }> = []
+    mutateState((s) => {
+      for (const dept of s.departments) {
+        const hubBranchId = s.counters.branch++
+        const hubWarehouseId = s.counters.warehouse++
+        const hubCode = `WH-HQ-${dept.id}`
+        const existing = s.warehouses.find((w) => w.code === hubCode)
+        if (existing) {
+          results.push({ administration_id: dept.id, warehouse_id: existing.id, warehouse_code: existing.code })
+          continue
+        }
+        s.branches.push({
+          id: hubBranchId,
+          administration_id: dept.id,
+          department_id: dept.id,
+          name: `مقر ${dept.name_ar}`,
+          name_ar: `مقر ${dept.name_ar}`,
+          code: `HQ-${dept.id}`,
+          is_active: true,
+        })
+        s.warehouses.push({
+          id: hubWarehouseId,
+          branch_id: hubBranchId,
+          name: dept.name_ar ?? dept.name,
+          name_ar: dept.name_ar ?? dept.name,
+          code: hubCode,
+          is_active: true,
+        })
+        results.push({ administration_id: dept.id, warehouse_id: hubWarehouseId, warehouse_code: hubCode })
+      }
+    })
+    return { message: 'تم التأكد من المخازن المركزية لجميع الإدارات', count: results.length, data: results }
+  }
+
   if (m === 'POST' && path === 'administrations') {
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بإنشاء إدارات')
     const body = data as Partial<Department>
@@ -617,6 +653,25 @@ export function handleMockRequest(
       }
       s.departments.push(dept)
       s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
+      const hubBranchId = s.counters.branch++
+      const hubWarehouseId = s.counters.warehouse++
+      s.branches.push({
+        id: hubBranchId,
+        administration_id: id,
+        department_id: id,
+        name: `مقر ${dept.name_ar}`,
+        name_ar: `مقر ${dept.name_ar}`,
+        code: `HQ-${id}`,
+        is_active: true,
+      })
+      s.warehouses.push({
+        id: hubWarehouseId,
+        branch_id: hubBranchId,
+        name: dept.name_ar ?? dept.name,
+        name_ar: dept.name_ar ?? dept.name,
+        code: `WH-HQ-${id}`,
+        is_active: true,
+      })
       created = enrichDepartment(s, dept)
     })
     return created
@@ -968,13 +1023,34 @@ export function handleMockRequest(
   if (m === 'GET' && path === 'warehouses') {
     let items = [...state.warehouses]
     const branchFilter = params['filter[branch_id]']
+    const administrationFilter = params['filter[administration_id]']
     if (branchFilter) {
       items = items.filter((w) => w.branch_id === Number(branchFilter))
     }
-    return paginate(items.map((w) => ({
-      ...w,
-      branch: state.branches.find((b) => b.id === w.branch_id),
-    })))
+    if (administrationFilter) {
+      const adminId = Number(administrationFilter)
+      items = items.filter((w) => {
+        const branch = state.branches.find((b) => b.id === w.branch_id)
+        return branch?.administration_id === adminId || branch?.department_id === adminId
+      })
+    }
+    return paginate(items.map((w) => {
+      const branch = state.branches.find((b) => b.id === w.branch_id)
+      const administration = branch
+        ? state.departments.find((d) => d.id === (branch.administration_id ?? branch.department_id))
+        : undefined
+      return {
+        ...w,
+        branch: branch
+          ? {
+              ...branch,
+              administration: administration
+                ? { id: administration.id, name: administration.name, name_ar: administration.name_ar }
+                : undefined,
+            }
+          : undefined,
+      }
+    }))
   }
 
   if (m === 'GET' && path === 'gps-product') {
