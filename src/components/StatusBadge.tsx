@@ -19,10 +19,11 @@ const statusLabels: Record<string, string> = {
   overdue: 'متأخر',
   confirmed: 'مؤكدة',
   pending_review: 'بانتظار المراجعة',
+  review_approved: 'تمت المراجعة',
   rejected: 'مرفوضة',
   active: 'نشط',
   available: 'متاح',
-  cash: 'نقدي',
+  cash: 'كاش',
   installment: 'تقسيط',
 }
 
@@ -34,7 +35,8 @@ const statusMap: Record<string, BadgeVariant> = {
   available: 'active',
   pending: 'pending',
   partial: 'pending',
-  pending_review: 'pending',
+  pending_review: 'overdue',
+  review_approved: 'paid',
   unpaid: 'pending',
   negotiation: 'pending',
   new: 'pending',

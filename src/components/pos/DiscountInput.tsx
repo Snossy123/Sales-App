@@ -1,6 +1,5 @@
 import { amountFromPercent, clampDiscountAmount, percentFromAmount, type DiscountMode } from '../../lib/discount'
-
-const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 tabular-nums'
+import { PosMoneyInput } from './PosMoneyInput'
 
 interface DiscountInputProps {
   label: string
@@ -70,30 +69,25 @@ export function DiscountInput({
       <div className="grid gap-sm sm:grid-cols-2">
         <div>
           <label className="mb-xs block text-xs text-on-surface-variant">الخصم (ج.م)</label>
-          <input
-            type="number"
+          <PosMoneyInput
             min={0}
             max={baseAmount}
             step="0.01"
             value={amount || ''}
             disabled={disabled}
             onChange={(e) => handleAmountChange(Number(e.target.value))}
-            className={inputClass}
-            dir="ltr"
           />
         </div>
         <div>
           <label className="mb-xs block text-xs text-on-surface-variant">الخصم (%)</label>
-          <input
-            type="number"
+          <PosMoneyInput
+            suffix="%"
             min={0}
             max={100}
             step="0.01"
             value={percent || ''}
             disabled={disabled}
             onChange={(e) => handlePercentChange(Number(e.target.value))}
-            className={inputClass}
-            dir="ltr"
           />
         </div>
       </div>

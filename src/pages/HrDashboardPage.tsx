@@ -5,19 +5,20 @@ import { DataTable } from '../components/DataTable'
 import { StatusBadge } from '../components/StatusBadge'
 import { KpiCard } from '../components/KpiCard'
 import { AsyncState } from '../components/AsyncState'
+import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 export function HrDashboardPage() {
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
 
   const query = useQuery({
-    queryKey: ['employees', branchId],
+    queryKey: ['employees', listScopeKey],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 100,
         include: 'branch,department',
-      }
-      if (branchId) params['filter[branch_id]'] = branchId
+      })
 
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
         params,

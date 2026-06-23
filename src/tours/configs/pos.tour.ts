@@ -5,22 +5,22 @@ export const posTour: TourConfig = {
   route: '/pos',
   steps: [
     {
-      id: 'source',
-      target: '[data-tour="pos-source"]',
-      title: { ar: 'مصدر التعاقد', en: 'Contract source' },
-      content: {
-        ar: 'حدد إن كان التعاقد عبر فرع أو عبر موزع، ثم ابحث واختر من القائمة.',
-        en: 'Choose whether the contract goes through a branch or distributor, then search and pick from the list.',
-      },
-      placement: 'bottom',
-    },
-    {
       id: 'customer',
       target: '[data-tour="pos-customer"]',
       title: { ar: 'اختيار العميل', en: 'Select customer' },
       content: {
-        ar: 'ابحث عن العميل بالاسم أو رقم الموبايل واختره من نفس الحقل. يمكنك إضافة عميل جديد من شاشة العملاء.',
-        en: 'Search for the customer by name or phone and select from the same field. Add new customers from the Customers screen.',
+        ar: 'ابحث عن العميل بالاسم أو رقم الموبايل. إن كان مسجلاً لدى موظف مبيعات سيظهر اسمه ويُقفل مصدر التعاقد على موظف المبيعات.',
+        en: 'Search by name or phone. If the customer belongs to a sales rep, their name appears and the contract source locks to sales rep.',
+      },
+      placement: 'bottom',
+    },
+    {
+      id: 'source',
+      target: '[data-tour="pos-source"]',
+      title: { ar: 'مصدر التعاقد', en: 'Contract source' },
+      content: {
+        ar: 'بعد اختيار العميل: إن كان تابعاً لموظف مبيعات يُحدَّد تلقائياً. وإلا اختر فرع أو موزع أو موظف مبيعات.',
+        en: 'After selecting the customer: sales-attributed customers auto-fill. Otherwise choose branch, distributor, or sales rep.',
       },
       placement: 'bottom',
     },
@@ -29,7 +29,7 @@ export const posTour: TourConfig = {
       target: '[data-tour="pos-payment"]',
       title: { ar: 'نوع الدفع', en: 'Payment type' },
       content: {
-        ar: 'لكل جهاز: حدد نقدي أو تقسيط. عند التقسيط أدخل قيمة القسط والمقدم — يُحسب عدد الأقساط تلقائياً.',
+        ar: 'لكل جهاز: حدد كاش أو تقسيط. عند التقسيط أدخل قيمة القسط والمقدم — يُحسب عدد الأقساط تلقائياً.',
         en: 'Per device: choose cash or installment. For installments enter installment amount and down payment — count is auto-calculated.',
       },
       placement: 'bottom',

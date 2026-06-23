@@ -11,8 +11,20 @@ import {
   computeMinDownPayment,
   suggestInstallmentAmount,
 } from '../../lib/sales'
+import { renewalTypeLabels } from '../../lib/contractFields'
 import { Icon } from '../Icon'
 import { SearchableSelect } from '../SearchableSelect'
+import { PosMoneyInput } from './PosMoneyInput'
+import {
+  posInputClass,
+  posLabelClass,
+  posModeToggleGroupClass,
+  posScanClass,
+  posSelectClass,
+  posSectionTitleClass,
+  posStaticFieldClass,
+  posToggleBtn,
+} from './posFormStyles'
 
 export type VehicleType = 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
 export type RenewalType = 'annual' | 'permanent'
@@ -43,17 +55,6 @@ export interface DeviceLineDraft {
   engineNumber: string
   renewalType: RenewalType
 }
-
-const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 text-sm'
-const scanClass = `${inputClass} font-mono tracking-wide`
-const selectClass = `${inputClass} focus:border-primary focus:outline-none`
-
-const toggleBtn = (active: boolean) =>
-  `flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${
-    active
-      ? 'border-primary bg-primary text-on-primary'
-      : 'border-outline-variant bg-surface-container-lowest text-on-surface'
-  }`
 
 const colBox = 'flex h-full flex-col gap-sm rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm'
 
@@ -209,34 +210,34 @@ export function DeviceLineCard({
           {/* صف بيانات الجهاز */}
           <div className="grid gap-sm md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">السريال (جهاز)</label>
+              <label className={posLabelClass}>السريال (جهاز)</label>
               <input
                 value={line.serialNumber}
                 onChange={(e) => patch({ serialNumber: e.target.value })}
                 placeholder="امسح أو أدخل السريال"
-                className={scanClass}
+                className={posScanClass}
                 dir="ltr"
                 autoComplete="off"
               />
             </div>
             <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">رقم الشريحة / الكارت</label>
+              <label className={posLabelClass}>رقم الشريحة / الكارت</label>
               <input
                 value={line.simNumber}
                 onChange={(e) => patch({ simNumber: e.target.value })}
                 placeholder="امسح أو أدخل رقم الشريحة"
-                className={scanClass}
+                className={posScanClass}
                 dir="ltr"
                 autoComplete="off"
               />
             </div>
             <div>
-              <label className="mb-xs block text-xs text-on-surface-variant">اسم المستخدم (تطبيق التتبع)</label>
+              <label className={posLabelClass}>اسم المستخدم (تطبيق التتبع)</label>
               <input
                 value={line.username}
                 onChange={(e) => patch({ username: e.target.value })}
                 placeholder="username"
-                className={inputClass}
+                className={posInputClass}
                 dir="ltr"
                 autoComplete="off"
               />
@@ -263,13 +264,13 @@ export function DeviceLineCard({
           <div className="grid gap-md lg:grid-cols-3">
             {/* المركبة والتجديد */}
             <div className={colBox}>
-              <h4 className="text-sm font-semibold text-on-surface">المركبة والتجديد</h4>
+              <h4 className={posSectionTitleClass}>المركبة والتجديد</h4>
               <div>
-                <label className="mb-xs block text-xs text-on-surface-variant">نوع المركبة</label>
+                <label className={posLabelClass}>نوع المركبة</label>
                 <select
                   value={line.vehicleType}
                   onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
-                  className={inputClass}
+                  className={posSelectClass}
                 >
                   <option value="">— اختر —</option>
                   <option value="car">سيارة</option>
@@ -282,20 +283,20 @@ export function DeviceLineCard({
               {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
                 <div className="grid grid-cols-2 gap-xs">
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">حروف اللوحة</label>
+                    <label className={posLabelClass}>حروف اللوحة</label>
                     <input
                       value={line.vehiclePlateLetters}
                       onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
-                      className={inputClass}
+                      className={posInputClass}
                     />
                   </div>
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">أرقام اللوحة</label>
+                    <label className={posLabelClass}>أرقام اللوحة</label>
                     <input
                       value={line.vehiclePlateNumbers}
                       onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
                       dir="ltr"
-                      className={inputClass}
+                      className={posInputClass}
                     />
                   </div>
                 </div>
@@ -304,35 +305,35 @@ export function DeviceLineCard({
               {line.vehicleType === 'tuk_tuk' && (
                 <div className="grid grid-cols-2 gap-xs">
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">الشاسيه</label>
+                    <label className={posLabelClass}>الشاسيه</label>
                     <input
                       value={line.chassisNumber}
                       onChange={(e) => patch({ chassisNumber: e.target.value })}
                       dir="ltr"
-                      className={inputClass}
+                      className={posInputClass}
                     />
                   </div>
                   <div>
-                    <label className="mb-xs block text-xs text-on-surface-variant">الموتور</label>
+                    <label className={posLabelClass}>الموتور</label>
                     <input
                       value={line.engineNumber}
                       onChange={(e) => patch({ engineNumber: e.target.value })}
                       dir="ltr"
-                      className={inputClass}
+                      className={posInputClass}
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="mb-xs block text-xs text-on-surface-variant">التجديد</label>
+                <label className={posLabelClass}>التجديد</label>
                 <select
                   value={line.renewalType}
                   onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
-                  className={inputClass}
+                  className={posSelectClass}
                 >
-                  <option value="annual">سنوي</option>
-                  <option value="permanent">دائم</option>
+                  <option value="annual">{renewalTypeLabels.annual}</option>
+                  <option value="permanent">{renewalTypeLabels.permanent}</option>
                 </select>
                 {line.renewalType === 'annual' && renewalDate && (
                   <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
@@ -342,7 +343,7 @@ export function DeviceLineCard({
 
             {/* طريقة الدفع */}
             <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
-              <h4 className="text-sm font-semibold text-on-surface">طريقة الدفع</h4>
+              <h4 className={posSectionTitleClass}>طريقة الدفع</h4>
               <div className="flex gap-sm">
                 {(['cash', 'installment'] as const).map((term) => (
                   <button
@@ -351,16 +352,16 @@ export function DeviceLineCard({
                     onClick={() =>
                       term === 'installment' ? switchToInstallment() : patch({ paymentTerm: 'cash' })
                     }
-                    className={toggleBtn(line.paymentTerm === term)}
+                    className={posToggleBtn(line.paymentTerm === term)}
                   >
-                    {term === 'cash' ? 'نقدي' : 'تقسيط'}
+                    {term === 'cash' ? 'كاش' : 'تقسيط'}
                   </button>
                 ))}
               </div>
 
               {line.paymentTerm === 'installment' ? (
                 <div className="space-y-sm">
-                  <div className="flex gap-1 text-xs">
+                  <div className={`${posModeToggleGroupClass} text-xs`}>
                     {(['monthly', 'weekly'] as const).map((type) => (
                       <button
                         key={type}
@@ -371,10 +372,10 @@ export function DeviceLineCard({
                             firstDueDate: addDays(contractDate, type === 'weekly' ? 7 : 30),
                           })
                         }
-                        className={`flex-1 rounded border py-1 ${
+                        className={`flex h-full flex-1 items-center justify-center rounded-md text-xs font-medium transition-colors ${
                           line.intervalType === type
-                            ? 'border-primary bg-primary/10 font-medium text-primary'
-                            : 'border-outline-variant'
+                            ? 'bg-primary text-on-primary'
+                            : 'text-on-surface-variant'
                         }`}
                       >
                         {type === 'monthly' ? 'شهري' : 'أسبوعي'}
@@ -383,43 +384,37 @@ export function DeviceLineCard({
                   </div>
                   <div className="grid grid-cols-2 gap-sm">
                     <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">قيمة المقدم</label>
-                      <input
-                        type="number"
+                      <label className={posLabelClass}>قيمة المقدم</label>
+                      <PosMoneyInput
                         min={0}
                         step="0.01"
                         value={line.downPayment}
                         onChange={(e) => patch({ downPayment: Number(e.target.value) })}
-                        className={`${selectClass} tabular-nums`}
                       />
                     </div>
                     <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">عدد الأقساط</label>
-                      <div
-                        className={`${selectClass} bg-surface-container-low font-medium tabular-nums`}
-                      >
-                        {computedCount > 0 ? computedCount : '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">قيمة القسط</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.installmentAmount}
-                        onChange={(e) => patch({ installmentAmount: Number(e.target.value) })}
-                        className={`${selectClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-xs block text-xs text-on-surface-variant">أول استحقاق</label>
+                      <label className={posLabelClass}>أول استحقاق</label>
                       <input
                         type="date"
                         value={line.firstDueDate}
                         onChange={(e) => patch({ firstDueDate: e.target.value })}
-                        className={selectClass}
+                        className={posInputClass}
                       />
+                    </div>
+                    <div>
+                      <label className={posLabelClass}>قيمة القسط</label>
+                      <PosMoneyInput
+                        min={0}
+                        step="0.01"
+                        value={line.installmentAmount}
+                        onChange={(e) => patch({ installmentAmount: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <label className={posLabelClass}>عدد الأقساط</label>
+                      <div className={`${posStaticFieldClass} bg-surface-container-low font-medium tabular-nums`}>
+                        {computedCount > 0 ? computedCount : '—'}
+                      </div>
                     </div>
                   </div>
                   {!validation.valid &&
@@ -431,7 +426,7 @@ export function DeviceLineCard({
                 </div>
               ) : (
                 <p className="text-sm text-on-surface-variant">
-                  الدفع نقدي — يُضاف صافي الجهاز للمطلوب عند التعاقد.
+                  الدفع كاش — يُضاف صافي الجهاز للمطلوب عند التعاقد.
                 </p>
               )}
             </div>
@@ -439,19 +434,23 @@ export function DeviceLineCard({
             {/* خصم الجهاز */}
             <div className={colBox}>
               <div className="flex items-center justify-between gap-sm">
-                <h4 className="text-sm font-semibold text-on-surface">خصم الجهاز</h4>
-                <div className="flex gap-1 rounded-lg border border-outline-variant p-0.5 text-xs">
+                <h4 className={posSectionTitleClass}>خصم الجهاز</h4>
+                <div className={`${posModeToggleGroupClass} shrink-0 text-xs`}>
                   <button
                     type="button"
                     onClick={() => setDiscountMode('amount')}
-                    className={`rounded px-2 py-0.5 ${line.discountMode === 'amount' ? 'bg-primary text-on-primary' : ''}`}
+                    className={`flex h-full flex-1 items-center justify-center rounded-md px-2 ${
+                      line.discountMode === 'amount' ? 'bg-primary text-on-primary' : ''
+                    }`}
                   >
                     مبلغ
                   </button>
                   <button
                     type="button"
                     onClick={() => setDiscountMode('percent')}
-                    className={`rounded px-2 py-0.5 ${line.discountMode === 'percent' ? 'bg-primary text-on-primary' : ''}`}
+                    className={`flex h-full flex-1 items-center justify-center rounded-md px-2 ${
+                      line.discountMode === 'percent' ? 'bg-primary text-on-primary' : ''
+                    }`}
                   >
                     %
                   </button>
@@ -459,28 +458,23 @@ export function DeviceLineCard({
               </div>
 
               <div>
-                <label className="mb-xs block text-xs text-on-surface-variant">قيمة الخصم</label>
+                <label className={posLabelClass}>قيمة الخصم</label>
                 {line.discountMode === 'amount' ? (
-                  <input
-                    type="number"
+                  <PosMoneyInput
                     min={0}
                     max={line.unitPrice}
                     step="0.01"
                     value={line.discountAmount || ''}
                     onChange={(e) => handleDiscountAmount(Number(e.target.value))}
-                    className={`${inputClass} tabular-nums`}
-                    dir="ltr"
                   />
                 ) : (
-                  <input
-                    type="number"
+                  <PosMoneyInput
+                    suffix="%"
                     min={0}
                     max={100}
                     step="0.01"
                     value={line.discountPercent || ''}
                     onChange={(e) => handleDiscountPercent(Number(e.target.value))}
-                    className={`${inputClass} tabular-nums`}
-                    dir="ltr"
                   />
                 )}
               </div>

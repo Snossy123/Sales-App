@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { DashboardInstallmentSummary, DashboardStats, Department, PaginatedResponse } from '../api/types'
+import type { DashboardInstallmentSummary, DashboardStats, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
+import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable, type Column } from '../components/DataTable'
 import {
   DashboardPeriodFilter,
@@ -24,7 +25,7 @@ import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import {
   computeDashboardInsights,
   computeDashboardInstallmentDonut,
-  computeDashboardStockBarData,
+  computeDashboardStockBarFromOverview,
 } from '../lib/pageStats'
 import { getUserRole } from '../lib/permissions'
 import { formatMoney } from '../lib/theme'
@@ -47,7 +48,7 @@ function daysOverdueFromRow(row: DashboardInstallmentSummary): number {
 const quickActions = [
   { to: '/pos', icon: 'point_of_sale', label: 'بيع جديد', roles: ['super_admin', 'admin', 'sales'] },
   { to: '/customers/add', icon: 'group_add', label: 'عميل جديد', roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة الفواتير', roles: ['super_admin', 'admin', 'reviewer'] },
+  { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
   { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', roles: ['super_admin', 'collector'] },
   { to: '/inventory', icon: 'inventory_2', label: 'المخزون', roles: ['super_admin', 'admin', 'sales'] },
 ]
@@ -72,6 +73,7 @@ export function DashboardPage() {
 
   const [period, setPeriod] = useState<DashboardPeriod>('day')
   const [overdueOpen, setOverdueOpen] = useState(true)
+  const showInventoryCharts = role === 'super_admin' || role === 'admin'
 
   const query = useQuery({
     queryKey: ['dashboard', period],
@@ -81,20 +83,20 @@ export function DashboardPage() {
     },
   })
 
-  const departmentsQuery = useQuery({
-    queryKey: ['departments', 'dashboard'],
+  const inventoryOverviewQuery = useQuery({
+    queryKey: ['inventory', 'overview', 'dashboard'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<InventoryOverviewRow>>('/inventory/overview', {
         params: { per_page: 100 },
       })
       return data.data
     },
-    enabled: role === 'super_admin' || role === 'admin',
+    enabled: showInventoryCharts,
   })
 
   const stockBarData = useMemo(
-    () => computeDashboardStockBarData(departmentsQuery.data ?? []),
-    [departmentsQuery.data],
+    () => computeDashboardStockBarFromOverview(inventoryOverviewQuery.data ?? []),
+    [inventoryOverviewQuery.data],
   )
 
   const installmentDonut = useMemo(
@@ -290,11 +292,12 @@ export function DashboardPage() {
             <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
               {showReviews && (
                 <KpiCard
-                  label="فواتير بانتظار المراجعة"
+                  label="تعاقدات بانتظار المراجعة"
                   value={query.data.pending_reviews ?? 0}
                   icon="fact_check"
                   trend={(query.data.pending_reviews ?? 0) > 0 ? 'تحتاج مراجعة' : undefined}
                   trendUp={false}
+                  alert={(query.data.pending_reviews ?? 0) > 0}
                 />
               )}
               <KpiCard
@@ -312,61 +315,73 @@ export function DashboardPage() {
               />
             </div>
 
-            <div
-              data-tour="dashboard-charts"
-              className="mb-md grid grid-cols-1 gap-md xl:grid-cols-3"
+            <CollapsibleSection
+              title="التحليلات والرسوم البيانية"
+              summary={
+                stockBarData.length > 0
+                  ? `${stockBarData.length} إدارة`
+                  : 'ملخص الأقساط والتعاقدات'
+              }
+              defaultOpen
             >
-              {(role === 'super_admin' || role === 'admin') && stockBarData.length > 0 && (
-                <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق" className="xl:col-span-1">
-                  <BarChartPanel
-                    data={stockBarData}
-                    xKey="name"
-                    series={[
-                      { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
-                      { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
-                    ]}
-                  />
-                </ChartCard>
-              )}
+              <div
+                data-tour="dashboard-charts"
+                className="grid grid-cols-1 gap-md xl:grid-cols-3"
+              >
+                {showInventoryCharts && (
+                  <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق" className="xl:col-span-1">
+                    <BarChartPanel
+                      data={stockBarData}
+                      xKey="name"
+                      series={[
+                        { key: 'quantity', label: 'إجمالي', color: 'var(--color-chart-1)' },
+                        { key: 'pending', label: 'معلق', color: 'var(--color-chart-3)' },
+                      ]}
+                    />
+                  </ChartCard>
+                )}
 
-              {installmentDonut.length > 0 && (
-                <ChartCard title="ملخص الأقساط" subtitle="حسب الحالة" className="xl:col-span-1">
-                  <DonutChartPanel data={installmentDonut} />
-                </ChartCard>
-              )}
+                {installmentDonut.length > 0 && (
+                  <ChartCard title="ملخص الأقساط" subtitle="حسب الحالة" className="xl:col-span-1">
+                    <DonutChartPanel data={installmentDonut} />
+                  </ChartCard>
+                )}
 
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md xl:col-span-1">
-                <div className="mb-sm flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-on-surface">فواتير بانتظار المراجعة</h3>
-                  {showReviews && (query.data.pending_reviews ?? 0) > 0 && (
-                    <Link to="/invoices/review" className="text-xs font-medium text-primary hover:underline">
-                      عرض الكل
-                    </Link>
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md xl:col-span-1">
+                  <div className="mb-sm flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-on-surface">تعاقدات بانتظار المراجعة</h3>
+                    {showReviews && (query.data.pending_reviews ?? 0) > 0 && (
+                      <Link to="/invoices/review" className="text-xs font-medium text-error hover:underline">
+                        عرض الكل
+                      </Link>
+                    )}
+                  </div>
+                  {(query.data.pending_review_invoices ?? []).length > 0 ? (
+                    <div className="flex flex-col gap-xs">
+                      {query.data.pending_review_invoices!.map((inv) => (
+                        <Link
+                          key={inv.id}
+                          to={`/invoices/review/${inv.id}`}
+                          className="flex items-center justify-between rounded-lg border-s-2 border-error bg-surface-container-low px-sm py-xs text-sm transition-colors hover:bg-surface-container"
+                        >
+                          <div>
+                            <p className="font-medium text-on-surface">{inv.customer?.name ?? '—'}</p>
+                            <p className="text-xs text-on-surface-variant">
+                              {inv.lines?.length ?? 0} جهاز
+                            </p>
+                          </div>
+                          <span className="tabular-nums font-medium text-on-surface">
+                            {fmtMoney(Number(inv.total))}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-md text-center text-sm text-on-surface-variant">لا توجد تعاقدات معلقة</p>
                   )}
                 </div>
-                {(query.data.pending_review_invoices ?? []).length > 0 ? (
-                  <div className="flex flex-col gap-xs">
-                    {query.data.pending_review_invoices!.map((inv) => (
-                      <Link
-                        key={inv.id}
-                        to="/invoices/review"
-                        className="flex items-center justify-between rounded-lg bg-surface-container-low px-sm py-xs text-sm transition-colors hover:bg-surface-container"
-                      >
-                        <div>
-                          <p className="font-medium text-on-surface">{inv.customer?.name ?? '—'}</p>
-                          <p className="text-xs text-on-surface-variant">{inv.invoice_number}</p>
-                        </div>
-                        <span className="tabular-nums font-medium text-on-surface">
-                          {fmtMoney(Number(inv.total))}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="py-md text-center text-sm text-on-surface-variant">لا توجد فواتير معلقة</p>
-                )}
               </div>
-            </div>
+            </CollapsibleSection>
 
             <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
               <div className="mb-sm flex items-center justify-between">

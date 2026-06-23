@@ -5,12 +5,14 @@ import type {
   HrmAttendance,
   HrmDashboard,
   HrmHoliday,
+  HrmJob,
   HrmLeave,
   HrmLeaveType,
   HrmPayrollGroup,
   HrmPayrollRecord,
   HrmShift,
   PaginatedResponse,
+  ZkDevice,
 } from '../types'
 import { loadState, mutateState } from './store'
 import type { DemoState } from './seed'
@@ -49,8 +51,10 @@ function today(): string {
 }
 
 function enrichEmployee(state: DemoState, emp: Employee): Employee {
+  const job = emp.hrm_job_id ? state.hrmJobs.find((j) => j.id === emp.hrm_job_id) : undefined
   return {
     ...emp,
+    job,
     branch: emp.branch ?? state.branches.find((b) => b.id === emp.branch_id),
     department: emp.department ?? (() => {
       const dept = state.departments.find((d) => d.id === emp.department_id)
@@ -161,6 +165,48 @@ function employeeForUser(state: DemoState, userId?: number): Employee | undefine
   return emp ? enrichEmployee(state, emp) : undefined
 }
 
+function ensureEmployeeUser(state: DemoState, employee: Employee): void {
+  if (employee.user_id) return
+
+  state.counters.user = (state.counters.user ?? 8) + 1
+  const userId = state.counters.user
+  const emailBase = employee.employee_code.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '')
+  const email = `${emailBase || `employee.${userId}`}@demo.test`
+
+  state.users.push({
+    id: userId,
+    name: employee.name,
+    email,
+    password: 'password123',
+    organization_id: employee.branch_id ? 1 : 1,
+    branch_id: employee.branch_id ?? undefined,
+    section_id: employee.department_id ?? undefined,
+    roles: [{ id: 2, name: 'Sales' }],
+    data_scope: 'branch',
+    data_scope_label: 'فرع',
+    permissions: ['scope.branch', 'sales.pos'],
+  })
+
+  employee.user_id = userId
+}
+
+function enrichJob(state: DemoState, job: HrmJob): HrmJob {
+  const employeesCount = state.employees.filter((e) => e.hrm_job_id === job.id).length
+  return { ...job, employees_count: employeesCount }
+}
+
+function buildMockZkDevices(state: DemoState): ZkDevice[] {
+  return state.branches.map((branch, index) => ({
+    id: index + 1,
+    branch_id: branch.id,
+    name: `جهاز ${branch.name_ar ?? branch.name}`,
+    ip_address: `192.168.1.${10 + index}`,
+    port: 4370,
+    is_active: true,
+    branch,
+  }))
+}
+
 export function tryHandleHrmRequest(
   m: string,
   path: string,
@@ -169,6 +215,39 @@ export function tryHandleHrmRequest(
   ctx: MockContext,
 ): unknown | undefined {
   const state = loadState()
+
+  if (m === 'GET' && path === 'employees/linkable-users') {
+    const employeeId = params.employee_id ? Number(params.employee_id) : null
+    const linkedUserIds = new Set(
+      state.employees
+        .filter((emp) => emp.user_id && emp.id !== employeeId)
+        .map((emp) => emp.user_id as number),
+    )
+    const currentUserId = employeeId
+      ? state.employees.find((emp) => emp.id === employeeId)?.user_id ?? null
+      : null
+
+    const items = state.users.filter(
+      (user) =>
+        !linkedUserIds.has(user.id) || (currentUserId != null && user.id === currentUserId),
+    )
+
+    return {
+      data: items.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        branch_id: user.branch_id ?? null,
+        section_id: user.section_id ?? null,
+      })),
+    }
+  }
+
+  if (m === 'GET' && path === 'me/employee') {
+    const employee = state.employees.find((e) => e.user_id === ctx.user?.id)
+    if (!employee) throw mockError(404, 'لا يوجد ملف موظف')
+    return enrichEmployee(state, employee)
+  }
 
   if (m === 'GET' && path === 'employees') {
     let items = state.employees.map((e) => enrichEmployee(state, e))
@@ -182,19 +261,31 @@ export function tryHandleHrmRequest(
     let created: Employee | undefined
     mutateState((s) => {
       s.counters.employee = (s.counters.employee ?? 3) + 1
+      const nextCode = `EMP-${String(s.counters.employee).padStart(4, '0')}`
       created = {
         id: s.counters.employee,
-        employee_code: String(body.employee_code ?? ''),
+        employee_code: String(body.employee_code ?? nextCode),
+        zk_pin: (body.zk_pin as string) ?? null,
+        hrm_job_id: body.hrm_job_id ? Number(body.hrm_job_id) : null,
         name: String(body.name ?? ''),
         phone: (body.phone as string) ?? null,
-        job_title: (body.job_title as string) ?? null,
+        job_title: body.hrm_job_id
+          ? s.hrmJobs.find((j) => j.id === Number(body.hrm_job_id))?.name ?? null
+          : (body.job_title as string) ?? null,
         salary: body.salary != null ? Number(body.salary) : null,
         hire_date: today(),
         status: String(body.status ?? 'active'),
         branch_id: body.branch_id ? Number(body.branch_id) : null,
         department_id: body.department_id ? Number(body.department_id) : null,
+        user_id: body.user_id ? Number(body.user_id) : null,
       }
       s.employees.push(created!)
+      if (created!.user_id) {
+        const linked = s.users.find((user) => user.id === created!.user_id)
+        if (linked) linked.name = created!.name
+      } else {
+        ensureEmployeeUser(s, created!)
+      }
     })
     return enrichEmployee(loadState(), created!)
   }
@@ -206,17 +297,142 @@ export function tryHandleHrmRequest(
     mutateState((s) => {
       const emp = s.employees.find((e) => e.id === id)
       if (!emp) throw mockError(404, 'الموظف غير موجود')
-      if (body.employee_code) emp.employee_code = String(body.employee_code)
       if (body.name) emp.name = String(body.name)
+      if (body.zk_pin !== undefined) emp.zk_pin = (body.zk_pin as string) || null
+      if (body.hrm_job_id !== undefined) {
+        emp.hrm_job_id = body.hrm_job_id ? Number(body.hrm_job_id) : null
+        emp.job_title = emp.hrm_job_id
+          ? s.hrmJobs.find((j) => j.id === emp.hrm_job_id)?.name ?? null
+          : null
+      }
       if (body.phone !== undefined) emp.phone = (body.phone as string) || null
       if (body.job_title !== undefined) emp.job_title = (body.job_title as string) || null
       if (body.salary !== undefined) emp.salary = body.salary != null ? Number(body.salary) : null
       if (body.branch_id !== undefined) emp.branch_id = body.branch_id ? Number(body.branch_id) : null
       if (body.department_id !== undefined) emp.department_id = body.department_id ? Number(body.department_id) : null
+      if (body.user_id !== undefined) {
+        emp.user_id = body.user_id ? Number(body.user_id) : null
+        if (!emp.user_id) ensureEmployeeUser(s, emp)
+      } else {
+        ensureEmployeeUser(s, emp)
+      }
       if (body.status) emp.status = String(body.status)
       updated = emp
     })
     return enrichEmployee(loadState(), updated!)
+  }
+
+  if (m === 'GET' && path.match(/^employees\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const employee = state.employees.find((e) => e.id === id)
+    if (!employee) throw mockError(404, 'الموظف غير موجود')
+    return enrichEmployee(state, employee)
+  }
+
+  if (m === 'POST' && path.match(/^employees\/\d+\/profile-photo$/)) {
+    const employeeId = Number(path.split('/')[1])
+    let photoUrl: string | null = null
+    mutateState((s) => {
+      const employee = s.employees.find((e) => e.id === employeeId)
+      if (!employee) throw mockError(404, 'الموظف غير موجود')
+      const file = (data as FormData | undefined)?.get?.('photo')
+      if (file && typeof file === 'object' && 'name' in file) {
+        photoUrl = URL.createObjectURL(file as File)
+      } else {
+        photoUrl = `https://demo.local/profile/employee-${employeeId}.jpg`
+      }
+      employee.profile_photo_url = photoUrl
+    })
+    return { profile_photo_url: photoUrl }
+  }
+
+  if (m === 'DELETE' && path.match(/^employees\/\d+\/profile-photo$/)) {
+    const employeeId = Number(path.split('/')[1])
+    mutateState((s) => {
+      const employee = s.employees.find((e) => e.id === employeeId)
+      if (!employee) throw mockError(404, 'الموظف غير موجود')
+      employee.profile_photo_url = null
+    })
+    return { profile_photo_url: null }
+  }
+
+  if (m === 'GET' && path.match(/^(hrm\/)?employees\/\d+\/allowances$/)) {
+    const segments = path.split('/')
+    const employeeId = Number(segments[segments.length - 2])
+    const items = state.hrmAllowances.filter((a) => a.employee_ids?.includes(employeeId))
+    return {
+      allowances: items.filter((a) => a.type === 'allowance'),
+      deductions: items.filter((a) => a.type === 'deduction'),
+    }
+  }
+
+  if (m === 'GET' && path.match(/^(hrm\/)?employees\/\d+\/sales-targets$/)) {
+    const segments = path.split('/')
+    const employeeId = Number(segments[segments.length - 2])
+    const targets = (state.hrmUserSalesTargets ?? []).filter((t) => t.employee_id === employeeId)
+    return targets
+  }
+
+  if (m === 'GET' && path.match(/^hrm\/employees\/\d+\/sales-targets\/progress$/)) {
+    const employeeId = Number(path.split('/')[2])
+    const today = new Date().toISOString().split('T')[0]
+    const active = (state.hrmUserSalesTargets ?? []).find(
+      (t) =>
+        t.employee_id === employeeId &&
+        t.target_start <= today &&
+        t.target_end >= today,
+    )
+    return { active_target: active ?? null, allocations: [] }
+  }
+
+  if (m === 'GET' && path === 'hrm/sales-targets') {
+    let items = [...(state.hrmUserSalesTargets ?? [])]
+    const employeeFilter = params['filter[employee_id]']
+    if (employeeFilter) items = items.filter((t) => t.employee_id === Number(employeeFilter))
+    const enriched = items.map((t) => ({
+      ...t,
+      employee: state.employees.find((e) => e.id === t.employee_id),
+    }))
+    return paginate(enriched, params)
+  }
+
+  if (m === 'POST' && path === 'hrm/sales-targets') {
+    const body = data as Record<string, unknown>
+    let created: import('../types').HrmUserSalesTarget | undefined
+    mutateState((s) => {
+      if (!s.hrmUserSalesTargets) s.hrmUserSalesTargets = []
+      const id = (s.hrmUserSalesTargets.reduce((max, t) => Math.max(max, t.id), 0) || 0) + 1
+      created = {
+        id,
+        employee_id: Number(body.employee_id),
+        target_start: String(body.target_start),
+        target_end: String(body.target_end),
+        target_count: Number(body.target_count ?? 0),
+        achieved_count: 0,
+        commission_percent: Number(body.commission_percent ?? 0),
+      }
+      s.hrmUserSalesTargets.push(created)
+    })
+    return {
+      ...created!,
+      employee: state.employees.find((e) => e.id === created!.employee_id),
+    }
+  }
+
+  if (m === 'PUT' && path.match(/^hrm\/sales-targets\/\d+$/)) {
+    const targetId = Number(path.split('/')[2])
+    const body = data as Record<string, unknown>
+    let updated: import('../types').HrmUserSalesTarget | undefined
+    mutateState((s) => {
+      const target = s.hrmUserSalesTargets?.find((t) => t.id === targetId)
+      if (!target) throw mockError(404, 'الهدف غير موجود')
+      if (body.target_start) target.target_start = String(body.target_start)
+      if (body.target_end) target.target_end = String(body.target_end)
+      if (body.target_count != null) target.target_count = Number(body.target_count)
+      if (body.commission_percent != null) target.commission_percent = Number(body.commission_percent)
+      updated = target
+    })
+    return updated
   }
 
   if (m === 'GET' && path === 'hrm/dashboard') {
@@ -304,12 +520,44 @@ export function tryHandleHrmRequest(
     let items = state.hrmAttendance.map((a) => enrichAttendance(state, a))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((a) => a.status === statusFilter)
+    const employeeFilter = params['filter[employee_id]']
+    if (employeeFilter) items = items.filter((a) => String(a.employee_id) === employeeFilter)
     return paginate(items, params)
   }
 
+  if (m === 'PUT' && path.match(/^hrm\/attendance\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as { clock_in_time?: string | null; clock_out_time?: string | null }
+    let updated: HrmAttendance | undefined
+    mutateState((s) => {
+      const row = s.hrmAttendance.find((a) => a.id === id)
+      if (!row) throw mockError(404, 'سجل الحضور غير موجود')
+      if (body.clock_in_time !== undefined) {
+        row.clock_in_time = body.clock_in_time
+        if (body.clock_in_time) {
+          row.date = body.clock_in_time.split('T')[0]
+          row.check_in = body.clock_in_time.split('T')[1]?.slice(0, 8) ?? null
+        } else {
+          row.check_in = null
+        }
+      }
+      if (body.clock_out_time !== undefined) {
+        row.clock_out_time = body.clock_out_time
+        row.check_out = body.clock_out_time
+          ? body.clock_out_time.split('T')[1]?.slice(0, 8) ?? null
+          : null
+      }
+      updated = row
+    })
+    return enrichAttendance(loadState(), updated!)
+  }
+
   if (m === 'POST' && path === 'hrm/clock-in-out') {
-    const body = data as { type?: 'clock_in' | 'clock_out' }
-    const emp = employeeForUser(state, ctx.user?.id)
+    const body = data as { type?: 'clock_in' | 'clock_out'; employee_id?: number }
+    const employeeId = body.employee_id
+    const emp = employeeId
+      ? state.employees.find((e) => e.id === employeeId)
+      : employeeForUser(state, ctx.user?.id)
     if (!emp) throw mockError(422, 'لا يوجد سجل موظف مرتبط بحسابك')
 
     const now = new Date().toISOString()
@@ -561,6 +809,60 @@ export function tryHandleHrmRequest(
       updated = group
     })
     return enrichPayrollGroup(loadState(), updated!)
+  }
+
+  if (m === 'GET' && path === 'hrm/jobs') {
+    let items = state.hrmJobs.map((job) => enrichJob(state, job))
+    const statusFilter = params['filter[status]']
+    if (statusFilter) items = items.filter((job) => job.status === statusFilter)
+    return paginate(items, params)
+  }
+
+  if (m === 'POST' && path === 'hrm/jobs') {
+    const body = data as Record<string, unknown>
+    let created: HrmJob | undefined
+    mutateState((s) => {
+      s.counters.hrmJob = (s.counters.hrmJob ?? s.hrmJobs.length) + 1
+      created = {
+        id: s.counters.hrmJob,
+        name: String(body.name ?? ''),
+        description: (body.description as string) ?? null,
+        status: String(body.status ?? 'active'),
+      }
+      s.hrmJobs.push(created!)
+    })
+    return enrichJob(loadState(), created!)
+  }
+
+  if (m === 'PUT' && path.match(/^hrm\/jobs\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as Record<string, unknown>
+    let updated: HrmJob | undefined
+    mutateState((s) => {
+      const job = s.hrmJobs.find((j) => j.id === id)
+      if (!job) throw mockError(404, 'الوظيفة غير موجودة')
+      if (body.name) {
+        job.name = String(body.name)
+        for (const emp of s.employees.filter((e) => e.hrm_job_id === id)) {
+          emp.job_title = job.name
+        }
+      }
+      if (body.description !== undefined) job.description = (body.description as string) || null
+      if (body.status) job.status = String(body.status)
+      updated = job
+    })
+    return enrichJob(loadState(), updated!)
+  }
+
+  if (m === 'GET' && path.match(/^hrm\/jobs\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const job = state.hrmJobs.find((j) => j.id === id)
+    if (!job) throw mockError(404, 'الوظيفة غير موجودة')
+    return enrichJob(state, job)
+  }
+
+  if (m === 'GET' && path === 'hrm/zk-devices') {
+    return paginate(buildMockZkDevices(state), params)
   }
 
   return undefined

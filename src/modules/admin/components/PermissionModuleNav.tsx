@@ -1,4 +1,4 @@
-import { Icon } from '../../../components/Icon'
+import { NavIcon } from '../../../components/NavIcon'
 import type { PermissionSection } from '../lib/permissionCatalog'
 
 interface PermissionModuleNavProps {
@@ -30,7 +30,7 @@ export function PermissionModuleNav({
         return (
           <div key={section.id} className="rounded-lg border border-outline-variant/60 bg-surface-container-low">
             <div className="flex items-center gap-xs border-b border-outline-variant/50 px-sm py-xs">
-              <Icon name={section.icon} size={16} className="shrink-0 text-on-surface-variant" />
+              <NavIcon name={section.icon} size={16} className="shrink-0" />
               <span className="flex-1 text-xs font-bold text-on-surface">{section.label}</span>
               <span className="text-[11px] tabular-nums text-on-surface-variant">
                 {section.selectedCount}/{section.totalCount}

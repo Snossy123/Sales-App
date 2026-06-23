@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../../../components/Icon'
+import { formatRoleLabel, isProtectedRoleSlug } from '../../../lib/roleCatalog'
 import {
   getAllPermissions,
   groupPermissionsByModule,
@@ -13,20 +14,22 @@ import { PermissionCategorySection } from './PermissionCategorySection'
 import { PermissionModuleNav } from './PermissionModuleNav'
 
 interface RolePermissionsEditorProps {
-  roleName: string
+  roleNameAr: string
+  roleSlug?: string
   selected: string[]
   apiPermissionKeys?: string[]
   onChange: (permissions: string[]) => void
-  onRoleNameChange?: (name: string) => void
+  onRoleNameArChange?: (nameAr: string) => void
   isNew?: boolean
 }
 
 export function RolePermissionsEditor({
-  roleName,
+  roleNameAr,
+  roleSlug,
   selected,
   apiPermissionKeys,
   onChange,
-  onRoleNameChange,
+  onRoleNameArChange,
   isNew,
 }: RolePermissionsEditorProps) {
   const [search, setSearch] = useState('')
@@ -105,23 +108,32 @@ export function RolePermissionsEditor({
   const modulePermissions = activeModuleGroup?.permissions ?? []
   const totalSelected = selected.length
   const totalAvailable = allPermissions.length
+  const slugProtected = roleSlug ? isProtectedRoleSlug(roleSlug) : false
 
   return (
     <div className="space-y-md">
       <div className="flex flex-wrap items-center gap-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-        {isNew && onRoleNameChange ? (
-          <input
-            value={roleName}
-            onChange={(e) => onRoleNameChange(e.target.value)}
-            placeholder="اسم الدور"
-            required
-            dir="ltr"
-            className="min-w-[200px] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
-          />
+        {onRoleNameArChange ? (
+          <div className="min-w-[200px] flex-1 space-y-xs">
+            <label className="block text-xs text-on-surface-variant">اسم الدور بالعربي</label>
+            <input
+              value={roleNameAr}
+              onChange={(e) => onRoleNameArChange(e.target.value)}
+              placeholder="مثال: المراجعة"
+              required
+              className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+            />
+            {!isNew && roleSlug && (
+              <p className="text-xs text-on-surface-variant">
+                المعرّف التقني: <span dir="ltr">{roleSlug}</span>
+                {slugProtected && ' (دور نظامي)'}
+              </p>
+            )}
+          </div>
         ) : (
           <div>
             <p className="text-xs text-on-surface-variant">الدور</p>
-            <p className="text-lg font-bold text-on-surface">{roleName}</p>
+            <p className="text-lg font-bold text-on-surface">{roleNameAr}</p>
           </div>
         )}
         <div className="mr-auto text-sm text-on-surface-variant">

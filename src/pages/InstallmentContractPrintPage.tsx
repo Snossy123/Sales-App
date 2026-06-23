@@ -18,7 +18,10 @@ export function InstallmentContractPrintPage() {
     queryKey: ['sales-invoice', 'contract-print', id],
     queryFn: async () => {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
-        params: { include: 'customer,lines.productUnit,installmentPlan.items' },
+        params: {
+          include:
+            'customer,lines.productUnit,lines.installmentPlan.items,installmentPlan.items,installmentPlans.items,paymentTransactions',
+        },
       })
       return data
     },

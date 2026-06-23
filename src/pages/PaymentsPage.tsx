@@ -25,7 +25,7 @@ const sourceLabels: Record<string, string> = {
   installment: 'قسط',
   external: 'تحصيل خارجي',
   down_payment: 'مقدم',
-  pos_cash: 'نقدي POS',
+  pos_cash: 'كاش POS',
 }
 
 export function PaymentsPage() {

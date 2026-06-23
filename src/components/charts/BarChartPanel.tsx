@@ -17,11 +17,11 @@ export function BarChartPanel({
   data,
   xKey,
   series,
-  height = 200,
+  height = 220,
 }: BarChartPanelProps) {
   if (data.length === 0) {
     return (
-      <p className="flex h-full items-center justify-center text-sm text-on-surface-variant">
+      <p className="flex h-full min-h-[180px] items-center justify-center text-sm text-on-surface-variant">
         لا توجد بيانات
       </p>
     )
@@ -31,13 +31,33 @@ export function BarChartPanel({
     ...data.flatMap((row) =>
       series.map((s) => Number(row[s.key]) || 0),
     ),
-    1,
+    0,
   )
 
-  const barWidth = Math.min(32, Math.floor(280 / (data.length * series.length + 1)))
-  const groupWidth = data.length * (barWidth * series.length + 8) + 16
-  const chartWidth = Math.max(groupWidth, 280)
-  const paddingBottom = 48
+  if (maxVal === 0) {
+    return (
+      <div className="flex min-h-[180px] flex-col items-center justify-center gap-sm text-center">
+        <p className="text-sm text-on-surface-variant">لا توجد كميات مسجّلة بعد</p>
+        <div className="flex flex-wrap justify-center gap-md">
+          {series.map((s, i) => (
+            <div key={s.key} className="flex items-center gap-xs text-xs text-on-surface-variant">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-sm"
+                style={{ background: s.color ?? CHART_COLORS[i % CHART_COLORS.length] }}
+              />
+              {s.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const barWidth = Math.min(36, Math.floor(320 / (data.length * series.length + 1)))
+  const groupGap = 12
+  const groupWidth = data.length * (barWidth * series.length + groupGap) + 24
+  const chartWidth = Math.max(groupWidth, 300)
+  const paddingBottom = 52
   const chartHeight = height - paddingBottom
 
   return (
@@ -50,14 +70,14 @@ export function BarChartPanel({
         aria-label="مخطط أعمدة"
       >
         {data.map((row, i) => {
-          const groupX = 16 + i * (barWidth * series.length + 8)
+          const groupX = 16 + i * (barWidth * series.length + groupGap)
           const label = String(row[xKey])
 
           return (
-            <g key={label}>
+            <g key={`${label}-${i}`}>
               {series.map((s, si) => {
                 const val = Number(row[s.key]) || 0
-                const barH = (val / maxVal) * chartHeight
+                const barH = Math.max(val > 0 ? 4 : 0, (val / maxVal) * chartHeight)
                 const x = groupX + si * barWidth
                 const y = chartHeight - barH
                 const color = s.color ?? CHART_COLORS[si % CHART_COLORS.length]
@@ -67,23 +87,33 @@ export function BarChartPanel({
                     <rect
                       x={x}
                       y={y}
-                      width={barWidth - 2}
+                      width={Math.max(barWidth - 4, 8)}
                       height={barH}
-                      rx={3}
+                      rx={4}
                       fill={color}
                     >
                       <title>{`${label} — ${s.label}: ${formatArNumber(val)}`}</title>
                     </rect>
+                    {val > 0 && barH >= 18 && (
+                      <text
+                        x={x + (barWidth - 4) / 2}
+                        y={y - 4}
+                        textAnchor="middle"
+                        className="fill-on-surface text-[9px] font-medium"
+                      >
+                        {formatArNumber(val)}
+                      </text>
+                    )}
                   </g>
                 )
               })}
               <text
                 x={groupX + (barWidth * series.length) / 2}
-                y={height - 8}
+                y={height - 10}
                 textAnchor="middle"
                 className="fill-on-surface-variant text-[10px]"
               >
-                {label.length > 10 ? `${label.slice(0, 9)}…` : label}
+                {label.length > 12 ? `${label.slice(0, 11)}…` : label}
               </text>
             </g>
           )

@@ -13,8 +13,13 @@ import type {
   PaginatedResponse,
   ProductUnit,
   SalesInvoice,
+  SalesRep,
+  Promotion,
 } from '../api/types'
 import { contractPrintPath } from '../lib/sales'
+import {
+  resolveCustomerTransactionSource,
+} from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
@@ -59,6 +64,8 @@ export function PosPage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
   const [distributorSearch, setDistributorSearch] = useState('')
   const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null)
+  const [salesRepSearch, setSalesRepSearch] = useState('')
+  const [selectedSalesRep, setSelectedSalesRep] = useState<SalesRep | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [quantity, setQuantity] = useState(1)
@@ -71,27 +78,91 @@ export function PosPage() {
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
+  const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
+
+  const activePromotionsQuery = useQuery({
+    queryKey: ['pricing', 'promotions', 'active'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Promotion[] }>('/pricing/promotions/active')
+      return data.data ?? []
+    },
+  })
+
+  useEffect(() => {
+    const promos = activePromotionsQuery.data ?? []
+    if (promos.length > 0 && deviceLines.length > 0 && !selectedPromotionId) {
+      setSelectedPromotionId(promos[0].id)
+    }
+    if (deviceLines.length === 0) {
+      setSelectedPromotionId('')
+    }
+  }, [activePromotionsQuery.data, deviceLines.length, selectedPromotionId])
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
+  const debouncedSalesRepSearch = useDebouncedValue(salesRepSearch, 300)
 
   const resolvedBranchId =
     transactionSource === 'branch'
       ? selectedBranch?.id ?? ''
-      : selectedDistributor?.branch_id ?? ''
+      : transactionSource === 'distributor'
+        ? selectedDistributor?.branch_id ?? ''
+        : selectedSalesRep?.branch_id ?? ''
 
-  const resetTransactionSelections = () => {
-    setSelectedBranch(null)
-    setSelectedDistributor(null)
-    setSelectedCustomer(null)
-    setBranchSearch('')
-    setDistributorSearch('')
-    setCustomerSearch('')
+  const handleCustomerChange = (customer: Customer | null) => {
+    setSelectedCustomer(customer)
+
+    if (!customer) {
+      setSelectedBranch(null)
+      setSelectedDistributor(null)
+      setSelectedSalesRep(null)
+      setBranchSearch('')
+      setDistributorSearch('')
+      setSalesRepSearch('')
+      setTransactionSource('distributor')
+      return
+    }
+
+    const applyResolved = (resolvedCustomer: Customer) => {
+      const resolved = resolveCustomerTransactionSource(resolvedCustomer)
+      setTransactionSource(resolved.source)
+      setSelectedBranch(resolved.branch)
+      setSelectedDistributor(resolved.distributor)
+      setSelectedSalesRep(resolved.salesRep)
+      setBranchSearch(resolved.branchSearch)
+      setDistributorSearch(resolved.distributorSearch)
+      setSalesRepSearch(resolved.salesRepSearch)
+    }
+
+    const needsDetail =
+      (customer.sales_user_id && !customer.sales_user) ||
+      (customer.distributor_id && !customer.distributor) ||
+      (customer.branch_id && !customer.branch)
+
+    if (needsDetail) {
+      api
+        .get<Customer>(`/customers/${customer.id}`, {
+          params: { include: 'salesUser,branch,distributor' },
+        })
+        .then(({ data }) => {
+          setSelectedCustomer(data)
+          applyResolved(data)
+        })
+        .catch(() => applyResolved(customer))
+      return
+    }
+
+    applyResolved(customer)
   }
 
   const handleTransactionSourceChange = (source: TransactionSource) => {
     setTransactionSource(source)
-    resetTransactionSelections()
+    setSelectedBranch(null)
+    setSelectedDistributor(null)
+    setSelectedSalesRep(null)
+    setBranchSearch('')
+    setDistributorSearch('')
+    setSalesRepSearch('')
     setDeviceLines((prev) => prev.map((line) => ({ ...line, technician: null })))
   }
 
@@ -143,6 +214,7 @@ export function PosPage() {
       const params: Record<string, string | number> = {
         per_page: 50,
         'filter[status]': 'active',
+        include: 'salesUser,branch,distributor',
       }
       const q = debouncedCustomerSearch.trim()
       if (q) {
@@ -156,6 +228,18 @@ export function PosPage() {
       return data.data
     },
     enabled: Boolean(warehouseId),
+  })
+
+  const salesRepsQuery = useQuery({
+    queryKey: ['sales-reps', 'pos', debouncedSalesRepSearch],
+    queryFn: async () => {
+      const params: Record<string, string> = {}
+      const q = debouncedSalesRepSearch.trim()
+      if (q) params.search = q
+      const { data } = await api.get<{ data: SalesRep[] }>('/sales-reps', { params })
+      return data.data
+    },
+    enabled: transactionSource === 'sales' && Boolean(warehouseId),
   })
 
   const employeesQuery = useQuery({
@@ -294,7 +378,11 @@ export function PosPage() {
     e.preventDefault()
     const customerId = selectedCustomer?.id
     const sourceReady =
-      transactionSource === 'branch' ? Boolean(selectedBranch) : Boolean(selectedDistributor)
+      transactionSource === 'branch'
+        ? Boolean(selectedBranch)
+        : transactionSource === 'distributor'
+          ? Boolean(selectedDistributor)
+          : Boolean(selectedSalesRep)
     if (!customerId || !sourceReady || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
     if (!allowNegativeInventory && quantity > available) return
     if (!allInstallmentLinesValid) return
@@ -355,6 +443,15 @@ export function PosPage() {
       payload.distributor_id = selectedDistributor.id
     }
 
+    if (transactionSource === 'sales' && selectedSalesRep) {
+      payload.sales_user_id = selectedSalesRep.id
+      if (resolvedBranchId) payload.branch_id = resolvedBranchId
+    }
+
+    if (selectedPromotionId) {
+      payload.promotion_id = Number(selectedPromotionId)
+    }
+
     checkoutMutation.mutate(payload)
   }
 
@@ -369,7 +466,7 @@ export function PosPage() {
       {!warehouseId ? (
         <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
       ) : (
-        <form onSubmit={handleCheckout} className="flex w-full flex-col gap-md">
+        <form onSubmit={handleCheckout} className="pos-form flex w-full flex-col gap-md">
           <PosContractHeader
             transactionSource={transactionSource}
             onTransactionSourceChange={handleTransactionSourceChange}
@@ -383,8 +480,13 @@ export function PosPage() {
             onDistributorSearchChange={setDistributorSearch}
             distributors={distributorsQuery.data ?? []}
             distributorsLoading={distributorsQuery.isLoading}
+            selectedSalesRep={selectedSalesRep}
+            onSalesRepChange={setSelectedSalesRep}
+            onSalesRepSearchChange={setSalesRepSearch}
+            salesReps={salesRepsQuery.data ?? []}
+            salesRepsLoading={salesRepsQuery.isLoading}
             selectedCustomer={selectedCustomer}
-            onCustomerChange={setSelectedCustomer}
+            onCustomerChange={handleCustomerChange}
             onCustomerSearchChange={setCustomerSearch}
             customers={customersQuery.data ?? []}
             customersLoading={customersQuery.isLoading}
@@ -438,6 +540,28 @@ export function PosPage() {
             }`}
           >
             <div className="mb-sm grid gap-sm text-sm text-on-surface-variant md:grid-cols-3">
+              {(activePromotionsQuery.data?.length ?? 0) > 0 && deviceLines.length > 0 && (
+                <div className="md:col-span-3 rounded-lg border border-primary/30 bg-primary/5 p-sm">
+                  <label className="mb-xs block text-sm font-medium text-on-surface">عروض نشطة</label>
+                  <select
+                    value={selectedPromotionId}
+                    onChange={(e) =>
+                      setSelectedPromotionId(e.target.value ? Number(e.target.value) : '')
+                    }
+                    className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                  >
+                    <option value="">بدون عرض</option>
+                    {(activePromotionsQuery.data ?? []).map((promo) => (
+                      <option key={promo.id} value={promo.id}>
+                        {promo.name_ar}
+                        {promo.promotion_type === 'percent'
+                          ? ` (${promo.discount_value}%)`
+                          : ` (${Number(promo.discount_value).toLocaleString('ar-EG')} ج.م)`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
                 <span>قيمة الأجهزة (بعد الخصم)</span>
                 <span className="font-medium text-on-surface">
@@ -490,7 +614,11 @@ export function PosPage() {
               disabled={
                 checkoutMutation.isPending ||
                 !selectedCustomer ||
-                (transactionSource === 'branch' ? !selectedBranch : !selectedDistributor) ||
+                (transactionSource === 'branch'
+                  ? !selectedBranch
+                  : transactionSource === 'distributor'
+                    ? !selectedDistributor
+                    : !selectedSalesRep) ||
                 quantity <= 0 ||
                 deviceLines.length === 0 ||
                 (!allowNegativeInventory && quantity > available) ||

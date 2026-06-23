@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Icon } from './Icon'
+import { posInputClass, posLabelClass } from './pos/posFormStyles'
 
-const inputClass =
-  'w-full rounded border border-outline-variant px-sm py-2 pe-9 focus:border-primary focus:outline-none disabled:opacity-50'
+const inputClass = posInputClass
 
 export interface SearchableSelectProps<T> {
   options: T[]
@@ -86,7 +86,7 @@ export function SearchableSelect<T>({
   return (
     <div ref={rootRef} className="relative" data-tour={dataTour}>
       {label ? (
-        <label className="mb-xs block text-xs text-on-surface-variant">{label}</label>
+        <label className={posLabelClass}>{label}</label>
       ) : null}
       <div className="relative">
         <input

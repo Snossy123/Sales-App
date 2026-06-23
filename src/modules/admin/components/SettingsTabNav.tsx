@@ -1,4 +1,4 @@
-import { Icon } from '../../../components/Icon'
+import { NavIcon } from '../../../components/NavIcon'
 import type { SettingsTab } from '../lib/systemSettingsCatalog'
 import { SETTINGS_TABS } from '../lib/systemSettingsCatalog'
 
@@ -23,7 +23,7 @@ export function SettingsTabNav({ active, onChange }: SettingsTabNavProps) {
                 : 'text-on-surface-variant hover:bg-surface-container'
             }`}
           >
-            <Icon name={tab.icon} size={18} className="no-flip" />
+            <NavIcon name={tab.icon} size={18} />
             {tab.label}
           </button>
         )

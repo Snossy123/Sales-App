@@ -8,6 +8,7 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
 
 type HolidayRow = HrmHoliday & Record<string, unknown>
@@ -25,20 +26,20 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 export function HrmHolidaysPage() {
   const queryClient = useQueryClient()
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
   const [panel, setPanel] = useState<Panel>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [successToast, setSuccessToast] = useState('')
 
   const holidaysQuery = useQuery({
-    queryKey: ['hrm', 'holidays', branchId],
+    queryKey: ['hrm', 'holidays', listScopeKey],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 50,
         include: 'branch',
-      }
-      if (branchId) params['filter[branch_id]'] = branchId
+      })
 
       const { data } = await api.get<PaginatedResponse<HrmHoliday>>('/hrm/holidays', { params })
       return data.data

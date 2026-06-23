@@ -6,6 +6,7 @@ interface CollapsibleSectionProps {
   summary?: string
   defaultOpen?: boolean
   isLoading?: boolean
+  className?: string
   children: ReactNode
 }
 
@@ -14,12 +15,15 @@ export function CollapsibleSection({
   summary,
   defaultOpen = false,
   isLoading = false,
+  className = '',
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+    <div
+      className={`overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest ${className || 'mb-md'}`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

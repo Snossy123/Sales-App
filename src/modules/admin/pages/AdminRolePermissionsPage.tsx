@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { AdminRole, PermissionGroups } from '../../../api/types'
+import { formatRoleLabel } from '../../../lib/roleCatalog'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { ToastBanner } from '../../../components/ToastBanner'
@@ -18,7 +19,8 @@ export function AdminRolePermissionsPage() {
   const queryClient = useQueryClient()
   const isNew = roleId === 'new'
 
-  const [roleName, setRoleName] = useState('')
+  const [roleNameAr, setRoleNameAr] = useState('')
+  const [roleSlug, setRoleSlug] = useState<string | undefined>()
   const [permissions, setPermissions] = useState<string[]>([])
   const [toast, setToast] = useState('')
 
@@ -41,14 +43,15 @@ export function AdminRolePermissionsPage() {
 
   useEffect(() => {
     if (roleQuery.data) {
-      setRoleName(roleQuery.data.name)
+      setRoleNameAr(formatRoleLabel(roleQuery.data))
+      setRoleSlug(roleQuery.data.name)
       setPermissions(roleQuery.data.permissions?.map((p) => p.name) ?? [])
     }
   }, [roleQuery.data])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: roleName, permissions }
+      const payload = { name_ar: roleNameAr, permissions }
       if (isNew) {
         const { data } = await api.post<AdminRole>('/admin/roles', payload)
         return data
@@ -80,7 +83,7 @@ export function AdminRolePermissionsPage() {
             <span>صلاحيات الدور</span>
           </nav>
           <h1 className="text-2xl font-bold text-on-surface">
-            {isNew ? 'دور جديد' : `صلاحيات: ${roleName || '...'}`}
+            {isNew ? 'دور جديد' : `صلاحيات: ${roleNameAr || '...'}`}
           </h1>
           <p className="text-sm text-on-surface-variant">تحديد الصلاحيات الممنوحة لهذا الدور</p>
         </div>
@@ -94,7 +97,7 @@ export function AdminRolePermissionsPage() {
           <button
             type="button"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !roleName.trim()}
+            disabled={saveMutation.isPending || !roleNameAr.trim()}
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-60"
           >
             <Icon name="save" size={18} />
@@ -107,11 +110,12 @@ export function AdminRolePermissionsPage() {
 
       <AsyncState isLoading={isLoading} isError={isError} error={error}>
         <RolePermissionsEditor
-          roleName={roleName}
+          roleNameAr={roleNameAr}
+          roleSlug={roleSlug}
           selected={permissions}
           apiPermissionKeys={apiKeys}
           onChange={setPermissions}
-          onRoleNameChange={setRoleName}
+          onRoleNameArChange={setRoleNameAr}
           isNew={isNew}
         />
       </AsyncState>

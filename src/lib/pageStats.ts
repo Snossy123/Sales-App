@@ -120,9 +120,9 @@ export function filterDepartments(
     if (status === 'inactive' && d.is_active !== false) return false
     if (!q) return true
     return (
-      d.code.toLowerCase().includes(q) ||
-      d.name.toLowerCase().includes(q) ||
-      (d.name_ar ?? '').toLowerCase().includes(q)
+      (d.name_ar ?? '').toLowerCase().includes(q) ||
+      (d.address ?? '').toLowerCase().includes(q) ||
+      (d.phone ?? '').toLowerCase().includes(q)
     )
   })
 }
@@ -196,10 +196,9 @@ export function filterBranches(
     if (status === 'inactive' && b.is_active !== false) return false
     if (!q) return true
     return (
-      b.code.toLowerCase().includes(q) ||
-      b.name.toLowerCase().includes(q) ||
       (b.name_ar ?? '').toLowerCase().includes(q) ||
-      (b.address ?? '').toLowerCase().includes(q)
+      (b.address ?? '').toLowerCase().includes(q) ||
+      (b.phone ?? '').toLowerCase().includes(q)
     )
   })
 }
@@ -306,6 +305,30 @@ export function computeDashboardStockBarData(departments: Department[]) {
   }))
 }
 
+export function computeDashboardStockBarFromOverview(rows: InventoryOverviewRow[]) {
+  const byDept = new Map<string, { quantity: number; pending: number }>()
+
+  for (const row of rows) {
+    const name = row.department_name_ar || '—'
+    const current = byDept.get(name) ?? { quantity: 0, pending: 0 }
+
+    if (row.row_type === 'department_pending') {
+      current.pending += row.quantity
+      current.quantity += row.quantity
+    } else {
+      current.quantity += row.quantity
+    }
+
+    byDept.set(name, current)
+  }
+
+  return Array.from(byDept.entries()).map(([name, vals]) => ({
+    name,
+    quantity: vals.quantity,
+    pending: vals.pending,
+  }))
+}
+
 export function computeDashboardInstallmentDonut(stats: DashboardStats): DonutSlice[] {
   return [
     { label: 'متأخرة', value: stats.overdue_installments, color: 'var(--color-error)' },
@@ -336,8 +359,8 @@ export function computeDashboardInsights(
 
   if (showReviews && (stats.pending_reviews ?? 0) > 0) {
     insights.push({
-      message: `${stats.pending_reviews} فاتورة بانتظار المراجعة`,
-      variant: 'info',
+      message: `${stats.pending_reviews} تعاقد بانتظار المراجعة`,
+      variant: 'error',
       to: '/invoices/review',
     })
   }

@@ -25,7 +25,7 @@ function tierRowClass(tier?: string): string {
 }
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'نقدي' },
+  { value: 'cash', label: 'كاش' },
   { value: 'bank_transfer', label: 'تحويل بنكي' },
   { value: 'card', label: 'بطاقة' },
 ]

@@ -8,9 +8,11 @@ import {
   formatContractMoney,
   getInstallmentItems,
   getInstallmentNumber,
+  installmentRemainingAmount,
   installmentStatusLabel,
   invoiceStatusLabel,
   normalizeInstallmentStatus,
+  paymentStatusLabel,
   type ContractStatusFilter,
 } from '../../lib/customerContracts'
 import { formatInvoiceDate } from '../../lib/sales'
@@ -83,14 +85,36 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                 defaultOpen={false}
               >
                 <div className="space-y-md">
-                  {showInvoiceStatusBadge(statusFilter) && invoice.status && (
-                    <div className="flex items-center gap-sm">
-                      <span className="text-sm text-on-surface-variant">حالة التعاقد</span>
-                      <StatusBadge status={String(invoice.status)} />
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-sm">
+                    {invoice.payment_status && (
+                      <>
+                        <span className="text-sm text-on-surface-variant">حالة السداد</span>
+                        <StatusBadge
+                          status={String(invoice.payment_status)}
+                          label={paymentStatusLabel(invoice.payment_status)}
+                        />
+                      </>
+                    )}
+                    {showInvoiceStatusBadge(statusFilter) && invoice.status && (
+                      <>
+                        <span className="text-sm text-on-surface-variant">حالة التعاقد</span>
+                        <StatusBadge status={String(invoice.status)} />
+                      </>
+                    )}
+                  </div>
 
-                  {summary && (
+                  <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-sm text-sm">
+                    <span className="font-medium text-on-surface">ملخص السداد: </span>
+                    <span className="tabular-nums text-on-surface">
+                      مدفوع {formatContractMoney(summary.paidAmount)}
+                    </span>
+                    <span className="mx-2 text-on-surface-variant">·</span>
+                    <span className="tabular-nums text-on-surface">
+                      متبقي {formatContractMoney(summary.remaining)}
+                    </span>
+                  </div>
+
+                  {invoice.payment_term === 'installment' && (
                     <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <dt className="text-on-surface-variant">المقدم</dt>
@@ -153,6 +177,28 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                             key: 'amount',
                             header: 'المطلوب سداده',
                             render: (row) => formatContractMoney(Number(row.amount)),
+                          },
+                          {
+                            key: 'paid_amount',
+                            header: 'مسدد',
+                            render: (row) =>
+                              formatContractMoney(Number((row as InstallmentItem).paid_amount ?? 0)),
+                          },
+                          {
+                            key: 'remaining',
+                            header: 'متبقي',
+                            render: (row) =>
+                              formatContractMoney(
+                                installmentRemainingAmount(row as unknown as InstallmentItem),
+                              ),
+                          },
+                          {
+                            key: 'paid_at',
+                            header: 'تاريخ السداد',
+                            render: (row) => {
+                              const paidAt = (row as InstallmentItem).paid_at
+                              return paidAt ? formatInvoiceDate(paidAt) : '—'
+                            },
                           },
                           {
                             key: 'status',

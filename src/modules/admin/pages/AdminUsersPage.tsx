@@ -12,6 +12,7 @@ import { Pagination } from '../../../components/Pagination'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { useAuthStore } from '../../../stores/authStore'
 import { getScopedDepartmentId, isDepartmentAdmin, isSuperAdmin } from '../../../lib/access'
+import { formatRoleLabel } from '../../../lib/roleCatalog'
 import { getAdministrationApiFilters } from '../../../lib/administrationScope'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -261,7 +262,7 @@ export function AdminUsersPage() {
           {(availableRoles).map((role) => (
             <label key={role.id} className="flex cursor-pointer items-center gap-xs rounded-lg border border-outline-variant px-sm py-1 text-sm">
               <input type="checkbox" checked={form.role_names.includes(role.name)} onChange={() => toggleRole(role.name)} />
-              {role.name}
+              {formatRoleLabel(role)}
             </label>
           ))}
         </div>
@@ -339,7 +340,7 @@ export function AdminUsersPage() {
             },
             { key: 'branch', header: 'الفرع', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
             { key: 'section', header: 'القسم', render: (row) => row.section?.name_ar ?? row.section?.name ?? '—' },
-            { key: 'roles', header: 'الأدوار', render: (row) => row.roles?.map((r) => r.name).join('، ') ?? '—' },
+            { key: 'roles', header: 'الأدوار', render: (row) => row.roles?.map((r) => formatRoleLabel(r)).join('، ') ?? '—' },
             {
               key: 'actions',
               header: '',
@@ -349,11 +350,11 @@ export function AdminUsersPage() {
             },
           ]}
         />
-        {(usersQuery.data?.last_page ?? 1) > 1 && (
+        {usersQuery.data && (
           <Pagination
             currentPage={page}
-            lastPage={usersQuery.data?.last_page ?? 1}
-            total={usersQuery.data?.total ?? 0}
+            lastPage={usersQuery.data.last_page ?? 1}
+            total={usersQuery.data.total ?? 0}
             onPageChange={setPage}
           />
         )}

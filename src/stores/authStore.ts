@@ -10,6 +10,7 @@ interface AuthState {
   branchId: number | null
   warehouseId: number | null
   setAuth: (token: string, user: AuthUser) => void
+  updateUser: (user: AuthUser) => void
   setDepartmentId: (id: number | null) => void
   setBranchId: (id: number | null) => void
   setWarehouseId: (id: number | null) => void
@@ -36,6 +37,14 @@ export const useAuthStore = create<AuthState>()(
           departmentId: user.administration_id ?? user.department_id ?? null,
           branchId: user.branch_id ?? user.branch?.id ?? null,
         })
+      },
+
+      updateUser: (user) => {
+        set((state) => ({
+          user,
+          departmentId: user.administration_id ?? user.department_id ?? state.departmentId,
+          branchId: user.branch_id ?? user.branch?.id ?? state.branchId,
+        }))
       },
 
       setDepartmentId: (departmentId) =>

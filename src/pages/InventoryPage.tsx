@@ -61,9 +61,9 @@ export function InventoryPage() {
   })
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments', 'inventory'],
+    queryKey: ['administrations', 'inventory'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<Department>>('/administrations', {
         params: { per_page: 100 },
       })
       return data.data

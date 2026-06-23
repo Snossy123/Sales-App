@@ -8,16 +8,18 @@ import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { Pagination } from '../components/Pagination'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { type ApiPaginated, customerStatusOptions, paginatedMeta } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
+import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 export function CustomersPage() {
-  const branchId = useAuthStore((s) => s.branchId)
   const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
   const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -25,15 +27,14 @@ export function CustomersPage() {
   const debouncedSearch = useDebouncedValue(search, 300)
 
   const query = useQuery({
-    queryKey: ['customers', debouncedSearch, statusFilter, branchId, page],
+    queryKey: ['customers', debouncedSearch, statusFilter, listScopeKey, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 25,
         page,
-      }
+      })
       if (debouncedSearch) params['filter[name]'] = debouncedSearch
       if (statusFilter) params['filter[status]'] = statusFilter
-      if (branchId) params['filter[branch_id]'] = branchId
 
       const { data } = await api.get<ApiPaginated<Customer>>('/customers', { params })
       return data
@@ -100,7 +101,21 @@ export function CustomersPage() {
           keyExtractor={(row) => row.id}
           emptyMessage={hasFilters ? 'لا يوجد عملاء مطابقون' : 'لا يوجد عملاء'}
           columns={[
-            { key: 'name', header: 'الاسم' },
+            {
+              key: 'name',
+              header: 'الاسم',
+              render: (row) => (
+                <span className="inline-flex items-center gap-sm">
+                  <ProfileAvatar
+                    name={row.name}
+                    photoUrl={row.profile_photo_url}
+                    variant="customer"
+                    size="sm"
+                  />
+                  {row.name}
+                </span>
+              ),
+            },
             { key: 'phone', header: 'الهاتف', className: 'tabular-nums' },
             {
               key: 'status',
@@ -127,7 +142,7 @@ export function CustomersPage() {
             },
           ]}
         />
-        {meta && meta.last_page > 1 && (
+        {meta && (
           <Pagination
             currentPage={meta.current_page}
             lastPage={meta.last_page}

@@ -1,22 +1,29 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
-import type { Branch, Department, Employee, PaginatedResponse } from '../../../api/types'
+import type { AdminUser, Branch, Department, Employee, HrmJob, PaginatedResponse, ZkDevice } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
+import { ProfileAvatar } from '../../../components/ProfileAvatar'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EmployeeUserField } from '../components/EmployeeUserField'
+import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
+import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 const emptyForm = {
-  employee_code: '',
+  user_id: '' as number | '',
+  zk_device_id: '' as number | '',
+  zk_pin: '',
   name: '',
   phone: '',
-  job_title: '',
+  hrm_job_id: '' as number | '',
   salary: '',
   branch_id: '' as number | '',
   department_id: '' as number | '',
@@ -34,7 +41,7 @@ export function HrmEmployeesPage() {
     queryKey: ['employees'],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
-        params: { per_page: 100, include: 'branch,department,user' },
+        params: { per_page: 100, include: 'branch,department,job,user' },
       })
       return data.data
     },
@@ -58,13 +65,49 @@ export function HrmEmployeesPage() {
     enabled: panelOpen || editId !== null,
   })
 
+  const zkDevicesQuery = useQuery({
+    queryKey: ['hrm', 'zk-devices', 'hrm-employees'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ZkDevice>>('/hrm/zk-devices', {
+        params: { per_page: 100, include: 'branch' },
+      })
+      return data.data
+    },
+  })
+
+  const jobsQuery = useQuery({
+    queryKey: ['hrm', 'jobs', 'hrm-employees'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<HrmJob>>('/hrm/jobs', {
+        params: { per_page: 100, 'filter[status]': 'active' },
+      })
+      return data.data
+    },
+    enabled: panelOpen || editId !== null,
+  })
+
+  const linkableUsersQuery = useQuery({
+    queryKey: ['employees', 'linkable-users', editId],
+    queryFn: async () => {
+      const params: Record<string, number> = {}
+      if (editId) params.employee_id = editId
+      const { data } = await api.get<{ data: AdminUser[] }>('/employees/linkable-users', { params })
+      return data.data
+    },
+    enabled: panelOpen || editId !== null,
+  })
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const selectedUser = form.user_id
+        ? linkableUsersQuery.data?.find((user) => user.id === form.user_id)
+        : undefined
       const payload = {
-        employee_code: form.employee_code,
-        name: form.name,
+        user_id: form.user_id ? Number(form.user_id) : null,
+        zk_pin: form.zk_pin || undefined,
+        name: selectedUser?.name ?? form.name,
         phone: form.phone || undefined,
-        job_title: form.job_title || undefined,
+        hrm_job_id: form.hrm_job_id ? Number(form.hrm_job_id) : null,
         salary: form.salary ? Number(form.salary) : undefined,
         branch_id: form.branch_id ? Number(form.branch_id) : undefined,
         department_id: form.department_id ? Number(form.department_id) : undefined,
@@ -87,13 +130,33 @@ export function HrmEmployeesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const handleDeviceChange = (deviceId: number | '') => {
+    const device = zkDevices.find((d) => d.id === deviceId)
+    setForm((current) => ({
+      ...current,
+      zk_device_id: deviceId,
+      branch_id: device?.branch_id ?? current.branch_id,
+    }))
+  }
+
+  const handleBranchChange = (branchId: number | '') => {
+    const device = branchZkDevice(zkDevices, branchId)
+    setForm((current) => ({
+      ...current,
+      branch_id: branchId,
+      zk_device_id: device?.id ?? '',
+    }))
+  }
+
   const openEdit = (emp: Employee) => {
     setEditId(emp.id)
     setForm({
-      employee_code: emp.employee_code,
+      user_id: emp.user_id ?? '',
+      zk_device_id: branchZkDevice(zkDevices, emp.branch_id)?.id ?? '',
+      zk_pin: emp.zk_pin ?? '',
       name: emp.name,
       phone: emp.phone ?? '',
-      job_title: emp.job_title ?? '',
+      hrm_job_id: emp.hrm_job_id ?? '',
       salary: emp.salary != null ? String(emp.salary) : '',
       branch_id: emp.branch_id ?? '',
       department_id: emp.department_id ?? '',
@@ -101,14 +164,44 @@ export function HrmEmployeesPage() {
     })
   }
 
+  const handleUserChange = (userId: number | '', user?: AdminUser) => {
+    setForm((current) => ({
+      ...current,
+      user_id: userId,
+      name: user?.name ?? (userId ? current.name : ''),
+      branch_id: user?.branch_id ?? current.branch_id,
+      department_id: user?.section_id ?? current.department_id,
+    }))
+  }
+
+  const zkDevices = zkDevicesQuery.data ?? []
+  const linkableUsers = linkableUsersQuery.data ?? []
+  const usesExistingUser = Boolean(form.user_id)
+
   const formFields = (
     <>
-      <input placeholder="كود الموظف" value={form.employee_code} onChange={(e) => setForm({ ...form, employee_code: e.target.value })} required className={inputClass} dir="ltr" />
-      <input placeholder="الاسم" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClass} />
+      <EmployeeUserField
+        value={form.user_id}
+        onChange={handleUserChange}
+        users={linkableUsers}
+        isLoading={linkableUsersQuery.isLoading}
+      />
+      {!usesExistingUser && (
+        <input placeholder="الاسم" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClass} />
+      )}
       <input placeholder="الهاتف" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} dir="ltr" />
-      <input placeholder="المسمى الوظيفي" value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} className={inputClass} />
+      <select value={form.hrm_job_id} onChange={(e) => setForm({ ...form, hrm_job_id: e.target.value ? Number(e.target.value) : '' })} className={inputClass}>
+        <option value="">الوظيفة</option>
+        {(jobsQuery.data ?? []).map((job) => (
+          <option key={job.id} value={job.id}>{job.name}</option>
+        ))}
+      </select>
       <input type="number" placeholder="الراتب" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} className={inputClass} dir="ltr" />
-      <select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value ? Number(e.target.value) : '' })} className={inputClass}>
+      <select
+        value={form.branch_id}
+        onChange={(e) => handleBranchChange(e.target.value ? Number(e.target.value) : '')}
+        className={inputClass}
+      >
         <option value="">الفرع</option>
         {(branchesQuery.data ?? []).map((b) => <option key={b.id} value={b.id}>{b.name_ar ?? b.name}</option>)}
       </select>
@@ -116,6 +209,13 @@ export function HrmEmployeesPage() {
         <option value="">القسم</option>
         {(departmentsQuery.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name_ar ?? d.name}</option>)}
       </select>
+      <EmployeeZkDeviceField
+        value={form.zk_device_id}
+        onChange={handleDeviceChange}
+        devices={zkDevices}
+        isLoading={zkDevicesQuery.isLoading}
+      />
+      <input placeholder="رقم البصمة" value={form.zk_pin} onChange={(e) => setForm({ ...form, zk_pin: e.target.value })} className={inputClass} dir="ltr" />
       <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
         <option value="active">نشط</option>
         <option value="inactive">غير نشط</option>
@@ -138,14 +238,37 @@ export function HrmEmployeesPage() {
           keyExtractor={(row) => row.id}
           pageSize={10}
           columns={[
-            { key: 'employee_code', header: 'الكود' },
-            { key: 'name', header: 'الاسم' },
-            { key: 'job_title', header: 'الوظيفة', render: (row) => row.job_title ?? '—' },
+            { key: 'zk_pin', header: 'رقم البصمة', render: (row) => row.zk_pin ?? '—', className: 'tabular-nums' },
+            {
+              key: 'name',
+              header: 'الاسم',
+              render: (row) => (
+                <span className="inline-flex items-center gap-sm">
+                  <ProfileAvatar
+                    name={row.name}
+                    photoUrl={row.profile_photo_url}
+                    variant="employee"
+                    size="sm"
+                  />
+                  {row.name}
+                </span>
+              ),
+            },
+            { key: 'job_title', header: 'الوظيفة', render: (row) => row.job?.name ?? row.job_title ?? '—' },
             { key: 'branch', header: 'الفرع', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
+            {
+              key: 'zk_device',
+              header: 'جهاز البصمة',
+              render: (row) => zkDeviceLabel(branchZkDevice(zkDevices, row.branch_id)),
+              className: 'tabular-nums',
+            },
             { key: 'salary', header: 'الراتب', className: 'tabular-nums', render: (row) => row.salary != null ? Number(row.salary).toLocaleString('ar-EG') : '—' },
             { key: 'status', header: 'الحالة', render: (row) => <StatusBadge status={row.status} /> },
             { key: 'actions', header: '', render: (row) => (
-              <button type="button" onClick={() => openEdit(row)} className="text-xs text-primary hover:underline">تعديل</button>
+              <div className="flex gap-2">
+                <Link to={`/hrm/employees/${row.id}`} className="text-xs text-primary hover:underline">عرض</Link>
+                <button type="button" onClick={() => openEdit(row)} className="text-xs text-on-surface-variant hover:underline">تعديل</button>
+              </div>
             ) },
           ]}
         />

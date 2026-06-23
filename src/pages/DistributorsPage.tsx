@@ -1,88 +1,63 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
 import type { Distributor } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import {
   type ApiPaginated,
+  distributorContractCustomerCount,
+  distributorContractsCount,
   distributorLabel,
+  formatDistributorAgreedAmount,
   distributorStatusOptions,
+  distributorTypeLabel,
   paginatedMeta,
 } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
+import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
-const emptyForm = {
-  code: '',
-  name: '',
-  name_ar: '',
-  phone: '',
-  commission_percent: 0,
-  commission_tier_threshold: 0,
-  commission_tier_increment: 0,
+function truncateAddress(value?: string | null, max = 40): string {
+  if (!value) return '—'
+  return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
 export function DistributorsPage() {
-  const queryClient = useQueryClient()
-  const branchId = useAuthStore((s) => s.branchId)
   const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
   const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [codeSearch, setCodeSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(emptyForm)
   const debouncedSearch = useDebouncedValue(search, 300)
   const debouncedCode = useDebouncedValue(codeSearch, 300)
 
   const query = useQuery({
-    queryKey: ['distributors', debouncedSearch, debouncedCode, statusFilter, branchId, page],
+    queryKey: ['distributors', debouncedSearch, debouncedCode, statusFilter, listScopeKey, page],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 25,
         page,
-        include: 'branch',
-      }
+        include: 'customer',
+      })
       if (debouncedSearch) params['filter[name]'] = debouncedSearch
       if (debouncedCode) params['filter[code]'] = debouncedCode
       if (statusFilter) params['filter[status]'] = statusFilter
-      if (branchId) params['filter[branch_id]'] = branchId
 
       const { data } = await api.get<ApiPaginated<Distributor>>('/distributors', { params })
       return data
     },
   })
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post<Distributor>('/distributors', {
-        ...form,
-        branch_id: branchId,
-        status: 'active',
-      })
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['distributors'] })
-      setForm(emptyForm)
-      setShowForm(false)
-    },
-  })
-
-  const handleCreate = (e: FormEvent) => {
-    e.preventDefault()
-    if (!branchId) return
-    createMutation.mutate()
-  }
 
   const meta = query.data ? paginatedMeta(query.data) : null
   const rows = query.data?.data ?? []
@@ -101,15 +76,13 @@ export function DistributorsPage() {
       subtitle="إدارة الموزعين وربط العملاء والفواتير بكل موزع"
       actions={
         canCreate ? (
-          <button
-            type="button"
-            onClick={() => setShowForm(!showForm)}
-            disabled={!branchId}
+          <Link
+            to="/distributors/add"
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-50"
           >
             <Icon name="person_add" size={18} />
             موزع جديد
-          </button>
+          </Link>
         ) : undefined
       }
       filters={
@@ -157,90 +130,6 @@ export function DistributorsPage() {
         </div>
       }
     >
-      {!branchId && (
-        <p className="mb-md text-sm text-on-surface-variant">يرجى اختيار فرع لعرض الموزعين.</p>
-      )}
-
-      {showForm && canCreate && branchId && (
-        <form
-          onSubmit={handleCreate}
-          className="mb-md grid gap-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md sm:grid-cols-2"
-        >
-          <input
-            placeholder="كود الموزع *"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            required
-            dir="ltr"
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            placeholder="الاسم بالعربية"
-            value={form.name_ar}
-            onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            placeholder="الاسم (إنجليزي)"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            placeholder="الهاتف"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            dir="ltr"
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={0.1}
-            placeholder="نسبة العمولة %"
-            value={form.commission_percent}
-            onChange={(e) => setForm({ ...form, commission_percent: Number(e.target.value) })}
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={0}
-            placeholder="حد المعاملات للترقية"
-            value={form.commission_tier_threshold}
-            onChange={(e) =>
-              setForm({ ...form, commission_tier_threshold: Number(e.target.value) })
-            }
-            className="rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={0.1}
-            placeholder="زيادة العمولة المقترحة %"
-            value={form.commission_tier_increment}
-            onChange={(e) =>
-              setForm({ ...form, commission_tier_increment: Number(e.target.value) })
-            }
-            className="rounded border border-outline-variant px-sm py-2 text-sm sm:col-span-2"
-          />
-          {createMutation.isError && (
-            <p className="text-sm text-error sm:col-span-2">
-              {getErrorMessage(createMutation.error)}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary sm:col-span-2"
-          >
-            حفظ الموزع
-          </button>
-        </form>
-      )}
-
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<Distributor & Record<string, unknown>>
           data={rows as (Distributor & Record<string, unknown>)[]}
@@ -251,12 +140,17 @@ export function DistributorsPage() {
             {
               key: 'name',
               header: 'الموزع',
-              render: (row) => distributorLabel(row),
-            },
-            {
-              key: 'branch',
-              header: 'الفرع',
-              render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—',
+              render: (row) => (
+                <span className="inline-flex items-center gap-sm">
+                  <ProfileAvatar
+                    name={distributorLabel(row)}
+                    photoUrl={row.profile_photo_url}
+                    variant="distributor"
+                    size="sm"
+                  />
+                  {distributorLabel(row)}
+                </span>
+              ),
             },
             {
               key: 'phone',
@@ -265,9 +159,24 @@ export function DistributorsPage() {
               render: (row) => row.phone ?? '—',
             },
             {
-              key: 'commission_percent',
-              header: 'العمولة %',
-              render: (row) => Number(row.commission_percent ?? 0).toFixed(1),
+              key: 'type',
+              header: 'النوع',
+              render: (row) => distributorTypeLabel(row.type),
+            },
+            {
+              key: 'address',
+              header: 'العنوان',
+              render: (row) => truncateAddress(row.address),
+            },
+            {
+              key: 'customer',
+              header: 'العميل المرتبط',
+              render: (row) => row.customer?.name ?? '—',
+            },
+            {
+              key: 'agreed_amount',
+              header: 'القيمة المتفق عليها',
+              render: (row) => formatDistributorAgreedAmount(row.agreed_amount),
             },
             {
               key: 'confirmed_transactions_count',
@@ -275,14 +184,14 @@ export function DistributorsPage() {
               render: (row) => row.confirmed_transactions_count ?? 0,
             },
             {
-              key: 'customers_count',
-              header: 'العملاء',
-              render: (row) => row.customers_count ?? 0,
+              key: 'contract_customers_count',
+              header: 'عملاء التعاقد',
+              render: (row) => distributorContractCustomerCount(row),
             },
             {
               key: 'sales_invoices_count',
-              header: 'الفواتير',
-              render: (row) => row.sales_invoices_count ?? 0,
+              header: 'التعاقدات',
+              render: (row) => distributorContractsCount(row),
             },
             {
               key: 'status',
@@ -304,7 +213,7 @@ export function DistributorsPage() {
             },
           ]}
         />
-        {meta && meta.last_page > 1 && (
+        {meta && (
           <Pagination
             currentPage={meta.current_page}
             lastPage={meta.last_page}

@@ -11,6 +11,8 @@ export interface Administration {
   name: string
   name_ar?: string | null
   code: string
+  address?: string | null
+  phone?: string | null
   is_active?: boolean
 }
 
@@ -29,6 +31,8 @@ export interface Department {
   name: string
   name_ar?: string | null
   code: string
+  address?: string | null
+  phone?: string | null
   is_active?: boolean
   department_stock?: DepartmentStock
 }
@@ -82,6 +86,7 @@ export interface Warehouse {
 export interface Role {
   id: number
   name: string
+  name_ar?: string | null
 }
 
 export type DemoRole =
@@ -112,6 +117,8 @@ export interface AuthUser {
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
   permissions?: string[]
+  data_scope?: 'organization' | 'administration' | 'branch' | 'none'
+  data_scope_label?: string | null
   preferences?: UserPreferences
   demo_role?: DemoRole
   workflow_section?: UserSection
@@ -220,6 +227,7 @@ export interface Customer {
   id: number
   branch_id?: number | null
   distributor_id?: number | null
+  sales_user_id?: number | null
   name: string
   phone: string
   phone_2?: string | null
@@ -234,8 +242,11 @@ export interface Customer {
   status: string
   credit_score?: number | null
   notes?: string | null
+  profile_photo_url?: string | null
   branch?: Branch
   distributor?: Distributor
+  distributor_profile?: Distributor | null
+  sales_user?: { id: number; name: string; branch_id?: number | null }
   guarantors?: Guarantor[]
   media?: MediaFile[]
   sales_invoices?: SalesInvoice[]
@@ -248,18 +259,27 @@ export interface Distributor {
   name: string
   name_ar?: string | null
   phone?: string | null
+  address?: string | null
+  type?: DistributorType | null
+  customer_id?: number | null
   status: string
+  agreed_amount?: string | number | null
   commission_percent?: string | number | null
   commission_tier_threshold?: number | null
   commission_tier_increment?: string | number | null
   confirmed_transactions_count?: number | null
   notes?: string | null
+  profile_photo_url?: string | null
   branch?: Branch
+  customer?: Customer | null
   customers_count?: number
+  contract_customers_count?: number
   sales_invoices_count?: number
   customers?: Customer[]
   sales_invoices?: SalesInvoice[]
 }
+
+export type DistributorType = 'center' | 'free'
 
 export type ServiceCategory =
   | 'maintenance'
@@ -304,10 +324,12 @@ export interface InstallmentItem {
   id: number
   sales_invoice_id?: number
   installment_plan_id?: number
-  installment_number: number
+  installment_number?: number
+  sequence?: number
   due_date: string
   amount: string | number
   paid_amount: string | number
+  paid_at?: string | null
   status: string
   display_tier?: 'upcoming' | 'grace' | 'overdue' | 'paid'
   late_fee_accrued?: string | number
@@ -349,6 +371,7 @@ export interface InstallmentReconciliation {
 
 export interface InstallmentPlan {
   id: number
+  sales_invoice_line_id?: number | null
   down_payment: string | number
   installment_count: number
   installment_amount?: string | number | null
@@ -378,10 +401,13 @@ export interface SalesInvoice {
   review_status?: 'pending' | 'approved' | 'rejected'
   customer_id: number
   distributor_id?: number | null
+  sales_user_id?: number | null
   customer?: Customer
   distributor?: Distributor
+  sales_user?: { id: number; name: string; branch_id?: number | null }
   branch?: Branch
   installment_plan?: InstallmentPlan | null
+  installment_plans?: InstallmentPlan[]
   lines?: SalesInvoiceLine[]
   notes?: string | null
   technician_name?: string | null
@@ -401,6 +427,15 @@ export interface SalesInvoice {
   reviewed_at?: string
   confirmed_at?: string
   rejection_reason?: string
+  payment_transactions?: PaymentTransaction[]
+}
+
+export interface PaymentTransaction {
+  id: number
+  installment_item_id?: number | null
+  amount?: string | number
+  paid_at?: string | null
+  status?: string
 }
 
 export interface SalesInvoiceLine {
@@ -418,6 +453,7 @@ export interface SalesInvoiceLine {
   installment_plan?: InstallmentPlan | null
   product_name_ar?: string | null
   product_unit?: ProductUnit
+  product_model?: ProductModel
   serial_number?: string | null
   sim_number?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
@@ -491,20 +527,77 @@ export interface DailyBranchReport {
   branch?: Branch
 }
 
+export interface HrmUserSalesTarget {
+  id: number
+  employee_id: number
+  target_start: string
+  target_end: string
+  target_count?: number
+  achieved_count?: number
+  commission_percent?: string | number | null
+}
+
+export interface PriceCatalogItem {
+  id: number
+  item_type: string
+  reference_id?: number | null
+  name_ar: string
+  base_price: number | string
+  cost_price?: number | string | null
+  is_active: boolean
+}
+
+export interface Promotion {
+  id: number
+  name_ar: string
+  promotion_type: string
+  discount_value: number | string
+  applies_to: string
+  start_date: string
+  end_date: string
+  min_quantity?: number
+  max_uses?: number | null
+  uses_count?: number
+  is_active: boolean
+}
+
+export interface ChatMessage {
+  id: number
+  conversation_id: number
+  sender_id: number
+  body: string
+  created_at?: string
+  sender?: { id: number; name: string; email?: string }
+}
+
+export interface ChatConversationSummary {
+  id: number
+  type: string
+  other_user?: { id: number; name: string; email?: string }
+  last_message?: ChatMessage
+  unread_count: number
+  updated_at?: string
+}
+
 export interface Employee {
   id: number
   employee_code: string
+  zk_pin?: string | null
   name: string
   phone?: string | null
+  national_id?: string | null
   job_title?: string | null
+  hrm_job_id?: number | null
   salary?: string | number | null
   hire_date?: string | null
   status: string
+  profile_photo_url?: string | null
   branch_id?: number | null
   department_id?: number | null
   user_id?: number | null
   branch?: Branch
   department?: { id: number; name: string; name_ar?: string }
+  job?: HrmJob
   user?: { id: number; name: string; email?: string }
 }
 
@@ -515,6 +608,7 @@ export interface Lead {
   source?: string | null
   status: string
   expected_value?: string | number | null
+  device_count?: number | null
   notes?: string | null
   converted_on?: string | null
   converted_customer_id?: number | null
@@ -522,9 +616,17 @@ export interface Lead {
   assignee?: { id: number; name: string }
 }
 
+export interface SalesRep {
+  id: number
+  name: string
+  branch_id?: number | null
+}
+
 export interface CheckoutPayload {
   customer_id: number
   distributor_id?: number
+  sales_user_id?: number
+  promotion_id?: number
   warehouse_id: number
   branch_id?: number
   payment_term?: 'cash' | 'credit' | 'installment' | 'mixed'
@@ -915,6 +1017,14 @@ export interface HrmLeaveType {
   leave_count_interval?: 'year' | 'month' | string | null
 }
 
+export interface HrmJob {
+  id: number
+  name: string
+  description?: string | null
+  status: string
+  employees_count?: number
+}
+
 export interface HrmLeave {
   id: number
   hrm_leave_type_id: number
@@ -941,9 +1051,25 @@ export interface HrmAttendance {
   notes?: string | null
   clock_in_time?: string | null
   clock_out_time?: string | null
+  clock_in_note?: string | null
+  clock_out_note?: string | null
   hrm_shift_id?: number | null
   employee?: Employee
   shift?: HrmShift
+}
+
+export interface ZkDevice {
+  id: number
+  branch_id: number
+  name: string
+  ip_address: string
+  port?: number
+  comm_key?: string | null
+  last_sync_at?: string | null
+  last_sync_status?: string | null
+  last_sync_message?: string | null
+  is_active?: boolean
+  branch?: Branch
 }
 
 export interface HrmShift {
@@ -1028,6 +1154,7 @@ export interface AdminUser extends AuthUser {
 export interface AdminRole {
   id: number
   name: string
+  name_ar?: string | null
   permissions?: { id: number; name: string }[]
   permissions_count?: number
 }

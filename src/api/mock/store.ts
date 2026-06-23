@@ -33,6 +33,7 @@ function migrateState(state: DemoState): DemoState {
   if (!state.employees?.length) {
     state.employees = seed.employees
     state.hrmLeaveTypes = seed.hrmLeaveTypes
+    state.hrmJobs = seed.hrmJobs
     state.hrmLeaves = seed.hrmLeaves
     state.hrmShifts = seed.hrmShifts
     state.hrmUserShifts = seed.hrmUserShifts
@@ -41,6 +42,14 @@ function migrateState(state: DemoState): DemoState {
     state.hrmAllowances = seed.hrmAllowances
     state.hrmPayrollRecords = seed.hrmPayrollRecords
     state.hrmPayrollGroups = seed.hrmPayrollGroups
+  }
+  if (!state.hrmJobs?.length) {
+    state.hrmJobs = seed.hrmJobs
+    for (const emp of state.employees ?? []) {
+      if (emp.hrm_job_id) continue
+      const match = state.hrmJobs.find((job) => job.name === emp.job_title)
+      if (match) emp.hrm_job_id = match.id
+    }
   }
   if (!state.users.some((u) => u.demo_role === 'hr_manager')) {
     const hrUser = seed.users.find((u) => u.demo_role === 'hr_manager')

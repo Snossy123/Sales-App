@@ -32,12 +32,14 @@ import type {
   HrmAllowance,
   HrmAttendance,
   HrmHoliday,
+  HrmJob,
   HrmLeave,
   HrmLeaveType,
   HrmPayrollGroup,
   HrmPayrollRecord,
   HrmShift,
   HrmUserShift,
+  HrmUserSalesTarget,
   DepartmentStock,
   GpsProduct,
   GpsStock,
@@ -45,6 +47,9 @@ import type {
   InstallmentPlan,
   Lead,
   PortalUser,
+  ChatMessage,
+  Promotion,
+  PriceCatalogItem,
   SalesInvoice,
   SalesInvoiceLine,
   Warehouse,
@@ -60,6 +65,20 @@ export interface DemoPortalUser extends PortalUser {
   password: string
 }
 
+export interface MockPaymentTransaction {
+  id: number
+  transaction_number: string
+  sales_invoice_id: number
+  customer_id: number
+  installment_item_id?: number | null
+  amount: number
+  status: string
+  payment_source: string
+  payment_method?: string
+  paid_at: string
+  refunded_amount?: number
+}
+
 export interface DemoState {
   users: DemoUser[]
   portalUsers: DemoPortalUser[]
@@ -73,6 +92,7 @@ export interface DemoState {
   hrmSettings: HrmSettings
   employees: Employee[]
   hrmLeaveTypes: HrmLeaveType[]
+  hrmJobs: HrmJob[]
   hrmLeaves: HrmLeave[]
   hrmShifts: HrmShift[]
   hrmUserShifts: HrmUserShift[]
@@ -81,6 +101,7 @@ export interface DemoState {
   hrmAllowances: (HrmAllowance & { employee_ids: number[] })[]
   hrmPayrollRecords: HrmPayrollRecord[]
   hrmPayrollGroups: (HrmPayrollGroup & { payroll_record_ids: number[] })[]
+  hrmUserSalesTargets: HrmUserSalesTarget[]
   adminRoles: AdminRole[]
   adminActivityLogs: ActivityLogEntry[]
   organizationProfile: OrganizationProfile
@@ -107,6 +128,16 @@ export interface DemoState {
   accountingSettings: { journal_entry_prefix: string; transfer_prefix: string }
   branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
+  paymentTransactions: MockPaymentTransaction[]
+  priceCatalogItems: PriceCatalogItem[]
+  promotions: Promotion[]
+  chatConversations: Array<{
+    id: number
+    type: string
+    participant_ids: number[]
+    last_read_at: Record<number, string | null>
+  }>
+  chatMessages: ChatMessage[]
   dailyBranchReports: DailyBranchReport[]
   counters: {
     department: number
@@ -136,6 +167,7 @@ export interface DemoState {
     activityLog?: number
     employee?: number
     hrmLeaveType?: number
+    hrmJob?: number
     hrmLeave?: number
     hrmShift?: number
     hrmUserShift?: number
@@ -193,8 +225,24 @@ function buildInstallmentItems(
 
 export function createSeedState(): DemoState {
   const departments: Department[] = [
-    { id: 1, name: 'Cairo Region', name_ar: 'إدارة القاهرة', code: 'CAI', is_active: true },
-    { id: 2, name: 'Delta Region', name_ar: 'إدارة الدلتا', code: 'DLT', is_active: true },
+    {
+      id: 1,
+      name: 'Cairo Region',
+      name_ar: 'إدارة القاهرة',
+      code: 'CAI',
+      address: 'القاهرة، مصر',
+      phone: '01011111111',
+      is_active: true,
+    },
+    {
+      id: 2,
+      name: 'Delta Region',
+      name_ar: 'إدارة الدلتا',
+      code: 'DLT',
+      address: 'طنطا، الغربية',
+      phone: '01022222222',
+      is_active: true,
+    },
   ]
 
   const branches: Branch[] = [
@@ -206,6 +254,7 @@ export function createSeedState(): DemoState {
       name_ar: 'فرع مدينة نصر',
       code: 'NSR',
       address: 'مدينة نصر، القاهرة',
+      phone: '01033333301',
       is_active: true,
     },
     {
@@ -216,6 +265,7 @@ export function createSeedState(): DemoState {
       name_ar: 'فرع المعادي',
       code: 'MAD',
       address: 'المعادي، القاهرة',
+      phone: '01033333302',
       is_active: true,
     },
     {
@@ -226,6 +276,7 @@ export function createSeedState(): DemoState {
       name_ar: 'فرع طنطا',
       code: 'TNT',
       address: 'طنطا، الغربية',
+      phone: '01033333303',
       is_active: true,
     },
   ]
@@ -274,7 +325,10 @@ export function createSeedState(): DemoState {
       name: 'Nasr City Distribution',
       name_ar: 'موزع مدينة نصر',
       phone: '01011112222',
+      address: 'مدينة نصر، القاهرة',
+      type: 'center',
       status: 'active',
+      agreed_amount: 500,
     },
     {
       id: 2,
@@ -283,7 +337,10 @@ export function createSeedState(): DemoState {
       name: 'Maadi Distribution',
       name_ar: 'موزع المعادي',
       phone: '01033334455',
+      address: 'المعادي، القاهرة',
+      type: 'free',
       status: 'active',
+      agreed_amount: 350,
     },
     {
       id: 3,
@@ -292,7 +349,10 @@ export function createSeedState(): DemoState {
       name: 'Tanta Distribution',
       name_ar: 'موزع طنطا',
       phone: '01055556666',
+      address: 'طنطا، الغربية',
+      type: 'center',
       status: 'active',
+      agreed_amount: 600,
     },
   ]
 
@@ -507,6 +567,9 @@ export function createSeedState(): DemoState {
       organization: { id: 1, name: 'Al Iraqi', name_ar: 'العراقي' },
       branch: null,
       roles: [{ id: 1, name: 'Super Admin' }],
+      data_scope: 'organization',
+      data_scope_label: 'الشركة',
+      permissions: ['scope.organization', 'users.manage', 'roles.manage', 'settings.manage'],
     },
     {
       id: 5,
@@ -524,6 +587,9 @@ export function createSeedState(): DemoState {
       branch: branches.find((b) => b.id === 3) ?? branches[2],
       section: sections[5],
       roles: [{ id: 5, name: 'AdministrationManager' }],
+      data_scope: 'administration',
+      data_scope_label: 'إدارة الدلتا',
+      permissions: ['scope.administration', 'users.manage', 'dashboard.view', 'crm.leads.manage'],
     },
     {
       id: 2,
@@ -542,6 +608,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[0],
       roles: [{ id: 2, name: 'Sales' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'dashboard.view', 'sales.pos', 'sales.invoices.view'],
     },
     {
       id: 3,
@@ -560,6 +629,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[0],
       roles: [{ id: 3, name: 'Reviewer' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'review.view_queue', 'review.approve', 'review.reject'],
     },
     {
       id: 4,
@@ -578,6 +650,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[2],
       roles: [{ id: 4, name: 'Collector' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'installments.collect', 'installments.view'],
     },
     {
       id: 6,
@@ -595,6 +670,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[3],
       roles: [{ id: 6, name: 'Accountant' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'accounting.access_accounting_module'],
     },
     {
       id: 7,
@@ -612,6 +690,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[4],
       roles: [{ id: 7, name: 'CrmSpecialist' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'crm.leads.manage', 'crm.access_own_leads'],
     },
     {
       id: 8,
@@ -629,6 +710,9 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       section: sections[1],
       roles: [{ id: 8, name: 'HrManager' }],
+      data_scope: 'branch',
+      data_scope_label: 'فرع مدينة نصر',
+      permissions: ['scope.branch', 'hr.employees.manage', 'hrm.leave.manage'],
     },
   ]
 
@@ -636,12 +720,19 @@ export function createSeedState(): DemoState {
   const clockInTime = new Date()
   clockInTime.setHours(9, 5, 0, 0)
 
+  const hrmJobs: HrmJob[] = [
+    { id: 1, name: 'مندوب مبيعات', status: 'active', employees_count: 1 },
+    { id: 2, name: 'محصل', status: 'active', employees_count: 1 },
+    { id: 3, name: 'مدير موارد بشرية', status: 'active', employees_count: 1 },
+  ]
+
   const employees: Employee[] = [
     {
       id: 1,
       employee_code: 'EMP-001',
       name: 'محمد — مبيعات',
       phone: '01099998888',
+      hrm_job_id: 1,
       job_title: 'مندوب مبيعات',
       salary: 8000,
       hire_date: '2025-01-15',
@@ -658,6 +749,7 @@ export function createSeedState(): DemoState {
       employee_code: 'EMP-002',
       name: 'كريم — تحصيل',
       phone: '01088887777',
+      hrm_job_id: 2,
       job_title: 'محصل',
       salary: 7000,
       hire_date: '2025-03-01',
@@ -674,6 +766,7 @@ export function createSeedState(): DemoState {
       employee_code: 'EMP-HR',
       name: 'منى — HR',
       phone: '01011112222',
+      hrm_job_id: 3,
       job_title: 'مدير موارد بشرية',
       salary: 12000,
       hire_date: '2024-06-01',
@@ -823,6 +916,7 @@ export function createSeedState(): DemoState {
       source: 'موقع إلكتروني',
       status: 'new',
       expected_value: 7000,
+      device_count: 2,
       branch: branches[0],
       assignee: { id: 7, name: 'ليلى — CRM' },
     },
@@ -833,6 +927,7 @@ export function createSeedState(): DemoState {
       source: 'إحالة',
       status: 'contacted',
       expected_value: 10500,
+      device_count: 4,
       branch: branches[0],
       assignee: { id: 7, name: 'ليلى — CRM' },
     },
@@ -843,6 +938,7 @@ export function createSeedState(): DemoState {
       source: 'معرض',
       status: 'negotiation',
       expected_value: 14000,
+      device_count: 6,
       branch: branches[2],
     },
     {
@@ -852,6 +948,7 @@ export function createSeedState(): DemoState {
       source: 'اتصال',
       status: 'qualified',
       expected_value: 3500,
+      device_count: 1,
       branch: branches[1],
     },
     {
@@ -861,6 +958,7 @@ export function createSeedState(): DemoState {
       source: 'إعلان',
       status: 'won',
       expected_value: 7000,
+      device_count: 3,
       converted_on: '2026-05-01',
       converted_customer_id: 1,
       branch: branches[0],
@@ -1057,27 +1155,49 @@ export function createSeedState(): DemoState {
     {
       id: 1,
       name: 'Admin',
+      name_ar: 'مدير النظام',
       permissions_count: 12,
       permissions: [
         { id: 1, name: 'users.manage' },
         { id: 2, name: 'roles.manage' },
         { id: 3, name: 'settings.manage' },
         { id: 4, name: 'audit.view' },
+        { id: 5, name: 'scope.organization' },
       ],
     },
     {
       id: 2,
       name: 'Sales',
+      name_ar: 'المبيعات',
       permissions_count: 6,
       permissions: [
         { id: 5, name: 'dashboard.view' },
         { id: 6, name: 'sales.pos' },
         { id: 7, name: 'crm.access_own_leads' },
+        { id: 8, name: 'scope.branch' },
+      ],
+    },
+    {
+      id: 3,
+      name: 'Reviewer',
+      name_ar: 'المراجعة',
+      permissions_count: 8,
+      permissions: [
+        { id: 301, name: 'dashboard.view' },
+        { id: 302, name: 'sales.invoices.view' },
+        { id: 303, name: 'review.view_queue' },
+        { id: 304, name: 'review.view_contracts' },
+        { id: 305, name: 'review.view_detail' },
+        { id: 306, name: 'review.approve' },
+        { id: 307, name: 'review.reject' },
+        { id: 308, name: 'review.print' },
+        { id: 309, name: 'scope.branch' },
       ],
     },
     {
       id: 4,
       name: 'AdministrationManager',
+      name_ar: 'مدير الإدارة',
       permissions_count: 40,
       permissions: [
         { id: 1, name: 'users.manage' },
@@ -1086,6 +1206,7 @@ export function createSeedState(): DemoState {
         { id: 8, name: 'crm.leads.manage' },
         { id: 9, name: 'hr.employees.manage' },
         { id: 10, name: 'accounting.access_accounting_module' },
+        { id: 11, name: 'scope.administration' },
       ],
     },
   ]
@@ -1327,6 +1448,7 @@ export function createSeedState(): DemoState {
     hrmSettings,
     employees,
     hrmLeaveTypes,
+    hrmJobs,
     hrmLeaves,
     hrmShifts,
     hrmUserShifts,
@@ -1335,6 +1457,17 @@ export function createSeedState(): DemoState {
     hrmAllowances,
     hrmPayrollRecords,
     hrmPayrollGroups,
+    hrmUserSalesTargets: [
+      {
+        id: 1,
+        employee_id: 1,
+        target_start: '2026-06-01',
+        target_end: '2026-06-30',
+        target_count: 10,
+        achieved_count: 3,
+        commission_percent: 5,
+      },
+    ],
     adminRoles,
     adminActivityLogs,
     organizationProfile,
@@ -1354,6 +1487,33 @@ export function createSeedState(): DemoState {
     services,
     customers,
     invoices,
+    paymentTransactions: [],
+    priceCatalogItems: [
+      {
+        id: 1,
+        item_type: 'product',
+        name_ar: 'جهاز GPS',
+        base_price: gpsProduct.sell_price,
+        cost_price: gpsProduct.cost_price ?? 0,
+        is_active: true,
+      },
+    ],
+    promotions: [
+      {
+        id: 1,
+        name_ar: 'خصم 5% على GPS',
+        promotion_type: 'percent',
+        discount_value: 5,
+        applies_to: 'product',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        min_quantity: 1,
+        uses_count: 0,
+        is_active: true,
+      },
+    ],
+    chatConversations: [],
+    chatMessages: [],
     dailyBranchReports,
     accountingAccounts,
     journalEntries,

@@ -26,6 +26,7 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
   InstallmentPlan,
+  InstallmentItem,
   TransactionMapPayload,
   TrialBalanceReport,
   MediaFile,
@@ -33,9 +34,12 @@ import type {
 } from '../types'
 import { loadState, mutateState, resetState, saveState } from './store'
 import type { AuthUser } from '../types'
-import { getScopedDepartmentId, isSuperAdmin } from '../../lib/access'
+import { getScopedBranchIds as resolveUserBranchIds, getScopedDepartmentId } from '../../lib/dataScope'
+import { isSuperAdmin } from '../../lib/access'
 import type { DemoState, DemoUser } from './seed'
+import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
+import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
 
 interface MockContext {
   branchId?: number
@@ -51,11 +55,8 @@ function getApiDepartmentScope(ctx: MockContext): number | null {
 }
 
 function getScopedBranchIds(state: DemoState, ctx: MockContext): number[] | null {
-  const scope = getApiDepartmentScope(ctx)
-  if (scope == null) return null
-  return state.branches
-    .filter((b) => (b.administration_id ?? b.department_id) === scope)
-    .map((b) => b.id)
+  if (!ctx.user) return null
+  return resolveUserBranchIds(ctx.user, state.branches)
 }
 
 function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number | null): boolean {
@@ -63,6 +64,16 @@ function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number |
   if (branchIds == null) return true
   if (branchId == null) return false
   return branchIds.includes(branchId)
+}
+
+function enrichSection(state: DemoState, section: import('./seed').DemoState['sections'][0]) {
+  const branch = section.branch_id
+    ? state.branches.find((b) => b.id === section.branch_id)
+    : undefined
+  return {
+    ...section,
+    branch: branch ? enrichBranch(state, branch) : undefined,
+  }
 }
 
 function enrichBranch(state: DemoState, branch: Branch): Branch {
@@ -121,9 +132,10 @@ function enrichCustomer(
   customer: Customer,
   invoiceStatus: 'confirmed' | 'unconfirmed' | 'all' = 'all',
 ): Customer {
-  const distributor = customer.distributor_id
+  const assignedDistributor = customer.distributor_id
     ? state.distributors.find((d) => d.id === customer.distributor_id)
     : undefined
+  const distributorProfile = state.distributors.find((d) => d.customer_id === customer.id)
   let invoices = state.invoices.filter((i) => i.customer_id === customer.id)
 
   if (invoiceStatus === 'confirmed') {
@@ -132,25 +144,45 @@ function enrichCustomer(
     invoices = invoices.filter((i) => i.status !== 'confirmed')
   }
 
-  const salesInvoices = invoices.map((inv) => ({
-    ...inv,
-    customer: undefined,
-    installment_plan: inv.installment_plan
-      ? { ...inv.installment_plan, items: inv.installment_plan.items ?? [] }
-      : null,
-  }))
+  const salesInvoices = invoices.map((inv) => {
+    const lines = (inv.lines ?? []).map((line) => ({
+      ...line,
+      installment_plan: line.installment_plan
+        ? { ...line.installment_plan, items: line.installment_plan.items ?? [] }
+        : null,
+    }))
+    return {
+      ...inv,
+      lines,
+      customer: undefined,
+      installment_plan: inv.installment_plan
+        ? { ...inv.installment_plan, items: inv.installment_plan.items ?? [] }
+        : lines.find((l) => l.installment_plan)?.installment_plan ?? null,
+    }
+  })
 
   return {
     ...customer,
-    distributor: distributor
-      ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
+    branch: customer.branch_id
+      ? state.branches.find((b) => b.id === customer.branch_id)
+      : undefined,
+    distributor: assignedDistributor
+      ? {
+          ...assignedDistributor,
+          branch: state.branches.find((b) => b.id === assignedDistributor.branch_id),
+        }
+      : undefined,
+    distributor_profile: distributorProfile
+      ? enrichDistributor(state, distributorProfile)
       : undefined,
     sales_invoices: salesInvoices,
   }
 }
 
 function enrichDistributor(state: DemoState, distributor: Distributor): Distributor {
-  const branch = state.branches.find((b) => b.id === distributor.branch_id)
+  const customer = distributor.customer_id
+    ? state.customers.find((c) => c.id === distributor.customer_id)
+    : undefined
   const customers = state.customers.filter((c) => c.distributor_id === distributor.id)
   const salesInvoices = state.invoices
     .filter((i) => i.distributor_id === distributor.id)
@@ -158,11 +190,16 @@ function enrichDistributor(state: DemoState, distributor: Distributor): Distribu
       ...inv,
       customer: state.customers.find((c) => c.id === inv.customer_id),
     }))
+  const contractCustomersCount = new Set(
+    salesInvoices.map((invoice) => invoice.customer_id).filter((id): id is number => id != null),
+  ).size
 
   return {
     ...distributor,
-    branch,
+    customer,
+    profile_photo_url: customer?.profile_photo_url ?? null,
     customers_count: customers.length,
+    contract_customers_count: contractCustomersCount,
     sales_invoices_count: salesInvoices.length,
     customers,
     sales_invoices: salesInvoices,
@@ -258,6 +295,21 @@ function buildInventoryOverview(
   return rows
 }
 
+function findInstallmentItem(
+  invoice: SalesInvoice,
+  itemId: number,
+): { item: InstallmentItem; plan: InstallmentPlan } | undefined {
+  for (const line of invoice.lines ?? []) {
+    const plan = line.installment_plan
+    const item = plan?.items?.find((i) => i.id === itemId)
+    if (item && plan) return { item, plan }
+  }
+  const plan = invoice.installment_plan
+  const item = plan?.items?.find((i) => i.id === itemId)
+  if (item && plan) return { item, plan }
+  return undefined
+}
+
 function refreshInvoicePayment(invoice: SalesInvoice): void {
   if (invoice.payment_term === 'cash' && invoice.status === 'confirmed') {
     invoice.paid_amount = Number(invoice.total)
@@ -266,16 +318,29 @@ function refreshInvoicePayment(invoice: SalesInvoice): void {
     return
   }
 
-  const plan = invoice.installment_plan
-  if (!plan?.items?.length) {
-    invoice.paid_amount = invoice.payment_term === 'installment' ? Number(plan?.down_payment ?? 0) : 0
+  const plans: InstallmentPlan[] = []
+  for (const line of invoice.lines ?? []) {
+    if (line.installment_plan) plans.push(line.installment_plan)
+  }
+  if (invoice.installment_plan && !plans.some((p) => p.id === invoice.installment_plan?.id)) {
+    plans.push(invoice.installment_plan)
+  }
+
+  if (plans.length === 0) {
+    invoice.paid_amount = invoice.payment_term === 'installment' ? 0 : 0
     invoice.balance_due = Number(invoice.total) - Number(invoice.paid_amount)
-    invoice.payment_status = invoice.balance_due <= 0 ? 'paid' : invoice.paid_amount > 0 ? 'partial' : 'unpaid'
+    invoice.payment_status =
+      invoice.balance_due <= 0 ? 'paid' : invoice.paid_amount > 0 ? 'partial' : 'unpaid'
     return
   }
 
-  const down = Number(plan.down_payment ?? 0)
-  const itemsPaid = plan.items.reduce((s, i) => s + Number(i.paid_amount), 0)
+  let down = 0
+  let itemsPaid = 0
+  for (const plan of plans) {
+    down += Number(plan.down_payment ?? 0)
+    itemsPaid += (plan.items ?? []).reduce((sum, installment) => sum + Number(installment.paid_amount), 0)
+  }
+
   invoice.paid_amount = down + itemsPaid
   invoice.balance_due = Math.max(0, Number(invoice.total) - invoice.paid_amount)
   if (invoice.balance_due <= 0) invoice.payment_status = 'paid'
@@ -385,7 +450,7 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'dashboard') {
-    const branchId = ctx.branchId
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
     const warehouseId = ctx.warehouseId
     const period = String(params.period ?? 'day')
     const today = new Date()
@@ -413,9 +478,10 @@ export function handleMockRequest(
       return dateStr === todayStr
     }
 
-    const branchInvoices = state.invoices.filter(
-      (i) => !branchId || i.branch_id === branchId,
-    )
+    const branchInvoices = state.invoices.filter((i) => {
+      if (scopedBranchIds) return scopedBranchIds.includes(i.branch_id)
+      return true
+    })
     const periodInvoices = branchInvoices.filter((i) => inPeriod(i.invoice_date))
     const confirmed = branchInvoices.filter((i) => i.status === 'confirmed')
 
@@ -478,7 +544,11 @@ export function handleMockRequest(
         .filter((i) => i.status === 'confirmed')
         .reduce((s, i) => s + Number(i.total), 0),
       invoices_today: periodInvoices.length,
-      customers_count: state.customers.filter((c) => !branchId || c.branch_id === branchId).length,
+      customers_count: state.customers.filter((c) => {
+        if (!c.branch_id) return false
+        if (scopedBranchIds) return scopedBranchIds.includes(c.branch_id)
+        return true
+      }).length,
       available_units: availableQty,
       pending_reviews: branchInvoices.filter((i) => i.status === 'pending_review' && inPeriod(i.invoice_date)).length,
       overdue_installments: overdue,
@@ -517,7 +587,8 @@ export function handleMockRequest(
     const scope = getApiDepartmentScope(ctx)
     let items = state.departments
     if (scope != null) items = items.filter((d) => d.id === scope)
-    return paginate(items, params)
+    const enriched = items.map((d) => enrichDepartment(state, d))
+    return paginate(enriched, params)
   }
 
   if (m === 'GET' && path.match(/^administrations\/\d+$/)) {
@@ -537,55 +608,98 @@ export function handleMockRequest(
       const id = s.counters.department++
       const dept: Department = {
         id,
-        name: body.name ?? body.name_ar ?? '',
+        name: body.name_ar ?? body.name ?? '',
         name_ar: body.name_ar ?? body.name ?? '',
         code: body.code ?? `D${id}`,
+        address: body.address ?? null,
+        phone: body.phone ?? null,
         is_active: body.is_active ?? true,
       }
       s.departments.push(dept)
       s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
-      created = dept
+      created = enrichDepartment(s, dept)
     })
     return created
   }
 
+  if (m === 'PUT' && path.match(/^administrations\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const scope = getApiDepartmentScope(ctx)
+    if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بتعديل هذه الإدارة')
+    const body = data as Partial<Department>
+    let updated: Department | undefined
+    mutateState((s) => {
+      const dept = s.departments.find((d) => d.id === id)
+      if (!dept) throw mockError(404, 'الإدارة غير موجودة')
+      if (body.name_ar != null) {
+        dept.name_ar = body.name_ar
+        dept.name = body.name_ar
+      }
+      if (body.address != null) dept.address = body.address
+      if (body.phone != null) dept.phone = body.phone
+      if (body.is_active != null) dept.is_active = body.is_active
+      updated = enrichDepartment(s, dept)
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^administrations\/\d+$/)) {
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
+    const id = Number(path.split('/')[1])
+    mutateState((s) => {
+      const hasBranches = s.branches.some((b) => b.department_id === id || b.administration_id === id)
+      if (hasBranches) throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      s.departments = s.departments.filter((d) => d.id !== id)
+      s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
+    })
+    return { message: 'تم الحذف' }
+  }
+
   if (m === 'GET' && path === 'departments') {
     const branchFilter = params['filter[branch_id]']
+    let items = state.sections.map((s) => enrichSection(state, s))
     if (branchFilter) {
-      const items = state.sections.filter((s) => s.branch_id === Number(branchFilter))
-      return paginate(items, params)
+      items = items.filter((s) => s.branch_id === Number(branchFilter))
+    } else {
+      const scope = getApiDepartmentScope(ctx)
+      if (scope != null) {
+        const branchIds = state.branches
+          .filter((b) => (b.administration_id ?? b.department_id) === scope)
+          .map((b) => b.id)
+        items = items.filter((s) => s.branch_id != null && branchIds.includes(s.branch_id))
+      }
     }
-
-    const scope = getApiDepartmentScope(ctx)
-    let items = state.departments
-    if (scope != null) items = items.filter((d) => d.id === scope)
-    const enriched = items.map((d) => enrichDepartment(state, d))
-    return paginate(enriched, params)
+    return paginate(items, params)
   }
 
   if (m === 'GET' && path.match(/^departments\/\d+$/)) {
     const id = Number(path.split('/')[1])
-    const scope = getApiDepartmentScope(ctx)
-    if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بعرض هذه الإدارة')
-    const dept = state.departments.find((d) => d.id === id)
-    if (!dept) throw mockError(404, 'الإدارة غير موجودة')
-    return enrichDepartment(state, dept)
+    const admin = state.departments.find((d) => d.id === id)
+    if (admin) {
+      const scope = getApiDepartmentScope(ctx)
+      if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بعرض هذه الإدارة')
+      return enrichDepartment(state, admin)
+    }
+    const section = state.sections.find((s) => s.id === id)
+    if (!section) throw mockError(404, 'القسم غير موجود')
+    return enrichSection(state, section)
   }
 
   if (m === 'POST' && path === 'departments') {
     const body = data as Partial<Department> & { branch_id?: number }
     if (body.branch_id) {
-      let created: (typeof state.sections)[0] | undefined
+      let created: ReturnType<typeof enrichSection> | undefined
       mutateState((s) => {
         const id = s.counters.section = (s.counters.section ?? 6) + 1
-        created = {
+        const section = {
           id,
           branch_id: body.branch_id,
-          name: body.name ?? body.name_ar ?? '',
+          name: body.name_ar ?? body.name ?? '',
           name_ar: body.name_ar ?? body.name ?? '',
           code: body.code ?? `S${id}`,
         }
-        s.sections.push(created!)
+        s.sections.push(section)
+        created = enrichSection(s, section)
       })
       return created
     }
@@ -596,9 +710,11 @@ export function handleMockRequest(
       const id = s.counters.department++
       const dept: Department = {
         id,
-        name: body.name ?? body.name_ar ?? '',
+        name: body.name_ar ?? body.name ?? '',
         name_ar: body.name_ar ?? body.name ?? '',
         code: body.code ?? `D${id}`,
+        address: body.address ?? null,
+        phone: body.phone ?? null,
         is_active: body.is_active ?? true,
       }
       s.departments.push(dept)
@@ -610,27 +726,54 @@ export function handleMockRequest(
 
   if (m === 'PUT' && path.match(/^departments\/\d+$/)) {
     const id = Number(path.split('/')[1])
+    const body = data as Partial<Department> & { branch_id?: number }
+    const section = state.sections.find((s) => s.id === id)
+    if (section || body.branch_id != null) {
+      let updated: (typeof state.sections)[0] | undefined
+      mutateState((s) => {
+        const sec = s.sections.find((item) => item.id === id)
+        if (!sec) throw mockError(404, 'القسم غير موجود')
+        if (body.name_ar != null) {
+          sec.name_ar = body.name_ar
+          sec.name = body.name_ar
+        }
+        if (body.branch_id != null) sec.branch_id = body.branch_id
+        updated = enrichSection(s, sec)
+      })
+      return updated
+    }
+
     const scope = getApiDepartmentScope(ctx)
     if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بتعديل هذه الإدارة')
-    const body = data as Partial<Department>
-    let updated: Department | undefined
+    let updatedAdmin: Department | undefined
     mutateState((s) => {
       const dept = s.departments.find((d) => d.id === id)
       if (!dept) throw mockError(404, 'الإدارة غير موجودة')
-      if (body.name != null) dept.name = body.name
-      if (body.name_ar != null) dept.name_ar = body.name_ar
-      if (body.code != null) dept.code = body.code
+      if (body.name_ar != null) {
+        dept.name_ar = body.name_ar
+        dept.name = body.name_ar
+      }
+      if (body.address != null) dept.address = body.address
+      if (body.phone != null) dept.phone = body.phone
       if (body.is_active != null) dept.is_active = body.is_active
-      updated = enrichDepartment(s, dept)
+      updatedAdmin = enrichDepartment(s, dept)
     })
-    return updated
+    return updatedAdmin
   }
 
   if (m === 'DELETE' && path.match(/^departments\/\d+$/)) {
-    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     const id = Number(path.split('/')[1])
+    const section = state.sections.find((s) => s.id === id)
+    if (section) {
+      mutateState((s) => {
+        s.sections = s.sections.filter((item) => item.id !== id)
+      })
+      return { message: 'تم الحذف' }
+    }
+
+    if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     mutateState((s) => {
-      const hasBranches = s.branches.some((b) => b.department_id === id)
+      const hasBranches = s.branches.some((b) => b.department_id === id || b.administration_id === id)
       if (hasBranches) throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
       s.departments = s.departments.filter((d) => d.id !== id)
       s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
@@ -694,7 +837,7 @@ export function handleMockRequest(
         id,
         administration_id: resolvedAdminId,
         department_id: resolvedAdminId,
-        name: body.name ?? body.name_ar ?? '',
+        name: body.name_ar ?? body.name ?? '',
         name_ar: body.name_ar ?? body.name ?? '',
         code: body.code ?? `B${id}`,
         address: body.address ?? null,
@@ -730,9 +873,10 @@ export function handleMockRequest(
     mutateState((s) => {
       const branch = s.branches.find((b) => b.id === id)
       if (!branch) throw mockError(404, 'الفرع غير موجود')
-      if (body.name != null) branch.name = body.name
-      if (body.name_ar != null) branch.name_ar = body.name_ar
-      if (body.code != null) branch.code = body.code
+      if (body.name_ar != null) {
+        branch.name_ar = body.name_ar
+        branch.name = body.name_ar
+      }
       if (body.address != null) branch.address = body.address
       if (body.phone != null) branch.phone = body.phone
       if (body.is_active != null) branch.is_active = body.is_active
@@ -872,7 +1016,7 @@ export function handleMockRequest(
     if (scopedBranchIds) {
       items = items.filter((c) => c.branch_id != null && scopedBranchIds.includes(c.branch_id))
     }
-    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
+    const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((c) => c.branch_id === Number(branchFilter))
     const distributorFilter = params['filter[distributor_id]']
     if (distributorFilter) {
@@ -888,8 +1032,10 @@ export function handleMockRequest(
     return paginate(
       items.map((customer) => {
         const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
+        const branch = state.branches.find((b) => b.id === customer.branch_id)
         return {
           ...customer,
+          branch: branch ?? undefined,
           distributor: distributor
             ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
             : undefined,
@@ -900,7 +1046,10 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'customers') {
     const body = data as Partial<Customer> & { guarantors?: Omit<Guarantor, 'id'>[] }
-    const branchId = body.branch_id ?? ctx.branchId ?? 1
+    const branchId = body.branch_id ?? ctx.branchId
+    if (branchId == null) {
+      throw mockError(422, 'اختر الفرع قبل حفظ العميل')
+    }
     if (!isBranchInScope(state, ctx, branchId)) {
       throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
     }
@@ -996,6 +1145,33 @@ export function handleMockRequest(
     return { message: 'تم حذف المرفق.' }
   }
 
+  if (m === 'POST' && path.match(/^customers\/\d+\/profile-photo$/)) {
+    const customerId = Number(path.split('/')[1])
+    let photoUrl: string | null = null
+    mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === customerId)
+      if (!customer) throw mockError(404, 'العميل غير موجود')
+      const file = (data as FormData | undefined)?.get?.('photo')
+      if (file && typeof file === 'object' && 'name' in file) {
+        photoUrl = URL.createObjectURL(file as File)
+      } else {
+        photoUrl = `https://demo.local/profile/customer-${customerId}.jpg`
+      }
+      customer.profile_photo_url = photoUrl
+    })
+    return { profile_photo_url: photoUrl }
+  }
+
+  if (m === 'DELETE' && path.match(/^customers\/\d+\/profile-photo$/)) {
+    const customerId = Number(path.split('/')[1])
+    mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === customerId)
+      if (!customer) throw mockError(404, 'العميل غير موجود')
+      customer.profile_photo_url = null
+    })
+    return { profile_photo_url: null }
+  }
+
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {
     const id = Number(path.split('/')[1])
     const customer = state.customers.find((c) => c.id === id)
@@ -1005,13 +1181,31 @@ export function handleMockRequest(
     return enrichCustomer(state, customer, invoiceStatus)
   }
 
+  if ((m === 'PATCH' || m === 'PUT') && path.match(/^customers\/\d+$/)) {
+    const customerId = Number(path.split('/')[1])
+    const body = data as Partial<Customer>
+    let updated: Customer | undefined
+    mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === customerId)
+      if (!customer) throw mockError(404, 'العميل غير موجود')
+      if (body.branch_id !== undefined) {
+        if (!isBranchInScope(s, ctx, body.branch_id)) {
+          throw mockError(403, 'لا يمكنك ربط العميل بهذا الفرع')
+        }
+        customer.branch_id = body.branch_id
+      }
+      updated = customer
+    })
+    return enrichCustomer(loadState(), updated!)
+  }
+
   if (m === 'GET' && path === 'daily-branch-reports') {
     let items = [...(state.dailyBranchReports ?? [])]
     const scopedBranchIds = getScopedBranchIds(state, ctx)
     if (scopedBranchIds) {
       items = items.filter((r) => scopedBranchIds.includes(r.branch_id))
     }
-    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
+    const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((r) => r.branch_id === Number(branchFilter))
     const dateFilter = params['filter[report_date]']
     if (dateFilter) items = items.filter((r) => r.report_date === dateFilter)
@@ -1109,10 +1303,12 @@ export function handleMockRequest(
     if (scopedBranchIds) {
       items = items.filter((d) => scopedBranchIds.includes(d.branch_id))
     }
-    const branchFilter = params['filter[branch_id]'] || (scopedBranchIds ? undefined : ctx.branchId)
+    const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((d) => d.branch_id === Number(branchFilter))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((d) => d.status === statusFilter)
+    const typeFilter = params['filter[type]']
+    if (typeFilter) items = items.filter((d) => d.type === typeFilter)
     const nameFilter = params['filter[name]']
     if (nameFilter) {
       const q = nameFilter.toLowerCase()
@@ -1145,6 +1341,12 @@ export function handleMockRequest(
     if (state.distributors.some((d) => d.code === body.code)) {
       throw mockError(422, 'كود الموزع مستخدم بالفعل')
     }
+    if (body.customer_id != null) {
+      const linked = state.distributors.find((d) => d.customer_id === body.customer_id)
+      if (linked) {
+        throw mockError(422, 'هذا العميل مرتبط بموزع آخر بالفعل')
+      }
+    }
 
     let created: Distributor | undefined
     mutateState((s) => {
@@ -1155,12 +1357,49 @@ export function handleMockRequest(
         name: body.name!,
         name_ar: body.name_ar ?? null,
         phone: body.phone ?? null,
+        address: body.address ?? null,
+        type: body.type ?? 'free',
+        customer_id: body.customer_id ?? null,
         status: body.status ?? 'active',
+        agreed_amount: body.agreed_amount ?? 0,
+        commission_percent: body.commission_percent ?? 0,
         notes: body.notes ?? null,
       }
       s.distributors.push(created)
     })
     return enrichDistributor(state, created!)
+  }
+
+  if ((m === 'PATCH' || m === 'PUT') && path.match(/^distributors\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as Partial<Distributor>
+    const distributor = state.distributors.find((d) => d.id === id)
+    if (!distributor) throw mockError(404, 'الموزع غير موجود')
+    if (!isBranchInScope(state, ctx, distributor.branch_id)) {
+      throw mockError(404, 'الموزع غير موجود')
+    }
+    if (body.customer_id != null) {
+      const linked = state.distributors.find(
+        (d) => d.customer_id === body.customer_id && d.id !== id,
+      )
+      if (linked) {
+        throw mockError(422, 'هذا العميل مرتبط بموزع آخر بالفعل')
+      }
+    }
+
+    let updated: Distributor | undefined
+    mutateState((s) => {
+      const index = s.distributors.findIndex((d) => d.id === id)
+      if (index === -1) return
+      updated = {
+        ...s.distributors[index],
+        ...body,
+        id,
+        branch_id: s.distributors[index].branch_id,
+      }
+      s.distributors[index] = updated
+    })
+    return enrichDistributor(state, updated!)
   }
 
   if (m === 'GET' && path.match(/^distributors\/\d+$/)) {
@@ -1260,7 +1499,11 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'sales-invoices') {
     let items = [...state.invoices]
-    const branchFilter = params['filter[branch_id]'] || ctx.branchId
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds != null) {
+      items = items.filter((i) => scopedBranchIds.includes(i.branch_id))
+    }
+    const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((i) => i.branch_id === Number(branchFilter))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((i) => i.status === statusFilter)
@@ -1268,6 +1511,10 @@ export function handleMockRequest(
     if (reviewStatusFilter) {
       items = items.filter((i) => (i.review_status ?? 'pending') === reviewStatusFilter)
     }
+    const dateFrom = params['filter[invoice_date_from]']
+    if (dateFrom) items = items.filter((i) => String(i.invoice_date) >= String(dateFrom))
+    const dateTo = params['filter[invoice_date_to]']
+    if (dateTo) items = items.filter((i) => String(i.invoice_date) <= String(dateTo))
     return paginate(
       items.map((inv) => ({
         ...inv,
@@ -1282,14 +1529,59 @@ export function handleMockRequest(
     const invoice = state.invoices.find((i) => i.id === id)
     if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
     const customer = state.customers.find((c) => c.id === invoice.customer_id)
+    const lines = (invoice.lines ?? []).map((line) => ({
+      ...line,
+      installment_plan: line.installment_plan
+        ? { ...line.installment_plan, items: line.installment_plan.items ?? [] }
+        : null,
+    }))
+    const installmentPlans = lines
+      .map((line) => line.installment_plan)
+      .filter((plan): plan is NonNullable<typeof plan> => plan != null)
+    const invoicePlan = invoice.installment_plan
+      ? { ...invoice.installment_plan, items: invoice.installment_plan.items ?? [] }
+      : installmentPlans[0] ?? null
+
     return {
       ...invoice,
+      lines,
       customer,
       distributor: state.distributors.find((d) => d.id === invoice.distributor_id),
-      installment_plan: invoice.installment_plan
-        ? { ...invoice.installment_plan, items: invoice.installment_plan.items ?? [] }
-        : null,
+      installment_plan: invoicePlan,
+      installment_plans: installmentPlans.length > 0 ? installmentPlans : invoicePlan ? [invoicePlan] : [],
+      payment_transactions: state.paymentTransactions
+        .filter((p) => p.sales_invoice_id === invoice.id)
+        .map((p) => ({
+          id: p.id,
+          installment_item_id: p.installment_item_id,
+          amount: p.amount,
+          paid_at: p.paid_at,
+          status: p.status,
+        })),
     }
+  }
+
+  if (m === 'GET' && path === 'payment-transactions') {
+    let rows = [...state.paymentTransactions]
+    const customerId = params.customer_id ? Number(params.customer_id) : undefined
+    const invoiceId = params.sales_invoice_id ? Number(params.sales_invoice_id) : undefined
+    const installmentItemId = params.installment_item_id
+      ? Number(params.installment_item_id)
+      : undefined
+    const status = params.status as string | undefined
+
+    if (customerId) rows = rows.filter((p) => p.customer_id === customerId)
+    if (invoiceId) rows = rows.filter((p) => p.sales_invoice_id === invoiceId)
+    if (installmentItemId) rows = rows.filter((p) => p.installment_item_id === installmentItemId)
+    if (status) rows = rows.filter((p) => p.status === status)
+
+    const enriched = rows.map((payment) => ({
+      ...payment,
+      customer: state.customers.find((c) => c.id === payment.customer_id),
+      sales_invoice: state.invoices.find((i) => i.id === payment.sales_invoice_id),
+    }))
+
+    return paginate(enriched, params)
   }
 
   if (m === 'POST' && path === 'sales-invoices/checkout') {
@@ -1353,6 +1645,16 @@ export function handleMockRequest(
       }
 
       stock.reserved += qty
+
+      if (body.promotion_id) {
+        subtotal = applyPromotionDiscount(s, body.promotion_id, subtotal)
+        invoiceLines.forEach((line) => {
+          if (invoiceLines.length === 1) {
+            line.line_total = subtotal
+          }
+        })
+      }
+
       const total = subtotal + installationFee
 
       const lineTerms = body.lines.map((l) => l.payment_term ?? 'cash')
@@ -1563,15 +1865,16 @@ export function handleMockRequest(
 
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {
     const id = Number(path.split('/')[2])
-    const body = data as { installment_item_id: number; amount: number }
+    const body = data as { installment_item_id: number; amount: number; payment_method?: string }
     let result: { invoice: SalesInvoice; item: unknown } | undefined
     mutateState((s) => {
       const invoice = s.invoices.find((i) => i.id === id)
       if (!invoice || invoice.status !== 'confirmed') {
         throw mockError(422, 'الفاتورة غير متاحة للتحصيل')
       }
-      const item = invoice.installment_plan?.items?.find((i) => i.id === body.installment_item_id)
-      if (!item) throw mockError(404, 'القسط غير موجود')
+      const found = findInstallmentItem(invoice, body.installment_item_id)
+      if (!found) throw mockError(404, 'القسط غير موجود')
+      const { item } = found
 
       const remaining = Number(item.amount) - Number(item.paid_amount)
       if (body.amount <= 0 || body.amount > remaining) {
@@ -1579,10 +1882,29 @@ export function handleMockRequest(
       }
 
       item.paid_amount = Number(item.paid_amount) + body.amount
-      if (item.paid_amount >= Number(item.amount)) item.status = 'paid'
-      else item.status = 'partial'
+      if (item.paid_amount >= Number(item.amount)) {
+        item.status = 'paid'
+        item.paid_at = new Date().toISOString()
+      } else {
+        item.status = 'partial'
+      }
 
       refreshInvoicePayment(invoice)
+
+      const paymentId = s.counters.payment++
+      s.paymentTransactions.push({
+        id: paymentId,
+        transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+        sales_invoice_id: invoice.id,
+        customer_id: invoice.customer_id ?? 0,
+        installment_item_id: item.id,
+        amount: body.amount,
+        status: 'active',
+        payment_source: 'installment',
+        payment_method: body.payment_method ?? 'cash',
+        paid_at: new Date().toISOString(),
+      })
+
       result = { invoice, item }
     })
     return result
@@ -2054,18 +2376,26 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'leads') {
     let leads = [...state.leads]
-    if (ctx.branchId) leads = leads.filter((l) => !l.branch?.id || l.branch.id === ctx.branchId)
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds) {
+      leads = leads.filter((l) => l.branch_id != null && scopedBranchIds.includes(l.branch_id))
+    }
+    const branchFilter = params['filter[branch_id]']
+    if (branchFilter) {
+      leads = leads.filter((l) => l.branch_id === Number(branchFilter))
+    }
     return paginate(leads, params)
   }
 
   if (m === 'PUT' && path.match(/^leads\/\d+$/)) {
     const id = Number(path.split('/')[1])
-    const body = data as { status?: string }
+    const body = data as { status?: string; device_count?: number }
     let updated = state.leads.find((l) => l.id === id)
     if (!updated) throw mockError(404, 'العميل المحتمل غير موجود')
     mutateState((s) => {
       const lead = s.leads.find((l) => l.id === id)!
       if (body.status) lead.status = body.status
+      if (body.device_count != null) lead.device_count = body.device_count
       updated = lead
     })
     return updated
@@ -2427,14 +2757,16 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'admin/roles') {
-    const body = data as { name?: string; permissions?: string[] }
+    const body = data as { name?: string; name_ar?: string; permissions?: string[] }
     let created: (typeof state.adminRoles)[0] | undefined
     mutateState((s) => {
       s.counters.adminRole = (s.counters.adminRole ?? 3) + 1
       const perms = (body.permissions ?? []).map((name, idx) => ({ id: 100 + idx, name }))
+      const slug = body.name?.trim() || `custom_${Date.now()}`
       created = {
         id: s.counters.adminRole,
-        name: String(body.name ?? ''),
+        name: slug,
+        name_ar: String(body.name_ar ?? body.name ?? slug),
         permissions: perms,
         permissions_count: perms.length,
       }
@@ -2445,11 +2777,12 @@ export function handleMockRequest(
 
   if (m === 'PUT' && path.match(/^admin\/roles\/\d+$/)) {
     const id = Number(path.split('/')[2])
-    const body = data as { name?: string; permissions?: string[] }
+    const body = data as { name?: string; name_ar?: string; permissions?: string[] }
     let updated: (typeof state.adminRoles)[0] | undefined
     mutateState((s) => {
       const role = s.adminRoles.find((r) => r.id === id)
       if (!role) throw mockError(404, 'الدور غير موجود')
+      if (body.name_ar) role.name_ar = body.name_ar
       if (body.name) role.name = body.name
       if (body.permissions) {
         role.permissions = body.permissions.map((name, idx) => ({ id: 200 + idx, name }))
@@ -2463,7 +2796,10 @@ export function handleMockRequest(
   if (m === 'GET' && path === 'admin/permissions') {
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage', 'stock.transfer',
-      'customers.manage', 'sales.pos', 'sales.invoices.view', 'installments.collect', 'installments.view',
+      'customers.manage', 'sales.pos', 'sales.invoices.view',
+      'review.view_queue', 'review.view_contracts', 'review.view_detail',
+      'review.approve', 'review.reject', 'review.print',
+      'installments.collect', 'installments.view',
       'installments.reconcile', 'external_collections.collect', 'collection_accounts.manage',
       'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'reports.financial',
       'crm.access_all_leads', 'crm.access_own_leads', 'crm.access_all_schedule', 'crm.access_own_schedule',
@@ -2654,8 +2990,14 @@ export function handleMockRequest(
     return { id: 1, collection_channel: 'external', amount: (data as { amount?: number }).amount ?? 0 }
   }
 
+  const chatResult = tryHandleChatRequest(m, path, data, ctx.user?.id)
+  if (chatResult !== null) return chatResult
+
   const hrmResult = tryHandleHrmRequest(m, path, data, params, ctx)
   if (hrmResult !== undefined) return hrmResult
+
+  const pricingResult = tryHandlePricingRequest(m, path, data, params)
+  if (pricingResult !== null) return pricingResult
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)
 }

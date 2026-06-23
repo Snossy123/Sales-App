@@ -1,5 +1,7 @@
 import type { AuthUser, DemoRole } from '../api/types'
 import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
+import { userHasReviewAccess } from './permissionChecks'
+import { formatUserRolesLabel } from './roleCatalog'
 
 export { getUserRole } from './access'
 
@@ -44,8 +46,10 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/departments', icon: 'corporate_fare', label: 'الإدارات', end: true, roles: ['super_admin'] },
         { to: '/branches', icon: 'store', label: 'كل الفروع', roles: ['super_admin'] },
+        { to: '/sections', icon: 'account_tree', label: 'الأقسام', roles: ['super_admin'] },
         { to: '/gps/management', icon: 'dashboard', label: 'لوحة الإدارة', roles: ['admin'] },
         { to: '/branches', icon: 'store', label: 'فروع الإدارة', roles: ['admin'] },
+        { to: '/sections', icon: 'account_tree', label: 'الأقسام', roles: ['admin'] },
       ],
     },
   },
@@ -63,6 +67,7 @@ export const navEntries: NavEntry[] = [
         { to: '/admin/faq', icon: 'quiz', label: 'إدارة الأسئلة', roles: ['super_admin', 'admin'] },
         { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
         { to: '/help/faq', icon: 'help', label: 'المساعدة', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
+        { to: '/messages', icon: 'chat', label: 'الرسائل', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
         { to: '/feedback', icon: 'feedback', label: 'ملاحظات', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
       ],
     },
@@ -75,6 +80,8 @@ export const navEntries: NavEntry[] = [
       icon: 'edit_document',
       items: [
         { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pricing/catalog', icon: 'sell', label: 'كتalog الأسعار', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/accessories', icon: 'headphones', label: 'بيع الاكسسورات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/maintenance', icon: 'build', label: 'صيانة وسوفت وير', roles: ['super_admin', 'admin', 'sales'] },
       ],
@@ -99,8 +106,8 @@ export const navEntries: NavEntry[] = [
       label: 'قسم المراجعة',
       icon: 'fact_check',
       items: [
-        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة العقود', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'العقود', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
       ],
     },
   },
@@ -181,7 +188,10 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/hrm', icon: 'dashboard', label: 'نظرة عامة', end: true, roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/employees', icon: 'badge', label: 'الموظفون', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/sales-targets', icon: 'track_changes', label: 'أهداف المبيعات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/jobs', icon: 'work', label: 'الوظائف', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/attendance', icon: 'schedule', label: 'الحضور', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/zk-devices', icon: 'fingerprint', label: 'أجهزة البصمة', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/leaves', icon: 'event_busy', label: 'الإجازات', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/leave-types', icon: 'category', label: 'أنواع الإجازة', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'admin', 'hr_manager'] },
@@ -219,10 +229,13 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
   '/departments': ['super_admin'],
   '/branches': ['super_admin', 'admin'],
+  '/sections': ['super_admin', 'admin'],
   '/gps/management': ['admin'],
   '/inventory': ['super_admin', 'admin', 'sales'],
   '/inventory/add': ['super_admin', 'admin'],
   '/pos': ['super_admin', 'admin', 'sales'],
+  '/pricing/catalog': ['super_admin', 'admin', 'sales'],
+  '/pricing/promotions': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
   '/services': ['super_admin', 'admin'],
@@ -239,6 +252,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/collection-accounts': ['super_admin', 'admin'],
   '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
   '/distributors': ['super_admin', 'admin', 'sales', 'collector'],
+  '/distributors/add': ['super_admin', 'admin', 'sales'],
   '/customers': ['super_admin', 'admin', 'sales', 'collector'],
   '/customers/add': ['super_admin', 'admin', 'sales'],
   '/accounting': ['super_admin', 'admin', 'accountant'],
@@ -251,9 +265,12 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/accounting/settings': ['super_admin', 'admin', 'accountant'],
   '/hrm': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/attendance': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/zk-devices': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/leaves': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/leave-types': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/employees': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/sales-targets': ['super_admin', 'admin', 'hr_manager'],
+  '/hrm/jobs': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/allowances': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/payroll-groups': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/shifts': ['super_admin', 'admin', 'hr_manager'],
@@ -291,6 +308,15 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     }
     return true
   }
+  if (item.to === '/') {
+    return userHasPermission(user, 'dashboard.view')
+  }
+  if (item.to === '/invoices/review') {
+    return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
+  }
+  if (item.to === '/invoices') {
+    return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+  }
   return false
 }
 
@@ -312,6 +338,10 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     return routeRoles['/customers/add']?.includes(role) ?? false
   }
 
+  if (normalized === '/distributors/add') {
+    return routeRoles['/distributors/add']?.includes(role) ?? false
+  }
+
   if (normalized.startsWith('/customers/')) {
     return routeRoles['/customers']?.includes(role) ?? false
   }
@@ -329,12 +359,29 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   }
 
   if (normalized.match(/^\/invoices\/\d+\/contract-print$/)) {
-    return (
-      routeRoles['/invoices']?.includes(role) ??
-      routeRoles['/invoices/review']?.includes(role) ??
-      routeRoles['/pos']?.includes(role) ??
-      false
-    )
+    if (
+      routeRoles['/invoices']?.includes(role) ||
+      routeRoles['/invoices/review']?.includes(role) ||
+      routeRoles['/pos']?.includes(role)
+    ) {
+      return true
+    }
+    return userHasPermission(user, 'review.print') || userHasPermission(user, 'sales.invoices.view')
+  }
+
+  if (normalized.match(/^\/invoices\/review\/\d+$/)) {
+    if (routeRoles['/invoices/review']?.includes(role)) return true
+    return userHasReviewAccess(user)
+  }
+
+  if (normalized === '/invoices/review') {
+    if (routeRoles['/invoices/review']?.includes(role)) return true
+    return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
+  }
+
+  if (normalized === '/invoices') {
+    if (routeRoles['/invoices']?.includes(role)) return true
+    return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
   }
 
   const deptDetailMatch = normalized.match(/^\/departments\/(\d+)$/)
@@ -418,19 +465,7 @@ export function getDefaultRoute(user: AuthUser | null): string {
 }
 
 export function getRoleLabel(user: AuthUser | null): string {
-  const role = getUserRole(user)
-  const labels: Record<DemoRole, string> = {
-    super_admin: 'مدير النظام الأعلى',
-    admin: 'مدير الإدارة',
-    sales: 'قسم التعاقدات',
-    reviewer: 'قسم المراجعة',
-    collector: 'قسم التحصيل',
-    call_center: 'مركز الاتصال',
-    crm: 'قسم المبيعات',
-    accountant: 'قسم المحاسبة',
-    hr_manager: 'مدير الموارد البشرية',
-  }
-  return labels[role]
+  return formatUserRolesLabel(user)
 }
 
 export function resolveNavPath(item: NavItem, user: AuthUser | null): string {
@@ -450,6 +485,10 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
 
   if (item.to === '/departments' || target === '/departments') {
     return normalized === '/departments'
+  }
+
+  if (item.to === '/sections' || target === '/sections') {
+    return normalized === '/sections'
   }
 
   if (item.to === '/gps/management' || target === '/gps/management') {
@@ -489,7 +528,7 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
   }
 
   if (item.to === '/invoices/review' || target === '/invoices/review') {
-    return normalized === '/invoices/review'
+    return normalized === '/invoices/review' || /^\/invoices\/review\/\d+$/.test(normalized)
   }
 
   if (item.to === '/invoices' || target === '/invoices') {

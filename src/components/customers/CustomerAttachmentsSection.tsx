@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { MediaFile } from '../../api/types'
 import { Icon } from '../Icon'
+import { Modal } from '../Modal'
+import { isImageMimeType, isPdfMimeType, resolveMediaUrl } from '../../lib/storageUrl'
 
 export interface PendingAttachment {
   id: string
@@ -24,6 +26,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function getMediaDisplayName(item: Pick<MediaFile, 'file_name' | 'description'>): string {
+  const customName = item.description?.trim()
+  return customName || item.file_name
+}
+
 export function CustomerAttachmentsSection({
   customerId,
   mode,
@@ -34,6 +41,8 @@ export function CustomerAttachmentsSection({
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const [uploadError, setUploadError] = useState('')
+  const [previewItem, setPreviewItem] = useState<MediaFile | null>(null)
+  const [pendingUploads, setPendingUploads] = useState<PendingAttachment[]>([])
 
   const mediaQuery = useQuery({
     queryKey: ['customer-media', customerId],
@@ -75,23 +84,40 @@ export function CustomerAttachmentsSection({
   const handleFileSelect = (files: FileList | null) => {
     if (!files?.length) return
 
+    const nextItems = Array.from(files).map((file) => ({
+      id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+      file,
+      description: '',
+    }))
+
     if (mode === 'create') {
-      const next = [...pendingFiles]
-      Array.from(files).forEach((file) => {
-        next.push({
-          id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
-          file,
-          description: '',
-        })
-      })
-      onPendingChange?.(next)
+      onPendingChange?.([...pendingFiles, ...nextItems])
       return
     }
 
+    setPendingUploads((prev) => [...prev, ...nextItems])
+  }
+
+  const updatePendingUploadDescription = (id: string, description: string) => {
+    setPendingUploads((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, description } : item)),
+    )
+  }
+
+  const removePendingUpload = (id: string) => {
+    setPendingUploads((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const uploadPending = (item: PendingAttachment) => {
     if (!customerId) return
-    Array.from(files).forEach((file) => {
-      uploadMutation.mutate({ file })
-    })
+    uploadMutation.mutate(
+      { file: item.file, description: item.description.trim() || undefined },
+      {
+        onSuccess: () => {
+          setPendingUploads((prev) => prev.filter((p) => p.id !== item.id))
+        },
+      },
+    )
   }
 
   const updatePendingDescription = (id: string, description: string) => {
@@ -105,6 +131,7 @@ export function CustomerAttachmentsSection({
   }
 
   const mediaItems = mediaQuery.data ?? []
+  const previewUrl = previewItem ? resolveMediaUrl(previewItem.url) : undefined
 
   return (
     <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
@@ -143,7 +170,7 @@ export function CustomerAttachmentsSection({
       {uploadError && <p className="mb-sm text-sm text-error">{uploadError}</p>}
 
       {mode === 'create' && pendingFiles.length > 0 && (
-        <ul className="space-y-sm">
+        <ul className="mb-sm space-y-sm">
           {pendingFiles.map((item) => (
             <li
               key={item.id}
@@ -173,6 +200,48 @@ export function CustomerAttachmentsSection({
         </ul>
       )}
 
+      {mode === 'view' && pendingUploads.length > 0 && (
+        <ul className="mb-sm space-y-sm">
+          {pendingUploads.map((item) => (
+            <li
+              key={item.id}
+              className="flex flex-wrap items-start gap-sm rounded border border-outline-variant p-sm"
+            >
+              <Icon name="description" size={20} className="mt-1 text-on-surface-variant no-flip" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{item.file.name}</p>
+                <p className="text-xs text-on-surface-variant">{formatFileSize(item.file.size)}</p>
+                <input
+                  value={item.description}
+                  onChange={(e) => updatePendingUploadDescription(item.id, e.target.value)}
+                  placeholder="وصف اختياري..."
+                  className="mt-xs w-full rounded border border-outline-variant px-sm py-1 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-xs">
+                <button
+                  type="button"
+                  onClick={() => uploadPending(item)}
+                  disabled={uploadMutation.isPending}
+                  className="rounded-lg bg-primary px-sm py-1 text-xs font-bold text-on-primary disabled:opacity-50"
+                >
+                  رفع
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removePendingUpload(item.id)}
+                  disabled={uploadMutation.isPending}
+                  className="text-error hover:opacity-80 disabled:opacity-50"
+                  aria-label="حذف"
+                >
+                  <Icon name="close" size={20} />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {mode === 'view' && (
         <>
           {mediaQuery.isLoading && (
@@ -190,18 +259,14 @@ export function CustomerAttachmentsSection({
                 >
                   <Icon name="description" size={20} className="text-on-surface-variant no-flip" />
                   <div className="min-w-0 flex-1">
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setPreviewItem(item)}
                       className="truncate text-sm font-medium text-primary hover:underline"
                     >
-                      {item.file_name}
-                    </a>
-                    <p className="text-xs text-on-surface-variant">
-                      {formatFileSize(item.size)}
-                      {item.description ? ` — ${item.description}` : ''}
-                    </p>
+                      {getMediaDisplayName(item)}
+                    </button>
+                    <p className="text-xs text-on-surface-variant">{formatFileSize(item.size)}</p>
                   </div>
                   {canManage && (
                     <button
@@ -220,6 +285,42 @@ export function CustomerAttachmentsSection({
           )}
         </>
       )}
+
+      <Modal
+        open={previewItem !== null}
+        onClose={() => setPreviewItem(null)}
+        title={previewItem ? getMediaDisplayName(previewItem) : 'معاينة المرفق'}
+        size="lg"
+      >
+        {previewItem && previewUrl && (
+          <div className="space-y-sm">
+            {isImageMimeType(previewItem.mime_type) ? (
+              <img
+                src={previewUrl}
+                alt={getMediaDisplayName(previewItem)}
+                className="mx-auto max-h-[70vh] w-full rounded-lg object-contain"
+              />
+            ) : isPdfMimeType(previewItem.mime_type) ? (
+              <iframe
+                src={previewUrl}
+                title={getMediaDisplayName(previewItem)}
+                className="h-[70vh] w-full rounded-lg border border-outline-variant bg-surface-container-low"
+              />
+            ) : (
+              <p className="text-sm text-on-surface-variant">لا تتوفر معاينة لهذا النوع من الملفات.</p>
+            )}
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              <Icon name="open_in_new" size={16} />
+              فتح في نافذة جديدة
+            </a>
+          </div>
+        )}
+      </Modal>
     </section>
   )
 }

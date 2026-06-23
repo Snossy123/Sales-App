@@ -1,12 +1,28 @@
 import type { AuthUser, Branch, DemoRole } from '../api/types'
+import { userHasReviewAccess } from './permissionChecks'
+import {
+  getScopedDepartmentId as getDataScopeDepartmentId,
+  getUserDataScope,
+  isOrgWideDataScope,
+} from './dataScope'
 
 function roleNames(user: AuthUser | null): string[] {
   return user?.roles?.map((r) => r.name) ?? []
 }
 
+function roleLabelsAr(user: AuthUser | null): string[] {
+  return user?.roles?.map((r) => r.name_ar ?? '').filter(Boolean) ?? []
+}
+
 function hasRole(user: AuthUser | null, ...names: string[]): boolean {
   const normalized = roleNames(user).map((n) => n.toLowerCase())
   return names.some((name) => normalized.includes(name.toLowerCase()))
+}
+
+function hasReviewerRole(user: AuthUser | null): boolean {
+  if (hasRole(user, 'Reviewer')) return true
+  if (roleNames(user).some((name) => name === 'المراجعة')) return true
+  return roleLabelsAr(user).some((label) => label.includes('مراجعة'))
 }
 
 export function userHasPermission(user: AuthUser | null, permission: string): boolean {
@@ -19,6 +35,9 @@ export function getUserRole(user: AuthUser | null): DemoRole {
 
   if (hasRole(user, 'Admin')) return 'super_admin'
   if (hasRole(user, 'AdministrationManager', 'BranchManager', 'Department Admin')) return 'admin'
+
+  if (hasReviewerRole(user)) return 'reviewer'
+  if (userHasReviewAccess(user)) return 'reviewer'
 
   const primary = roleNames(user)[0]?.toLowerCase() ?? ''
   if (primary.includes('super')) return 'super_admin'
@@ -56,26 +75,42 @@ export function getUserAdministrationId(user: AuthUser | null): number | null {
   return user?.administration_id ?? user?.department_id ?? null
 }
 
-/** null = unrestricted (super admin) */
+/** null = unrestricted (organization scope) */
 export function getScopedDepartmentId(user: AuthUser | null): number | null {
-  if (!user || isSuperAdmin(user)) return null
-  return getUserAdministrationId(user)
+  return getDataScopeDepartmentId(user)
 }
 
 export function canAccessDepartment(user: AuthUser | null, departmentId: number): boolean {
   if (!user) return false
-  if (isSuperAdmin(user)) return true
-  if (isDepartmentAdmin(user)) return getUserAdministrationId(user) === departmentId
+  if (isOrgWideDataScope(user)) return true
+  const scope = getUserDataScope(user)
+  const userAdminId = getUserAdministrationId(user)
+  if (scope === 'administration' || scope === 'branch') {
+    return userAdminId === departmentId
+  }
   return false
 }
 
-export function canAccessBranch(user: AuthUser | null, branch: Pick<Branch, 'administration_id' | 'department_id'>): boolean {
+export function canAccessBranch(
+  user: AuthUser | null,
+  branch: Pick<Branch, 'id' | 'administration_id' | 'department_id'>,
+): boolean {
   if (!user) return false
-  if (isSuperAdmin(user)) return true
-  if (isDepartmentAdmin(user)) {
-    const adminId = branch.administration_id ?? branch.department_id
-    return adminId != null && adminId === getUserAdministrationId(user)
+  const scope = getUserDataScope(user)
+  if (scope === 'organization') return true
+
+  const adminId = branch.administration_id ?? branch.department_id
+  const userAdminId = getUserAdministrationId(user)
+
+  if (scope === 'administration') {
+    return adminId != null && adminId === userAdminId
   }
+
+  if (scope === 'branch') {
+    const userBranchId = user.branch_id ?? user.branch?.id
+    return userBranchId != null && branch.id === userBranchId
+  }
+
   return false
 }
 

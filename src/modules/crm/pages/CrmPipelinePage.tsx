@@ -2,25 +2,34 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../api/client'
 import type { CrmDashboardStats, Lead, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
+import { Icon } from '../../../components/Icon'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 import { StartTourButton } from '../../../components/tour/StartTourButton'
 import { usePageTour } from '../../../hooks/usePageTour'
+import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
 
 const STAGES = [
   { key: 'new', label: 'جديد', color: 'bg-surface-container-high' },
   { key: 'contacted', label: 'تم التواصل', color: 'bg-primary/10' },
   { key: 'negotiation', label: 'تفاوض', color: 'bg-[#ef9900]/10' },
-  { key: 'qualified', label: 'مؤهل', color: 'bg-secondary-container/40' },
-  { key: 'won', label: 'فوز', color: 'bg-secondary/10' },
-  { key: 'lost', label: 'خسارة', color: 'bg-error/10' },
+  { key: 'qualified', label: 'انتظار التعاقد', color: 'bg-secondary-container/40' },
+  { key: 'won', label: 'تم التعاقد', color: 'bg-secondary/10' },
+  { key: 'lost', label: 'غير مهتم', color: 'bg-error/10' },
 ] as const
+
+function formatDeviceCountLabel(count: number): string {
+  if (count === 1) return '1 جهاز'
+  if (count === 2) return '2 جهازان'
+  return `${count} أجهزة`
+}
 
 export function CrmPipelinePage() {
   usePageTour('crm')
   const queryClient = useQueryClient()
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
 
   const dashboardQuery = useQuery({
     queryKey: ['crm-dashboard'],
@@ -31,13 +40,12 @@ export function CrmPipelinePage() {
   })
 
   const query = useQuery({
-    queryKey: ['leads', branchId],
+    queryKey: ['leads', listScopeKey],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 200,
         include: 'branch,assignee',
-      }
-      if (branchId) params['filter[branch_id]'] = branchId
+      })
 
       const { data } = await api.get<PaginatedResponse<Lead>>('/leads', { params })
       return data.data
@@ -56,7 +64,9 @@ export function CrmPipelinePage() {
   })
 
   const leadsByStage = (stage: string) =>
-    (query.data ?? []).filter((l) => l.status === stage)
+    (query.data ?? [])
+      .filter((l) => l.status === stage)
+      .sort((a, b) => (b.device_count ?? 0) - (a.device_count ?? 0))
 
   const stats = dashboardQuery.data
 
@@ -131,9 +141,12 @@ export function CrmPipelinePage() {
                       <p className="tabular-nums text-xs text-on-surface-variant">
                         {lead.phone}
                       </p>
-                      {lead.expected_value != null && (
-                        <p className="mt-xs tabular-nums text-xs font-medium text-secondary">
-                          {Number(lead.expected_value).toLocaleString('ar-EG')} ج.م
+                      {lead.device_count != null && lead.device_count > 0 && (
+                        <p className="mt-xs flex items-center gap-xs text-xs font-medium text-secondary">
+                          <Icon name="devices" size={14} />
+                          <span className="tabular-nums">
+                            {formatDeviceCountLabel(lead.device_count)}
+                          </span>
                         </p>
                       )}
                       {lead.source && (

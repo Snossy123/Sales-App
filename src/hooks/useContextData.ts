@@ -2,15 +2,20 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Branch, Department, PaginatedResponse, Warehouse } from '../api/types'
+import { getScopedBranchId, getScopedDepartmentId } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 import { useContextStore } from '../stores/contextStore'
 
 export function useContextData() {
+  const user = useAuthStore((s) => s.user)
   const departmentId = useAuthStore((s) => s.departmentId)
   const branchId = useAuthStore((s) => s.branchId)
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const setDepartmentId = useAuthStore((s) => s.setDepartmentId)
   const setBranchId = useAuthStore((s) => s.setBranchId)
+
+  const scopedDepartmentId = getScopedDepartmentId(user)
+  const scopedBranchId = getScopedBranchId(user)
 
   const {
     setDepartments,
@@ -23,9 +28,9 @@ export function useContextData() {
   } = useContextStore()
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments'],
+    queryKey: ['administrations', 'context'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<Department>>('/administrations', {
         params: { per_page: 100 },
       })
       return data.data
@@ -61,7 +66,11 @@ export function useContextData() {
     setDepartmentsLoading(departmentsQuery.isLoading)
     if (departmentsQuery.data) {
       setDepartments(departmentsQuery.data)
-      if (!departmentId && departmentsQuery.data[0]) {
+      if (scopedDepartmentId != null) {
+        if (departmentId !== scopedDepartmentId) {
+          setDepartmentId(scopedDepartmentId)
+        }
+      } else if (!departmentId && departmentsQuery.data[0]) {
         setDepartmentId(departmentsQuery.data[0].id)
       }
     }
@@ -69,6 +78,7 @@ export function useContextData() {
     departmentsQuery.data,
     departmentsQuery.isLoading,
     departmentId,
+    scopedDepartmentId,
     setDepartmentId,
     setDepartments,
     setDepartmentsLoading,
@@ -78,7 +88,11 @@ export function useContextData() {
     setBranchesLoading(branchesQuery.isLoading)
     if (branchesQuery.data) {
       setBranches(branchesQuery.data)
-      if (!branchId && branchesQuery.data[0]) {
+      if (scopedBranchId != null) {
+        if (branchId !== scopedBranchId) {
+          setBranchId(scopedBranchId)
+        }
+      } else if (!branchId && branchesQuery.data[0]) {
         setBranchId(branchesQuery.data[0].id)
       }
     }
@@ -86,6 +100,7 @@ export function useContextData() {
     branchesQuery.data,
     branchesQuery.isLoading,
     branchId,
+    scopedBranchId,
     setBranchId,
     setBranches,
     setBranchesLoading,

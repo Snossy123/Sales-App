@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../api/client'
-import type { Employee, HrmDashboard, PaginatedResponse } from '../../../api/types'
+import type { AuthUser, Employee, HrmDashboard, PaginatedResponse } from '../../../api/types'
 import { DataTable } from '../../../components/DataTable'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { KpiCard } from '../../../components/KpiCard'
@@ -8,6 +8,7 @@ import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
 import { StartTourButton } from '../../../components/tour/StartTourButton'
 import { usePageTour } from '../../../hooks/usePageTour'
+import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
@@ -15,16 +16,15 @@ type DashboardResult =
   | { mode: 'dashboard'; stats: HrmDashboard }
   | { mode: 'employees'; employees: Employee[] }
 
-async function fetchDashboard(branchId: number | null): Promise<DashboardResult> {
+async function fetchDashboard(user: AuthUser | null): Promise<DashboardResult> {
   try {
     const { data } = await api.get<HrmDashboard>('/hrm/dashboard')
     return { mode: 'dashboard', stats: data }
   } catch {
-    const params: Record<string, string | number> = {
+    const params = mergeScopedListParams(user, {
       per_page: 100,
       include: 'branch,department',
-    }
-    if (branchId) params['filter[branch_id]'] = branchId
+    })
 
     const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
     return { mode: 'employees', employees: data.data }
@@ -33,11 +33,12 @@ async function fetchDashboard(branchId: number | null): Promise<DashboardResult>
 
 export function HrmDashboardPage() {
   usePageTour('hrm')
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
 
   const query = useQuery({
-    queryKey: ['hrm', 'dashboard', branchId],
-    queryFn: () => fetchDashboard(branchId),
+    queryKey: ['hrm', 'dashboard', listScopeKey],
+    queryFn: () => fetchDashboard(user),
   })
 
   const result = query.data

@@ -1,4 +1,5 @@
-import type { InstallmentItem, InstallmentPlan, SalesInvoice } from '../api/types'
+import type { InstallmentItem, SalesInvoice } from '../api/types'
+import { resolveLinePlan } from './contractFields'
 import { formatInvoiceDate } from './sales'
 
 export type ContractStatusFilter = 'confirmed' | 'unconfirmed' | 'all'
@@ -10,11 +11,8 @@ export interface ContractSummary {
   remaining: number
 }
 
-function getInstallmentPlan(invoice: SalesInvoice): InstallmentPlan | null | undefined {
-  return (
-    invoice.installment_plan ??
-    (invoice as SalesInvoice & { installmentPlan?: InstallmentPlan | null }).installmentPlan
-  )
+function getInstallmentPlan(invoice: SalesInvoice) {
+  return resolveLinePlan(invoice.lines?.[0], invoice)
 }
 
 export function filterContracts(
@@ -56,27 +54,72 @@ export function installmentStatusLabel(status: string): string {
   return 'معلق'
 }
 
-export function buildContractSummary(invoice: SalesInvoice): ContractSummary | null {
+export function buildContractSummary(invoice: SalesInvoice): ContractSummary {
+  const paidAmount = Number(invoice.paid_amount ?? 0)
+  const remaining = Number(invoice.balance_due ?? 0)
+
   if (invoice.payment_term !== 'installment') {
-    return null
+    return {
+      downPayment: 0,
+      installmentCount: 0,
+      paidAmount,
+      remaining,
+    }
   }
 
-  const plan = getInstallmentPlan(invoice)
-  if (!plan) {
-    return null
+  const lines = invoice.lines ?? []
+  let downPayment = 0
+  let installmentCount = 0
+
+  if (lines.length > 0) {
+    for (const line of lines) {
+      const plan = resolveLinePlan(line, invoice)
+      if (plan) {
+        downPayment += Number(plan.down_payment ?? 0)
+        installmentCount += Number(plan.installment_count ?? 0)
+      }
+    }
+  } else {
+    const plan = getInstallmentPlan(invoice)
+    downPayment = Number(plan?.down_payment ?? 0)
+    installmentCount = Number(plan?.installment_count ?? 0)
   }
 
   return {
-    downPayment: Number(plan.down_payment ?? 0),
-    installmentCount: Number(plan.installment_count ?? 0),
-    paidAmount: Number(invoice.paid_amount ?? 0),
-    remaining: Number(invoice.balance_due ?? 0),
+    downPayment,
+    installmentCount,
+    paidAmount,
+    remaining,
   }
 }
 
 export function getInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
+  const lines = invoice.lines ?? []
+  const aggregated: InstallmentItem[] = []
+
+  for (const line of lines) {
+    const plan = resolveLinePlan(line, invoice)
+    if (plan?.items?.length) {
+      aggregated.push(...plan.items)
+    }
+  }
+
+  if (aggregated.length > 0) {
+    return aggregated
+  }
+
   const plan = getInstallmentPlan(invoice)
   return plan?.items ?? []
+}
+
+export function paymentStatusLabel(status?: string | null): string {
+  if (status === 'paid') return 'مدفوع بالكامل'
+  if (status === 'partial') return 'مدفوع جزئياً'
+  return 'غير مدفوع'
+}
+
+export function installmentRemainingAmount(item: InstallmentItem): number {
+  return Math.max(0, Number(item.amount) - Number(item.paid_amount ?? 0))
 }
 
 export function formatContractMoney(value: number): string {
@@ -95,6 +138,10 @@ export function buildContractSummaryLine(invoice: SalesInvoice): string {
     if (interval) {
       parts.push(interval)
     }
+  }
+
+  if (invoice.payment_status) {
+    parts.push(paymentStatusLabel(invoice.payment_status))
   }
 
   return parts.join(' · ')

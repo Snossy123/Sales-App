@@ -1,10 +1,14 @@
 import type { AuthUser } from '../api/types'
-import { getScopedDepartmentId } from './access'
+import {
+  getListBranchFilter,
+  getScopeApiFilters,
+  mergeScopedListParams,
+} from './dataScope'
+
+export { getListBranchFilter, mergeScopedListParams }
 
 export function getAdministrationApiFilters(user: AuthUser | null): Record<string, string | number> {
-  const scopeId = getScopedDepartmentId(user)
-  if (scopeId == null) return {}
-  return { 'filter[administration_id]': scopeId }
+  return getScopeApiFilters(user)
 }
 
 export function getAdministrationBranchFilters(user: AuthUser | null): Record<string, string | number> {

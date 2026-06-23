@@ -1,4 +1,4 @@
-import type { Customer, Distributor, InstallmentItem } from '../api/types'
+import type { Customer, Distributor, DistributorType, InstallmentItem, SalesInvoice } from '../api/types'
 import { formatDate as formatAccountingDate } from './accounting'
 
 export { formatDate } from './accounting'
@@ -19,10 +19,17 @@ export const paymentStatusOptions = [
 
 export const paymentTermOptions = [
   { value: '', label: 'كل أنواع الدفع' },
-  { value: 'cash', label: 'نقدي' },
+  { value: 'cash', label: 'كاش' },
   { value: 'installment', label: 'تقسيط' },
-  { value: 'credit', label: 'آجل' },
 ] as const
+
+export function paymentTermLabel(term?: string | null): string {
+  if (term === 'mixed') return 'مختلط'
+  if (term === 'installment') return 'تقسيط'
+  if (term === 'cash') return 'كاش'
+  if (term === 'credit') return 'آجل'
+  return term ?? '—'
+}
 
 export const installmentStatusOptions = [
   { value: '', label: 'كل الحالات' },
@@ -44,10 +51,46 @@ export const distributorStatusOptions = [
   { value: 'inactive', label: 'غير نشط' },
 ] as const
 
+export const distributorFormStatusOptions = distributorStatusOptions.filter((o) => o.value !== '')
+
+export const distributorTypeOptions = [
+  { value: 'center', label: 'مركز' },
+  { value: 'free', label: 'حر' },
+] as const
+
+export const distributorTypeLabels: Record<DistributorType, string> = {
+  center: 'مركز',
+  free: 'حر',
+}
+
 export const invoiceStatusLabels: Record<string, string> = {
   pending_review: 'بانتظار المراجعة',
   confirmed: 'مؤكدة',
   rejected: 'مرفوضة',
+}
+
+export const reviewStatusLabels: Record<string, string> = {
+  pending: 'بانتظار المراجعة',
+  approved: 'تمت المراجعة',
+  rejected: 'مرفوضة',
+}
+
+export const reviewStatusOptions = [
+  { value: '', label: 'كل الحالات' },
+  { value: 'pending', label: 'بانتظار المراجعة' },
+  { value: 'approved', label: 'تمت المراجعة' },
+  { value: 'rejected', label: 'مرفوضة' },
+] as const
+
+export function reviewStatusForBadge(reviewStatus?: string | null): string {
+  if (reviewStatus === 'approved') return 'review_approved'
+  if (reviewStatus === 'rejected') return 'rejected'
+  return 'pending_review'
+}
+
+export function reviewStatusLabel(reviewStatus?: string | null): string {
+  const key = reviewStatus ?? 'pending'
+  return reviewStatusLabels[key] ?? reviewStatusLabels.pending
 }
 
 export interface PaginationMeta {
@@ -127,6 +170,42 @@ export function formatInvoiceDate(value: string | null | undefined): string {
 export function distributorLabel(distributor?: Distributor | null): string {
   if (!distributor) return '—'
   return distributor.name_ar || distributor.name || distributor.code
+}
+
+export function distributorTypeLabel(type?: DistributorType | string | null): string {
+  if (type === 'center' || type === 'free') {
+    return distributorTypeLabels[type]
+  }
+  return '—'
+}
+
+export function distributorContractCustomerCount(
+  distributor: Distributor,
+  invoices?: SalesInvoice[],
+): number {
+  if (distributor.contract_customers_count != null) {
+    return Number(distributor.contract_customers_count)
+  }
+  if (invoices?.length) {
+    return new Set(
+      invoices.map((invoice) => invoice.customer_id).filter((id): id is number => id != null),
+    ).size
+  }
+  return 0
+}
+
+export function distributorContractsCount(
+  distributor: Distributor,
+  invoices?: SalesInvoice[],
+): number {
+  if (distributor.sales_invoices_count != null) {
+    return Number(distributor.sales_invoices_count)
+  }
+  return invoices?.length ?? 0
+}
+
+export function formatDistributorAgreedAmount(value?: string | number | null): string {
+  return `${Number(value ?? 0).toLocaleString('ar-EG')} ج.م`
 }
 
 export function contractPrintPath(

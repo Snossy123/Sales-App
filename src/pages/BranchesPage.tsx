@@ -30,21 +30,18 @@ import {
 type Panel = 'create' | 'edit' | 'delete' | null
 
 const emptyForm = {
-  code: '',
   name_ar: '',
-  name: '',
   address: '',
+  phone: '',
   administration_id: '' as number | '',
   is_active: true,
-}
-
-function branchAdministration(branch: Branch): Administration | undefined {
-  return branch.administration ?? (branch.department as Administration | undefined)
 }
 
 function branchAdministrationId(branch: Branch): number | '' {
   return branch.administration_id ?? branch.department_id ?? ''
 }
+
+type BranchRow = Branch & { serial: number }
 
 const PER_PAGE = 10
 
@@ -65,6 +62,7 @@ export function BranchesPage() {
   })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [serialSort, setSerialSort] = useState<'asc' | 'desc'>('asc')
   const [panel, setPanel] = useState<Panel>(null)
   const [successToast, setSuccessToast] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
@@ -98,10 +96,19 @@ export function BranchesPage() {
     [allBranchesQuery.data, search, statusFilter],
   )
 
+  const sorted = useMemo(() => {
+    const items = [...filtered]
+    items.sort((a, b) => (serialSort === 'asc' ? a.id - b.id : b.id - a.id))
+    return items
+  }, [filtered, serialSort])
+
   const paginated = useMemo(() => {
     const start = (page - 1) * PER_PAGE
-    return filtered.slice(start, start + PER_PAGE)
-  }, [filtered, page])
+    return sorted.slice(start, start + PER_PAGE).map((row, idx) => ({
+      ...row,
+      serial: start + idx + 1,
+    }))
+  }, [sorted, page])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const kpis = useMemo(() => computeBranchKpis(filtered), [filtered])
@@ -131,7 +138,10 @@ export function BranchesPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
-        ...form,
+        name_ar: form.name_ar,
+        address: form.address || null,
+        phone: form.phone || null,
+        is_active: form.is_active,
         administration_id: Number(form.administration_id),
       }
       if (panel === 'edit' && editId) {
@@ -162,10 +172,9 @@ export function BranchesPage() {
   const openEdit = (branch: Branch) => {
     setEditId(branch.id)
     setForm({
-      code: branch.code,
       name_ar: branch.name_ar ?? '',
-      name: branch.name,
       address: branch.address ?? '',
+      phone: branch.phone ?? '',
       administration_id: branchAdministrationId(branch),
       is_active: branch.is_active ?? true,
     })
@@ -249,7 +258,7 @@ export function BranchesPage() {
       <FilterBar
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
-        searchPlaceholder="بحث بالاسم أو الكود أو العنوان..."
+        searchPlaceholder="بحث بالاسم أو العنوان أو الهاتف..."
         selects={[
           ...(!scopedDeptId
             ? [{
@@ -282,6 +291,7 @@ export function BranchesPage() {
         onClear={() => {
           setSearch('')
           setStatusFilter('')
+          setSerialSort('asc')
           if (!scopedDeptId) setDeptFilter('')
           setPage(1)
         }}
@@ -292,22 +302,27 @@ export function BranchesPage() {
         isError={allBranchesQuery.isError}
         error={allBranchesQuery.error}
       >
-        <DataTable<Branch & Record<string, unknown>>
-          data={paginated as (Branch & Record<string, unknown>)[]}
+        <DataTable<BranchRow & Record<string, unknown>>
+          data={paginated as (BranchRow & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
           emptyMessage={hasFilters ? 'لا توجد نتائج مطابقة للفلاتر' : 'لا توجد بيانات'}
+          sortKey="serial"
+          sortDirection={serialSort}
+          onSort={() => {
+            setSerialSort((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+            setPage(1)
+          }}
           columns={[
-            { key: 'code', header: 'الكود' },
-            { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
             {
-              key: 'administration',
-              header: 'الإدارة',
-              render: (row) => {
-                const admin = branchAdministration(row as Branch)
-                return admin?.name_ar || admin?.name || '—'
-              },
+              key: 'serial',
+              header: 'م',
+              sortable: true,
+              className: 'tabular-nums w-12 text-center',
+              render: (row) => row.serial,
             },
-            { key: 'address', header: 'العنوان' },
+            { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
+            { key: 'address', header: 'العنوان', render: (row) => row.address || '—' },
+            { key: 'phone', header: 'رقم الهاتف', className: 'tabular-nums', render: (row) => row.phone || '—' },
             {
               key: 'is_active',
               header: 'الحالة',
@@ -373,24 +388,10 @@ export function BranchesPage() {
             </select>
           )}
           <input
-            placeholder="الكود"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            required
-            dir="ltr"
-            className={inputClass}
-          />
-          <input
             placeholder="الاسم بالعربية"
             value={form.name_ar}
             onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
             required
-            className={inputClass}
-          />
-          <input
-            placeholder="الاسم بالإنجليزية"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={`${inputClass} sm:col-span-2`}
           />
           <input
@@ -399,7 +400,14 @@ export function BranchesPage() {
             onChange={(e) => setForm({ ...form, address: e.target.value })}
             className={`${inputClass} sm:col-span-2`}
           />
-          <label className="flex items-center gap-xs text-sm sm:col-span-2">
+          <input
+            placeholder="رقم الهاتف"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            dir="ltr"
+            className={inputClass}
+          />
+          <label className="flex items-center gap-xs text-sm">
             <input
               type="checkbox"
               checked={form.is_active}

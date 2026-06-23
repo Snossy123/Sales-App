@@ -15,21 +15,28 @@ import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
 import { DistributorsPage } from '../pages/DistributorsPage'
+import { DistributorAddPage } from '../pages/DistributorAddPage'
 import { DistributorDetailPage } from '../pages/DistributorDetailPage'
 import { DailyBranchReportPage } from '../pages/DailyBranchReportPage'
 import { DailyBranchReportPrintPage } from '../pages/DailyBranchReportPrintPage'
 import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
+import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { PaymentsPage } from '../pages/PaymentsPage'
 import { FaqPage } from '../pages/FaqPage'
+import { MyProfilePage } from '../pages/MyProfilePage'
 import { FeedbackPage } from '../pages/FeedbackPage'
+import { PromotionsPage } from '../modules/pricing/pages/PromotionsPage'
+import { MessagesPage } from '../modules/chat/pages/MessagesPage'
+import { PricingCatalogPage } from '../modules/pricing/pages/PricingCatalogPage'
 import { ExternalCollectionPage } from '../modules/collections/pages/ExternalCollectionPage'
 import { CollectionAccountsPage } from '../modules/collections/pages/CollectionAccountsPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
 import { DepartmentDetailPage } from '../pages/DepartmentDetailPage'
 import { BranchesPage } from '../pages/BranchesPage'
+import { SectionsPage } from '../pages/SectionsPage'
 import { GpsManagementPage } from '../pages/enterprise/GpsManagementPage'
 import { BranchDetailPage } from '../pages/enterprise/BranchDetailPage'
 import { HrmDashboardPage } from '../modules/hrm/pages/HrmDashboardPage'
@@ -40,7 +47,11 @@ import { HrmPayrollPage } from '../modules/hrm/pages/HrmPayrollPage'
 import { HrmHolidaysPage } from '../modules/hrm/pages/HrmHolidaysPage'
 import { HrmSettingsPage } from '../modules/hrm/pages/HrmSettingsPage'
 import { HrmEmployeesPage } from '../modules/hrm/pages/HrmEmployeesPage'
+import { HrmEmployeeDetailPage } from '../modules/hrm/pages/HrmEmployeeDetailPage'
+import { HrmSalesTargetsPage } from '../modules/hrm/pages/HrmSalesTargetsPage'
+import { HrmZkDevicesPage } from '../modules/hrm/pages/HrmZkDevicesPage'
 import { HrmLeaveTypesPage } from '../modules/hrm/pages/HrmLeaveTypesPage'
+import { HrmJobsPage } from '../modules/hrm/pages/HrmJobsPage'
 import { HrmAllowancesPage } from '../modules/hrm/pages/HrmAllowancesPage'
 import { HrmPayrollGroupsPage } from '../modules/hrm/pages/HrmPayrollGroupsPage'
 import { AccountingDashboardPage } from '../modules/accounting/pages/AccountingDashboardPage'
@@ -136,10 +147,13 @@ export function AppRoutes() {
             <Route path="departments/:id" element={<DepartmentDetailPage />} />
             <Route path="branches" element={<BranchesPage />} />
             <Route path="branches/:id" element={<BranchDetailPage />} />
+            <Route path="sections" element={<SectionsPage />} />
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/add" element={<InventoryAddStockPage />} />
             <Route path="pos" element={<PosPage />} />
+            <Route path="pricing/catalog" element={<PricingCatalogPage />} />
+            <Route path="pricing/promotions" element={<PromotionsPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />
             <Route path="sales/maintenance" element={<MaintenanceServicesPage />} />
             <Route path="services" element={<ServicesPage />} />
@@ -148,16 +162,20 @@ export function AppRoutes() {
             <Route path="daily-reports" element={<DailyBranchReportPage />} />
             <Route path="daily-reports/:id/print" element={<DailyBranchReportPrintPage />} />
             <Route path="distributors" element={<DistributorsPage />} />
+            <Route path="distributors/add" element={<DistributorAddPage />} />
             <Route path="distributors/:id" element={<DistributorDetailPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/add" element={<CustomerAddPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
+            <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="help/faq" element={<FaqPage />} />
+            <Route path="profile" element={<MyProfilePage />} />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="feedback" element={<FeedbackPage />} />
             <Route path="call-center/collections" element={<ExternalCollectionPage />} />
             <Route path="admin/collection-accounts" element={<CollectionAccountsPage />} />
@@ -172,7 +190,11 @@ export function AppRoutes() {
             <Route path="accounting/settings" element={<AccountingSettingsPage />} />
             <Route path="hrm" element={<HrmDashboardPage />} />
             <Route path="hrm/employees" element={<HrmEmployeesPage />} />
+            <Route path="hrm/employees/:id" element={<HrmEmployeeDetailPage />} />
+            <Route path="hrm/sales-targets" element={<HrmSalesTargetsPage />} />
+            <Route path="hrm/jobs" element={<HrmJobsPage />} />
             <Route path="hrm/attendance" element={<HrmAttendancePage />} />
+            <Route path="hrm/zk-devices" element={<HrmZkDevicesPage />} />
             <Route path="hrm/leaves" element={<HrmLeavesPage />} />
             <Route path="hrm/leave-types" element={<HrmLeaveTypesPage />} />
             <Route path="hrm/shifts" element={<HrmShiftsPage />} />

@@ -4,74 +4,83 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import {
+  buildContractListColumns,
+  contractDateFilterParams,
+  contractReviewRowClass,
+  defaultContractListActions,
+  filterContractListRows,
+} from '../components/contracts/contractListTable'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
-import { StatusBadge } from '../components/StatusBadge'
 import { usePageTour } from '../hooks/usePageTour'
 import {
   type ApiPaginated,
-  formatInvoiceDate,
-  distributorLabel,
-  invoiceStatusLabels,
-  contractPrintPath,
-  invoiceStatusOptions,
   paginatedMeta,
   paymentStatusOptions,
-  paymentTermOptions,
+  reviewStatusOptions,
 } from '../lib/sales'
+import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoicesPage() {
   usePageTour('invoices')
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
-  const [paymentTermFilter, setPaymentTermFilter] = useState('')
-  const [invoiceSearch, setInvoiceSearch] = useState('')
+  const [contractSearch, setContractSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
 
   const query = useQuery({
     queryKey: [
       'sales-invoices',
       'all',
-      branchId,
+      listScopeKey,
       statusFilter,
       paymentStatusFilter,
-      paymentTermFilter,
-      invoiceSearch,
+      dateFrom,
+      dateTo,
       page,
     ],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
+      const params = mergeScopedListParams(user, {
         per_page: 25,
         page,
-        include: 'customer,distributor',
-        'filter[branch_id]': branchId ?? 0,
-      }
-      if (statusFilter) params['filter[status]'] = statusFilter
+        include: 'customer,distributor,branch,lines',
+        ...contractDateFilterParams(dateFrom, dateTo),
+      })
+      if (statusFilter) params['filter[review_status]'] = statusFilter
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
-      if (paymentTermFilter) params['filter[payment_term]'] = paymentTermFilter
-      if (invoiceSearch.trim()) params['filter[invoice_number]'] = invoiceSearch.trim()
 
       const { data } = await api.get<ApiPaginated<SalesInvoice>>('/sales-invoices', { params })
       return data
     },
-    enabled: Boolean(branchId),
+    enabled: Boolean(user),
   })
 
   const meta = query.data ? paginatedMeta(query.data) : null
   const rows = query.data?.data ?? []
-  const hasFilters = Boolean(statusFilter || paymentStatusFilter || paymentTermFilter || invoiceSearch)
+  const displayRows = useMemo(
+    () => filterContractListRows(rows, contractSearch),
+    [rows, contractSearch],
+  )
+  const hasFilters = Boolean(
+    statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo,
+  )
 
   const clearFilters = () => {
     setStatusFilter('')
     setPaymentStatusFilter('')
-    setPaymentTermFilter('')
-    setInvoiceSearch('')
+    setContractSearch('')
+    setDateFrom('')
+    setDateTo('')
     setPage(1)
   }
 
@@ -85,7 +94,7 @@ export function InvoicesPage() {
           setStatusFilter(value)
           setPage(1)
         },
-        options: invoiceStatusOptions.map((o) => ({ value: o.value, label: o.label })),
+        options: reviewStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
       {
         id: 'payment_status',
@@ -97,24 +106,22 @@ export function InvoicesPage() {
         },
         options: paymentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
-      {
-        id: 'payment_term',
-        label: 'نوع الدفع',
-        value: paymentTermFilter,
-        onChange: (value: string) => {
-          setPaymentTermFilter(value)
-          setPage(1)
-        },
-        options: paymentTermOptions.map((o) => ({ value: o.value, label: o.label })),
-      },
     ],
-    [statusFilter, paymentStatusFilter, paymentTermFilter],
+    [statusFilter, paymentStatusFilter],
+  )
+
+  const columns = useMemo(
+    () =>
+      buildContractListColumns({
+        renderActions: defaultContractListActions,
+      }),
+    [],
   )
 
   return (
     <SalesPageShell
-      title="كل الفواتير"
-      subtitle="عرض وتصفية جميع فواتير المبيعات"
+      title="كل التعاقدات"
+      subtitle="عرض وتصفية جميع تعاقدات المبيعات"
       actions={
         <>
           <StartTourButton tourId="invoices" />
@@ -131,12 +138,21 @@ export function InvoicesPage() {
       filters={
         <FilterBar
           dataTour="invoices-filters"
-          search={invoiceSearch}
-          onSearchChange={(value) => {
-            setInvoiceSearch(value)
+          search={contractSearch}
+          onSearchChange={setContractSearch}
+          searchPlaceholder="بحث باسم العميل أو رقم الهاتف أو الموزع..."
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={(value) => {
+            setDateFrom(value)
             setPage(1)
           }}
-          searchPlaceholder="بحث برقم الفاتورة..."
+          onDateToChange={(value) => {
+            setDateTo(value)
+            setPage(1)
+          }}
+          dateFromLabel="من تاريخ التعاقد"
+          dateToLabel="إلى تاريخ التعاقد"
           selects={filterSelects}
           showClear={hasFilters}
           onClear={clearFilters}
@@ -144,86 +160,31 @@ export function InvoicesPage() {
       }
     >
       <div data-tour="invoices-results">
-      <AsyncState
-        isLoading={query.isLoading}
-        isError={query.isError}
-        error={query.error}
-      >
-        <DataTable<SalesInvoice & Record<string, unknown>>
-          dataTour="invoices-table"
-          data={rows as (SalesInvoice & Record<string, unknown>)[]}
-          keyExtractor={(row) => row.id}
-          emptyMessage={hasFilters ? 'لا توجد فواتير مطابقة' : 'لا توجد فواتير'}
-          columns={[
-            { key: 'invoice_number', header: 'رقم الفاتورة' },
-            {
-              key: 'invoice_date',
-              header: 'التاريخ',
-              render: (row) => formatInvoiceDate(String(row.invoice_date)),
-            },
-            {
-              key: 'customer',
-              header: 'العميل',
-              render: (row) => row.customer?.name ?? '—',
-            },
-            {
-              key: 'distributor',
-              header: 'الموزع',
-              render: (row) => distributorLabel(row.distributor),
-            },
-            {
-              key: 'total',
-              header: 'الإجمالي',
-              render: (row) => `${Number(row.total).toLocaleString('ar-EG')} ج.م`,
-            },
-            {
-              key: 'payment_term',
-              header: 'الدفع',
-              render: (row) => (row.payment_term === 'installment' ? 'تقسيط' : 'نقدي'),
-            },
-            {
-              key: 'status',
-              header: 'حالة المراجعة',
-              headerDataTour: 'invoices-status',
-              render: (row) => (
-                <StatusBadge
-                  status={String(row.status ?? 'confirmed')}
-                  label={invoiceStatusLabels[String(row.status)] ?? String(row.status)}
-                />
-              ),
-            },
-            {
-              key: 'payment_status',
-              header: 'السداد',
-              render: (row) => <StatusBadge status={String(row.payment_status)} />,
-            },
-            {
-              key: 'actions',
-              header: '',
-              headerDataTour: 'invoices-actions',
-              render: (row) => (
-                <Link
-                  to={contractPrintPath(row.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <Icon name="print" size={18} />
-                  طباعة
-                </Link>
-              ),
-            },
-          ]}
-        />
-        {meta && meta.last_page > 1 && (
-          <Pagination
-            currentPage={meta.current_page}
-            lastPage={meta.last_page}
-            total={meta.total}
-            onPageChange={setPage}
-          />
-        )}
-      </AsyncState>
+        <AsyncState
+          isLoading={query.isLoading}
+          isError={query.isError}
+          error={query.error}
+        >
+          <div className="overflow-x-auto">
+            <DataTable<SalesInvoice & Record<string, unknown>>
+              dataTour="invoices-table"
+              data={displayRows as (SalesInvoice & Record<string, unknown>)[]}
+              keyExtractor={(row) => row.id}
+              striped={false}
+              rowClassName={(row) => contractReviewRowClass(row.review_status)}
+              emptyMessage={hasFilters ? 'لا توجد تعاقدات مطابقة' : 'لا توجد تعاقدات'}
+              columns={columns}
+            />
+          </div>
+          {meta && (
+            <Pagination
+              currentPage={meta.current_page}
+              lastPage={meta.last_page}
+              total={meta.total}
+              onPageChange={setPage}
+            />
+          )}
+        </AsyncState>
       </div>
     </SalesPageShell>
   )

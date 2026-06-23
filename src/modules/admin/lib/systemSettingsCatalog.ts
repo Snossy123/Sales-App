@@ -89,8 +89,7 @@ export const TIMEZONE_OPTIONS = [
 ]
 
 export const PAYMENT_TERM_OPTIONS = [
-  { value: 'cash', label: 'نقدي' },
-  { value: 'credit', label: 'آجل' },
+  { value: 'cash', label: 'كاش' },
   { value: 'installment', label: 'تقسيط' },
 ]
 

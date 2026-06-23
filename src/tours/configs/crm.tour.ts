@@ -19,7 +19,7 @@ export const crmTour: TourConfig = {
       target: '[data-tour="crm-pipeline"]',
       title: { ar: 'مراحل Pipeline', en: 'Pipeline stages' },
       content: {
-        ar: 'الأعمدة تمثل مراحل العميل المحتمل: جديد، تواصل، تفاوض، مؤهل، فوز، خسارة.',
+        ar: 'الأعمدة تمثل مراحل العميل المحتمل: جديد، تواصل، تفاوض، انتظار التعاقد، تم التعاقد، غير مهتم.',
         en: 'Columns represent lead stages: new, contacted, negotiation, qualified, won, lost.',
       },
       placement: 'top',
@@ -29,8 +29,8 @@ export const crmTour: TourConfig = {
       target: '[data-tour="crm-lead-card"]',
       title: { ar: 'بطاقة العميل المحتمل', en: 'Lead card' },
       content: {
-        ar: 'كل بطاقة تعرض الاسم والهاتف والقيمة المتوقعة. غيّر المرحلة من القائمة المنسدلة.',
-        en: 'Each card shows name, phone, and expected value. Change stage from the dropdown.',
+        ar: 'كل بطاقة تعرض الاسم والهاتف وعدد الأجهزة. غيّر المرحلة من القائمة المنسدلة.',
+        en: 'Each card shows name, phone, and device count. Change stage from the dropdown.',
       },
       placement: 'left',
     },

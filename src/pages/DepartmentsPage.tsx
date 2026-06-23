@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Department, PaginatedResponse } from '../api/types'
+import type { Administration, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -30,7 +30,7 @@ import {
 
 type Panel = 'create' | 'edit' | 'addStock' | 'delete' | null
 
-const emptyForm = { code: '', name_ar: '', name: '', is_active: true }
+const emptyForm = { name_ar: '', address: '', phone: '', is_active: true }
 const PER_PAGE = 10
 
 export function DepartmentsPage() {
@@ -42,13 +42,13 @@ export function DepartmentsPage() {
   const [distributeOpen, setDistributeOpen] = useState(false)
   const [successToast, setSuccessToast] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Administration | null>(null)
   const [form, setForm] = useState(emptyForm)
 
   const allQuery = useQuery({
-    queryKey: ['departments', 'admin', 'all'],
+    queryKey: ['administrations', 'admin', 'all'],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', {
+      const { data } = await api.get<PaginatedResponse<Administration>>('/administrations', {
         params: { per_page: 100 },
       })
       return data.data
@@ -77,6 +77,7 @@ export function DepartmentsPage() {
     : '4 مؤشرات'
 
   const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['administrations'] })
     queryClient.invalidateQueries({ queryKey: ['departments'] })
     queryClient.invalidateQueries({ queryKey: ['branches'] })
     queryClient.invalidateQueries({ queryKey: ['inventory'] })
@@ -95,10 +96,10 @@ export function DepartmentsPage() {
     mutationFn: async () => {
       const payload = { ...form }
       if (panel === 'edit' && editId) {
-        const { data } = await api.put<Department>(`/departments/${editId}`, payload)
+        const { data } = await api.put<Administration>(`/administrations/${editId}`, payload)
         return data
       }
-      const { data } = await api.post<Department>('/departments', payload)
+      const { data } = await api.post<Administration>('/administrations', payload)
       return data
     },
     onSuccess: () => {
@@ -110,7 +111,7 @@ export function DepartmentsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await api.delete(`/departments/${id}`)
+      await api.delete(`/administrations/${id}`)
     },
     onSuccess: () => {
       invalidate()
@@ -119,13 +120,13 @@ export function DepartmentsPage() {
     },
   })
 
-  const openEdit = (dept: Department) => {
-    setEditId(dept.id)
+  const openEdit = (admin: Administration) => {
+    setEditId(admin.id)
     setForm({
-      code: dept.code,
-      name_ar: dept.name_ar ?? '',
-      name: dept.name,
-      is_active: dept.is_active ?? true,
+      name_ar: admin.name_ar ?? '',
+      address: admin.address ?? '',
+      phone: admin.phone ?? '',
+      is_active: admin.is_active ?? true,
     })
     setPanel('edit')
   }
@@ -221,7 +222,7 @@ export function DepartmentsPage() {
       <FilterBar
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
-        searchPlaceholder="بحث بالاسم أو الكود..."
+        searchPlaceholder="بحث بالاسم أو العنوان أو الهاتف..."
         selects={[
           {
             id: 'status',
@@ -240,30 +241,14 @@ export function DepartmentsPage() {
       />
 
       <AsyncState isLoading={allQuery.isLoading} isError={allQuery.isError} error={allQuery.error}>
-        <DataTable<Department & Record<string, unknown>>
-          data={paginated as (Department & Record<string, unknown>)[]}
+        <DataTable<Administration & Record<string, unknown>>
+          data={paginated as (Administration & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
           emptyMessage={hasFilters ? 'لا توجد نتائج مطابقة للفلاتر' : 'لا توجد بيانات'}
           columns={[
-            { key: 'code', header: 'الكود', className: 'tabular-nums' },
             { key: 'name_ar', header: 'الاسم', render: (row) => row.name_ar || row.name },
-            {
-              key: 'quantity',
-              header: 'إجمالي المخزون',
-              render: (row) => row.department_stock?.quantity ?? 0,
-            },
-            {
-              key: 'pending',
-              header: 'معلق',
-              render: (row) => (
-                <span className="font-medium text-tertiary">{row.department_stock?.pending ?? 0}</span>
-              ),
-            },
-            {
-              key: 'distributed',
-              header: 'موزّع',
-              render: (row) => row.department_stock?.distributed ?? 0,
-            },
+            { key: 'address', header: 'العنوان', render: (row) => row.address || '—' },
+            { key: 'phone', header: 'رقم الهاتف', className: 'tabular-nums', render: (row) => row.phone || '—' },
             {
               key: 'is_active',
               header: 'الحالة',
@@ -279,12 +264,12 @@ export function DepartmentsPage() {
                   <Link to={`/departments/${row.id}`} className="text-sm text-primary hover:underline">
                     عرض التفاصيل
                   </Link>
-                  <button type="button" onClick={() => openEdit(row as Department)} className="text-sm text-primary hover:underline">
+                  <button type="button" onClick={() => openEdit(row as Administration)} className="text-sm text-primary hover:underline">
                     تعديل
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setDeleteTarget(row as Department); setPanel('delete') }}
+                    onClick={() => { setDeleteTarget(row as Administration); setPanel('delete') }}
                     className="text-sm text-error hover:underline"
                   >
                     حذف
@@ -309,27 +294,26 @@ export function DepartmentsPage() {
       >
         <form onSubmit={handleSave} className="grid gap-sm sm:grid-cols-2">
           <input
-            placeholder="الكود"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            required
-            dir="ltr"
-            className={inputClass}
-          />
-          <input
             placeholder="الاسم بالعربية"
             value={form.name_ar}
             onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
             required
-            className={inputClass}
-          />
-          <input
-            placeholder="الاسم بالإنجليزية"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={`${inputClass} sm:col-span-2`}
           />
-          <label className="flex items-center gap-xs text-sm sm:col-span-2">
+          <input
+            placeholder="العنوان"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            className={`${inputClass} sm:col-span-2`}
+          />
+          <input
+            placeholder="رقم الهاتف"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            dir="ltr"
+            className={inputClass}
+          />
+          <label className="flex items-center gap-xs text-sm">
             <input
               type="checkbox"
               checked={form.is_active}
@@ -351,7 +335,7 @@ export function DepartmentsPage() {
 
       <Modal open={panel === 'addStock'} onClose={closePanel} title="إضافة كمية للإدارة">
         <AddStockForm
-          departments={allQuery.data ?? []}
+          departments={(allQuery.data ?? []) as Department[]}
           submitLabel="إضافة للإدارة"
           showCancel
           onCancel={closePanel}
@@ -366,7 +350,7 @@ export function DepartmentsPage() {
       <DistributeStockModal
         open={distributeOpen}
         onClose={() => setDistributeOpen(false)}
-        departments={allQuery.data ?? []}
+        departments={(allQuery.data ?? []) as Department[]}
         onSuccess={() => setSuccessToast('تم التوزيع على الفرع')}
       />
 

@@ -7,6 +7,7 @@ export interface Column<T> {
   render?: (row: T) => ReactNode
   className?: string
   headerDataTour?: string
+  sortable?: boolean
 }
 
 interface DataTableProps<T> {
@@ -17,6 +18,9 @@ interface DataTableProps<T> {
   striped?: boolean
   dataTour?: string
   rowClassName?: (row: T) => string
+  sortKey?: string | null
+  sortDirection?: 'asc' | 'desc'
+  onSort?: (key: string) => void
   /**
    * When set (> 0), enables built-in client-side pagination with this many
    * rows per page and renders pagination controls below the table.
@@ -34,6 +38,9 @@ export function DataTable<T extends object>({
   striped = true,
   dataTour,
   rowClassName,
+  sortKey,
+  sortDirection,
+  onSort,
   pageSize,
   pageKey,
 }: DataTableProps<T>) {
@@ -81,7 +88,20 @@ export function DataTable<T extends object>({
                   data-tour={col.headerDataTour}
                   className={`px-md py-md text-right text-xs font-bold text-on-surface-variant ${col.className ?? ''}`}
                 >
-                  {col.header}
+                  {col.sortable && onSort ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort(col.key)}
+                      className="inline-flex items-center gap-0.5 hover:text-on-surface"
+                    >
+                      {col.header}
+                      <span className="text-[10px] leading-none opacity-70">
+                        {sortKey === col.key ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                      </span>
+                    </button>
+                  ) : (
+                    col.header
+                  )}
                 </th>
               ))}
             </tr>

@@ -178,7 +178,7 @@ export function ServicesPage() {
             },
           ]}
         />
-        {meta && meta.last_page > 1 && (
+        {meta && (
           <Pagination
             currentPage={meta.current_page}
             lastPage={meta.last_page}

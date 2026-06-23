@@ -33,6 +33,8 @@ export const MODULE_LABELS: Record<string, string> = {
   crm: 'قسم المبيعات',
   hrm: 'الموارد البشرية',
   accounting: 'المحاسبة',
+  review: 'المراجعة',
+  scope: 'نطاق البيانات',
 }
 
 export interface PermissionSectionDef {
@@ -44,6 +46,12 @@ export interface PermissionSectionDef {
 
 /** ترتيب الوحدات مطابق لمجموعات القائمة الجانبية */
 export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
+  {
+    id: 'scope',
+    label: 'نطاق البيانات',
+    icon: 'visibility',
+    modules: ['scope'],
+  },
   {
     id: 'general',
     label: 'عام',
@@ -66,7 +74,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     id: 'review',
     label: 'قسم المراجعة',
     icon: 'fact_check',
-    modules: ['sales'],
+    modules: ['review'],
   },
   {
     id: 'collection',
@@ -113,6 +121,9 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
 ]
 
 const PERMISSIONS: PermissionDefinition[] = [
+  { key: 'scope.organization', module: 'scope', category: 'other', label: 'رؤية بيانات الشركة كاملة', description: 'عرض بيانات جميع الإدارات والفروع في الشركة' },
+  { key: 'scope.administration', module: 'scope', category: 'other', label: 'رؤية بيانات الإدارة', description: 'عرض بيانات إدارة المستخدم وفروعها فقط' },
+  { key: 'scope.branch', module: 'scope', category: 'other', label: 'رؤية بيانات الفرع', description: 'عرض بيانات فرع المستخدم فقط' },
   { key: 'dashboard.view', module: 'dashboard', category: 'view', label: 'عرض لوحة التحكم', description: 'الوصول إلى لوحة التحكم الرئيسية وملخص المؤشرات' },
   { key: 'branches.manage', module: 'branches', category: 'other', label: 'إدارة الفروع', description: 'إنشاء وتعديل وإدارة فروع الإدارات' },
   { key: 'warehouses.manage', module: 'warehouses', category: 'other', label: 'إدارة المخازن', description: 'إنشاء وتعديل مخازن الفروع' },
@@ -121,6 +132,12 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'customers.manage', module: 'customers', category: 'other', label: 'إدارة العملاء', description: 'إنشاء وتعديل بيانات العملاء والضامنين' },
   { key: 'sales.pos', module: 'sales', category: 'other', label: 'نقطة البيع', description: 'تنفيذ عمليات البيع من نقطة البيع' },
   { key: 'sales.invoices.view', module: 'sales', category: 'view', label: 'عرض الفواتير', description: 'استعراض فواتير المبيعات وتفاصيلها' },
+  { key: 'review.view_queue', module: 'review', category: 'view', label: 'عرض قائمة المراجعة', description: 'استعراض التعاقدات بانتظار المراجعة' },
+  { key: 'review.view_contracts', module: 'review', category: 'view', label: 'عرض كل التعاقدات', description: 'استعراض جميع التعاقدات وحالاتها' },
+  { key: 'review.view_detail', module: 'review', category: 'view', label: 'عرض تفاصيل المراجعة', description: 'فتح تفاصيل التعاقد لمراجعته' },
+  { key: 'review.approve', module: 'review', category: 'other', label: 'اعتماد التعاقدات', description: 'الموافقة على التعاقدات بعد المراجعة' },
+  { key: 'review.reject', module: 'review', category: 'other', label: 'رفض التعاقدات', description: 'رفض التعاقدات مع تسجيل سبب الرفض' },
+  { key: 'review.print', module: 'review', category: 'other', label: 'طباعة العقد', description: 'طباعة نسخة العقد المعتمد' },
   { key: 'installments.collect', module: 'installments', category: 'other', label: 'تحصيل الأقساط', description: 'تسجيل تحصيل الأقساط من العملاء' },
   { key: 'installments.view', module: 'installments', category: 'view', label: 'عرض الأقساط', description: 'استعراض جداول الأقساط والمتأخرات' },
   { key: 'installments.reconcile', module: 'installments', category: 'other', label: 'تصالح الأقساط', description: 'فتح وإغلاق تصالح الأقساط المتأخرة' },

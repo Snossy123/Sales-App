@@ -10,6 +10,7 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
 
 type PayrollRow = HrmPayrollRecord & Record<string, unknown>
@@ -27,7 +28,8 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 export function HrmPayrollPage() {
   const queryClient = useQueryClient()
-  const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const listScopeKey = getListScopeQueryKey(user)
   const [panel, setPanel] = useState<Panel>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [form, setForm] = useState(emptyForm)
@@ -48,10 +50,9 @@ export function HrmPayrollPage() {
   })
 
   const employeesQuery = useQuery({
-    queryKey: ['employees', 'payroll', branchId],
+    queryKey: ['employees', 'payroll', listScopeKey],
     queryFn: async () => {
-      const params: Record<string, string | number> = { per_page: 100 }
-      if (branchId) params['filter[branch_id]'] = branchId
+      const params = mergeScopedListParams(user, { per_page: 100 })
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },

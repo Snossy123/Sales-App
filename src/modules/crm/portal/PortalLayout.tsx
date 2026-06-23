@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
+import { NavIcon } from '../../../components/NavIcon'
 import { portalApi } from '../../../api/portalClient'
 import { usePortalAuthStore } from '../../../stores/portalAuthStore'
 
@@ -53,7 +54,7 @@ export function PortalLayout() {
                 }`
               }
             >
-              <Icon name={item.icon} size={18} />
+              <NavIcon name={item.icon} size={18} />
               {item.label}
             </NavLink>
           ))}

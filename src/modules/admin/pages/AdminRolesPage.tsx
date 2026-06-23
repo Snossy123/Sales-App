@@ -6,6 +6,7 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { PageHeader } from '../../../components/PageHeader'
+import { formatRoleLabel } from '../../../lib/roleCatalog'
 
 export function AdminRolesPage() {
   const navigate = useNavigate()
@@ -40,7 +41,7 @@ export function AdminRolesPage() {
           keyExtractor={(row) => row.id}
           pageSize={10}
           columns={[
-            { key: 'name', header: 'الدور' },
+            { key: 'name', header: 'الدور', render: (row) => formatRoleLabel(row) },
             {
               key: 'count',
               header: 'عدد الصلاحيات',

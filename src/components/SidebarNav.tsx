@@ -9,9 +9,11 @@ import type { AuthUser } from '../api/types'
 interface SidebarNavProps {
   entries: NavEntry[]
   user: AuthUser | null
+  collapsed?: boolean
+  onExpand?: () => void
 }
 
-export function SidebarNav({ entries, user }: SidebarNavProps) {
+export function SidebarNav({ entries, user, collapsed = false, onExpand }: SidebarNavProps) {
   const { pathname } = useLocation()
   const role = getUserRole(user)
   const defaultOpenGroup =
@@ -38,8 +40,9 @@ export function SidebarNav({ entries, user }: SidebarNavProps) {
                 user={user}
                 pathname={pathname}
                 variant="standalone"
+                collapsed={collapsed}
               />
-              {index === 0 && entries.length > 1 && (
+              {!collapsed && index === 0 && entries.length > 1 && (
                 <div className="my-sm border-b border-outline-variant/60" />
               )}
             </div>
@@ -52,10 +55,16 @@ export function SidebarNav({ entries, user }: SidebarNavProps) {
             group={entry.group}
             user={user}
             pathname={pathname}
-            isOpen={openGroupId === entry.group.id}
-            onToggle={() =>
+            isOpen={!collapsed && openGroupId === entry.group.id}
+            collapsed={collapsed}
+            onToggle={() => {
+              if (collapsed) {
+                onExpand?.()
+                setOpenGroupId(entry.group.id)
+                return
+              }
               setOpenGroupId((prev) => (prev === entry.group.id ? null : entry.group.id))
-            }
+            }}
           />
         )
       })}
