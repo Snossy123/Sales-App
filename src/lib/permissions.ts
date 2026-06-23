@@ -134,6 +134,7 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', end: true, roles: ['super_admin', 'admin', 'sales'] },
         { to: '/inventory/add', icon: 'add_box', label: 'تسجيل مخزون', roles: ['super_admin', 'admin'] },
+        { to: '/inventory/settings', icon: 'settings', label: 'إعدادات المنتج', roles: ['super_admin', 'admin'] },
       ],
     },
   },
@@ -233,6 +234,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/gps/management': ['admin'],
   '/inventory': ['super_admin', 'admin', 'sales'],
   '/inventory/add': ['super_admin', 'admin'],
+  '/inventory/settings': ['super_admin', 'admin'],
   '/pos': ['super_admin', 'admin', 'sales'],
   '/pricing/catalog': ['super_admin', 'admin', 'sales'],
   '/pricing/promotions': ['super_admin', 'admin', 'sales'],

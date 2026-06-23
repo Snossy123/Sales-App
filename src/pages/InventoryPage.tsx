@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { api } from '../api/client'
 import type { Department, GpsProduct, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
@@ -58,7 +59,16 @@ export function InventoryPage() {
       const { data } = await api.get<GpsProduct>('/gps-product')
       return data
     },
+    retry: (failureCount, error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return false
+      }
+      return failureCount < 2
+    },
   })
+
+  const productMissing =
+    axios.isAxiosError(productQuery.error) && productQuery.error.response?.status === 404
 
   const departmentsQuery = useQuery({
     queryKey: ['administrations', 'inventory'],
@@ -120,16 +130,41 @@ export function InventoryPage() {
         subtitle="عرض شامل لكل إدارة وفرع — الكمية المعلقة تظهر قبل التوزيع على الفروع"
         actions={
           isAdmin ? (
-            <Link
-              to="/inventory/add"
-              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-            >
-              <Icon name="add" size={18} />
-              تسجيل مخزون جديد
-            </Link>
+            <div className="flex flex-wrap gap-sm">
+              <Link
+                to="/inventory/settings"
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+              >
+                <Icon name="settings" size={18} />
+                إعدادات المنتج
+              </Link>
+              <Link
+                to="/inventory/add"
+                className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+              >
+                <Icon name="add" size={18} />
+                تسجيل مخزون جديد
+              </Link>
+            </div>
           ) : undefined
         }
       />
+
+      {productMissing && isAdmin && (
+        <div className="mb-md rounded-xl border border-tertiary/30 bg-tertiary/5 p-md">
+          <p className="font-medium text-on-surface">لم يتم إعداد منتج GPS بعد</p>
+          <p className="mt-xs text-sm text-on-surface-variant">
+            يجب تعريف المنتج أولاً قبل تسجيل المخزون أو البيع.
+          </p>
+          <Link
+            to="/inventory/settings"
+            className="mt-sm inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            <Icon name="settings" size={16} />
+            الذهاب لإعدادات المنتج
+          </Link>
+        </div>
+      )}
 
       {productQuery.data && (
         <GpsProductCard product={productQuery.data} canEditPrice={isAdmin} />

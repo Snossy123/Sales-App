@@ -6,6 +6,7 @@ import { LoginPage } from '../pages/LoginPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
 import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
+import { InventoryProductSettingsPage } from '../pages/InventoryProductSettingsPage'
 import { PosPage } from '../pages/PosPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
@@ -151,6 +152,7 @@ export function AppRoutes() {
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/add" element={<InventoryAddStockPage />} />
+            <Route path="inventory/settings" element={<InventoryProductSettingsPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="pricing/catalog" element={<PricingCatalogPage />} />
             <Route path="pricing/promotions" element={<PromotionsPage />} />
