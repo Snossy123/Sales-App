@@ -45,20 +45,20 @@
   --color-chart-3: #9e4300;
   --color-chart-4: #1a73e8;
 
-  --font-sans: 'Cairo', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif;
 
-  --font-weight-normal: 600;
-  --font-weight-medium: 700;
-  --font-weight-semibold: 800;
-  --font-weight-bold: 800;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
-  --text-xs: 21px;
-  --text-sm: 21px;
-  --text-base: 21px;
-  --text-lg: 23px;
-  --text-xl: 23px;
-  --text-2xl: 29px;
-  --text-3xl: 29px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
 
   --spacing-stitch-xs: 4px;
   --spacing-stitch-sm: 8px;
@@ -78,12 +78,12 @@
 @layer base {
   html {
     font-family: var(--font-sans);
-    font-size: 21px;
+    font-size: 16px;
   }
 
   body {
     @apply bg-background text-on-surface subpixel-antialiased;
-    font-weight: 600;
+    font-weight: 400;
     direction: rtl;
     margin: 0;
     min-height: 100vh;
@@ -160,23 +160,23 @@
   .space-y-md > :not(:last-child) { margin-bottom: var(--spacing-stitch-md); }
   .space-y-xl > :not(:last-child) { margin-bottom: var(--spacing-stitch-xl); }
 
-  .font-headline-sm { font-size: 29px; line-height: 39px; font-weight: 800; }
-  .font-headline-md { font-size: 29px; line-height: 39px; font-weight: 800; letter-spacing: -0.01em; }
-  .font-title-lg { font-size: 23px; line-height: 31px; font-weight: 800; }
-  .font-body-md { font-size: 21px; line-height: 29px; font-weight: 600; }
-  .font-body-sm { font-size: 21px; line-height: 29px; font-weight: 600; }
-  .font-body-lg { font-size: 21px; line-height: 29px; font-weight: 600; }
-  .font-label-md { font-size: 21px; line-height: 29px; font-weight: 700; letter-spacing: 0.05em; }
-  .font-label-sm { font-size: 21px; line-height: 29px; font-weight: 800; }
-  .font-display-lg { font-size: 29px; line-height: 39px; font-weight: 800; letter-spacing: -0.02em; }
+  .font-headline-sm { font-size: 20px; line-height: 28px; font-weight: 600; }
+  .font-headline-md { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+  .font-title-lg { font-size: 18px; line-height: 24px; font-weight: 600; }
+  .font-body-md { font-size: 14px; line-height: 20px; font-weight: 400; }
+  .font-body-sm { font-size: 12px; line-height: 16px; font-weight: 400; }
+  .font-body-lg { font-size: 16px; line-height: 24px; font-weight: 400; }
+  .font-label-md { font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.05em; }
+  .font-label-sm { font-size: 11px; line-height: 14px; font-weight: 600; }
+  .font-display-lg { font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
 
-  .text-headline-md { font-size: 29px; line-height: 39px; }
-  .text-title-lg { font-size: 23px; line-height: 31px; }
-  .text-body-sm { font-size: 21px; line-height: 29px; }
-  .text-body-md { font-size: 21px; line-height: 29px; }
-  .text-label-md { font-size: 21px; line-height: 29px; }
-  .text-label-sm { font-size: 21px; line-height: 29px; }
-  .text-display-lg { font-size: 29px; line-height: 39px; }
+  .text-headline-md { font-size: 24px; line-height: 32px; }
+  .text-title-lg { font-size: 18px; line-height: 24px; }
+  .text-body-sm { font-size: 12px; line-height: 16px; }
+  .text-body-md { font-size: 14px; line-height: 20px; }
+  .text-label-md { font-size: 13px; line-height: 18px; }
+  .text-label-sm { font-size: 11px; line-height: 14px; }
+  .text-display-lg { font-size: 32px; line-height: 40px; }
 
   .elevation-l1 {
     border: 1px solid #e1e4e8;
@@ -190,7 +190,7 @@
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* حقول POS — أحجام ثابتة بعيداً عن text-sm=21px في الثيم */
+  /* حقول POS — أحجام ثابتة للتحكم في الارتفاع */
   .pos-form {
     --pos-control-h: 44px;
   }

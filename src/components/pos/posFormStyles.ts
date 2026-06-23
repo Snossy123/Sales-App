@@ -1,4 +1,4 @@
-/** تسميات حقول POS — أصغر من text-xs الافتراضي (21px) */
+/** تسميات حقول POS — أصغر من text-base الافتراضي (16px) */
 export const posLabelClass =
   'pos-label mb-1 block text-[14px] leading-tight font-bold text-on-surface-variant'
 
