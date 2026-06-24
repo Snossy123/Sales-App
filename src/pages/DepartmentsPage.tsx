@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Administration, Branch, Department, PaginatedResponse } from '../api/types'
+import type { Administration, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -44,6 +44,7 @@ export function DepartmentsPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Administration | null>(null)
   const [deleteBranchesToo, setDeleteBranchesToo] = useState(false)
+  const [clearCentralInventoryToo, setClearCentralInventoryToo] = useState(false)
   const [form, setForm] = useState(emptyForm)
 
   const allQuery = useQuery({
@@ -56,18 +57,24 @@ export function DepartmentsPage() {
     },
   })
 
-  const branchesForDeleteQuery = useQuery({
-    queryKey: ['branches', 'delete-modal', deleteTarget?.id],
+  const deleteInfoQuery = useQuery({
+    queryKey: ['administrations', 'delete-modal', deleteTarget?.id],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { 'filter[administration_id]': deleteTarget!.id, per_page: 100 },
-      })
-      return data.data
+      const { data } = await api.get<Administration>(`/administrations/${deleteTarget!.id}`)
+      return data
     },
     enabled: panel === 'delete' && deleteTarget != null,
   })
 
-  const deleteBranchCount = branchesForDeleteQuery.data?.length ?? 0
+  const deleteBlockers = deleteInfoQuery.data?.deletion_blockers
+  const deleteBranchCount = deleteBlockers?.branch_count ?? 0
+  const centralInventoryClearable = deleteBlockers?.central_inventory_clearable ?? 0
+  const centralInventoryLocked = deleteBlockers?.central_inventory_locked ?? 0
+  const requiresBranchDelete = deleteBranchCount > 0
+  const requiresCentralInventoryClear = centralInventoryClearable > 0
+  const canConfirmDelete = !deleteInfoQuery.isLoading
+    && (!requiresBranchDelete || deleteBranchesToo)
+    && (!requiresCentralInventoryClear || clearCentralInventoryToo)
 
   const filtered = useMemo(
     () => filterDepartments(allQuery.data ?? [], search, statusFilter),
@@ -104,6 +111,7 @@ export function DepartmentsPage() {
     setEditId(null)
     setDeleteTarget(null)
     setDeleteBranchesToo(false)
+    setClearCentralInventoryToo(false)
     setForm(emptyForm)
   }
 
@@ -125,9 +133,20 @@ export function DepartmentsPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, deleteBranches }: { id: number; deleteBranches: boolean }) => {
+    mutationFn: async ({
+      id,
+      deleteBranches,
+      clearCentralInventory,
+    }: {
+      id: number
+      deleteBranches: boolean
+      clearCentralInventory: boolean
+    }) => {
       await api.delete(`/administrations/${id}`, {
-        params: { delete_branches: deleteBranches ? 1 : 0 },
+        params: {
+          delete_branches: deleteBranches ? 1 : 0,
+          clear_central_inventory: clearCentralInventory ? 1 : 0,
+        },
       })
     },
     onSuccess: () => {
@@ -289,6 +308,7 @@ export function DepartmentsPage() {
                     onClick={() => {
                       setDeleteTarget(row as Administration)
                       setDeleteBranchesToo(false)
+                      setClearCentralInventoryToo(false)
                       setPanel('delete')
                     }}
                     className="text-sm text-error hover:underline"
@@ -385,7 +405,10 @@ export function DepartmentsPage() {
         <p className="mb-md text-sm text-on-surface-variant">
           هل تريد حذف إدارة &quot;{deleteTarget?.name_ar || deleteTarget?.name}&quot;؟ لا يمكن التراجع.
         </p>
-        {deleteBranchCount > 0 && (
+        {deleteInfoQuery.isLoading && (
+          <p className="mb-md text-sm text-on-surface-variant">جاري التحقق من المتطلبات...</p>
+        )}
+        {requiresBranchDelete && (
           <label className="mb-md flex items-start gap-xs text-sm">
             <input
               type="checkbox"
@@ -398,20 +421,35 @@ export function DepartmentsPage() {
             </span>
           </label>
         )}
+        {requiresCentralInventoryClear && (
+          <label className="mb-md flex items-start gap-xs text-sm">
+            <input
+              type="checkbox"
+              checked={clearCentralInventoryToo}
+              onChange={(e) => setClearCentralInventoryToo(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              حذف {centralInventoryClearable} {centralInventoryClearable === 1 ? 'وحدة' : 'وحدات'} من المخزون المركزي
+            </span>
+          </label>
+        )}
+        {centralInventoryLocked > 0 && (
+          <p className="mb-md text-sm text-error">
+            لا يمكن الحذف: يوجد {centralInventoryLocked} {centralInventoryLocked === 1 ? 'وحدة' : 'وحدات'} مباعة أو قيد النقل في المخزون المركزي.
+          </p>
+        )}
         {deleteMutation.isError && (
           <p className="mb-sm text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>
         )}
         <div className="flex gap-sm">
           <button
             type="button"
-            disabled={
-              deleteMutation.isPending
-              || branchesForDeleteQuery.isLoading
-              || (deleteBranchCount > 0 && !deleteBranchesToo)
-            }
+            disabled={deleteMutation.isPending || !canConfirmDelete || centralInventoryLocked > 0}
             onClick={() => deleteTarget && deleteMutation.mutate({
               id: deleteTarget.id,
               deleteBranches: deleteBranchesToo,
+              clearCentralInventory: clearCentralInventoryToo,
             })}
             className="rounded-lg bg-error px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
           >

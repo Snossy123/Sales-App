@@ -14,6 +14,14 @@ export interface Administration {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  deletion_blockers?: AdministrationDeletionBlockers
+}
+
+export interface AdministrationDeletionBlockers {
+  branch_count: number
+  central_inventory_total: number
+  central_inventory_clearable: number
+  central_inventory_locked: number
 }
 
 /** Branch-level organizational unit (قسم) — maps to backend `departments` table. */

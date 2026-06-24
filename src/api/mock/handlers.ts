@@ -239,6 +239,26 @@ function enrichDepartment(state: DemoState, dept: Department) {
   }
 }
 
+function buildDeletionBlockers(state: DemoState, administrationId: number) {
+  const linkedBranches = state.branches.filter(
+    (b) => b.department_id === administrationId || b.administration_id === administrationId,
+  )
+  const ds = getDeptStock(state, administrationId)
+  const centralWarehouse = state.warehouses.find(
+    (w) => w.is_central && w.administration_id === administrationId,
+  )
+  const centralStock = centralWarehouse ? getStock(state, centralWarehouse.id) : undefined
+  const locked = (centralStock?.sold ?? 0) + (centralStock?.reserved ?? 0)
+  const clearable = ds.pending ?? 0
+
+  return {
+    branch_count: linkedBranches.length,
+    central_inventory_total: clearable + locked,
+    central_inventory_clearable: clearable,
+    central_inventory_locked: locked,
+  }
+}
+
 function enrichAdminUser(state: DemoState, user: Omit<import('./seed').DemoUser, 'password'>) {
   const administration = user.administration_id
     ? state.departments.find((d) => d.id === user.administration_id)
@@ -597,7 +617,10 @@ export function handleMockRequest(
     if (scope != null && scope !== id) throw mockError(403, 'غير مصرح بعرض هذه الإدارة')
     const dept = state.departments.find((d) => d.id === id)
     if (!dept) throw mockError(404, 'الإدارة غير موجودة')
-    return enrichDepartment(state, dept)
+    return {
+      ...enrichDepartment(state, dept),
+      deletion_blockers: buildDeletionBlockers(state, id),
+    }
   }
 
   if (m === 'POST' && path === 'administrations/ensure-hubs') {
@@ -686,11 +709,19 @@ export function handleMockRequest(
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     const id = Number(path.split('/')[1])
     const deleteBranches = params.delete_branches === '1' || params.delete_branches === 'true'
+    const clearCentralInventory = params.clear_central_inventory === '1' || params.clear_central_inventory === 'true'
     mutateState((s) => {
-      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
-      if (linkedBranches.length > 0 && !deleteBranches) {
+      const blockers = buildDeletionBlockers(s, id)
+      if (blockers.branch_count > 0 && !deleteBranches) {
         throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
       }
+      if (blockers.central_inventory_clearable > 0 && !clearCentralInventory) {
+        throw mockError(422, 'لا يمكن حذف إدارة لها مخزون مركزي')
+      }
+      if (blockers.central_inventory_locked > 0) {
+        throw mockError(422, 'لا يمكن حذف إدارة لها مخزون مركزي مباع أو قيد النقل')
+      }
+      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
       if (deleteBranches) {
         s.branches = s.branches.filter((b) => b.department_id !== id && b.administration_id !== id)
         s.sections = s.sections.filter((section) => {
@@ -698,8 +729,22 @@ export function handleMockRequest(
           return !branch
         })
       }
+      if (clearCentralInventory) {
+        const ds = getDeptStock(s, id)
+        ds.quantity = Math.max(0, ds.quantity - ds.pending)
+        ds.pending = 0
+        ds.distributed = calcDistributed(s, id)
+        const centralWarehouse = s.warehouses.find((w) => w.is_central && w.administration_id === id)
+        if (centralWarehouse) {
+          const stock = getStock(s, centralWarehouse.id)
+          if (stock) {
+            stock.quantity = 0
+          }
+        }
+      }
       s.departments = s.departments.filter((d) => d.id !== id)
       s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
+      s.warehouses = s.warehouses.filter((w) => !(w.is_central && w.administration_id === id))
     })
     return { message: 'تم الحذف' }
   }
@@ -822,11 +867,19 @@ export function handleMockRequest(
 
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     const deleteBranches = params.delete_branches === '1' || params.delete_branches === 'true'
+    const clearCentralInventory = params.clear_central_inventory === '1' || params.clear_central_inventory === 'true'
     mutateState((s) => {
-      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
-      if (linkedBranches.length > 0 && !deleteBranches) {
+      const blockers = buildDeletionBlockers(s, id)
+      if (blockers.branch_count > 0 && !deleteBranches) {
         throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
       }
+      if (blockers.central_inventory_clearable > 0 && !clearCentralInventory) {
+        throw mockError(422, 'لا يمكن حذف إدارة لها مخزون مركزي')
+      }
+      if (blockers.central_inventory_locked > 0) {
+        throw mockError(422, 'لا يمكن حذف إدارة لها مخزون مركزي مباع أو قيد النقل')
+      }
+      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
       if (deleteBranches) {
         s.branches = s.branches.filter((b) => b.department_id !== id && b.administration_id !== id)
         s.sections = s.sections.filter((section) => {
@@ -834,8 +887,22 @@ export function handleMockRequest(
           return !branch
         })
       }
+      if (clearCentralInventory) {
+        const ds = getDeptStock(s, id)
+        ds.quantity = Math.max(0, ds.quantity - ds.pending)
+        ds.pending = 0
+        ds.distributed = calcDistributed(s, id)
+        const centralWarehouse = s.warehouses.find((w) => w.is_central && w.administration_id === id)
+        if (centralWarehouse) {
+          const stock = getStock(s, centralWarehouse.id)
+          if (stock) {
+            stock.quantity = 0
+          }
+        }
+      }
       s.departments = s.departments.filter((d) => d.id !== id)
       s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
+      s.warehouses = s.warehouses.filter((w) => !(w.is_central && w.administration_id === id))
     })
     return { message: 'تم الحذف' }
   }
