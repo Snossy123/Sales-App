@@ -37,6 +37,7 @@ export function InventoryPage() {
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
   const isAdmin = role === 'super_admin' || role === 'admin'
+  const isSuperAdmin = role === 'super_admin'
   const [deptFilter, setDeptFilter] = useState('')
   const [branchSearch, setBranchSearch] = useState('')
   const [rowTypeFilter, setRowTypeFilter] = useState('')
@@ -139,6 +140,13 @@ export function InventoryPage() {
                 إعدادات المنتج
               </Link>
               <Link
+                to="/inventory/transfers"
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+              >
+                <Icon name="local_shipping" size={18} />
+                سجل التوزيع
+              </Link>
+              <Link
                 to="/inventory/add"
                 className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
               >
@@ -172,6 +180,16 @@ export function InventoryPage() {
 
       {successToast && (
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
+      )}
+
+      {isSuperAdmin && (
+        <div className="mb-md">
+          <InsightBanner
+            variant="info"
+            to="/admin/settings"
+            message="لتفعيل البيع بدون مخزون فعلي (مخزون سالب)، فعّل «السماح بالمخزون السالب» من إعدادات النظام → المبيعات."
+          />
+        </div>
       )}
 
       <CollapsibleSection

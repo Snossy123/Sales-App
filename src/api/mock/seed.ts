@@ -139,6 +139,16 @@ export interface DemoState {
   }>
   chatMessages: ChatMessage[]
   dailyBranchReports: DailyBranchReport[]
+  stockReceipts?: Array<{
+    id: number
+    administration_id: number
+    quantity: number
+    received_by?: number | null
+    created_at?: string
+    administration?: Department
+    receivedBy?: { id: number; name: string }
+  }>
+  stockTransfers?: Array<Record<string, unknown>>
   counters: {
     department: number
     section?: number
@@ -177,6 +187,8 @@ export interface DemoState {
     hrmPayroll?: number
     hrmPayrollGroup?: number
     user?: number
+    stockReceipt?: number
+    stockTransfer?: number
   }
 }
 
@@ -1530,6 +1542,8 @@ export function createSeedState(): DemoState {
       section: 6,
       branch: 4,
       warehouse: 6,
+      stockReceipt: 0,
+      stockTransfer: 0,
       invoice: 5,
       customer: 4,
       distributor: 4,

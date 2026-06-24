@@ -21,6 +21,8 @@ export function invalidateStockQueries(queryClient: ReturnType<typeof useQueryCl
   queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
   queryClient.invalidateQueries({ queryKey: ['gps-product'] })
   queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  queryClient.invalidateQueries({ queryKey: ['stock-receipts'] })
+  queryClient.invalidateQueries({ queryKey: ['stock-transfers'] })
 }
 
 export function AddStockForm({
