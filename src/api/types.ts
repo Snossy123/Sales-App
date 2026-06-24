@@ -725,24 +725,26 @@ export interface CheckoutPayload {
 
 export interface ServiceCheckoutPayload {
   customer_id: number
-  distributor_id: number
+  distributor_id?: number
+  sales_user_id?: number
   branch_id?: number
   sale_category: 'accessories' | 'maintenance'
-  payment_term?: 'cash' | 'credit' | 'installment'
+  invoice_date?: string
   notes?: string
-  installment_plan?: {
-    down_payment: number
-    installment_amount: number
-    installment_count: number
-    interval_type?: 'monthly' | 'weekly'
-    interval_days?: number
-    first_due_date: string
-  }
   items: {
     service_id?: number
     description: string
     quantity: number
     unit_price: number
+    payment_term?: 'cash' | 'installment'
+    installment_plan?: {
+      down_payment: number
+      installment_amount: number
+      installment_count: number
+      interval_type?: 'monthly' | 'weekly'
+      interval_days?: number
+      first_due_date: string
+    }
   }[]
 }
 

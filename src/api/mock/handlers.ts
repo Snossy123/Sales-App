@@ -25,6 +25,7 @@ import type {
   CrmMarketplace,
   SalesInvoice,
   SalesInvoiceLine,
+  ServiceCheckoutPayload,
   InstallmentPlan,
   InstallmentItem,
   TransactionMapPayload,
@@ -1997,51 +1998,83 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'sales-invoices/service-checkout') {
-    const body = data as {
-      customer_id: number
-      distributor_id: number
-      branch_id?: number
-      sale_category: string
-      payment_term?: 'cash' | 'installment' | 'credit'
-      notes?: string
-      installment_plan?: {
-        down_payment: number
-        installment_amount: number
-        installment_count: number
-        interval_type?: 'monthly' | 'weekly'
-        interval_days?: number
-        first_due_date: string
+    const body = data as ServiceCheckoutPayload
+    for (const item of body.items) {
+      if (item.payment_term === 'installment' && !item.installment_plan) {
+        throw mockError(422, 'خطة التقسيط مطلوبة للبند')
       }
-      items: { description: string; quantity: number; unit_price: number; service_id?: number }[]
-    }
-    if (body.payment_term === 'installment' && !body.installment_plan) {
-      throw mockError(422, 'خطة التقسيط مطلوبة')
     }
     let created: SalesInvoice | undefined
     mutateState((s) => {
       const customer = s.customers.find((c) => c.id === body.customer_id)
       if (!customer) throw mockError(422, 'العميل غير موجود')
-      if (!body.distributor_id) {
-        throw mockError(422, 'يجب اختيار موزع للتعاقد')
+      if (!body.distributor_id && !body.branch_id && !body.sales_user_id) {
+        throw mockError(422, 'يجب تحديد مصدر التعاقد')
       }
 
       const subtotal = body.items.reduce(
         (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
         0,
       )
-      const paymentTerm = body.payment_term ?? 'cash'
-      const downPayment =
-        paymentTerm === 'installment' ? Number(body.installment_plan?.down_payment ?? 0) : subtotal
-      const paidAmount = paymentTerm === 'cash' ? subtotal : downPayment
+
+      const lineTerms = body.items.map((item) => item.payment_term ?? 'cash')
+      const uniqueTerms = [...new Set(lineTerms)]
+      const paymentTerm =
+        uniqueTerms.length > 1 ? 'mixed' : (uniqueTerms[0] ?? 'cash')
+
+      let paidAmount = 0
+      for (const item of body.items) {
+        const lineTotal = Number(item.quantity) * Number(item.unit_price)
+        const term = item.payment_term ?? 'cash'
+        if (term === 'cash') {
+          paidAmount += lineTotal
+        } else if (term === 'installment') {
+          paidAmount += Number(item.installment_plan?.down_payment ?? 0)
+        }
+      }
+
       const balanceDue = Math.max(0, subtotal - paidAmount)
       const invoiceId = s.counters.invoice++
+      const invoiceLines = body.items.map((item, index) => {
+        const lineId = invoiceId * 100 + index
+        const lineTotal = Number(item.quantity) * Number(item.unit_price)
+        const line: SalesInvoiceLine = {
+          id: lineId,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          line_total: lineTotal,
+          product_name_ar: item.description,
+          description: item.description,
+          payment_term: item.payment_term ?? 'cash',
+        }
+
+        if (item.payment_term === 'installment' && item.installment_plan) {
+          const plan: InstallmentPlan = {
+            id: lineId,
+            sales_invoice_line_id: lineId,
+            down_payment: Number(item.installment_plan.down_payment),
+            installment_count: Number(item.installment_plan.installment_count),
+            installment_amount: Number(item.installment_plan.installment_amount),
+            interval_days: item.installment_plan.interval_days ?? 30,
+            interval_type: item.installment_plan.interval_type ?? 'monthly',
+            first_due_date: item.installment_plan.first_due_date,
+            status: 'active',
+            items: [],
+          }
+          line.installment_plan = plan
+        }
+
+        return line
+      })
+
       const invoice: SalesInvoice = {
         id: invoiceId,
         invoice_number: `SRV-2026-${String(invoiceId).padStart(4, '0')}`,
-        invoice_date: new Date().toISOString().split('T')[0],
+        invoice_date: body.invoice_date ?? new Date().toISOString().split('T')[0],
         branch_id: body.branch_id ?? ctx.branchId ?? 1,
         customer_id: body.customer_id,
-        distributor_id: body.distributor_id,
+        distributor_id: body.distributor_id ?? null,
+        sales_user_id: body.sales_user_id ?? null,
         status: 'confirmed',
         sale_category: body.sale_category,
         payment_term: paymentTerm,
@@ -2051,30 +2084,24 @@ export function handleMockRequest(
         paid_amount: paidAmount,
         balance_due: balanceDue,
         notes: body.notes ?? null,
-        lines: body.items.map((item, index) => ({
-          id: invoiceId * 100 + index,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          line_total: Number(item.quantity) * Number(item.unit_price),
-          product_name_ar: item.description,
-          description: item.description,
-        })),
+        lines: invoiceLines,
       }
 
-      if (paymentTerm === 'installment' && body.installment_plan) {
-        const plan: InstallmentPlan = {
-          id: invoiceId,
-          down_payment: Number(body.installment_plan.down_payment),
-          installment_count: Number(body.installment_plan.installment_count),
-          installment_amount: Number(body.installment_plan.installment_amount),
-          interval_days: body.installment_plan.interval_days ?? 30,
-          interval_type: body.installment_plan.interval_type ?? 'monthly',
-          first_due_date: body.installment_plan.first_due_date,
-          status: 'active',
-          items: [],
+      const installmentPlans = invoiceLines
+        .map((line) => line.installment_plan)
+        .filter((plan): plan is InstallmentPlan => Boolean(plan))
+
+      if (installmentPlans.length === 1 && paymentTerm !== 'mixed') {
+        invoice.installment_plan = installmentPlans[0]
+      }
+      if (installmentPlans.length > 0) {
+        invoice.installment_plans = installmentPlans
+      }
+
+      for (const line of invoiceLines) {
+        if (line.installment_plan) {
+          generateInstallmentItems(s, invoice, line, line.installment_plan)
         }
-        invoice.installment_plan = plan
-        generateInstallmentItems(s, invoice, undefined, plan)
       }
 
       created = invoice

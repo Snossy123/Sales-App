@@ -1,0 +1,198 @@
+import type { Branch, Customer, Distributor, SalesRep } from '../../api/types'
+import { distributorLabel } from '../../lib/sales'
+import { Icon } from '../Icon'
+import { SearchableSelect } from '../SearchableSelect'
+import type { TransactionSource } from '../pos/PosContractHeader'
+import {
+  posInputClass,
+  posLabelClass,
+  posSectionTitleClass,
+  posSourceToggle,
+} from '../pos/posFormStyles'
+
+export type { TransactionSource }
+
+export interface ServiceContractHeaderProps {
+  transactionSource: TransactionSource
+  onTransactionSourceChange: (source: TransactionSource) => void
+  selectedBranch: Branch | null
+  onBranchChange: (branch: Branch | null) => void
+  onBranchSearchChange: (q: string) => void
+  filteredBranches: Branch[]
+  branchesLoading: boolean
+  selectedDistributor: Distributor | null
+  onDistributorChange: (distributor: Distributor | null) => void
+  onDistributorSearchChange: (q: string) => void
+  distributors: Distributor[]
+  distributorsLoading: boolean
+  selectedSalesRep: SalesRep | null
+  onSalesRepChange: (rep: SalesRep | null) => void
+  onSalesRepSearchChange: (q: string) => void
+  salesReps: SalesRep[]
+  salesRepsLoading: boolean
+  selectedCustomer: Customer | null
+  onCustomerChange: (customer: Customer | null) => void
+  onCustomerSearchChange: (q: string) => void
+  customers: Customer[]
+  customersLoading: boolean
+  contractDate: string
+  onContractDateChange: (date: string) => void
+}
+
+export function ServiceContractHeader({
+  transactionSource,
+  onTransactionSourceChange,
+  selectedBranch,
+  onBranchChange,
+  onBranchSearchChange,
+  filteredBranches,
+  branchesLoading,
+  selectedDistributor,
+  onDistributorChange,
+  onDistributorSearchChange,
+  distributors,
+  distributorsLoading,
+  selectedSalesRep,
+  onSalesRepChange,
+  onSalesRepSearchChange,
+  salesReps,
+  salesRepsLoading,
+  selectedCustomer,
+  onCustomerChange,
+  onCustomerSearchChange,
+  customers,
+  customersLoading,
+  contractDate,
+  onContractDateChange,
+}: ServiceContractHeaderProps) {
+  const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
+  const sourceToggleOptions = customerLinkedToSalesRep
+    ? []
+    : [
+        { id: 'branch' as const, label: 'فرع' },
+        { id: 'distributor' as const, label: 'موزع' },
+      ]
+
+  return (
+    <section className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+      <div className="p-md">
+        <div className="mb-md flex items-center gap-xs">
+          <Icon name="description" className="text-primary" size={20} />
+          <h2 className={posSectionTitleClass}>بيانات التعاقد</h2>
+        </div>
+
+        <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <SearchableSelect
+              label="العميل"
+              options={customers}
+              value={selectedCustomer}
+              onChange={onCustomerChange}
+              onSearchChange={onCustomerSearchChange}
+              getOptionValue={(c) => c.id}
+              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+              placeholder="ابحث بالاسم أو الموبايل..."
+              loading={customersLoading}
+              emptyMessage="لا يوجد عميل مطابق"
+            />
+            {selectedCustomer?.sales_user && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
+              </p>
+            )}
+            {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
+              </p>
+            )}
+            {selectedCustomer?.branch &&
+              !selectedCustomer.sales_user_id &&
+              !selectedCustomer.distributor_id && (
+                <p className="mt-xs text-[13px] leading-snug text-secondary">
+                  تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
+                </p>
+              )}
+          </div>
+
+          {sourceToggleOptions.length > 0 && (
+            <div>
+              <label className={posLabelClass}>مصدر التعاقد</label>
+              <div className="flex gap-xs">
+                {sourceToggleOptions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onTransactionSourceChange(item.id)}
+                    className={posSourceToggle(transactionSource === item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            {customerLinkedToSalesRep || transactionSource === 'sales' ? (
+              <SearchableSelect
+                label="موظف المبيعات"
+                options={salesReps}
+                value={selectedSalesRep}
+                onChange={onSalesRepChange}
+                onSearchChange={onSalesRepSearchChange}
+                getOptionValue={(r) => r.id}
+                getOptionLabel={(r) => r.name}
+                placeholder="ابحث باسم الموظف..."
+                loading={salesRepsLoading}
+                emptyMessage="لا يوجد موظف مطابق"
+              />
+            ) : transactionSource === 'branch' ? (
+              <SearchableSelect
+                label="الفرع"
+                options={filteredBranches}
+                value={selectedBranch}
+                onChange={onBranchChange}
+                onSearchChange={onBranchSearchChange}
+                getOptionValue={(b) => b.id}
+                getOptionLabel={(b) => b.name_ar || b.name}
+                placeholder="ابحث باسم الفرع..."
+                loading={branchesLoading}
+                emptyMessage="لا يوجد فرع مطابق"
+              />
+            ) : transactionSource === 'distributor' ? (
+              <SearchableSelect
+                label="الموزع"
+                options={distributors}
+                value={selectedDistributor}
+                onChange={onDistributorChange}
+                onSearchChange={onDistributorSearchChange}
+                getOptionValue={(d) => d.id}
+                getOptionLabel={(d) =>
+                  `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
+                }
+                placeholder="ابحث بالكود أو الاسم..."
+                loading={distributorsLoading}
+                emptyMessage="لا يوجد موزع مطابق"
+              />
+            ) : null}
+          </div>
+
+          <div>
+            <label className={posLabelClass}>تاريخ التعاقد</label>
+            <div className="relative">
+              <input
+                type="date"
+                value={contractDate}
+                onChange={(e) => onContractDateChange(e.target.value)}
+                className={`${posInputClass} pe-9`}
+              />
+              <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                <Icon name="calendar_today" size={18} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
