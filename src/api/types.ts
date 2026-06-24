@@ -44,6 +44,37 @@ export interface DepartmentStock {
   distributed?: number
 }
 
+export interface StockReceipt {
+  id: number
+  administration_id: number
+  warehouse_id: number
+  product_model_id: number
+  quantity: number
+  received_by?: number | null
+  notes?: string | null
+  created_at?: string
+  administration?: Administration
+  received_by_user?: { id: number; name: string }
+  receivedBy?: { id: number; name: string }
+}
+
+export interface StockTransfer {
+  id: number
+  transfer_number: string
+  from_warehouse_id: number
+  to_warehouse_id: number
+  status: string
+  transfer_kind?: string
+  requested_by?: number | null
+  completed_at?: string | null
+  notes?: string | null
+  created_at?: string
+  from_warehouse?: Warehouse & { administration?: Administration }
+  to_warehouse?: Warehouse & { branch?: Branch }
+  requester?: { id: number; name: string }
+  lines?: Array<{ id: number; product_unit_id: number }>
+}
+
 export interface InventoryOverviewRow {
   row_type: 'department_pending' | 'branch'
   department_id: number
@@ -75,12 +106,15 @@ export interface Branch {
 
 export interface Warehouse {
   id: number
-  branch_id: number
+  branch_id?: number | null
+  administration_id?: number | null
   name: string
   name_ar?: string | null
   code: string
   is_active?: boolean
+  is_central?: boolean
   branch?: Branch
+  administration?: Administration
 }
 
 export interface Role {

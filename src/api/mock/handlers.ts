@@ -605,30 +605,22 @@ export function handleMockRequest(
     const results: Array<{ administration_id: number; warehouse_id: number; warehouse_code: string }> = []
     mutateState((s) => {
       for (const dept of s.departments) {
-        const hubBranchId = s.counters.branch++
-        const hubWarehouseId = s.counters.warehouse++
         const hubCode = `WH-HQ-${dept.id}`
-        const existing = s.warehouses.find((w) => w.code === hubCode)
+        const existing = s.warehouses.find((w) => w.is_central && w.administration_id === dept.id)
         if (existing) {
           results.push({ administration_id: dept.id, warehouse_id: existing.id, warehouse_code: existing.code })
           continue
         }
-        s.branches.push({
-          id: hubBranchId,
-          administration_id: dept.id,
-          department_id: dept.id,
-          name: `مقر ${dept.name_ar}`,
-          name_ar: `مقر ${dept.name_ar}`,
-          code: `HQ-${dept.id}`,
-          is_active: true,
-        })
+        const hubWarehouseId = s.counters.warehouse++
         s.warehouses.push({
           id: hubWarehouseId,
-          branch_id: hubBranchId,
+          administration_id: dept.id,
+          branch_id: null,
           name: dept.name_ar ?? dept.name,
           name_ar: dept.name_ar ?? dept.name,
           code: hubCode,
           is_active: true,
+          is_central: true,
         })
         results.push({ administration_id: dept.id, warehouse_id: hubWarehouseId, warehouse_code: hubCode })
       }
@@ -653,24 +645,16 @@ export function handleMockRequest(
       }
       s.departments.push(dept)
       s.departmentStocks.push({ department_id: id, quantity: 0, pending: 0, distributed: 0 })
-      const hubBranchId = s.counters.branch++
       const hubWarehouseId = s.counters.warehouse++
-      s.branches.push({
-        id: hubBranchId,
-        administration_id: id,
-        department_id: id,
-        name: `مقر ${dept.name_ar}`,
-        name_ar: `مقر ${dept.name_ar}`,
-        code: `HQ-${id}`,
-        is_active: true,
-      })
       s.warehouses.push({
         id: hubWarehouseId,
-        branch_id: hubBranchId,
+        administration_id: id,
+        branch_id: null,
         name: dept.name_ar ?? dept.name,
         name_ar: dept.name_ar ?? dept.name,
         code: `WH-HQ-${id}`,
         is_active: true,
+        is_central: true,
       })
       created = enrichDepartment(s, dept)
     })
@@ -905,8 +889,9 @@ export function handleMockRequest(
         branch_id: id,
         name: `${branch.name} Store`,
         name_ar: `مخزن ${branch.name_ar}`,
-        code: `${branch.code}-W1`,
+        code: `WH-${branch.code}`,
         is_active: true,
+        is_central: false,
       })
       s.stocks.push({
         id: whId,
@@ -963,7 +948,7 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'department-stock/add') {
     const body = data as { department_id: number; quantity: number }
-    let result: ReturnType<typeof enrichDepartment> | undefined
+    let result: ReturnType<typeof enrichDepartment> & { stock_receipt?: unknown } | undefined
     mutateState((s) => {
       const ds = getDeptStock(s, body.department_id)
       ds.quantity += body.quantity
@@ -971,14 +956,44 @@ export function handleMockRequest(
       ds.distributed = calcDistributed(s, body.department_id)
       const dept = s.departments.find((d) => d.id === body.department_id)
       if (!dept) throw mockError(404, 'الإدارة غير موجودة')
-      result = enrichDepartment(s, dept)
+      const receiptId = s.counters.stockReceipt = (s.counters.stockReceipt ?? 0) + 1
+      const receipt = {
+        id: receiptId,
+        administration_id: body.department_id,
+        quantity: body.quantity,
+        received_by: ctx.user?.id ?? null,
+        created_at: new Date().toISOString(),
+        administration: { id: dept.id, name: dept.name, name_ar: dept.name_ar, code: dept.code },
+        receivedBy: ctx.user ? { id: ctx.user.id, name: ctx.user.name } : undefined,
+      }
+      if (!s.stockReceipts) s.stockReceipts = []
+      s.stockReceipts.unshift(receipt)
+      result = { ...enrichDepartment(s, dept), stock_receipt: receipt }
     })
     return result
   }
 
+  if (m === 'GET' && path === 'stock-receipts') {
+    const items = (state.stockReceipts ?? []).map((receipt) => ({
+      ...receipt,
+      administration: state.departments.find((d) => d.id === receipt.administration_id),
+      receivedBy: receipt.receivedBy,
+    }))
+    return paginate(items, params)
+  }
+
+  if (m === 'GET' && path === 'stock-transfers') {
+    let items = [...(state.stockTransfers ?? [])]
+    const kind = params['filter[transfer_kind]']
+    if (kind) {
+      items = items.filter((transfer) => transfer.transfer_kind === kind)
+    }
+    return paginate(items, params)
+  }
+
   if (m === 'POST' && path === 'department-stock/distribute') {
     const body = data as { department_id: number; branch_id: number; quantity: number }
-    let result: GpsStock | undefined
+    let result: GpsStock & { transfer?: unknown } | undefined
     mutateState((s) => {
       const branch = s.branches.find((b) => b.id === body.branch_id)
       if (!branch || branch.department_id !== body.department_id) {
@@ -1006,7 +1021,36 @@ export function handleMockRequest(
       }
       stock.quantity += body.quantity
       ds.distributed = calcDistributed(s, body.department_id)
-      result = { ...stock, available: stock.quantity - stock.reserved }
+      const transferId = s.counters.stockTransfer = (s.counters.stockTransfer ?? 0) + 1
+      const dept = s.departments.find((d) => d.id === body.department_id)
+      const transfer = {
+        id: transferId,
+        transfer_number: `TRF-${String(transferId).padStart(6, '0')}`,
+        transfer_kind: 'distribution',
+        completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        from_warehouse: {
+          administration: dept ? { id: dept.id, name: dept.name, name_ar: dept.name_ar } : undefined,
+        },
+        to_warehouse: {
+          branch: branch ? { id: branch.id, name: branch.name, name_ar: branch.name_ar } : undefined,
+        },
+        requester: ctx.user ? { id: ctx.user.id, name: ctx.user.name } : undefined,
+        lines: Array.from({ length: body.quantity }, (_, index) => ({ id: index + 1, product_unit_id: index + 1 })),
+      }
+      if (!s.stockTransfers) s.stockTransfers = []
+      s.stockTransfers.unshift(transfer)
+      result = {
+        ...stock,
+        available: stock.quantity - stock.reserved,
+        transfer: {
+          id: transfer.id,
+          transfer_number: transfer.transfer_number,
+          completed_at: transfer.completed_at,
+          quantity: body.quantity,
+          transfer_kind: 'distribution',
+        },
+      }
     })
     return result
   }
@@ -1030,17 +1074,23 @@ export function handleMockRequest(
     if (administrationFilter) {
       const adminId = Number(administrationFilter)
       items = items.filter((w) => {
+        if (w.is_central && w.administration_id === adminId) return true
         const branch = state.branches.find((b) => b.id === w.branch_id)
         return branch?.administration_id === adminId || branch?.department_id === adminId
       })
     }
     return paginate(items.map((w) => {
-      const branch = state.branches.find((b) => b.id === w.branch_id)
-      const administration = branch
-        ? state.departments.find((d) => d.id === (branch.administration_id ?? branch.department_id))
-        : undefined
+      const branch = w.branch_id != null ? state.branches.find((b) => b.id === w.branch_id) : undefined
+      const administration = w.is_central && w.administration_id != null
+        ? state.departments.find((d) => d.id === w.administration_id)
+        : branch
+          ? state.departments.find((d) => d.id === (branch.administration_id ?? branch.department_id))
+          : undefined
       return {
         ...w,
+        administration: administration
+          ? { id: administration.id, name: administration.name, name_ar: administration.name_ar, code: administration.code }
+          : undefined,
         branch: branch
           ? {
               ...branch,

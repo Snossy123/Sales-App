@@ -139,6 +139,16 @@ export interface DemoState {
   }>
   chatMessages: ChatMessage[]
   dailyBranchReports: DailyBranchReport[]
+  stockReceipts?: Array<{
+    id: number
+    administration_id: number
+    quantity: number
+    received_by?: number | null
+    created_at?: string
+    administration?: Department
+    receivedBy?: { id: number; name: string }
+  }>
+  stockTransfers?: Array<Record<string, unknown>>
   counters: {
     department: number
     section?: number
@@ -177,6 +187,8 @@ export interface DemoState {
     hrmPayroll?: number
     hrmPayrollGroup?: number
     user?: number
+    stockReceipt?: number
+    stockTransfer?: number
   }
 }
 
@@ -292,9 +304,11 @@ export function createSeedState(): DemoState {
   ]
 
   const warehouses: Warehouse[] = [
-    { id: 1, branch_id: 1, name: 'Main Store', name_ar: 'مخزن مدينة نصر', code: 'NSR-W1', is_active: true },
-    { id: 2, branch_id: 2, name: 'Maadi Store', name_ar: 'مخزن المعادي', code: 'MAD-W1', is_active: true },
-    { id: 3, branch_id: 3, name: 'Tanta Store', name_ar: 'مخزن طنطا', code: 'TNT-W1', is_active: true },
+    { id: 1, branch_id: 1, name: 'Main Store', name_ar: 'مخزن مدينة نصر', code: 'NSR-W1', is_active: true, is_central: false },
+    { id: 2, branch_id: 2, name: 'Maadi Store', name_ar: 'مخزن المعادي', code: 'MAD-W1', is_active: true, is_central: false },
+    { id: 3, branch_id: 3, name: 'Tanta Store', name_ar: 'مخزن طنطا', code: 'TNT-W1', is_active: true, is_central: false },
+    { id: 4, administration_id: 1, branch_id: null, name: 'الإدارة الرئيسية', name_ar: 'الإدارة الرئيسية', code: 'WH-HQ-1', is_active: true, is_central: true },
+    { id: 5, administration_id: 2, branch_id: null, name: 'Delta Administration', name_ar: 'إدارة الدلتا', code: 'WH-HQ-2', is_active: true, is_central: true },
   ]
 
   const gpsProduct: GpsProduct = {
@@ -1527,7 +1541,9 @@ export function createSeedState(): DemoState {
       department: 3,
       section: 6,
       branch: 4,
-      warehouse: 4,
+      warehouse: 6,
+      stockReceipt: 0,
+      stockTransfer: 0,
       invoice: 5,
       customer: 4,
       distributor: 4,

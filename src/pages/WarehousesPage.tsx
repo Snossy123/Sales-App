@@ -11,16 +11,13 @@ import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { ToastBanner } from '../components/ToastBanner'
 
-const HUB_WAREHOUSE_PREFIX = 'WH-HQ-'
-
-function isHubWarehouse(warehouse: Warehouse): boolean {
-  return warehouse.code.startsWith(HUB_WAREHOUSE_PREFIX)
+function isCentralWarehouse(warehouse: Warehouse): boolean {
+  return warehouse.is_central === true
 }
 
-function hubWarehouseForAdministration(warehouses: Warehouse[], administrationId: number): Warehouse | undefined {
-  const hubCode = `${HUB_WAREHOUSE_PREFIX}${administrationId}`
+function centralWarehouseForAdministration(warehouses: Warehouse[], administrationId: number): Warehouse | undefined {
   return warehouses.find(
-    (warehouse) => warehouse.code === hubCode || (isHubWarehouse(warehouse) && warehouse.branch?.administration_id === administrationId),
+    (warehouse) => warehouse.is_central && warehouse.administration_id === administrationId,
   )
 }
 
@@ -38,7 +35,7 @@ export function WarehousesPage() {
     queryKey: ['warehouses', 'all'],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Warehouse>>('/warehouses', {
-        params: { per_page: 200, include: 'branch' },
+        params: { per_page: 200, include: 'branch,administration' },
       })
       return data.data
     },
@@ -71,14 +68,14 @@ export function WarehousesPage() {
   const administrations = administrationsQuery.data ?? []
 
   const missingHubAdministrations = useMemo(
-    () => administrations.filter((administration) => !hubWarehouseForAdministration(warehouses, administration.id)),
+    () => administrations.filter((administration) => !centralWarehouseForAdministration(warehouses, administration.id)),
     [administrations, warehouses],
   )
 
   const hubRows = useMemo(
     () =>
       administrations.map((administration) => {
-        const hub = hubWarehouseForAdministration(warehouses, administration.id)
+        const hub = centralWarehouseForAdministration(warehouses, administration.id)
         return {
           administration,
           hub,
@@ -89,7 +86,7 @@ export function WarehousesPage() {
   )
 
   const branchWarehouses = useMemo(
-    () => warehouses.filter((warehouse) => !isHubWarehouse(warehouse)),
+    () => warehouses.filter((warehouse) => !isCentralWarehouse(warehouse)),
     [warehouses],
   )
 
@@ -130,7 +127,7 @@ export function WarehousesPage() {
 
       <div className="mb-md space-y-md">
         <InsightBanner
-          message="عند إضافة إدارة جديدة من صفحة الإدارات، يُنشأ مخزن مركزي (مقر الإدارة) تلقائياً بنفس الاسم والعنوان. مخازن الفروع تُنشأ عند إضافة الفروع."
+          message="عند إضافة إدارة جديدة من صفحة الإدارات، يُنشأ مخزن مركزي تلقائياً بنفس الاسم. مخازن الفروع تُنشأ تلقائياً عند إضافة الفروع."
           variant="info"
         />
         {missingHubAdministrations.length > 0 && (
@@ -145,7 +142,7 @@ export function WarehousesPage() {
       </div>
 
       <AsyncState isLoading={isLoading} isError={isError} error={error}>
-        <h2 className="mb-sm text-base font-bold">المخازن المركزية (مقر الإدارة)</h2>
+        <h2 className="mb-sm text-base font-bold">المخازن المركزية</h2>
         <DataTable
           data={hubRows}
           keyExtractor={(row) => row.key}
@@ -202,7 +199,7 @@ export function WarehousesPage() {
               render: (row) =>
                 administrationName(
                   administrations,
-                  row.branch?.administration_id ?? row.branch?.department_id,
+                  row.branch?.administration_id ?? row.branch?.department_id ?? row.administration_id ?? undefined,
                 ),
             },
             {
