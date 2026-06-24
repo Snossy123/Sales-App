@@ -685,9 +685,19 @@ export function handleMockRequest(
   if (m === 'DELETE' && path.match(/^administrations\/\d+$/)) {
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
     const id = Number(path.split('/')[1])
+    const deleteBranches = params.delete_branches === '1' || params.delete_branches === 'true'
     mutateState((s) => {
-      const hasBranches = s.branches.some((b) => b.department_id === id || b.administration_id === id)
-      if (hasBranches) throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
+      if (linkedBranches.length > 0 && !deleteBranches) {
+        throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      }
+      if (deleteBranches) {
+        s.branches = s.branches.filter((b) => b.department_id !== id && b.administration_id !== id)
+        s.sections = s.sections.filter((section) => {
+          const branch = linkedBranches.find((b) => b.id === section.branch_id)
+          return !branch
+        })
+      }
       s.departments = s.departments.filter((d) => d.id !== id)
       s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
     })
@@ -811,9 +821,19 @@ export function handleMockRequest(
     }
 
     if (ctx.user && !isSuperAdmin(ctx.user)) throw mockError(403, 'غير مصرح بحذف إدارات')
+    const deleteBranches = params.delete_branches === '1' || params.delete_branches === 'true'
     mutateState((s) => {
-      const hasBranches = s.branches.some((b) => b.department_id === id || b.administration_id === id)
-      if (hasBranches) throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      const linkedBranches = s.branches.filter((b) => b.department_id === id || b.administration_id === id)
+      if (linkedBranches.length > 0 && !deleteBranches) {
+        throw mockError(422, 'لا يمكن حذف إدارة مرتبطة بفروع')
+      }
+      if (deleteBranches) {
+        s.branches = s.branches.filter((b) => b.department_id !== id && b.administration_id !== id)
+        s.sections = s.sections.filter((section) => {
+          const branch = linkedBranches.find((b) => b.id === section.branch_id)
+          return !branch
+        })
+      }
       s.departments = s.departments.filter((d) => d.id !== id)
       s.departmentStocks = s.departmentStocks.filter((d) => d.department_id !== id)
     })

@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Administration, Department, PaginatedResponse } from '../api/types'
+import type { Administration, Branch, Department, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -43,6 +43,7 @@ export function DepartmentsPage() {
   const [successToast, setSuccessToast] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Administration | null>(null)
+  const [deleteBranchesToo, setDeleteBranchesToo] = useState(false)
   const [form, setForm] = useState(emptyForm)
 
   const allQuery = useQuery({
@@ -54,6 +55,19 @@ export function DepartmentsPage() {
       return data.data
     },
   })
+
+  const branchesForDeleteQuery = useQuery({
+    queryKey: ['branches', 'delete-modal', deleteTarget?.id],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
+        params: { 'filter[administration_id]': deleteTarget!.id, per_page: 100 },
+      })
+      return data.data
+    },
+    enabled: panel === 'delete' && deleteTarget != null,
+  })
+
+  const deleteBranchCount = branchesForDeleteQuery.data?.length ?? 0
 
   const filtered = useMemo(
     () => filterDepartments(allQuery.data ?? [], search, statusFilter),
@@ -89,6 +103,7 @@ export function DepartmentsPage() {
     setPanel(null)
     setEditId(null)
     setDeleteTarget(null)
+    setDeleteBranchesToo(false)
     setForm(emptyForm)
   }
 
@@ -110,8 +125,10 @@ export function DepartmentsPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/administrations/${id}`)
+    mutationFn: async ({ id, deleteBranches }: { id: number; deleteBranches: boolean }) => {
+      await api.delete(`/administrations/${id}`, {
+        params: { delete_branches: deleteBranches ? 1 : 0 },
+      })
     },
     onSuccess: () => {
       invalidate()
@@ -269,7 +286,11 @@ export function DepartmentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setDeleteTarget(row as Administration); setPanel('delete') }}
+                    onClick={() => {
+                      setDeleteTarget(row as Administration)
+                      setDeleteBranchesToo(false)
+                      setPanel('delete')
+                    }}
                     className="text-sm text-error hover:underline"
                   >
                     حذف
@@ -364,15 +385,35 @@ export function DepartmentsPage() {
         <p className="mb-md text-sm text-on-surface-variant">
           هل تريد حذف إدارة &quot;{deleteTarget?.name_ar || deleteTarget?.name}&quot;؟ لا يمكن التراجع.
         </p>
+        {deleteBranchCount > 0 && (
+          <label className="mb-md flex items-start gap-xs text-sm">
+            <input
+              type="checkbox"
+              checked={deleteBranchesToo}
+              onChange={(e) => setDeleteBranchesToo(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              حذف {deleteBranchCount} {deleteBranchCount === 1 ? 'فرع مرتبط' : 'فروع مرتبطة'} بهذه الإدارة
+            </span>
+          </label>
+        )}
         {deleteMutation.isError && (
           <p className="mb-sm text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>
         )}
         <div className="flex gap-sm">
           <button
             type="button"
-            disabled={deleteMutation.isPending}
-            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-            className="rounded-lg bg-error px-md py-2 text-sm font-bold text-on-primary"
+            disabled={
+              deleteMutation.isPending
+              || branchesForDeleteQuery.isLoading
+              || (deleteBranchCount > 0 && !deleteBranchesToo)
+            }
+            onClick={() => deleteTarget && deleteMutation.mutate({
+              id: deleteTarget.id,
+              deleteBranches: deleteBranchesToo,
+            })}
+            className="rounded-lg bg-error px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
           >
             {deleteMutation.isPending ? 'جاري الحذف...' : 'حذف'}
           </button>
