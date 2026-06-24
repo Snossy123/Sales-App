@@ -96,6 +96,7 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/services', icon: 'home_repair_service', label: 'الخدمات', end: true, roles: ['super_admin', 'admin'] },
         { to: '/services/add', icon: 'add_circle', label: 'إضافة خدمة', roles: ['super_admin', 'admin'] },
+        { to: '/contract-templates', icon: 'description', label: 'نماذج العقود', roles: ['super_admin', 'admin'] },
       ],
     },
   },
@@ -246,6 +247,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
   '/services': ['super_admin', 'admin'],
   '/services/add': ['super_admin', 'admin'],
+  '/contract-templates': ['super_admin', 'admin'],
   '/invoices': ['super_admin', 'admin', 'reviewer'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
@@ -358,6 +360,10 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/services/')) {
     return routeRoles['/services']?.includes(role) ?? false
+  }
+
+  if (normalized.startsWith('/contract-templates/')) {
+    return routeRoles['/contract-templates']?.includes(role) ?? false
   }
 
   if (normalized.match(/^\/daily-reports\/\d+\/print$/)) {

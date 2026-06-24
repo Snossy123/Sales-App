@@ -14,6 +14,8 @@ import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
 import { ServicesPage } from '../pages/ServicesPage'
 import { ServiceFormPage } from '../pages/ServiceFormPage'
+import { ContractTemplatesPage } from '../pages/ContractTemplatesPage'
+import { ContractTemplatePreviewPage } from '../pages/ContractTemplatePreviewPage'
 import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
@@ -165,6 +167,8 @@ export function AppRoutes() {
             <Route path="services" element={<ServicesPage />} />
             <Route path="services/add" element={<ServiceFormPage />} />
             <Route path="services/:id/edit" element={<ServiceFormPage />} />
+            <Route path="contract-templates" element={<ContractTemplatesPage />} />
+            <Route path="contract-templates/:key/preview" element={<ContractTemplatePreviewPage />} />
             <Route path="daily-reports" element={<DailyBranchReportPage />} />
             <Route path="daily-reports/:id/print" element={<DailyBranchReportPrintPage />} />
             <Route path="distributors" element={<DistributorsPage />} />

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Service, ServiceCategory } from '../api/types'
+import type { ContractTemplate, Service, ServiceCategory } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -18,6 +18,7 @@ interface ServiceForm {
   default_price: number
   is_active: boolean
   description: string
+  contract_template_key: string
 }
 
 const emptyForm: ServiceForm = {
@@ -28,6 +29,7 @@ const emptyForm: ServiceForm = {
   default_price: 0,
   is_active: true,
   description: '',
+  contract_template_key: '',
 }
 
 export function ServiceFormPage() {
@@ -47,6 +49,14 @@ export function ServiceFormPage() {
     enabled: isEdit,
   })
 
+  const templatesQuery = useQuery({
+    queryKey: ['contract-templates'],
+    queryFn: async () => {
+      const { data } = await api.get<ContractTemplate[]>('/contract-templates')
+      return data
+    },
+  })
+
   useEffect(() => {
     const service = serviceQuery.data
     if (service) {
@@ -58,6 +68,7 @@ export function ServiceFormPage() {
         default_price: Number(service.default_price),
         is_active: service.is_active,
         description: service.description ?? '',
+        contract_template_key: service.contract_template_key ?? '',
       })
     }
   }, [serviceQuery.data])
@@ -72,6 +83,7 @@ export function ServiceFormPage() {
         default_price: form.default_price,
         is_active: form.is_active,
         description: form.description.trim() || null,
+        contract_template_key: form.contract_template_key || null,
       }
       if (isEdit) {
         await api.put(`/services/${serviceId}`, payload)
@@ -162,6 +174,22 @@ export function ServiceFormPage() {
                 className={`${inputClass} tabular-nums`}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-xs block text-sm text-on-surface-variant">نموذج العقد (اختياري)</label>
+            <select
+              value={form.contract_template_key}
+              onChange={(e) => setForm({ ...form, contract_template_key: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">بدون نموذج</option>
+              {(templatesQuery.data ?? []).map((template) => (
+                <option key={template.key} value={template.key}>
+                  {template.name_ar}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

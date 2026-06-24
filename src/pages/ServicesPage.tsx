@@ -13,6 +13,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { type ApiPaginated, paginatedMeta } from '../lib/sales'
 import { SERVICE_CATEGORIES, serviceCategoryLabel } from '../lib/services'
+import { contractTemplateLabel } from '../lib/contractTemplates'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
 
@@ -72,13 +73,22 @@ export function ServicesPage() {
       subtitle="إدارة الخدمات والرسوم التي تقدمها الشركة"
       actions={
         canManage ? (
-          <Link
-            to="/services/add"
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-          >
-            <Icon name="add_circle" size={18} />
-            خدمة جديدة
-          </Link>
+          <div className="flex flex-wrap items-center gap-sm">
+            <Link
+              to="/contract-templates"
+              className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-bold text-on-surface-variant"
+            >
+              <Icon name="description" size={18} />
+              نماذج العقود
+            </Link>
+            <Link
+              to="/services/add"
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            >
+              <Icon name="add_circle" size={18} />
+              خدمة جديدة
+            </Link>
+          </div>
         ) : undefined
       }
       filters={
@@ -143,6 +153,11 @@ export function ServicesPage() {
               header: 'السعر الافتراضي',
               className: 'tabular-nums',
               render: (row) => `${Number(row.default_price).toLocaleString('ar-EG')} ج.م`,
+            },
+            {
+              key: 'contract_template_key',
+              header: 'نموذج العقد',
+              render: (row) => contractTemplateLabel(row.contract_template_key),
             },
             {
               key: 'is_active',

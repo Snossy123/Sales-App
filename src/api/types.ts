@@ -341,6 +341,14 @@ export interface Service {
   default_price: string | number
   is_active: boolean
   description?: string | null
+  contract_template_key?: string | null
+}
+
+export interface ContractTemplate {
+  key: string
+  name_ar: string
+  description_ar: string
+  category?: string | null
 }
 
 export interface Guarantor {

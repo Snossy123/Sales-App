@@ -36,6 +36,7 @@ import { loadState, mutateState, resetState, saveState } from './store'
 import type { AuthUser } from '../types'
 import { getScopedBranchIds as resolveUserBranchIds, getScopedDepartmentId } from '../../lib/dataScope'
 import { isSuperAdmin } from '../../lib/access'
+import { CONTRACT_TEMPLATES, mockContractPreviewHtml } from '../../lib/contractTemplates'
 import type { DemoState, DemoUser } from './seed'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
@@ -1661,6 +1662,18 @@ export function handleMockRequest(
     return enrichDistributor(state, distributor)
   }
 
+  if (m === 'GET' && path === 'contract-templates') {
+    return CONTRACT_TEMPLATES
+  }
+
+  if (m === 'GET' && path.match(/^contract-templates\/[^/]+\/preview$/)) {
+    const key = path.split('/')[1]
+    if (!CONTRACT_TEMPLATES.some((template) => template.key === key)) {
+      throw mockError(404, 'نموذج العقد غير موجود')
+    }
+    return mockContractPreviewHtml(key)
+  }
+
   if (m === 'GET' && path === 'services') {
     let items = [...(state.services ?? [])]
     const categoryFilter = params['filter[category]']
@@ -1700,6 +1713,7 @@ export function handleMockRequest(
         default_price: Number(body.default_price ?? 0),
         is_active: body.is_active ?? true,
         description: body.description?.trim() || null,
+        contract_template_key: body.contract_template_key?.trim() || null,
       }
       s.services.push(created)
     })
@@ -1733,6 +1747,9 @@ export function handleMockRequest(
       if (body.default_price != null) service.default_price = Number(body.default_price)
       if (body.is_active != null) service.is_active = body.is_active
       if (body.description !== undefined) service.description = body.description?.trim() || null
+      if (body.contract_template_key !== undefined) {
+        service.contract_template_key = body.contract_template_key?.trim() || null
+      }
       updated = service
     })
     return updated
