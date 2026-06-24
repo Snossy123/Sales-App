@@ -4,12 +4,10 @@ export function MaintenanceServicesPage() {
   return (
     <ServiceSalesPage
       title="خدمات الصيانة والسوفت وير"
-      subtitle="تسجيل خدمات الصيانة وتحديثات البرمجيات للأجهزة"
+      subtitle="بيع الخدمات من الكتalog — كاش أو تقسيط"
       saleCategory="maintenance"
-      defaultLines={[
-        { description: 'صيانة دورية', quantity: 1, unit_price: 300 },
-        { description: 'تحديث سوفت وير', quantity: 1, unit_price: 200 },
-      ]}
+      useCatalog
+      catalogCategories={['maintenance', 'software', 'subscription', 'installation', 'transfer', 'other']}
       notesPlaceholder="مثال: نوع الجهاز، IMEI، ملاحظات فنية..."
     />
   )

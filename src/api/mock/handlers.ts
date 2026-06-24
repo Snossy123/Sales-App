@@ -2002,8 +2002,20 @@ export function handleMockRequest(
       distributor_id: number
       branch_id?: number
       sale_category: string
+      payment_term?: 'cash' | 'installment' | 'credit'
       notes?: string
-      items: { description: string; quantity: number; unit_price: number }[]
+      installment_plan?: {
+        down_payment: number
+        installment_amount: number
+        installment_count: number
+        interval_type?: 'monthly' | 'weekly'
+        interval_days?: number
+        first_due_date: string
+      }
+      items: { description: string; quantity: number; unit_price: number; service_id?: number }[]
+    }
+    if (body.payment_term === 'installment' && !body.installment_plan) {
+      throw mockError(422, 'خطة التقسيط مطلوبة')
     }
     let created: SalesInvoice | undefined
     mutateState((s) => {
@@ -2017,6 +2029,11 @@ export function handleMockRequest(
         (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
         0,
       )
+      const paymentTerm = body.payment_term ?? 'cash'
+      const downPayment =
+        paymentTerm === 'installment' ? Number(body.installment_plan?.down_payment ?? 0) : subtotal
+      const paidAmount = paymentTerm === 'cash' ? subtotal : downPayment
+      const balanceDue = Math.max(0, subtotal - paidAmount)
       const invoiceId = s.counters.invoice++
       created = {
         id: invoiceId,
@@ -2026,19 +2043,42 @@ export function handleMockRequest(
         customer_id: body.customer_id,
         distributor_id: body.distributor_id,
         status: 'confirmed',
-        payment_term: 'cash',
-        payment_status: 'paid',
+        sale_category: body.sale_category,
+        payment_term: paymentTerm,
+        payment_status:
+          paymentTerm === 'cash' ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
         total: subtotal,
-        paid_amount: subtotal,
-        balance_due: 0,
+        paid_amount: paidAmount,
+        balance_due: balanceDue,
         notes: body.notes ?? null,
         lines: body.items.map((item, index) => ({
           id: invoiceId * 100 + index,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          line_total: Number(item.quantity) * Number(item.unit_price),
           product_name_ar: item.description,
+          description: item.description,
         })),
       }
+
+      if (paymentTerm === 'installment' && body.installment_plan) {
+        const planId = s.counters.installmentPlan++
+        const plan: InstallmentPlan = {
+          id: planId,
+          sales_invoice_id: invoiceId,
+          down_payment: Number(body.installment_plan.down_payment),
+          installment_count: Number(body.installment_plan.installment_count),
+          installment_amount: Number(body.installment_plan.installment_amount),
+          interval_days: body.installment_plan.interval_days ?? 30,
+          interval_type: body.installment_plan.interval_type ?? 'monthly',
+          first_due_date: body.installment_plan.first_due_date,
+          status: 'active',
+          items: [],
+        }
+        created.installment_plan = plan
+        generateInstallmentItems(s, created, undefined, plan)
+      }
+
       s.invoices.push(created)
     })
     return created

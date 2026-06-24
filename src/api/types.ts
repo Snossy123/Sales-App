@@ -729,7 +729,16 @@ export interface ServiceCheckoutPayload {
   sale_category: 'accessories' | 'maintenance'
   payment_term?: 'cash' | 'credit' | 'installment'
   notes?: string
+  installment_plan?: {
+    down_payment: number
+    installment_amount: number
+    installment_count: number
+    interval_type?: 'monthly' | 'weekly'
+    interval_days?: number
+    first_due_date: string
+  }
   items: {
+    service_id?: number
     description: string
     quantity: number
     unit_price: number

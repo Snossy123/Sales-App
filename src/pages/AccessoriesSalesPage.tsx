@@ -4,7 +4,7 @@ export function AccessoriesSalesPage() {
   return (
     <ServiceSalesPage
       title="بيع الاكسسورات"
-      subtitle="تسجيل مبيعات الملحقات والإكسسوارات نقداً"
+      subtitle="تسجيل مبيعات الملحقات والإكسسوارات — كاش أو تقسيط"
       saleCategory="accessories"
       defaultLines={[
         { description: 'حامل جهاز', quantity: 1, unit_price: 150 },
