@@ -494,6 +494,7 @@ export interface SalesInvoiceLine {
   id: number
   product_id?: number
   product_unit_id?: number
+  description?: string | null
   quantity?: number
   unit_price: string | number
   discount?: string | number
