@@ -10,6 +10,8 @@ import { StatusBadge } from '../components/StatusBadge'
 const categoryLabels: Record<string, string> = {
   gps: 'تعاقدات GPS',
   service: 'خدمات',
+  subscription: 'تجديد اشتراك',
+  transfer: 'نقل ملكية',
 }
 
 export function ContractTemplatesPage() {

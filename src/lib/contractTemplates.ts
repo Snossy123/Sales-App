@@ -19,6 +19,18 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     description_ar: 'نموذج إيصال أو عقد للخدمات والرسوم (صيانة، تركيب، سوفت وير، إلخ).',
     category: 'service',
   },
+  {
+    key: 'subscription_renewal',
+    name_ar: 'تجديد اشتراك',
+    description_ar: 'نموذج عقد تجديد اشتراك الجهاز (سنوي أو مدى الحياة) — دفع كاش.',
+    category: 'subscription',
+  },
+  {
+    key: 'ownership_transfer',
+    name_ar: 'نقل ملكية',
+    description_ar: 'نموذج عقد نقل ملكية الجهاز من مالك إلى آخر.',
+    category: 'transfer',
+  },
 ]
 
 const TEMPLATE_LABELS = CONTRACT_TEMPLATES.reduce(
