@@ -75,12 +75,15 @@ export interface Branch {
 
 export interface Warehouse {
   id: number
-  branch_id: number
+  branch_id?: number | null
+  administration_id?: number | null
   name: string
   name_ar?: string | null
   code: string
   is_active?: boolean
+  is_central?: boolean
   branch?: Branch
+  administration?: Administration
 }
 
 export interface Role {
