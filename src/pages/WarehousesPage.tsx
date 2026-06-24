@@ -35,7 +35,7 @@ export function WarehousesPage() {
     queryKey: ['warehouses', 'all'],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Warehouse>>('/warehouses', {
-        params: { per_page: 200, include: 'branch,administration' },
+        params: { per_page: 200, include: 'branch' },
       })
       return data.data
     },
