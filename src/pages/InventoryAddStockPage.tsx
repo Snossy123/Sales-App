@@ -52,6 +52,7 @@ export function InventoryAddStockPage() {
       })
       return data.data
     },
+    retry: false,
   })
 
   return (
