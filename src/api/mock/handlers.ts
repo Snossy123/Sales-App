@@ -2035,7 +2035,7 @@ export function handleMockRequest(
       const paidAmount = paymentTerm === 'cash' ? subtotal : downPayment
       const balanceDue = Math.max(0, subtotal - paidAmount)
       const invoiceId = s.counters.invoice++
-      created = {
+      const invoice: SalesInvoice = {
         id: invoiceId,
         invoice_number: `SRV-2026-${String(invoiceId).padStart(4, '0')}`,
         invoice_date: new Date().toISOString().split('T')[0],
@@ -2062,10 +2062,8 @@ export function handleMockRequest(
       }
 
       if (paymentTerm === 'installment' && body.installment_plan) {
-        const planId = s.counters.installmentPlan++
         const plan: InstallmentPlan = {
-          id: planId,
-          sales_invoice_id: invoiceId,
+          id: invoiceId,
           down_payment: Number(body.installment_plan.down_payment),
           installment_count: Number(body.installment_plan.installment_count),
           installment_amount: Number(body.installment_plan.installment_amount),
@@ -2075,11 +2073,12 @@ export function handleMockRequest(
           status: 'active',
           items: [],
         }
-        created.installment_plan = plan
-        generateInstallmentItems(s, created, undefined, plan)
+        invoice.installment_plan = plan
+        generateInstallmentItems(s, invoice, undefined, plan)
       }
 
-      s.invoices.push(created)
+      created = invoice
+      s.invoices.push(invoice)
     })
     return created
   }

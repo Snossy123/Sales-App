@@ -450,6 +450,7 @@ export interface SalesInvoice {
   payment_status: string
   status?: InvoiceStatus | string
   review_status?: 'pending' | 'approved' | 'rejected'
+  sale_category?: 'accessories' | 'maintenance' | string
   customer_id: number
   distributor_id?: number | null
   sales_user_id?: number | null
