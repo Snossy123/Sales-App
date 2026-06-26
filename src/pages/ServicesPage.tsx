@@ -12,7 +12,6 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { type ApiPaginated, paginatedMeta } from '../lib/sales'
-import { SERVICE_CATEGORIES, serviceCategoryLabel } from '../lib/services'
 import { contractTemplateLabel } from '../lib/contractTemplates'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
@@ -22,18 +21,16 @@ export function ServicesPage() {
   const user = useAuthStore((s) => s.user)
   const canManage = ['super_admin', 'admin'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [deleteError, setDeleteError] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
 
   const query = useQuery({
-    queryKey: ['services', debouncedSearch, categoryFilter, statusFilter, page],
+    queryKey: ['services', debouncedSearch, statusFilter, page],
     queryFn: async () => {
       const params: Record<string, string | number> = { per_page: 25, page }
       if (debouncedSearch) params['filter[name]'] = debouncedSearch
-      if (categoryFilter) params['filter[category]'] = categoryFilter
       if (statusFilter) params['filter[is_active]'] = statusFilter
       const { data } = await api.get<ApiPaginated<Service>>('/services', { params })
       return data
@@ -58,11 +55,10 @@ export function ServicesPage() {
 
   const meta = query.data ? paginatedMeta(query.data) : null
   const rows = query.data?.data ?? []
-  const hasFilters = Boolean(search || categoryFilter || statusFilter)
+  const hasFilters = Boolean(search || statusFilter)
 
   const clearFilters = () => {
     setSearch('')
-    setCategoryFilter('')
     setStatusFilter('')
     setPage(1)
   }
@@ -101,16 +97,6 @@ export function ServicesPage() {
           searchPlaceholder="بحث باسم الخدمة..."
           selects={[
             {
-              id: 'category',
-              label: 'التصنيف',
-              value: categoryFilter,
-              onChange: (value) => {
-                setCategoryFilter(value)
-                setPage(1)
-              },
-              options: SERVICE_CATEGORIES.map((c) => ({ value: c.value, label: c.label })),
-            },
-            {
               id: 'status',
               label: 'الحالة',
               value: statusFilter,
@@ -137,20 +123,14 @@ export function ServicesPage() {
           keyExtractor={(row) => row.id}
           emptyMessage={hasFilters ? 'لا توجد خدمات مطابقة' : 'لا توجد خدمات بعد'}
           columns={[
-            { key: 'code', header: 'الكود', className: 'tabular-nums', render: (row) => row.code ?? '—' },
             {
               key: 'name',
               header: 'الخدمة',
               render: (row) => row.name_ar || row.name,
             },
             {
-              key: 'category',
-              header: 'التصنيف',
-              render: (row) => serviceCategoryLabel(row.category),
-            },
-            {
               key: 'default_price',
-              header: 'السعر الافتراضي',
+              header: 'السعر',
               className: 'tabular-nums',
               render: (row) => `${Number(row.default_price).toLocaleString('ar-EG')} ج.م`,
             },

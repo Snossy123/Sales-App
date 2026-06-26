@@ -2,11 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { ContractTemplate, Service, ServiceCategory } from '../api/types'
+import type { ContractTemplate, Service } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
-import { SERVICE_CATEGORIES } from '../lib/services'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 text-sm'
 
@@ -14,7 +13,6 @@ interface ServiceForm {
   code: string
   name: string
   name_ar: string
-  category: ServiceCategory
   default_price: number
   is_active: boolean
   description: string
@@ -25,7 +23,6 @@ const emptyForm: ServiceForm = {
   code: '',
   name: '',
   name_ar: '',
-  category: 'other',
   default_price: 0,
   is_active: true,
   description: '',
@@ -64,7 +61,6 @@ export function ServiceFormPage() {
         code: service.code ?? '',
         name: service.name,
         name_ar: service.name_ar ?? '',
-        category: service.category,
         default_price: Number(service.default_price),
         is_active: service.is_active,
         description: service.description ?? '',
@@ -79,7 +75,6 @@ export function ServiceFormPage() {
         code: form.code.trim() || null,
         name: (form.name_ar || form.name).trim(),
         name_ar: form.name_ar.trim() || null,
-        category: form.category,
         default_price: form.default_price,
         is_active: form.is_active,
         description: form.description.trim() || null,
@@ -148,22 +143,8 @@ export function ServiceFormPage() {
               />
             </div>
             <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">التصنيف</label>
-              <select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value as ServiceCategory })}
-                className={inputClass}
-              >
-                {SERVICE_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="mb-xs block text-sm text-on-surface-variant">
-                السعر الافتراضي (ج.م)
+                السعر (ج.م)
               </label>
               <input
                 type="number"

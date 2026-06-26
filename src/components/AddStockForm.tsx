@@ -16,6 +16,7 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 export function invalidateStockQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['departments'] })
+  queryClient.invalidateQueries({ queryKey: ['administrations'] })
   queryClient.invalidateQueries({ queryKey: ['branches'] })
   queryClient.invalidateQueries({ queryKey: ['inventory'] })
   queryClient.invalidateQueries({ queryKey: ['gps-stock'] })

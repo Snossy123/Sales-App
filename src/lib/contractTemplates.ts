@@ -26,6 +26,12 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     category: 'subscription',
   },
   {
+    key: 'subscription_renewal_installment',
+    name_ar: 'تجديد اشتراك (قسط)',
+    description_ar: 'نموذج تجديد اشتراك GPS بالتقسيط — جدول دفعات أسبوعية.',
+    category: 'subscription',
+  },
+  {
     key: 'ownership_transfer',
     name_ar: 'نقل ملكية',
     description_ar: 'نموذج عقد نقل ملكية الجهاز من مالك إلى آخر.',
