@@ -4,10 +4,12 @@ import { api, getErrorMessage } from '../../../api/client'
 import type { PaginatedResponse, Promotion } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { Modal } from '../../../components/Modal'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -23,9 +25,25 @@ const emptyForm = {
   is_active: true,
 }
 
+function promotionToForm(promotion: Promotion) {
+  return {
+    name_ar: promotion.name_ar ?? '',
+    promotion_type: promotion.promotion_type ?? 'percent',
+    discount_value: String(promotion.discount_value ?? ''),
+    applies_to: promotion.applies_to ?? 'all',
+    start_date: promotion.start_date?.slice(0, 10) ?? '',
+    end_date: promotion.end_date?.slice(0, 10) ?? '',
+    min_quantity: String(promotion.min_quantity ?? 1),
+    max_uses: promotion.max_uses != null ? String(promotion.max_uses) : '',
+    is_active: promotion.is_active ?? true,
+  }
+}
+
 export function PromotionsPage() {
   const queryClient = useQueryClient()
+  const crudConfig = getEntityCrudConfig('promotions')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
 
@@ -52,6 +70,10 @@ export function PromotionsPage() {
         max_uses: form.max_uses ? Number(form.max_uses) : null,
         is_active: form.is_active,
       }
+      if (editId) {
+        const { data } = await api.put<Promotion>(`/pricing/promotions/${editId}`, payload)
+        return data
+      }
       const { data } = await api.post<Promotion>('/pricing/promotions', payload)
       return data
     },
@@ -59,11 +81,30 @@ export function PromotionsPage() {
       queryClient.invalidateQueries({ queryKey: ['pricing', 'promotions'] })
       queryClient.invalidateQueries({ queryKey: ['pricing', 'promotions', 'active'] })
       setModalOpen(false)
+      setEditId(null)
       setForm(emptyForm)
-      setToast('تم إنشاء العرض')
+      setToast(editId ? 'تم تحديث العرض' : 'تم إنشاء العرض')
     },
     onError: (err) => setToast(getErrorMessage(err)),
   })
+
+  const openCreate = () => {
+    setEditId(null)
+    setForm(emptyForm)
+    setModalOpen(true)
+  }
+
+  const openEdit = (promotion: Promotion) => {
+    setEditId(promotion.id)
+    setForm(promotionToForm(promotion))
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setModalOpen(false)
+    setEditId(null)
+    setForm(emptyForm)
+  }
 
   return (
     <SalesPageShell
@@ -72,7 +113,7 @@ export function PromotionsPage() {
       actions={
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={openCreate}
           className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
         >
           عرض جديد
@@ -127,11 +168,24 @@ export function PromotionsPage() {
                 />
               ),
             },
+            {
+              key: 'actions',
+              header: '',
+              render: (row) => (
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['pricing', 'promotions']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
+              ),
+            },
           ]}
         />
       </AsyncState>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="عرض ترويجي جديد">
+      <Modal open={modalOpen} onClose={closeModal} title={editId ? 'تعديل عرض' : 'عرض ترويجي جديد'}>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -164,11 +218,19 @@ export function PromotionsPage() {
           />
           <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className={inputClass} />
           <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} />
+          <label className="flex items-center gap-sm text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+            />
+            نشط
+          </label>
           <div className="flex gap-sm sm:col-span-2">
-            <button type="submit" className="rounded-lg bg-primary px-md py-sm text-sm text-on-primary">
+            <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-primary px-md py-sm text-sm text-on-primary">
               حفظ
             </button>
-            <button type="button" onClick={() => setModalOpen(false)} className="rounded-lg border px-md py-sm text-sm">
+            <button type="button" onClick={closeModal} className="rounded-lg border px-md py-sm text-sm">
               إلغاء
             </button>
           </div>

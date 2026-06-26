@@ -13,7 +13,8 @@ import { ToastBanner } from '../../../components/ToastBanner'
 import { useAuthStore } from '../../../stores/authStore'
 import { getScopedDepartmentId, isDepartmentAdmin, isSuperAdmin } from '../../../lib/access'
 import { formatRoleLabel } from '../../../lib/roleCatalog'
-import { getAdministrationApiFilters } from '../../../lib/administrationScope'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 const PER_PAGE = 15
@@ -42,6 +43,7 @@ export function AdminUsersPage() {
   const [adminFilter, setAdminFilter] = useState(() => (scopedAdminId ? String(scopedAdminId) : ''))
   const [branchFilter, setBranchFilter] = useState('')
   const [sectionFilter, setSectionFilter] = useState('')
+  const crudConfig = getEntityCrudConfig('adminUsers')
 
   const usersQuery = useQuery({
     queryKey: ['admin', 'users', page, search, adminFilter, branchFilter, sectionFilter],
@@ -345,7 +347,13 @@ export function AdminUsersPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <button type="button" onClick={() => openEdit(row)} className="text-xs text-primary hover:underline">تعديل</button>
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['admin', 'users']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
               ),
             },
           ]}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
 import type { Service } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
@@ -10,21 +10,22 @@ import { Icon } from '../components/Icon'
 import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
+import { EntityRowActions } from '../components/crud/EntityRowActions'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, paginatedMeta } from '../lib/sales'
 import { contractTemplateLabel } from '../lib/contractTemplates'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
 
 export function ServicesPage() {
-  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const canManage = ['super_admin', 'admin'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [deleteError, setDeleteError] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
+  const crudConfig = getEntityCrudConfig('services')
 
   const query = useQuery({
     queryKey: ['services', debouncedSearch, statusFilter, page],
@@ -36,22 +37,6 @@ export function ServicesPage() {
       return data
     },
   })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/services/${id}`)
-    },
-    onSuccess: () => {
-      setDeleteError('')
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-    },
-    onError: (error) => setDeleteError(getErrorMessage(error)),
-  })
-
-  const handleDelete = (service: Service) => {
-    if (!window.confirm(`حذف الخدمة "${service.name_ar || service.name}"؟`)) return
-    deleteMutation.mutate(service.id)
-  }
 
   const meta = query.data ? paginatedMeta(query.data) : null
   const rows = query.data?.data ?? []
@@ -115,8 +100,6 @@ export function ServicesPage() {
         />
       }
     >
-      {deleteError && <p className="mb-md text-sm text-error">{deleteError}</p>}
-
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<Service & Record<string, unknown>>
           data={rows as (Service & Record<string, unknown>)[]}
@@ -149,24 +132,12 @@ export function ServicesPage() {
               header: '',
               render: (row) =>
                 canManage ? (
-                  <div className="flex items-center gap-md">
-                    <Link
-                      to={`/services/${row.id}/edit`}
-                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      <Icon name="edit" size={18} />
-                      تعديل
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(row)}
-                      disabled={deleteMutation.isPending}
-                      className="inline-flex items-center gap-1 text-sm text-error hover:underline disabled:opacity-50"
-                    >
-                      <Icon name="delete" size={18} />
-                      حذف
-                    </button>
-                  </div>
+                  <EntityRowActions
+                    row={row}
+                    config={crudConfig}
+                    queryKeys={[['services']]}
+                    showView={false}
+                  />
                 ) : (
                   '—'
                 ),

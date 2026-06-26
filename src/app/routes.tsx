@@ -18,6 +18,7 @@ import { ContractTemplatesPage } from '../pages/ContractTemplatesPage'
 import { ContractTemplatePreviewPage } from '../pages/ContractTemplatePreviewPage'
 import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
+import { CustomerEditPage } from '../pages/CustomerEditPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
 import { DistributorsPage } from '../pages/DistributorsPage'
 import { DistributorAddPage } from '../pages/DistributorAddPage'
@@ -176,6 +177,7 @@ export function AppRoutes() {
             <Route path="distributors/:id" element={<DistributorDetailPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/add" element={<CustomerAddPage />} />
+            <Route path="customers/:id/edit" element={<CustomerEditPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
             <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />

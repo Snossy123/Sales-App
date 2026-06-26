@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { AdminUser, Branch, Department, Employee, HrmJob, PaginatedResponse, ZkDevice } from '../../../api/types'
@@ -11,6 +10,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ProfileAvatar } from '../../../components/ProfileAvatar'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { EmployeeUserField } from '../components/EmployeeUserField'
 import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
@@ -36,6 +37,7 @@ export function HrmEmployeesPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
+  const crudConfig = getEntityCrudConfig('employees')
 
   const query = useQuery({
     queryKey: ['employees'],
@@ -265,10 +267,12 @@ export function HrmEmployeesPage() {
             { key: 'salary', header: 'الراتب', className: 'tabular-nums', render: (row) => row.salary != null ? Number(row.salary).toLocaleString('ar-EG') : '—' },
             { key: 'status', header: 'الحالة', render: (row) => <StatusBadge status={row.status} /> },
             { key: 'actions', header: '', render: (row) => (
-              <div className="flex gap-2">
-                <Link to={`/hrm/employees/${row.id}`} className="text-xs text-primary hover:underline">عرض</Link>
-                <button type="button" onClick={() => openEdit(row)} className="text-xs text-on-surface-variant hover:underline">تعديل</button>
-              </div>
+              <EntityRowActions
+                row={row as Employee}
+                config={crudConfig}
+                queryKeys={[['employees']]}
+                onEdit={openEdit}
+              />
             ) },
           ]}
         />

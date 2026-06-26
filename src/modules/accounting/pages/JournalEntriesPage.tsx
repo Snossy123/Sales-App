@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatDate, formatMoney } from '../../../lib/accounting'
 import {
   JournalLineEditor,
@@ -44,6 +46,7 @@ export function JournalEntriesPage() {
   const [lines, setLines] = useState<JournalLineForm[]>([emptyJournalLine(), emptyJournalLine()])
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
+  const crudConfig = getEntityCrudConfig('journalEntries')
 
   const query = useQuery({
     queryKey: ['accounting', 'journal-entries'],
@@ -201,7 +204,7 @@ export function JournalEntriesPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <div className="flex gap-xs">
+                <div className="flex flex-wrap items-center gap-xs">
                   <button
                     type="button"
                     onClick={() => openView(row as AccountingAccTransMapping)}
@@ -209,13 +212,13 @@ export function JournalEntriesPage() {
                   >
                     عرض
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(row as AccountingAccTransMapping)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    تعديل
-                  </button>
+                  <EntityRowActions
+                    row={row as AccountingAccTransMapping}
+                    config={crudConfig}
+                    queryKeys={[['accounting']]}
+                    onEdit={openEdit}
+                    showView={false}
+                  />
                 </div>
               ),
             },

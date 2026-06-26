@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const paymentMethodLabels: Record<string, string> = {
   wallet: 'محفظة',
@@ -30,6 +32,7 @@ export function CollectionAccountsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const crudConfig = getEntityCrudConfig('collectionAccounts')
 
   const accountsQuery = useQuery({
     queryKey: ['collection-accounts'],
@@ -71,13 +74,6 @@ export function CollectionAccountsPage() {
     mutationFn: async (id: number) => {
       const { data } = await api.patch(`/collection-accounts/${id}/toggle`)
       return data
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collection-accounts'] }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/collection-accounts/${id}`)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collection-accounts'] }),
   })
@@ -153,23 +149,20 @@ export function CollectionAccountsPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => openEdit(row)} className="text-xs text-primary hover:underline">
-                    تعديل
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EntityRowActions
+                    row={row}
+                    config={crudConfig}
+                    queryKeys={[['collection-accounts']]}
+                    onEdit={openEdit}
+                    showView={false}
+                  />
                   <button
                     type="button"
                     onClick={() => toggleMutation.mutate(row.id)}
                     className="text-xs text-on-surface-variant hover:underline"
                   >
                     {row.is_active ? 'إلغاء' : 'تفعيل'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteMutation.mutate(row.id)}
-                    className="text-xs text-error hover:underline"
-                  >
-                    حذف
                   </button>
                 </div>
               ),

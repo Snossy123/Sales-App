@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatMoney } from '../../../lib/accounting'
 
 const monthLabels = [
@@ -37,6 +39,7 @@ export function BudgetsPage() {
   const [months, setMonths] = useState(emptyMonths())
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
+  const crudConfig = getEntityCrudConfig('budgets')
 
   const query = useQuery({
     queryKey: ['accounting', 'budgets', year],
@@ -171,13 +174,13 @@ export function BudgetsPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <button
-                  type="button"
-                  onClick={() => openEdit(row as AccountingBudget)}
-                  className="text-xs text-primary hover:underline"
-                >
-                  تعديل
-                </button>
+                <EntityRowActions
+                  row={row as AccountingBudget}
+                  config={crudConfig}
+                  queryKeys={[['accounting', 'budgets']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
               ),
             },
           ]}

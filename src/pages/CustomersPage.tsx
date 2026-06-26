@@ -11,7 +11,9 @@ import { Pagination } from '../components/Pagination'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
+import { EntityRowActions } from '../components/crud/EntityRowActions'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, customerStatusOptions, paginatedMeta } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
@@ -25,6 +27,7 @@ export function CustomersPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const debouncedSearch = useDebouncedValue(search, 300)
+  const crudConfig = getEntityCrudConfig('customers')
 
   const query = useQuery({
     queryKey: ['customers', debouncedSearch, statusFilter, listScopeKey, page],
@@ -131,13 +134,11 @@ export function CustomersPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <Link
-                  to={`/customers/${row.id}`}
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <Icon name="visibility" size={18} />
-                  عرض
-                </Link>
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['customers']]}
+                />
               ),
             },
           ]}

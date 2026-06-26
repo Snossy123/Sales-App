@@ -5,6 +5,8 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 interface FaqItemRow {
   id: number
@@ -28,6 +30,7 @@ export function AdminFaqPage() {
   const [editing, setEditing] = useState<FaqItemRow | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [open, setOpen] = useState(false)
+  const crudConfig = getEntityCrudConfig('faqItems')
 
   const itemsQuery = useQuery({
     queryKey: ['admin', 'faq'],
@@ -52,16 +55,6 @@ export function AdminFaqPage() {
       setOpen(false)
       setEditing(null)
       setForm(emptyForm)
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/admin/faq-items/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'faq'] })
-      queryClient.invalidateQueries({ queryKey: ['faq'] })
     },
   })
 
@@ -117,18 +110,13 @@ export function AdminFaqPage() {
               key: 'actions',
               header: '',
               render: (r) => (
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => openEdit(r)} className="text-sm text-primary hover:underline">
-                    تعديل
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteMutation.mutate(r.id)}
-                    className="text-sm text-error hover:underline"
-                  >
-                    حذف
-                  </button>
-                </div>
+                <EntityRowActions
+                  row={r}
+                  config={crudConfig}
+                  queryKeys={[['admin', 'faq'], ['faq']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
               ),
             },
           ]}

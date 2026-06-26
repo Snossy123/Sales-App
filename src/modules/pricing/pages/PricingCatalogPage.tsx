@@ -8,6 +8,8 @@ import { Modal } from '../../../components/Modal'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -25,6 +27,7 @@ export function PricingCatalogPage() {
   const [editItem, setEditItem] = useState<PriceCatalogItem | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
+  const crudConfig = getEntityCrudConfig('priceCatalog')
 
   const catalogQuery = useQuery({
     queryKey: ['pricing', 'catalog'],
@@ -135,13 +138,13 @@ export function PricingCatalogPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <button
-                  type="button"
-                  onClick={() => openEdit(row as PriceCatalogItem)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  تعديل
-                </button>
+                <EntityRowActions
+                  row={row as PriceCatalogItem}
+                  config={crudConfig}
+                  queryKeys={[['pricing', 'catalog']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
               ),
             },
           ]}

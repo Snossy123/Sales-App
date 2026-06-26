@@ -7,6 +7,8 @@ import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const CAMPAIGN_TYPES = [
   { value: 'sms', label: 'رسائل SMS' },
@@ -26,6 +28,7 @@ export function CrmCampaignsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const crudConfig = getEntityCrudConfig('crmCampaigns')
 
   const query = useQuery({
     queryKey: ['crm-campaigns'],
@@ -221,14 +224,13 @@ export function CrmCampaignsPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(row)}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    تعديل
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EntityRowActions
+                    row={row as CrmCampaign}
+                    config={crudConfig}
+                    queryKeys={[['crm-campaigns']]}
+                    onEdit={startEdit}
+                  />
                   {!row.sent_on && (
                     <button
                       type="button"

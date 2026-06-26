@@ -10,6 +10,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 type HolidayRow = HrmHoliday & Record<string, unknown>
 type Panel = 'create' | 'edit' | null
@@ -32,6 +34,7 @@ export function HrmHolidaysPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [successToast, setSuccessToast] = useState('')
+  const crudConfig = getEntityCrudConfig('hrmHolidays')
 
   const holidaysQuery = useQuery({
     queryKey: ['hrm', 'holidays', listScopeKey],
@@ -151,13 +154,12 @@ export function HrmHolidaysPage() {
               key: 'actions',
               header: 'إجراءات',
               render: (row) => (
-                <button
-                  type="button"
-                  onClick={() => openEdit(row)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  تعديل
-                </button>
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['hrm', 'holidays']]}
+                  onEdit={openEdit}
+                />
               ),
             },
           ]}

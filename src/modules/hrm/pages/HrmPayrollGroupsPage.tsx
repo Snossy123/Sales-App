@@ -9,6 +9,8 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -17,6 +19,7 @@ export function HrmPayrollGroupsPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [form, setForm] = useState({ name: '', payroll_record_ids: [] as number[] })
+  const crudConfig = getEntityCrudConfig('hrmPayrollGroups')
 
   const query = useQuery({
     queryKey: ['hrm', 'payroll-groups'],
@@ -95,9 +98,19 @@ export function HrmPayrollGroupsPage() {
               <StatusBadge status={String(row.payment_status ?? 'due')} label={row.payment_status === 'paid' ? 'مدفوع' : 'مستحق'} />
             ) },
             { key: 'records', header: 'السجلات', render: (row) => row.payrollRecords?.length ?? 0 },
-            { key: 'actions', header: '', render: (row) => row.payment_status !== 'paid' ? (
-              <button type="button" onClick={() => markPaidMutation.mutate(row.id)} className="text-xs text-primary hover:underline">تسجيل الدفع</button>
-            ) : null },
+            { key: 'actions', header: '', render: (row) => (
+              <div className="flex flex-wrap items-center gap-2">
+                {row.payment_status !== 'paid' && (
+                  <button type="button" onClick={() => markPaidMutation.mutate(row.id)} className="text-xs text-primary hover:underline">تسجيل الدفع</button>
+                )}
+                <EntityRowActions
+                  row={row as HrmPayrollGroup}
+                  config={crudConfig}
+                  queryKeys={[['hrm', 'payroll-groups']]}
+                  showView={false}
+                />
+              </div>
+            ) },
           ]}
         />
       </AsyncState>

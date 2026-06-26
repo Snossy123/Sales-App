@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -17,6 +19,7 @@ export function HrmLeaveTypesPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({ leave_type: '', max_leave_count: '', leave_count_interval: 'year' })
   const [toast, setToast] = useState('')
+  const crudConfig = getEntityCrudConfig('hrmLeaveTypes')
 
   const query = useQuery({
     queryKey: ['hrm', 'leave-types'],
@@ -49,6 +52,16 @@ export function HrmLeaveTypesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const openEdit = (row: HrmLeaveType) => {
+    setEditId(row.id)
+    setForm({
+      leave_type: row.leave_type,
+      max_leave_count: String(row.max_leave_count ?? ''),
+      leave_count_interval: row.leave_count_interval ?? 'year',
+    })
+    setPanelOpen(true)
+  }
+
   return (
     <div>
       <PageHeader title="أنواع الإجازة" subtitle="تعريف أنواع الإجازات والحد الأقصى" actions={
@@ -68,7 +81,12 @@ export function HrmLeaveTypesPage() {
             { key: 'max_leave_count', header: 'الحد الأقصى', className: 'tabular-nums' },
             { key: 'leave_count_interval', header: 'الفترة', render: (row) => row.leave_count_interval === 'month' ? 'شهري' : 'سنوي' },
             { key: 'actions', header: '', render: (row) => (
-              <button type="button" onClick={() => { setEditId(row.id); setForm({ leave_type: row.leave_type, max_leave_count: String(row.max_leave_count ?? ''), leave_count_interval: row.leave_count_interval ?? 'year' }); setPanelOpen(false) }} className="text-xs text-primary hover:underline">تعديل</button>
+              <EntityRowActions
+                row={row as HrmLeaveType}
+                config={crudConfig}
+                queryKeys={[['hrm', 'leave-types']]}
+                onEdit={openEdit}
+              />
             ) },
           ]}
         />

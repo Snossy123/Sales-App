@@ -8,7 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
-import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -24,6 +25,7 @@ export function HrmJobsPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
+  const crudConfig = getEntityCrudConfig('hrmJobs')
 
   const query = useQuery({
     queryKey: ['hrm', 'jobs'],
@@ -116,13 +118,13 @@ export function HrmJobsPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <button
-                  type="button"
-                  onClick={() => openEdit(row)}
-                  className="text-xs text-primary hover:underline"
-                >
-                  تعديل
-                </button>
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['hrm', 'jobs']]}
+                  onEdit={openEdit}
+                  showView={false}
+                />
               ),
             },
           ]}

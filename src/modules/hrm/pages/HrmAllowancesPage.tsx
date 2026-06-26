@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -15,6 +17,7 @@ export function HrmAllowancesPage() {
   const queryClient = useQueryClient()
   const [panelOpen, setPanelOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const crudConfig = getEntityCrudConfig('hrmAllowances')
   const [form, setForm] = useState({
     description: '',
     type: 'allowance' as 'allowance' | 'deduction',
@@ -85,6 +88,18 @@ export function HrmAllowancesPage() {
             { key: 'type', header: 'النوع', render: (row) => row.type === 'allowance' ? 'بدل' : 'خصم' },
             { key: 'amount', header: 'القيمة', className: 'tabular-nums', render: (row) => Number(row.amount).toLocaleString('ar-EG') },
             { key: 'employees', header: 'الموظفون', render: (row) => row.employees?.map((e) => e.name).join('، ') ?? '—' },
+            {
+              key: 'actions',
+              header: '',
+              render: (row) => (
+                <EntityRowActions
+                  row={row as HrmAllowance}
+                  config={crudConfig}
+                  queryKeys={[['hrm', 'allowances']]}
+                  showView={false}
+                />
+              ),
+            },
           ]}
         />
       </AsyncState>

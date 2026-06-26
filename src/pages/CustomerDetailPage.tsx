@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { api, getErrorMessage } from '../api/client'
@@ -11,6 +11,9 @@ import { Icon } from '../components/Icon'
 import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { ProfilePhotoUploader } from '../components/ProfilePhotoUploader'
 import { StatusBadge } from '../components/StatusBadge'
+import { DeleteConfirmDialog } from '../components/crud/DeleteConfirmDialog'
+import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
+import { useSoftDelete } from '../lib/crud/useSoftDelete'
 import { getUserRole } from '../lib/permissions'
 import {
   distributorLabel,
@@ -73,14 +76,26 @@ function ProfileDetailItem({
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const branches = useContextStore((s) => s.branches)
+  const crudConfig = getEntityCrudConfig('customers')
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
+  const canDelete = ['super_admin', 'admin'].includes(getUserRole(user))
   const canRefund = ['super_admin', 'admin', 'collector'].includes(getUserRole(user))
   const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
   const [assignBranchId, setAssignBranchId] = useState<number | ''>('')
   const [branchToast, setBranchToast] = useState('')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  const deleteMutation = useSoftDelete({
+    resource: 'customers',
+    queryKeys: [['customers']],
+    onSuccess: () => navigate('/customers'),
+    onError: (message) => setDeleteError(message),
+  })
 
   const availableBranches = useMemo(() => {
     const scopedIds = getScopedBranchIds(user, branches)
@@ -188,6 +203,28 @@ export function CustomerDetailPage() {
                       <h1 className="text-2xl font-bold text-on-surface">{customer.name}</h1>
                       <StatusBadge status={customer.status} />
                     </div>
+                    {canManage && (
+                      <div className="mt-sm flex flex-wrap items-center gap-md">
+                        <Link
+                          to={`/customers/${customer.id}/edit`}
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          <Icon name="edit" size={18} />
+                          تعديل
+                        </Link>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteOpen(true)}
+                            className="inline-flex items-center gap-1 text-sm text-error hover:underline"
+                          >
+                            <Icon name="delete" size={18} />
+                            حذف
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {deleteError && <p className="mt-xs text-xs text-error">{deleteError}</p>}
                   </div>
                   <ProfilePhotoUploader
                     entityType="customer"
@@ -361,6 +398,16 @@ export function CustomerDetailPage() {
         onClose={() => setRefundTarget(null)}
         invalidateKeys={id ? [['payment-transactions', 'customer', id]] : undefined}
       />
+
+      {customer && (
+        <DeleteConfirmDialog
+          open={deleteOpen}
+          message={crudConfig.deleteConfirmMessage?.(customer) ?? `حذف "${customer.name}"؟`}
+          isPending={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(customer.id)}
+          onCancel={() => setDeleteOpen(false)}
+        />
+      )}
     </div>
   )
 }

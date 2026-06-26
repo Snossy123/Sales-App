@@ -1,14 +1,21 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../../../api/client'
+import { api, getErrorMessage } from '../../../api/client'
 import type { CrmDashboardStats, Lead, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { KpiCard } from '../../../components/KpiCard'
+import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
+import { DeleteConfirmDialog } from '../../../components/crud/DeleteConfirmDialog'
 import { StartTourButton } from '../../../components/tour/StartTourButton'
 import { usePageTour } from '../../../hooks/usePageTour'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { useSoftDelete } from '../../../lib/crud/useSoftDelete'
 import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
+
+const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 const STAGES = [
   { key: 'new', label: 'جديد', color: 'bg-surface-container-high' },
@@ -30,6 +37,12 @@ export function CrmPipelinePage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getListScopeQueryKey(user)
+  const crudConfig = getEntityCrudConfig('leads')
+  const [editLead, setEditLead] = useState<Lead | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', phone: '', source: '' })
+  const [deleteLead, setDeleteLead] = useState<Lead | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+  const [editError, setEditError] = useState('')
 
   const dashboardQuery = useQuery({
     queryKey: ['crm-dashboard'],
@@ -62,6 +75,45 @@ export function CrmPipelinePage() {
       queryClient.invalidateQueries({ queryKey: ['crm-dashboard'] })
     },
   })
+
+  const saveEditMutation = useMutation({
+    mutationFn: async () => {
+      if (!editLead) throw new Error('no lead')
+      const { data } = await api.put<Lead>(`/leads/${editLead.id}`, {
+        name: editForm.name,
+        phone: editForm.phone,
+        source: editForm.source || null,
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['crm-dashboard'] })
+      setEditLead(null)
+      setEditError('')
+    },
+    onError: (err) => setEditError(getErrorMessage(err)),
+  })
+
+  const deleteMutation = useSoftDelete({
+    resource: 'leads',
+    queryKeys: [['leads'], ['crm-dashboard']],
+    onSuccess: () => {
+      setDeleteLead(null)
+      setDeleteError('')
+    },
+    onError: (message) => setDeleteError(message),
+  })
+
+  const openEdit = (lead: Lead) => {
+    setEditLead(lead)
+    setEditForm({
+      name: lead.name,
+      phone: lead.phone,
+      source: lead.source ?? '',
+    })
+    setEditError('')
+  }
 
   const leadsByStage = (stage: string) =>
     (query.data ?? [])
@@ -154,6 +206,25 @@ export function CrmPipelinePage() {
                           {lead.source}
                         </p>
                       )}
+                      <div className="mt-sm flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(lead)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteLead(lead)
+                            setDeleteError('')
+                          }}
+                          className="text-xs text-error hover:underline"
+                        >
+                          حذف
+                        </button>
+                      </div>
                       <select
                         value={lead.status}
                         onChange={(e) =>
@@ -180,6 +251,72 @@ export function CrmPipelinePage() {
           })}
         </div>
       </AsyncState>
+
+      <Modal
+        open={editLead !== null}
+        onClose={() => setEditLead(null)}
+        title="تعديل عميل محتمل"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveEditMutation.mutate()
+          }}
+          className="space-y-sm"
+        >
+          <input
+            placeholder="الاسم"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            required
+            className={inputClass}
+          />
+          <input
+            placeholder="الهاتف"
+            value={editForm.phone}
+            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+            required
+            className={inputClass}
+            dir="ltr"
+          />
+          <input
+            placeholder="المصدر"
+            value={editForm.source}
+            onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+            className={inputClass}
+          />
+          {editError && <p className="text-sm text-error">{editError}</p>}
+          <div className="flex gap-sm">
+            <button
+              type="submit"
+              disabled={saveEditMutation.isPending}
+              className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary"
+            >
+              حفظ
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditLead(null)}
+              className="rounded-lg border px-md py-2 text-sm"
+            >
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <DeleteConfirmDialog
+        open={deleteLead !== null}
+        message={
+          deleteLead
+            ? crudConfig.deleteConfirmMessage?.(deleteLead) ?? `حذف "${crudConfig.label(deleteLead)}"؟`
+            : ''
+        }
+        isPending={deleteMutation.isPending}
+        onConfirm={() => deleteLead && deleteMutation.mutate(deleteLead.id)}
+        onCancel={() => setDeleteLead(null)}
+      />
+      {deleteError && <p className="mt-sm text-sm text-error">{deleteError}</p>}
     </div>
   )
 }

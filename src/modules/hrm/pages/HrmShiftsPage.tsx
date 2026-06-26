@@ -8,6 +8,8 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 type ShiftRow = HrmShift & Record<string, unknown>
 type Panel = 'create' | 'edit' | 'assign' | null
@@ -31,6 +33,7 @@ export function HrmShiftsPage() {
   const [assignShiftId, setAssignShiftId] = useState<number | null>(null)
   const [assignForm, setAssignForm] = useState({ employee_ids: [] as number[], start_date: new Date().toISOString().split('T')[0] })
   const [successToast, setSuccessToast] = useState('')
+  const crudConfig = getEntityCrudConfig('hrmShifts')
 
   const query = useQuery({
     queryKey: ['hrm', 'shifts'],
@@ -173,8 +176,13 @@ export function HrmShiftsPage() {
               key: 'actions',
               header: 'إجراءات',
               render: (row) => (
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => openEdit(row)} className="text-sm text-primary hover:underline">تعديل</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EntityRowActions
+                    row={row}
+                    config={crudConfig}
+                    queryKeys={[['hrm', 'shifts']]}
+                    onEdit={openEdit}
+                  />
                   <button type="button" onClick={() => { setAssignShiftId(row.id); setPanel('assign') }} className="text-sm text-secondary hover:underline">تعيين</button>
                 </div>
               ),

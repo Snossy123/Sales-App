@@ -11,7 +11,9 @@ import { ProfileAvatar } from '../components/ProfileAvatar'
 import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
+import { EntityRowActions } from '../components/crud/EntityRowActions'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import {
   type ApiPaginated,
   distributorContractCustomerCount,
@@ -41,6 +43,7 @@ export function DistributorsPage() {
   const [page, setPage] = useState(1)
   const debouncedSearch = useDebouncedValue(search, 300)
   const debouncedCode = useDebouncedValue(codeSearch, 300)
+  const crudConfig = getEntityCrudConfig('distributors')
 
   const query = useQuery({
     queryKey: ['distributors', debouncedSearch, debouncedCode, statusFilter, listScopeKey, page],
@@ -202,13 +205,11 @@ export function DistributorsPage() {
               key: 'actions',
               header: '',
               render: (row) => (
-                <Link
-                  to={`/distributors/${row.id}`}
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <Icon name="visibility" size={18} />
-                  عرض
-                </Link>
+                <EntityRowActions
+                  row={row}
+                  config={crudConfig}
+                  queryKeys={[['distributors']]}
+                />
               ),
             },
           ]}
