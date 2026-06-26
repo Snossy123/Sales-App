@@ -4,7 +4,8 @@ import { Icon } from '../Icon'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { useSoftDelete } from '../../lib/crud/useSoftDelete'
 import type { EntityCrudConfig } from '../../lib/crud/types'
-import { getUserRole, type UserRole } from '../../lib/permissions'
+import type { DemoRole } from '../../api/types'
+import { getUserRole } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
 
 interface EntityRowActionsProps<T extends { id: number }> {
@@ -15,7 +16,7 @@ interface EntityRowActionsProps<T extends { id: number }> {
   showView?: boolean
 }
 
-function hasPermission(roles: UserRole[] | undefined, userRole: UserRole): boolean {
+function hasPermission(roles: DemoRole[] | undefined, userRole: DemoRole): boolean {
   if (!roles?.length) return false
   return roles.includes(userRole)
 }

@@ -9,6 +9,7 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { ToastBanner } from '../../../components/ToastBanner'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'

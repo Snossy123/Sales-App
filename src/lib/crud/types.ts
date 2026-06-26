@@ -1,12 +1,12 @@
-import type { UserRole } from '../permissions'
+import type { DemoRole } from '../../api/types'
 
 export type EditMode = 'route' | 'modal' | 'inline'
 
 export interface EntityCrudPermissions {
-  create?: UserRole[]
-  read?: UserRole[]
-  edit?: UserRole[]
-  delete?: UserRole[]
+  create?: DemoRole[]
+  read?: DemoRole[]
+  edit?: DemoRole[]
+  delete?: DemoRole[]
 }
 
 export interface EntityCrudConfig<T extends { id: number } = { id: number }> {

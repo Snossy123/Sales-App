@@ -15,6 +15,7 @@ import { getScopedDepartmentId, isDepartmentAdmin, isSuperAdmin } from '../../..
 import { formatRoleLabel } from '../../../lib/roleCatalog'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { getAdministrationApiFilters } from '../../../lib/administrationScope'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 const PER_PAGE = 15
