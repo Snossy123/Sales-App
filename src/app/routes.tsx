@@ -86,6 +86,8 @@ import { CrmCampaignsPage } from '../modules/crm/pages/CrmCampaignsPage'
 import { CrmProposalsPage } from '../modules/crm/pages/CrmProposalsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
 import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
+import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
+import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
 import { PortalLoginPage } from '../modules/crm/portal/PortalLoginPage'
 import { PortalLayout } from '../modules/crm/portal/PortalLayout'
 import { PortalDashboardPage } from '../modules/crm/portal/PortalDashboardPage'
@@ -232,6 +234,8 @@ export function AppRoutes() {
             <Route path="crm/proposals" element={<CrmProposalsPage />} />
             <Route path="crm/reports" element={<CrmReportsPage />} />
             <Route path="crm/settings" element={<CrmSettingsPage />} />
+            <Route path="support/tasks" element={<SupportTasksAdminPage />} />
+            <Route path="support/my-tasks" element={<MyTasksPage />} />
           </Route>
         </Route>
       </Route>

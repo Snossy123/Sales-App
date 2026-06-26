@@ -227,6 +227,18 @@ export const navEntries: NavEntry[] = [
       ],
     },
   },
+  {
+    type: 'group',
+    group: {
+      id: 'support',
+      label: 'الدعم الفني',
+      icon: 'support_agent',
+      items: [
+        { to: '/support/my-tasks', icon: 'assignment_ind', label: 'مهامي', end: true, roles: ['super_admin', 'admin', 'support'] },
+        { to: '/support/tasks', icon: 'assignment', label: 'إدارة المهام', roles: ['super_admin', 'admin'] },
+      ],
+    },
+  },
 ]
 
 const routeRoles: Record<string, DemoRole[]> = {
@@ -299,6 +311,8 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/crm/marketplace': ['super_admin', 'admin', 'crm'],
   '/crm/reports': ['super_admin', 'admin', 'crm'],
   '/crm/settings': ['super_admin', 'admin', 'crm'],
+  '/support/my-tasks': ['super_admin', 'admin', 'support'],
+  '/support/tasks': ['super_admin', 'admin'],
 }
 
 function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
@@ -472,6 +486,7 @@ export function getDefaultRoute(user: AuthUser | null): string {
   if (role === 'crm') return '/crm'
   if (role === 'hr_manager') return '/hrm'
   if (role === 'accountant') return '/accounting'
+  if (role === 'support') return '/support/my-tasks'
   if (role === 'admin') return '/gps/management'
   return '/'
 }

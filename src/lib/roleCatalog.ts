@@ -12,6 +12,7 @@ export const SYSTEM_ROLE_LABELS: Record<string, string> = {
   Accountant: 'المحاسبة',
   HrManager: 'الموارد البشرية',
   CrmSpecialist: 'مبيعات CRM',
+  SupportEmployee: 'الدعم الفني',
 }
 
 export const PROTECTED_ROLE_SLUGS = new Set(Object.keys(SYSTEM_ROLE_LABELS))

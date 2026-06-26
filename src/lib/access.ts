@@ -35,6 +35,7 @@ export function getUserRole(user: AuthUser | null): DemoRole {
 
   if (hasRole(user, 'Admin')) return 'super_admin'
   if (hasRole(user, 'AdministrationManager', 'BranchManager', 'Department Admin')) return 'admin'
+  if (hasRole(user, 'SupportEmployee')) return 'support'
 
   if (hasReviewerRole(user)) return 'reviewer'
   if (userHasReviewAccess(user)) return 'reviewer'
@@ -47,12 +48,14 @@ export function getUserRole(user: AuthUser | null): DemoRole {
   if (primary.includes('collector')) return 'collector'
   if (primary.includes('callcenter') || primary.includes('call_center')) return 'call_center'
   if (primary.includes('review')) return 'reviewer'
+  if (primary.includes('support')) return 'support'
   if (primary.includes('admin')) return 'admin'
 
   if (userHasPermission(user, 'users.manage')) return 'super_admin'
   if (userHasPermission(user, 'accounting.access_accounting_module')) return 'accountant'
   if (userHasPermission(user, 'hr.employees.manage')) return 'hr_manager'
   if (userHasPermission(user, 'crm.leads.manage')) return 'crm'
+  if (userHasPermission(user, 'support.view_assigned_tasks')) return 'support'
 
   return 'sales'
 }

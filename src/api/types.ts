@@ -141,7 +141,35 @@ export type DemoRole =
   | 'crm'
   | 'hr_manager'
   | 'accountant'
+  | 'support'
 export type UserSection = 'sales' | 'review' | 'collection'
+
+export type SupportTaskStatus =
+  | 'pending'
+  | 'assigned'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+
+export interface SupportTask {
+  id: number
+  sales_invoice_id: number
+  sales_invoice_line_id?: number | null
+  customer_id?: number | null
+  employee_id?: number | null
+  status: SupportTaskStatus
+  scheduled_at?: string | null
+  completed_at?: string | null
+  notes?: string | null
+  created_at?: string | null
+  employee_name?: string | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  invoice_number?: string | null
+  serial_number?: string | null
+  vehicle_info?: string | null
+  vehicle_type?: string | null
+}
 
 export interface AuthUser {
   id: number
