@@ -339,6 +339,12 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
   if (item.to === '/invoices') {
     return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
   }
+  if (item.to === '/support/my-tasks') {
+    return userHasPermission(user, 'support.view_assigned_tasks')
+  }
+  if (item.to === '/support/tasks') {
+    return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
+  }
   return false
 }
 
@@ -449,6 +455,20 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     const crmRoute = normalized === '/crm' ? '/crm' : (normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm')
     const allowed = routeRoles[crmRoute] ?? routeRoles['/crm']
     return allowed?.includes(role) ?? false
+  }
+
+  if (normalized.startsWith('/support')) {
+    if (normalized === '/support/my-tasks') {
+      if (routeRoles['/support/my-tasks']?.includes(role)) return true
+      return userHasPermission(user, 'support.view_assigned_tasks')
+    }
+    if (normalized === '/support/tasks') {
+      if (routeRoles['/support/tasks']?.includes(role)) return true
+      return (
+        userHasPermission(user, 'support.view_all_tasks')
+        || userHasPermission(user, 'support.assign_tasks')
+      )
+    }
   }
 
   const allowed = routeRoles[normalized]

@@ -34,6 +34,7 @@ export const MODULE_LABELS: Record<string, string> = {
   hrm: 'الموارد البشرية',
   accounting: 'المحاسبة',
   review: 'المراجعة',
+  support: 'الدعم الفني',
   scope: 'نطاق البيانات',
 }
 
@@ -81,6 +82,12 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     label: 'قسم التحصيل',
     icon: 'payments',
     modules: ['installments'],
+  },
+  {
+    id: 'support',
+    label: 'الدعم الفني',
+    icon: 'support_agent',
+    modules: ['support'],
   },
   {
     id: 'inventory',
@@ -143,6 +150,10 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'installments.reconcile', module: 'installments', category: 'other', label: 'تصالح الأقساط', description: 'فتح وإغلاق تصالح الأقساط المتأخرة' },
   { key: 'external_collections.collect', module: 'installments', category: 'other', label: 'التحصيلات الخارجية', description: 'تحصيل الأقساط عبر التحويل لمركز الاتصال' },
   { key: 'collection_accounts.manage', module: 'installments', category: 'other', label: 'حسابات التحويل', description: 'إدارة حسابات التحصيل الخارجي لكل رقم' },
+  { key: 'support.view_assigned_tasks', module: 'support', category: 'view', label: 'عرض مهامي', description: 'استعراض مهام التركيب والدعم المسندة للموظف' },
+  { key: 'support.update_assigned_tasks', module: 'support', category: 'edit', label: 'تحديث مهامي', description: 'تغيير حالة المهام المسندة (قيد التنفيذ، مكتمل، …)' },
+  { key: 'support.view_all_tasks', module: 'support', category: 'view', label: 'عرض كل المهام', description: 'استعراض جميع مهام الدعم الفني في النظام' },
+  { key: 'support.assign_tasks', module: 'support', category: 'other', label: 'إسناد وإنشاء المهام', description: 'إنشاء مهام جديدة وإسنادها لفنيي الدعم' },
   { key: 'users.manage', module: 'users', category: 'other', label: 'إدارة المستخدمين', description: 'إنشاء وتعديل حسابات الموظفين وربطهم بالفروع' },
   { key: 'roles.manage', module: 'roles', category: 'other', label: 'إدارة الأدوار', description: 'تعريف الأدوار وربط الصلاحيات بها' },
   { key: 'audit.view', module: 'audit', category: 'view', label: 'عرض سجل التدقيق', description: 'استعراض سجل العمليات والتغييرات الإدارية' },
