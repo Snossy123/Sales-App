@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../Icon'
-import { gpsDeviceRows as defaultRows } from '../../data/enterpriseGpsMock'
 import type { GpsDeviceRow } from '../../data/enterpriseGpsMock'
 
 export interface GpsDeviceTableRow extends GpsDeviceRow {
@@ -11,9 +10,14 @@ export interface GpsDeviceTableRow extends GpsDeviceRow {
 interface GpsDeviceTableProps {
   rows?: GpsDeviceTableRow[]
   totalCount?: number
+  emptyMessage?: string
 }
 
-export function GpsDeviceTable({ rows = defaultRows, totalCount }: GpsDeviceTableProps) {
+export function GpsDeviceTable({
+  rows = [],
+  totalCount,
+  emptyMessage = 'لا توجد فروع مسجّلة في هذه الإدارة',
+}: GpsDeviceTableProps) {
   const [search, setSearch] = useState('')
   const total = totalCount ?? rows.length
 
@@ -38,95 +42,72 @@ export function GpsDeviceTable({ rows = defaultRows, totalCount }: GpsDeviceTabl
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-md pr-xl pl-md font-body-md focus:ring-2 focus:ring-primary focus:outline-none"
-            placeholder="ابحث عن جهاز برقم المتسلسل، الطراز، أو العميل..."
+            placeholder="ابحث برمز الفرع، الاسم، أو العنوان..."
           />
-        </div>
-        <div className="flex items-center gap-sm">
-          <button
-            type="button"
-            className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
-          >
-            <Icon name="filter_list" size={20} className="no-flip" />
-            حالة الجهاز
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
-          >
-            <Icon name="router" size={20} className="no-flip" />
-            طراز GPS
-          </button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-outline-variant bg-surface-container-low text-right">
-              <th className="p-lg font-label-md text-on-surface-variant">الكود</th>
+              <th className="p-lg font-label-md text-on-surface-variant">رمز الفرع</th>
               <th className="p-lg font-label-md text-on-surface-variant">الفرع</th>
               <th className="p-lg font-label-md text-on-surface-variant">العنوان</th>
               <th className="p-lg" />
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant">
-            {filtered.map((row) => (
-              <tr
-                key={row.code}
-                className="group cursor-pointer border-r-4 border-transparent transition-colors hover:border-primary hover:bg-surface-container"
-              >
-                <td className="p-lg font-body-md font-semibold text-primary">
-                  {row.branchId ? (
-                    <Link to={`/branches/${row.branchId}`} className="hover:underline">
-                      {row.code}
-                    </Link>
-                  ) : (
-                    row.code
-                  )}
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="p-xl text-center font-body-md text-on-surface-variant">
+                  {search ? 'لا توجد نتائج مطابقة للبحث' : emptyMessage}
                 </td>
-                <td className="p-lg font-body-md font-medium text-on-surface">{row.model}</td>
-                <td className="p-lg font-body-md text-on-surface-variant">{row.client}</td>
-                <td className="p-lg text-left">
-                  {row.branchId ? (
-                    <Link to={`/branches/${row.branchId}`}>
+              </tr>
+            ) : (
+              filtered.map((row) => (
+                <tr
+                  key={row.branchId ?? row.code}
+                  className="group cursor-pointer border-r-4 border-transparent transition-colors hover:border-primary hover:bg-surface-container"
+                >
+                  <td className="p-lg font-body-md font-semibold text-primary">
+                    {row.branchId ? (
+                      <Link to={`/branches/${row.branchId}`} className="hover:underline">
+                        {row.code}
+                      </Link>
+                    ) : (
+                      row.code
+                    )}
+                  </td>
+                  <td className="p-lg font-body-md font-medium text-on-surface">{row.model}</td>
+                  <td className="p-lg font-body-md text-on-surface-variant">{row.client}</td>
+                  <td className="p-lg text-left">
+                    {row.branchId ? (
+                      <Link to={`/branches/${row.branchId}`}>
+                        <Icon
+                          name="more_vert"
+                          className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest no-flip"
+                        />
+                      </Link>
+                    ) : (
                       <Icon
                         name="more_vert"
                         className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest no-flip"
                       />
-                    </Link>
-                  ) : (
-                    <Icon
-                      name="more_vert"
-                      className="rounded-full p-sm text-on-surface-variant transition-colors group-hover:text-primary hover:bg-surface-container-highest no-flip"
-                    />
-                  )}
-                </td>
-              </tr>
-            ))}
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-low p-lg">
-        <p className="font-body-sm text-on-surface-variant">
-          عرض 1-{filtered.length} من أصل {total.toLocaleString('ar-EG')}
-        </p>
-        <div className="flex items-center gap-sm">
-          <button type="button" className="rounded-lg p-sm hover:bg-surface-container disabled:opacity-50" disabled>
-            <Icon name="chevron_right" className="rotate-180 no-flip" />
-          </button>
-          <button type="button" className="rounded bg-primary px-md py-1 font-label-sm text-on-primary">
-            1
-          </button>
-          <button type="button" className="rounded px-md py-1 font-label-sm hover:bg-surface-container-highest">
-            2
-          </button>
-          <button type="button" className="rounded px-md py-1 font-label-sm hover:bg-surface-container-highest">
-            3
-          </button>
-          <button type="button" className="rounded-lg p-sm hover:bg-surface-container">
-            <Icon name="chevron_left" className="rotate-180 no-flip" />
-          </button>
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-low p-lg">
+          <p className="font-body-sm text-on-surface-variant">
+            عرض {filtered.length} من أصل {total.toLocaleString('ar-EG')} فرع
+          </p>
         </div>
-      </div>
+      )}
     </section>
   )
 }

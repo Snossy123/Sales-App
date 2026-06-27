@@ -14,6 +14,7 @@ export interface Administration {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  department_stock?: DepartmentStock
   deletion_blockers?: AdministrationDeletionBlockers
 }
 

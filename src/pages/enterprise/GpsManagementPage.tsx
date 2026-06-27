@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Navigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import type { Administration, Branch, PaginatedResponse } from '../../api/types'
+import type { Administration, Branch, InventoryOverviewRow, PaginatedResponse } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
 import { Icon } from '../../components/Icon'
 import { SalesTrendChart } from '../../components/enterprise/SalesTrendChart'
@@ -46,18 +46,29 @@ export function GpsManagementPage() {
     },
   })
 
+  const inventoryQuery = useQuery({
+    queryKey: ['inventory', 'overview', administrationId],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: InventoryOverviewRow[] }>('/inventory/overview', {
+        params: { per_page: 100, 'filter[department_id]': administrationId },
+      })
+      return data.data
+    },
+  })
+
   const administration = administrationQuery.data
   const branches = branchesQuery.data ?? []
+  const inventoryRows = inventoryQuery.data ?? []
 
   const dashboard = useMemo(() => {
     if (!administration) return null
-    return buildDepartmentDashboard(administration, branches)
-  }, [administration, branches])
+    return buildDepartmentDashboard(administration, branches, inventoryRows)
+  }, [administration, branches, inventoryRows])
 
   const adminName = administration?.name_ar || administration?.name || '...'
-  const isLoading = administrationQuery.isLoading || branchesQuery.isLoading
-  const isError = administrationQuery.isError || branchesQuery.isError
-  const error = administrationQuery.error ?? branchesQuery.error
+  const isLoading = administrationQuery.isLoading || branchesQuery.isLoading || inventoryQuery.isLoading
+  const isError = administrationQuery.isError || branchesQuery.isError || inventoryQuery.isError
+  const error = administrationQuery.error ?? branchesQuery.error ?? inventoryQuery.error
 
   return (
     <AsyncState isLoading={isLoading} isError={isError} error={error}>
@@ -97,10 +108,6 @@ export function GpsManagementPage() {
                       {administration.is_active ? 'نشطة' : 'موقوفة'}
                     </span>
                   )}
-                  <span className="flex items-center gap-xs font-body-sm text-on-surface-variant">
-                    <Icon name="history" size={16} className="no-flip" />
-                    تحديث تلقائي: منذ دقيقتين
-                  </span>
                   <span className="font-body-sm text-on-surface-variant">
                     · {branches.length} فرع
                   </span>
@@ -126,10 +133,8 @@ export function GpsManagementPage() {
           </section>
 
           <SalesTrendChart
-            title="اتجهات المبيعات حسب الفرع"
             completionRate={dashboard.completionRate}
-            legend={dashboard.chartLegend}
-            tooltipText={dashboard.tooltipText}
+            chartData={dashboard.branchChartData}
           />
           <GpsKpiRow kpis={dashboard.kpis} />
           <DeviceHealthCards cards={dashboard.healthCards} />

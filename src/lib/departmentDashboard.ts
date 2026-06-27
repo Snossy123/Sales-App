@@ -1,4 +1,4 @@
-import type { Administration, Branch, Department } from '../api/types'
+import type { Administration, Branch, Department, InventoryOverviewRow } from '../api/types'
 import type { GpsDeviceRow } from '../data/enterpriseGpsMock'
 
 export interface DepartmentKpi {
@@ -20,65 +20,80 @@ export interface DepartmentHealthCard {
   iconColor: string
 }
 
-export interface ChartLegendItem {
-  color: string
-  label: string
+export interface BranchStockChartRow {
+  name: string
+  sold: number
+  available: number
+  reserved: number
 }
 
 export interface DepartmentDashboardData {
   kpis: DepartmentKpi[]
   healthCards: DepartmentHealthCard[]
-  chartLegend: ChartLegendItem[]
+  branchChartData: BranchStockChartRow[]
   deviceRows: (GpsDeviceRow & { branchId?: number })[]
   completionRate: number
-  tooltipText: string
   totalDevices: number
 }
 
-export function buildDepartmentDashboard(dept: Department | Administration, branches: Branch[]): DepartmentDashboardData {
-  const stock = 'department_stock' in dept ? dept.department_stock : undefined
-  const quantity = stock?.quantity ?? 0
+function formatCount(value: number): string {
+  return value.toLocaleString('ar-EG')
+}
+
+export function buildDepartmentDashboard(
+  dept: Department | Administration,
+  branches: Branch[],
+  inventoryRows: InventoryOverviewRow[] = [],
+): DepartmentDashboardData {
+  const stock = dept.department_stock
+  const totalStock = stock?.quantity ?? 0
   const pending = stock?.pending ?? 0
   const distributed = stock?.distributed ?? 0
-  const total = quantity + pending + distributed
-  const soldEstimate = Math.max(distributed, Math.round(total * 0.55))
-  const salesK = ((soldEstimate * 500) / 1000).toFixed(1)
+
+  const branchInventory = inventoryRows.filter((row) => row.row_type === 'branch')
+  const soldTotal = branchInventory.reduce((sum, row) => sum + row.sold, 0)
+  const reservedTotal = branchInventory.reduce((sum, row) => sum + row.reserved, 0)
+  const branchAvailable = branchInventory.reduce(
+    (sum, row) => sum + Math.max(0, row.quantity - row.sold - row.reserved),
+    0,
+  )
+  const distributionRate = totalStock > 0 ? Math.round((distributed / totalStock) * 100) : 0
 
   const kpis: DepartmentKpi[] = [
     {
-      label: 'إجمالي أجهزة GPS المباعة',
-      value: soldEstimate.toLocaleString('ar-EG'),
-      trendIcon: 'trending_up',
-      trendText: `+${Math.max(1, Math.round(soldEstimate * 0.05))} وحدة مؤخراً`,
-      trendColor: 'text-[#34A853]',
+      label: 'إجمالي مخزون GPS',
+      value: formatCount(totalStock),
+      trendIcon: 'inventory',
+      trendText: `${branches.length} فرع`,
+      trendColor: 'text-primary',
     },
     {
-      label: 'إجمالي مبيعات GPS',
-      value: `${salesK} ألف دولار`,
-      trendIcon: 'trending_up',
-      trendText: '+12.4% نمو',
-      trendColor: 'text-[#34A853]',
+      label: 'مخزون معلّق (مركزي)',
+      value: formatCount(pending),
+      trendIcon: 'pending_actions',
+      trendText: pending > 0 ? 'بانتظار التوزيع' : 'لا يوجد مخزون معلّق',
+      trendColor: pending > 0 ? 'text-[#FF9800]' : 'text-on-surface-variant',
     },
     {
-      label: 'أجهزة GPS المتاحة للبيع',
-      value: quantity.toLocaleString('ar-EG'),
-      trendIcon: 'storefront',
-      trendText: 'جاهز للتوزيع',
+      label: 'موزّع على الفروع',
+      value: formatCount(distributed),
+      trendIcon: 'local_shipping',
+      trendText: totalStock > 0 ? `${distributionRate}% من الإجمالي` : 'لا يوجد مخزون',
       trendColor: 'text-on-surface-variant',
     },
     {
-      label: 'إجمالي مخزون GPS',
-      value: total.toLocaleString('ar-EG'),
-      trendIcon: 'inventory',
-      trendText: 'المخزون الكلي',
-      trendColor: 'text-primary',
+      label: 'أجهزة مباعة',
+      value: formatCount(soldTotal),
+      trendIcon: soldTotal > 0 ? 'trending_up' : 'sell',
+      trendText: soldTotal > 0 ? 'مباعة ومرتبطة' : 'لا توجد مبيعات بعد',
+      trendColor: soldTotal > 0 ? 'text-[#34A853]' : 'text-on-surface-variant',
     },
   ]
 
   const healthCards: DepartmentHealthCard[] = [
     {
       label: 'تم البيع والربط',
-      value: soldEstimate.toLocaleString('ar-EG'),
+      value: formatCount(soldTotal),
       bg: 'bg-[#EAF6ED]',
       border: 'border-[#34A85320]',
       labelColor: 'text-[#34A853]',
@@ -88,7 +103,7 @@ export function buildDepartmentDashboard(dept: Department | Administration, bran
     },
     {
       label: 'قيد الانتظار',
-      value: pending.toLocaleString('ar-EG'),
+      value: formatCount(pending),
       bg: 'bg-[#FFF4E5]',
       border: 'border-[#FF980020]',
       labelColor: 'text-[#FF9800]',
@@ -97,8 +112,8 @@ export function buildDepartmentDashboard(dept: Department | Administration, bran
       iconColor: 'text-[#FF9800]',
     },
     {
-      label: 'تحت الصيانة',
-      value: Math.max(1, Math.round(pending * 0.25)).toLocaleString('ar-EG'),
+      label: 'محجوز / قيد النقل',
+      value: formatCount(reservedTotal),
       bg: 'bg-[#FDECEA]',
       border: 'border-[#D32F2F20]',
       labelColor: 'text-[#D32F2F]',
@@ -107,41 +122,50 @@ export function buildDepartmentDashboard(dept: Department | Administration, bran
       iconColor: 'text-[#D32F2F]',
     },
     {
-      label: 'تحديث البرنامج',
-      value: Math.max(1, Math.round(quantity * 0.08)).toLocaleString('ar-EG'),
+      label: 'متاح في الفروع',
+      value: formatCount(branchAvailable),
       bg: 'bg-[#E3F2FD]',
       border: 'border-[#1976D220]',
       labelColor: 'text-[#1976D2]',
       valueColor: 'text-[#0D47A1]',
-      icon: 'system_update',
+      icon: 'storefront',
       iconColor: 'text-[#1976D2]',
     },
   ]
 
-  const legendColors = ['bg-primary', 'bg-tertiary', 'bg-secondary'] as const
-  const chartLegend: ChartLegendItem[] = branches.length
-    ? branches.map((b, i) => ({
-        color: legendColors[i % legendColors.length],
-        label: b.name_ar || b.name,
-      }))
-    : [{ color: 'bg-primary', label: dept.name_ar || dept.name }]
+  const inventoryByBranch = new Map(
+    branchInventory
+      .filter((row) => row.branch_id != null)
+      .map((row) => [row.branch_id!, row]),
+  )
 
-  const deviceRows = branches.map((b) => ({
-    code: `GPS-${b.code}`,
-    model: b.name_ar || b.name,
-    client: b.address || '—',
-    branchId: b.id,
+  const branchChartData: BranchStockChartRow[] = branches.map((branch) => {
+    const row = inventoryByBranch.get(branch.id)
+    const quantity = row?.quantity ?? 0
+    const sold = row?.sold ?? 0
+    const reserved = row?.reserved ?? 0
+
+    return {
+      name: branch.name_ar || branch.name,
+      sold,
+      available: Math.max(0, quantity - sold - reserved),
+      reserved,
+    }
+  })
+
+  const deviceRows = branches.map((branch) => ({
+    code: branch.code,
+    model: branch.name_ar || branch.name,
+    client: branch.address || '—',
+    branchId: branch.id,
   }))
-
-  const completionRate = total > 0 ? Math.min(99, Math.round((distributed / total) * 100)) : 0
 
   return {
     kpis,
     healthCards,
-    chartLegend,
+    branchChartData,
     deviceRows,
-    completionRate,
-    tooltipText: `أكتوبر: ${Math.max(soldEstimate - 10, 1)} وحدة`,
-    totalDevices: total,
+    completionRate: distributionRate,
+    totalDevices: totalStock,
   }
 }
