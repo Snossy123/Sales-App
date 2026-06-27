@@ -123,7 +123,6 @@ export function AppShell() {
           {showPosShortcut && (
             <NavLink
               to="/pos"
-              title="تعاقد جديد"
               className={`mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90 ${
                 sidebarCollapsed ? 'px-sm' : ''
               }`}
@@ -138,7 +137,6 @@ export function AppShell() {
           <button
             type="button"
             onClick={handleLogout}
-            title="تسجيل الخروج"
             className={`flex items-center rounded-lg p-sm text-on-surface-variant transition-all hover:bg-surface-container-high ${
               sidebarCollapsed ? 'justify-center' : 'gap-base'
             }`}

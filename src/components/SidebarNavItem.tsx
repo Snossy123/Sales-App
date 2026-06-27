@@ -27,7 +27,6 @@ export function SidebarNavItem({
       <NavLink
         to={navTo}
         end={item.end}
-        title={item.label}
         className={`relative flex items-center gap-xs rounded-md py-xs pe-sm ps-md text-sm transition-all ${
           isActive
             ? 'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:end-0 before:w-[3px] before:rounded-full before:bg-primary'
@@ -44,7 +43,6 @@ export function SidebarNavItem({
     <NavLink
       to={navTo}
       end={item.end}
-      title={item.label}
       className={`flex items-center rounded-xl transition-all ${
         collapsed ? 'justify-center px-sm py-sm' : 'gap-base px-sm py-sm'
       } ${

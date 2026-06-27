@@ -76,16 +76,16 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     modules: ['sales'],
   },
   {
-    id: 'review',
-    label: 'قسم المراجعة',
-    icon: 'fact_check',
-    modules: ['review'],
-  },
-  {
     id: 'collection',
     label: 'قسم التحصيل',
     icon: 'payments',
     modules: ['installments', 'payments'],
+  },
+  {
+    id: 'review',
+    label: 'قسم المراجعة',
+    icon: 'fact_check',
+    modules: ['review'],
   },
   {
     id: 'support',

@@ -30,7 +30,6 @@ export function SidebarNavGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        title={group.label}
         className={`flex w-full items-center rounded-xl transition-all ${
           collapsed ? 'justify-center px-sm py-sm' : 'justify-between gap-base px-sm py-sm'
         } ${

@@ -104,18 +104,6 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
-      id: 'review',
-      label: 'قسم المراجعة',
-      icon: 'fact_check',
-      items: [
-        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
-      ],
-    },
-  },
-  {
-    type: 'group',
-    group: {
       id: 'collection',
       label: 'قسم التحصيل',
       icon: 'payments',
@@ -124,6 +112,18 @@ export const navEntries: NavEntry[] = [
         { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'collector'] },
         { to: '/call-center/collections', icon: 'phone_in_talk', label: 'التحصيلات الخارجية', roles: ['super_admin', 'admin', 'call_center'] },
         { to: '/admin/collection-accounts', icon: 'account_balance', label: 'حسابات التحويل', roles: ['super_admin', 'admin'] },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      id: 'review',
+      label: 'قسم المراجعة',
+      icon: 'fact_check',
+      items: [
+        { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
       ],
     },
   },
