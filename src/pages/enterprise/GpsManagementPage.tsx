@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Navigate, Link } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { Administration, Branch, InventoryOverviewRow, PaginatedResponse } from '../../api/types'
@@ -74,28 +74,18 @@ export function GpsManagementPage() {
     <AsyncState isLoading={isLoading} isError={isError} error={error}>
       {administration && dashboard && (
         <div className="space-y-xl">
-          <div className="flex flex-wrap items-center justify-between gap-md">
-            <nav className="flex items-center gap-xs text-on-surface-variant">
-              <span className="font-body-sm text-body-sm">الإدارة</span>
-              <Icon name="chevron_right" size={14} className="rotate-180" />
-              <span className="font-body-sm text-body-sm font-bold text-on-surface">لوحة الإدارة</span>
-            </nav>
-            <Link
-              to="/inventory/add"
-              className="flex items-center gap-sm rounded-lg bg-primary px-lg py-md font-label-md text-on-primary shadow-sm transition-all hover:opacity-90 active:scale-95"
-            >
-              <Icon name="add" size={20} className="no-flip" />
-              جهاز جديد
-            </Link>
+          <div className="flex flex-wrap items-center gap-xs text-on-surface-variant">
+            <span className="font-body-sm text-body-sm">الإدارة</span>
+            <Icon name="chevron_right" size={14} className="rotate-180" />
+            <span className="font-body-sm text-body-sm font-bold text-on-surface">لوحة الإدارة</span>
           </div>
 
           <section>
-            <div className="flex flex-wrap items-end justify-between gap-md">
-              <div>
-                <h2 className="font-headline-md text-on-surface">
-                  لوحة الإدارة — {adminName}
-                </h2>
-                <div className="mt-sm flex flex-wrap items-center gap-md">
+            <div>
+              <h2 className="font-headline-md text-on-surface">
+                لوحة الإدارة — {adminName}
+              </h2>
+              <div className="mt-sm flex flex-wrap items-center gap-md">
                   <span className="rounded border border-outline-variant bg-surface-container-high px-sm py-1 font-label-md text-primary">
                     {administration.code}
                   </span>
@@ -108,26 +98,9 @@ export function GpsManagementPage() {
                       {administration.is_active ? 'نشطة' : 'موقوفة'}
                     </span>
                   )}
-                  <span className="font-body-sm text-on-surface-variant">
-                    · {branches.length} فرع
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-sm">
-                <button
-                  type="button"
-                  className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
-                >
-                  <Icon name="file_download" size={20} className="no-flip" />
-                  تقرير المخزون
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-md font-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
-                >
-                  <Icon name="share" size={20} className="no-flip" />
-                  مشاركة البيانات
-                </button>
+                <span className="font-body-sm text-on-surface-variant">
+                  · {branches.length} فرع
+                </span>
               </div>
             </div>
           </section>
