@@ -25,13 +25,14 @@ function isBankTransfer(method: string) {
   return method === 'bank_transfer'
 }
 
+const DEFAULT_BANK_NAME = 'CIB bank'
+
 const emptyForm = {
   phone: '',
   payment_method: 'bank_transfer',
   account_number: '',
   beneficiary_name: '',
-  bank_name: '',
-  transaction_limit: '' as number | '',
+  bank_name: DEFAULT_BANK_NAME,
   is_active: true,
 }
 
@@ -65,7 +66,6 @@ export function CollectionAccountsPage() {
             beneficiary_name: form.beneficiary_name,
             account_number: null,
             bank_name: null,
-            transaction_limit: null,
             is_active: form.is_active,
           }
         : {
@@ -74,7 +74,6 @@ export function CollectionAccountsPage() {
             account_number: form.account_number,
             beneficiary_name: form.beneficiary_name,
             bank_name: form.bank_name,
-            transaction_limit: form.transaction_limit === '' ? null : Number(form.transaction_limit),
             is_active: form.is_active,
           }
       if (editId) {
@@ -113,8 +112,7 @@ export function CollectionAccountsPage() {
       payment_method: account.payment_method,
       account_number: account.account_number ?? '',
       beneficiary_name: account.beneficiary_name,
-      bank_name: account.bank_name ?? '',
-      transaction_limit: account.transaction_limit ?? '',
+      bank_name: account.bank_name ?? DEFAULT_BANK_NAME,
       is_active: account.is_active,
     })
     setShowForm(true)
@@ -123,9 +121,9 @@ export function CollectionAccountsPage() {
   const handlePaymentMethodChange = (payment_method: string) => {
     setForm((f) => {
       if (isPhoneBasedMethod(payment_method)) {
-        return { ...f, payment_method, account_number: '', bank_name: '', transaction_limit: '' }
+        return { ...f, payment_method, account_number: '', bank_name: '' }
       }
-      return { ...f, payment_method, phone: '' }
+      return { ...f, payment_method, phone: '', bank_name: f.bank_name || DEFAULT_BANK_NAME }
     })
   }
 
@@ -212,58 +210,60 @@ export function CollectionAccountsPage() {
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={editId ? 'تعديل حساب' : 'حساب تحويل جديد'}>
         <div className="space-y-sm">
-          <select
-            value={form.payment_method}
-            onChange={(e) => handlePaymentMethodChange(e.target.value)}
-            className="w-full rounded border border-outline-variant px-sm py-2"
-          >
-            {Object.entries(paymentMethodLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          {isPhoneBasedMethod(form.payment_method) && (
-            <input
-              placeholder="رقم الهاتف"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+          <div>
+            <label className="mb-1 block text-sm text-on-surface-variant">نوع التحويل</label>
+            <select
+              value={form.payment_method}
+              onChange={(e) => handlePaymentMethodChange(e.target.value)}
               className="w-full rounded border border-outline-variant px-sm py-2"
-              dir="ltr"
-            />
-          )}
-          <input
-            placeholder="اسم المستفيد"
-            value={form.beneficiary_name}
-            onChange={(e) => setForm((f) => ({ ...f, beneficiary_name: e.target.value }))}
-            className="w-full rounded border border-outline-variant px-sm py-2"
-          />
-          {isBankTransfer(form.payment_method) && (
-            <>
+            >
+              {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {isPhoneBasedMethod(form.payment_method) && (
+            <div>
+              <label className="mb-1 block text-sm text-on-surface-variant">رقم الهاتف</label>
               <input
-                placeholder="رقم الحساب"
-                value={form.account_number}
-                onChange={(e) => setForm((f) => ({ ...f, account_number: e.target.value }))}
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 className="w-full rounded border border-outline-variant px-sm py-2"
                 dir="ltr"
               />
-              <input
-                placeholder="اسم البنك"
-                value={form.bank_name}
-                onChange={(e) => setForm((f) => ({ ...f, bank_name: e.target.value }))}
-                className="w-full rounded border border-outline-variant px-sm py-2"
-              />
-              <input
-                type="number"
-                placeholder="حد العمليات قبل التبديل (اختياري)"
-                value={form.transaction_limit}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, transaction_limit: e.target.value ? Number(e.target.value) : '' }))
-                }
-                className="w-full rounded border border-outline-variant px-sm py-2"
-              />
+            </div>
+          )}
+          {isBankTransfer(form.payment_method) && (
+            <>
+              <div>
+                <label className="mb-1 block text-sm text-on-surface-variant">اسم البنك</label>
+                <input
+                  value={form.bank_name}
+                  onChange={(e) => setForm((f) => ({ ...f, bank_name: e.target.value }))}
+                  className="w-full rounded border border-outline-variant px-sm py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-on-surface-variant">رقم الحساب</label>
+                <input
+                  value={form.account_number}
+                  onChange={(e) => setForm((f) => ({ ...f, account_number: e.target.value }))}
+                  className="w-full rounded border border-outline-variant px-sm py-2"
+                  dir="ltr"
+                />
+              </div>
             </>
           )}
+          <div>
+            <label className="mb-1 block text-sm text-on-surface-variant">اسم المستفيد</label>
+            <input
+              value={form.beneficiary_name}
+              onChange={(e) => setForm((f) => ({ ...f, beneficiary_name: e.target.value }))}
+              className="w-full rounded border border-outline-variant px-sm py-2"
+            />
+          </div>
           <label className="flex items-center gap-xs text-sm">
             <input
               type="checkbox"
