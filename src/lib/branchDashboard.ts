@@ -1,4 +1,5 @@
 import type { Branch, GpsStock } from '../api/types'
+import { formatMoney } from './theme'
 
 export interface BranchKpi {
   label: string
@@ -33,12 +34,13 @@ export interface BranchViewModel {
   products: BranchProduct[]
 }
 
-function formatCount(value: number): string {
-  return value.toLocaleString('ar-EG')
+export interface BranchDashboardOptions {
+  currency?: string
+  locale?: string
 }
 
-function formatPrice(value: number): string {
-  return `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+function formatCount(value: number): string {
+  return value.toLocaleString('ar-EG')
 }
 
 export function getStatusBadgeClass(status: BranchProduct['status']): string {
@@ -59,7 +61,13 @@ export function getBranchWarehouseId(branch: Branch): number | null {
   return branchWarehouse?.id ?? null
 }
 
-export function buildBranchDashboard(branch: Branch, stock: GpsStock | null): BranchViewModel {
+export function buildBranchDashboard(
+  branch: Branch,
+  stock: GpsStock | null,
+  options: BranchDashboardOptions = {},
+): BranchViewModel {
+  const currency = options.currency ?? 'EGP'
+  const locale = options.locale ?? 'ar-EG'
   const available = stock?.available ?? 0
   const reserved = stock?.reserved ?? 0
   const sold = stock?.sold ?? 0
@@ -111,7 +119,7 @@ export function buildBranchDashboard(branch: Branch, stock: GpsStock | null): Br
           sku: product.model_code ?? `GPS-${branch.code}`,
           name: product.name_ar || product.name,
           category: 'أجهزة GPS',
-          price: formatPrice(product.sell_price),
+          price: formatMoney(product.sell_price, currency, locale),
           stock: available,
           sold,
           ...productStatus(available),

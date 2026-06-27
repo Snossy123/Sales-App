@@ -11,13 +11,17 @@ import { BranchInventoryTable } from '../../components/enterprise/BranchInventor
 import { BranchOperationsPanel } from '../../components/enterprise/BranchOperationsPanel'
 import { buildBranchDashboard, getBranchWarehouseId } from '../../lib/branchDashboard'
 import { useAuthStore } from '../../stores/authStore'
+import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
 import { canAccessBranch } from '../../lib/access'
 
 export function BranchDetailPage() {
   const { id } = useParams<{ id: string }>()
   const user = useAuthStore((s) => s.user)
+  const general = useOrgSettingsStore((s) => s.general)
   const branchId = Number(id)
   const validId = Boolean(id) && !Number.isNaN(branchId)
+  const currency = general?.currency ?? 'EGP'
+  const locale = general?.default_locale === 'en' ? 'en-US' : 'ar-EG'
 
   const branchQuery = useQuery({
     queryKey: ['branches', branchId, 'detail'],
@@ -50,8 +54,8 @@ export function BranchDetailPage() {
 
   const branch = useMemo(() => {
     if (!branchQuery.data) return null
-    return buildBranchDashboard(branchQuery.data, stockQuery.data ?? null)
-  }, [branchQuery.data, stockQuery.data])
+    return buildBranchDashboard(branchQuery.data, stockQuery.data ?? null, { currency, locale })
+  }, [branchQuery.data, stockQuery.data, currency, locale])
 
   if (!validId) {
     return <Navigate to="/branches" replace />
