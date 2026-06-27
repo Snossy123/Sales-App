@@ -1,6 +1,7 @@
 import type { AuthUser, DemoRole } from '../api/types'
 import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
 import { userHasReviewAccess } from './permissionChecks'
+import { resolveRoutePermissions, userCanAccessByPermissions } from './routePermissions'
 import { formatUserRolesLabel } from './roleCatalog'
 
 export { getUserRole } from './access'
@@ -80,7 +81,7 @@ export const navEntries: NavEntry[] = [
       icon: 'edit_document',
       items: [
         { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/pricing/catalog', icon: 'sell', label: 'كتalog الأسعار', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pricing/catalog', icon: 'sell', label: 'دليل الأسعار', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/accessories', icon: 'headphones', label: 'بيع الاكسسورات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/maintenance', icon: 'build', label: 'صيانة وسوفت وير', roles: ['super_admin', 'admin', 'sales'] },
@@ -316,6 +317,17 @@ const routeRoles: Record<string, DemoRole[]> = {
 }
 
 function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
+  if (!user) return false
+
+  if (item.to === '/admin/roles' || item.to === '/admin/settings') {
+    return isSuperAdmin(user)
+  }
+
+  const path = item.dynamicTo && user ? item.dynamicTo(user) ?? item.to : item.to
+  const requiredPerms = resolveRoutePermissions(path)
+  const permAccess = userCanAccessByPermissions(user.permissions, requiredPerms)
+  if (permAccess !== null) return permAccess
+
   const role = getUserRole(user)
   if (item.roles.includes(role)) return true
   if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
@@ -325,9 +337,6 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     return true
   }
   if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
-    if (item.to === '/admin/roles' || item.to === '/admin/settings') {
-      return isSuperAdmin(user)
-    }
     return true
   }
   if (item.to === '/') {
@@ -361,6 +370,20 @@ function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
 export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   const role = getUserRole(user)
   const normalized = path.replace(/\/$/, '') || '/'
+
+  if (normalized === '/admin/roles' || normalized === '/admin/settings') {
+    return isSuperAdmin(user)
+  }
+
+  const deptDetailMatch = normalized.match(/^\/departments\/(\d+)$/)
+  if (deptDetailMatch) {
+    if (!isSuperAdmin(user)) return false
+    return canAccessDepartment(user, Number(deptDetailMatch[1]))
+  }
+
+  const requiredPerms = resolveRoutePermissions(normalized)
+  const permAccess = userCanAccessByPermissions(user?.permissions, requiredPerms)
+  if (permAccess !== null) return permAccess
 
   if (normalized === '/customers/add') {
     return routeRoles['/customers/add']?.includes(role) ?? false
@@ -414,12 +437,6 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   if (normalized === '/invoices') {
     if (routeRoles['/invoices']?.includes(role)) return true
     return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
-  }
-
-  const deptDetailMatch = normalized.match(/^\/departments\/(\d+)$/)
-  if (deptDetailMatch) {
-    if (role !== 'super_admin') return false
-    return canAccessDepartment(user, Number(deptDetailMatch[1]))
   }
 
   const branchDetailMatch = normalized.match(/^\/branches\/(\d+)$/)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../../../components/Icon'
-import { isProtectedRoleSlug } from '../../../lib/roleCatalog'
+import { isProtectedRoleSlug, SYSTEM_ROLE_PAGE_HINTS } from '../../../lib/roleCatalog'
 import {
   getAllPermissions,
   groupPermissionsByModule,
@@ -109,9 +109,16 @@ export function RolePermissionsEditor({
   const totalSelected = selected.length
   const totalAvailable = allPermissions.length
   const slugProtected = roleSlug ? isProtectedRoleSlug(roleSlug) : false
+  const roleHint = roleSlug ? SYSTEM_ROLE_PAGE_HINTS[roleSlug] : undefined
 
   return (
     <div className="space-y-md">
+      {roleHint && (
+        <p className="rounded-lg border border-primary/20 bg-primary/5 px-md py-sm text-sm text-on-surface-variant">
+          <span className="font-semibold text-on-surface">الصفحات المرتبطة بهذا الدور: </span>
+          {roleHint}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
         {onRoleNameArChange ? (
           <div className="min-w-[200px] flex-1 space-y-xs">

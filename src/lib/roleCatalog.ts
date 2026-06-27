@@ -32,3 +32,17 @@ export function formatUserRolesLabel(user: AuthUser | null): string {
 export function isProtectedRoleSlug(slug: string): boolean {
   return PROTECTED_ROLE_SLUGS.has(slug)
 }
+
+/** Pages each system role is intended to access (for admin UI hints). */
+export const SYSTEM_ROLE_PAGE_HINTS: Record<string, string> = {
+  Sales: 'لوحة التحكم · تعاقد جديد · دليل الأسعار · العروض · مخزون GPS · العملاء · الموزعين · البيان اليومي',
+  Reviewer: 'مراجعة التعاقدات · كل التعاقدات · البيان اليومي',
+  Collector: 'تحصيل الأقساط · سجل المدفوعات · العملاء · الموزعين',
+  CallCenter: 'التحصيلات الخارجية · عرض الأقساط',
+  Accountant: 'المحاسبة · الفواتير · الأقساط · التقارير المالية',
+  HrManager: 'الموارد البشرية · الموظفون · الحضور · الرواتب',
+  CrmSpecialist: 'قسم المبيعات CRM · العملاء المحتملين · المتابعات',
+  SupportEmployee: 'مهام الدعم الفني المسندة',
+  AdministrationManager: 'إدارة الفروع · المخزون · التعاقدات · المراجعة · التحصيل',
+  BranchManager: 'فروع الإدارة · المخزون · التعاقدات · المراجعة · التحصيل',
+}
