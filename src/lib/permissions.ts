@@ -323,38 +323,43 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     return isSuperAdmin(user)
   }
 
+  const role = getUserRole(user)
+  const roleAllowed = item.roles.includes(role)
+
+  if (!roleAllowed) {
+    if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
+      return true
+    }
+    if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
+      return true
+    }
+    if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
+      return true
+    }
+    if (item.to === '/') {
+      return userHasPermission(user, 'dashboard.view')
+    }
+    if (item.to === '/invoices/review') {
+      return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
+    }
+    if (item.to === '/invoices') {
+      return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+    }
+    if (item.to === '/support/my-tasks') {
+      return userHasPermission(user, 'support.view_assigned_tasks')
+    }
+    if (item.to === '/support/tasks') {
+      return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
+    }
+    return false
+  }
+
   const path = item.dynamicTo && user ? item.dynamicTo(user) ?? item.to : item.to
   const requiredPerms = resolveRoutePermissions(path)
   const permAccess = userCanAccessByPermissions(user.permissions, requiredPerms)
   if (permAccess !== null) return permAccess
 
-  const role = getUserRole(user)
-  if (item.roles.includes(role)) return true
-  if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
-    return true
-  }
-  if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
-    return true
-  }
-  if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
-    return true
-  }
-  if (item.to === '/') {
-    return userHasPermission(user, 'dashboard.view')
-  }
-  if (item.to === '/invoices/review') {
-    return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
-  }
-  if (item.to === '/invoices') {
-    return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
-  }
-  if (item.to === '/support/my-tasks') {
-    return userHasPermission(user, 'support.view_assigned_tasks')
-  }
-  if (item.to === '/support/tasks') {
-    return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
-  }
-  return false
+  return true
 }
 
 function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
