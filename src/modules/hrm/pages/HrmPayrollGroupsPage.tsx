@@ -65,6 +65,7 @@ export function HrmPayrollGroupsPage() {
       queryClient.invalidateQueries({ queryKey: ['hrm'] })
       setToast('تم تسجيل الدفع')
     },
+    onError: (err) => setToast(getErrorMessage(err)),
   })
 
   const toggleRecord = (id: number) => {

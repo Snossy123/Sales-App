@@ -12,11 +12,14 @@ import { ToastBanner } from '../../../components/ToastBanner'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
+// Default TCP/UDP port for ZKTeco biometric devices.
+const DEFAULT_ZK_PORT = 4370
+
 const emptyForm = {
   name: '',
   branch_id: '' as number | '',
   ip_address: '',
-  port: '4370',
+  port: String(DEFAULT_ZK_PORT),
   comm_key: '',
   is_active: true,
 }
@@ -59,7 +62,7 @@ export function HrmZkDevicesPage() {
         name: form.name,
         branch_id: Number(form.branch_id),
         ip_address: form.ip_address,
-        port: form.port ? Number(form.port) : 4370,
+        port: form.port ? Number(form.port) : DEFAULT_ZK_PORT,
         comm_key: form.comm_key || undefined,
         is_active: form.is_active,
       }
@@ -121,7 +124,7 @@ export function HrmZkDevicesPage() {
       name: device.name,
       branch_id: device.branch_id,
       ip_address: device.ip_address,
-      port: String(device.port ?? 4370),
+      port: String(device.port ?? DEFAULT_ZK_PORT),
       comm_key: device.comm_key ?? '',
       is_active: device.is_active ?? true,
     })
@@ -180,7 +183,7 @@ export function HrmZkDevicesPage() {
               key: 'ip_address',
               header: 'IP',
               className: 'tabular-nums',
-              render: (row) => `${row.ip_address}:${row.port ?? 4370}`,
+              render: (row) => `${row.ip_address}:${row.port ?? DEFAULT_ZK_PORT}`,
             },
             {
               key: 'last_sync_at',

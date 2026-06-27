@@ -111,7 +111,7 @@ export function HrmAllowancesPage() {
             <option value="allowance">بدل</option>
             <option value="deduction">خصم</option>
           </select>
-          <input type="number" placeholder="المبلغ" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className={inputClass} dir="ltr" />
+          <input type="number" min="0" step="0.01" placeholder="المبلغ" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className={inputClass} dir="ltr" />
           <div className="max-h-40 overflow-y-auto rounded border border-outline-variant p-sm">
             {(employeesQuery.data ?? []).map((emp) => (
               <label key={emp.id} className="flex cursor-pointer items-center gap-xs py-0.5 text-sm">

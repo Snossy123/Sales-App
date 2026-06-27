@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { api } from '../../../api/client'
 import type { AuthUser, Employee, HrmDashboard, PaginatedResponse } from '../../../api/types'
 import { DataTable } from '../../../components/DataTable'
@@ -20,7 +21,16 @@ async function fetchDashboard(user: AuthUser | null): Promise<DashboardResult> {
   try {
     const { data } = await api.get<HrmDashboard>('/hrm/dashboard')
     return { mode: 'dashboard', stats: data }
-  } catch {
+  } catch (error) {
+    // Only fall back to the employees list when the dashboard is genuinely
+    // unavailable (not found) or the user lacks permission. Re-throw real
+    // failures (server errors, network) so they surface instead of being
+    // masked by the fallback.
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined
+    if (status !== 403 && status !== 404) {
+      throw error
+    }
+
     const params = mergeScopedListParams(user, {
       per_page: 100,
       include: 'branch,department',

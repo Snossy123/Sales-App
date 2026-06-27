@@ -185,7 +185,7 @@ export function HrmLeavesPage() {
             {(leaveTypesQuery.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.leave_type}</option>)}
           </select>
           <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className={inputClass} dir="ltr" />
-          <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} dir="ltr" />
+          <input type="date" min={form.start_date || undefined} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} dir="ltr" />
           <textarea placeholder="السبب" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={inputClass} rows={2} />
           <button type="submit" disabled={createMutation.isPending} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">تقديم</button>
         </form>
