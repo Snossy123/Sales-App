@@ -70,7 +70,7 @@ export function HrmAttendancePage() {
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 50,
-        include: 'employee,shift',
+        include: 'employee,shift,clockInBranch,clockOutBranch',
       }
       if (statusFilter) params['filter[status]'] = statusFilter
       if (employeeFilter) params['filter[employee_id]'] = employeeFilter
@@ -317,12 +317,30 @@ export function HrmAttendancePage() {
             {
               key: 'clock_in_time',
               header: 'دخول',
-              render: (row) => formatTime(row.clock_in_time),
+              render: (row) => (
+                <div>
+                  <div>{formatTime(row.clock_in_time)}</div>
+                  {(row.clock_in_branch?.name_ar ?? row.clock_in_branch?.name) && (
+                    <div className="text-[11px] text-on-surface-variant">
+                      {row.clock_in_branch?.name_ar ?? row.clock_in_branch?.name}
+                    </div>
+                  )}
+                </div>
+              ),
             },
             {
               key: 'clock_out_time',
               header: 'خروج',
-              render: (row) => formatTime(row.clock_out_time),
+              render: (row) => (
+                <div>
+                  <div>{formatTime(row.clock_out_time)}</div>
+                  {(row.clock_out_branch?.name_ar ?? row.clock_out_branch?.name) && (
+                    <div className="text-[11px] text-on-surface-variant">
+                      {row.clock_out_branch?.name_ar ?? row.clock_out_branch?.name}
+                    </div>
+                  )}
+                </div>
+              ),
             },
             {
               key: 'status',

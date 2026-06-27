@@ -783,6 +783,9 @@ export function HrmEmployeeDetailPage() {
             className={inputClass}
             dir="ltr"
           />
+          <p className="sm:col-span-2 text-[11px] text-on-surface-variant">
+            للموظف المتحرك: استخدم نفس رقم البصمة على كل أجهزة الفروع المسموحة. الفرع هنا = الفرع الأساسي للرواتب.
+          </p>
           <select
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value })}

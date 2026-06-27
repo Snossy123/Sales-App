@@ -432,9 +432,9 @@ export interface InstallmentItem {
 
 export interface CollectionPaymentAccount {
   id: number
-  phone: string
+  phone: string | null
   payment_method: 'wallet' | 'instapay' | 'bank_transfer'
-  account_number: string
+  account_number: string | null
   beneficiary_name: string
   bank_name?: string | null
   is_active: boolean
@@ -1150,6 +1150,10 @@ export interface HrmAttendance {
   clock_out_time?: string | null
   clock_in_note?: string | null
   clock_out_note?: string | null
+  clock_in_branch_id?: number | null
+  clock_out_branch_id?: number | null
+  clock_in_branch?: Branch | null
+  clock_out_branch?: Branch | null
   hrm_shift_id?: number | null
   employee?: Employee
   shift?: HrmShift

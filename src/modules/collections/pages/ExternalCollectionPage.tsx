@@ -190,7 +190,7 @@ export function ExternalCollectionPage() {
                       <option value="">اختر الحساب</option>
                       {(accountsQuery.data ?? []).map((acc) => (
                         <option key={acc.id} value={acc.id}>
-                          {acc.beneficiary_name} — {acc.account_number}
+                          {acc.beneficiary_name} — {acc.account_number || acc.phone}
                           {acc.bank_name ? ` (${acc.bank_name})` : ''}
                         </option>
                       ))}
