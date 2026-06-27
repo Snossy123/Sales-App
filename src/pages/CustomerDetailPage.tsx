@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
-import { api, getErrorMessage } from '../api/client'
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { api } from '../api/client'
 import type { Customer, Distributor, SalesInvoice } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
 import { CustomerContractsSection } from '../components/customers/CustomerContractsSection'
@@ -20,9 +20,7 @@ import {
   distributorTypeLabel,
   formatDistributorAgreedAmount,
 } from '../lib/sales'
-import { getScopedBranchIds } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
-import { useContextStore } from '../stores/contextStore'
 
 function getCustomerDistributorProfile(customer: Customer): Distributor | undefined {
   return (
@@ -77,16 +75,12 @@ function ProfileDetailItem({
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const branches = useContextStore((s) => s.branches)
   const crudConfig = getEntityCrudConfig('customers')
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const canDelete = ['super_admin', 'admin'].includes(getUserRole(user))
   const canRefund = ['super_admin', 'admin', 'collector'].includes(getUserRole(user))
   const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
-  const [assignBranchId, setAssignBranchId] = useState<number | ''>('')
-  const [branchToast, setBranchToast] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -97,38 +91,18 @@ export function CustomerDetailPage() {
     onError: (message) => setDeleteError(message),
   })
 
-  const availableBranches = useMemo(() => {
-    const scopedIds = getScopedBranchIds(user, branches)
-    if (scopedIds == null) return branches
-    return branches.filter((b) => scopedIds.includes(b.id))
-  }, [user, branches])
-
   const query = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
         params: {
-          include: 'branch,guarantors,distributorProfile,salesInvoices.lines.installmentPlan.items',
+          include: 'guarantors,distributorProfile,salesInvoices.lines.installmentPlan.items',
           sales_invoice_status: 'all',
         },
       })
       return data
     },
     enabled: Boolean(id),
-  })
-
-  const assignBranchMutation = useMutation({
-    mutationFn: async (branch_id: number) => {
-      const { data } = await api.patch<Customer>(`/customers/${id}`, { branch_id })
-      return data
-    },
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['customer', id], updated)
-      queryClient.invalidateQueries({ queryKey: ['customers'] })
-      setAssignBranchId('')
-      setBranchToast('تم ربط العميل بالفرع')
-    },
-    onError: (err) => setBranchToast(getErrorMessage(err)),
   })
 
   const paymentsQuery = useQuery({
@@ -240,15 +214,6 @@ export function CustomerDetailPage() {
               </div>
 
               <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
-                <ProfileDetailItem
-                  icon="store"
-                  label="الفرع"
-                  value={
-                    customer.branch
-                      ? customer.branch.name_ar ?? customer.branch.name
-                      : 'غير مربوط بفرع'
-                  }
-                />
                 <ProfileDetailItem icon="call" label="الهاتف" value={customer.phone} />
                 <ProfileDetailItem icon="call" label="رقم الهاتف 2" value={customer.phone_2} />
                 <ProfileDetailItem icon="call" label="رقم الهاتف 3" value={customer.phone_3} />
@@ -270,39 +235,6 @@ export function CustomerDetailPage() {
                   <ProfileDetailItem icon="map" label="المدينة" value={customer.city} />
                 )}
               </dl>
-
-              {!customer.branch_id && canManage && (
-                <div className="flex flex-wrap items-end gap-sm border-t border-outline-variant/60 px-lg py-md">
-                  <label className="min-w-[200px] flex-1 text-sm">
-                    <span className="mb-xs block text-on-surface-variant">ربط العميل بفرع</span>
-                    <select
-                      value={assignBranchId}
-                      onChange={(e) =>
-                        setAssignBranchId(e.target.value ? Number(e.target.value) : '')
-                      }
-                      className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
-                    >
-                      <option value="">اختر الفرع</option>
-                      {availableBranches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name_ar ?? b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={!assignBranchId || assignBranchMutation.isPending}
-                    onClick={() => assignBranchMutation.mutate(Number(assignBranchId))}
-                    className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
-                  >
-                    {assignBranchMutation.isPending ? 'جاري الحفظ...' : 'ربط بالفرع'}
-                  </button>
-                  {branchToast && (
-                    <p className="w-full text-sm text-on-surface-variant">{branchToast}</p>
-                  )}
-                </div>
-              )}
             </section>
 
             {hasGuarantor && guarantor ? (

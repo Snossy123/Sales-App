@@ -13,9 +13,7 @@ export function BranchSwitcher() {
   const saveMutation = useMutation({
     mutationFn: async (nextBranchId: number) => {
       if (!user) return
-      if (user.permissions?.includes('scope.branches') || user.data_scope === 'branches') {
-        await persistActiveBranch(nextBranchId)
-      }
+      await persistActiveBranch(nextBranchId)
     },
   })
 

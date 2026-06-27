@@ -1319,11 +1319,8 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'customers') {
     const body = data as Partial<Customer> & { guarantors?: Omit<Guarantor, 'id'>[] }
-    const branchId = body.branch_id ?? ctx.branchId
-    if (branchId == null) {
-      throw mockError(422, 'اختر الفرع قبل حفظ العميل')
-    }
-    if (!isBranchInScope(state, ctx, branchId)) {
+    const branchId = body.branch_id ?? null
+    if (branchId != null && !isBranchInScope(state, ctx, branchId)) {
       throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
     }
     let created: Customer | undefined

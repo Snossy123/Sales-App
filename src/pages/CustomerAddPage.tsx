@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -15,36 +15,15 @@ import {
   emptyGuarantorForm,
   hasGuarantorData,
 } from '../lib/customerForm'
-import { getScopedBranchIds } from '../lib/dataScope'
-import { useAuthStore } from '../stores/authStore'
-import { useContextStore } from '../stores/contextStore'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
 export function CustomerAddPage() {
   const navigate = useNavigate()
-  const user = useAuthStore((s) => s.user)
-  const authBranchId = useAuthStore((s) => s.branchId)
-  const branches = useContextStore((s) => s.branches)
   const [form, setForm] = useState(emptyCustomerForm)
-  const [formBranchId, setFormBranchId] = useState<number | ''>(authBranchId ?? '')
-  const [branchError, setBranchError] = useState('')
   const [withGuarantor, setWithGuarantor] = useState(false)
   const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
-
-  useEffect(() => {
-    if (authBranchId) setFormBranchId(authBranchId)
-  }, [authBranchId])
-
-  const availableBranches = useMemo(() => {
-    const scopedIds = getScopedBranchIds(user, branches)
-    if (scopedIds == null) return branches
-    return branches.filter((b) => scopedIds.includes(b.id))
-  }, [user, branches])
-
-  const resolvedBranchId = authBranchId ?? (formBranchId ? Number(formBranchId) : null)
-  const showBranchPicker = !authBranchId
 
   const handleGuarantorModeChange = (next: boolean) => {
     setWithGuarantor(next)
@@ -55,10 +34,7 @@ export function CustomerAddPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
-        ...form,
-        branch_id: resolvedBranchId,
-      }
+      const payload: Record<string, unknown> = { ...form }
 
       if (withGuarantor && hasGuarantorData(guarantor)) {
         payload.guarantors = [guarantor]
@@ -79,11 +55,6 @@ export function CustomerAddPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!resolvedBranchId) {
-      setBranchError('اختر الفرع قبل حفظ العميل')
-      return
-    }
-    setBranchError('')
     createMutation.mutate()
   }
 
@@ -105,37 +76,6 @@ export function CustomerAddPage() {
         <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
           <h3 className="mb-sm text-sm font-bold text-on-surface">بيانات العميل</h3>
           <div className="grid grid-cols-12 gap-sm">
-            {showBranchPicker ? (
-              <label className="col-span-12 block text-sm sm:col-span-4">
-                <span className="mb-xs block text-on-surface-variant">الفرع *</span>
-                <select
-                  value={formBranchId}
-                  onChange={(e) => {
-                    setFormBranchId(e.target.value ? Number(e.target.value) : '')
-                    setBranchError('')
-                  }}
-                  required
-                  className={inputClass}
-                >
-                  <option value="">اختر الفرع</option>
-                  {availableBranches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name_ar ?? b.name}
-                    </option>
-                  ))}
-                </select>
-                {branchError && <p className="mt-xs text-xs text-error">{branchError}</p>}
-              </label>
-            ) : (
-              <div className="col-span-12 block text-sm sm:col-span-4">
-                <span className="mb-xs block text-on-surface-variant">الفرع</span>
-                <p className="rounded border border-outline-variant bg-surface-container px-sm py-2 text-on-surface">
-                  {availableBranches.find((b) => b.id === authBranchId)?.name_ar
-                    ?? availableBranches.find((b) => b.id === authBranchId)?.name
-                    ?? '—'}
-                </p>
-              </div>
-            )}
             <label className="col-span-12 block text-sm sm:col-span-4">
               <span className="mb-xs block text-on-surface-variant">السيد *</span>
               <input
