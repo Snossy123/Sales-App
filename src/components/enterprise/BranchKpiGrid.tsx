@@ -1,5 +1,5 @@
 import { Icon } from '../Icon'
-import type { BranchKpi } from '../../data/branchDetailMock'
+import type { BranchKpi } from '../../lib/branchDashboard'
 
 interface BranchKpiGridProps {
   kpis: BranchKpi[]

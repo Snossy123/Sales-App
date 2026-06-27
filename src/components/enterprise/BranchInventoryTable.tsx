@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../Icon'
-import type { BranchProduct } from '../../data/branchDetailMock'
-import { getStatusBadgeClass } from '../../data/branchDetailMock'
+import type { BranchProduct } from '../../lib/branchDashboard'
+import { getStatusBadgeClass } from '../../lib/branchDashboard'
 
 interface BranchInventoryTableProps {
   products: BranchProduct[]
@@ -9,10 +9,13 @@ interface BranchInventoryTableProps {
 
 export function BranchInventoryTable({ products }: BranchInventoryTableProps) {
   const [search, setSearch] = useState('')
-  const [selectedSku, setSelectedSku] = useState(products[0]?.sku ?? '')
 
   const filtered = products.filter(
-    (p) => !search || p.sku.includes(search) || p.name.includes(search) || p.category.includes(search),
+    (product) =>
+      !search ||
+      product.sku.includes(search) ||
+      product.name.includes(search) ||
+      product.category.includes(search),
   )
 
   return (
@@ -48,16 +51,15 @@ export function BranchInventoryTable({ products }: BranchInventoryTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E1E4E8] font-body-md text-on-surface">
-            {filtered.map((product) => {
-              const isSelected = selectedSku === product.sku
-              return (
-                <tr
-                  key={product.sku}
-                  onClick={() => setSelectedSku(product.sku)}
-                  className={`cursor-pointer transition-colors hover:bg-surface-container ${
-                    isSelected ? 'border-r-4 border-primary bg-surface-container-highest' : ''
-                  }`}
-                >
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-md py-xl text-center text-secondary">
+                  {search ? 'لا توجد نتائج مطابقة للبحث' : 'لا يوجد مخزون GPS مسجّل لهذا الفرع'}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((product) => (
+                <tr key={product.sku} className="transition-colors hover:bg-surface-container">
                   <td className="px-md py-4 font-mono text-body-sm text-secondary no-flip">{product.sku}</td>
                   <td className="px-md py-4 font-medium">{product.name}</td>
                   <td className="px-md py-4">{product.category}</td>
@@ -70,46 +72,18 @@ export function BranchInventoryTable({ products }: BranchInventoryTableProps) {
                     </span>
                   </td>
                 </tr>
-              )
-            })}
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between border-t border-outline-variant bg-[#F8F9FA] px-md py-sm">
-        <span className="font-body-sm text-secondary">عرض 6 من أصل 120 منتجاً</span>
-        <div className="flex gap-xs">
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container"
-          >
-            <Icon name="chevron_right" size={18} className="no-flip" />
-          </button>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded bg-primary font-label-md text-white"
-          >
-            1
-          </button>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded border border-outline-variant font-label-md transition-colors hover:bg-surface-container"
-          >
-            2
-          </button>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded border border-outline-variant font-label-md transition-colors hover:bg-surface-container"
-          >
-            3
-          </button>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded border border-outline-variant transition-colors hover:bg-surface-container"
-          >
-            <Icon name="chevron_left" size={18} className="no-flip" />
-          </button>
+      {filtered.length > 0 && (
+        <div className="border-t border-outline-variant bg-[#F8F9FA] px-md py-sm">
+          <span className="font-body-sm text-secondary">
+            عرض {filtered.length} من أصل {products.length} منتج
+          </span>
         </div>
-      </div>
+      )}
     </section>
   )
 }
