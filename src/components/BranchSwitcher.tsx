@@ -14,7 +14,7 @@ export function BranchSwitcher() {
     mutationFn: async (nextBranchId: number) => {
       if (!user) return
       if (user.permissions?.includes('scope.branches') || user.data_scope === 'branches') {
-        await persistActiveBranch(user, nextBranchId)
+        await persistActiveBranch(nextBranchId)
       }
     },
   })

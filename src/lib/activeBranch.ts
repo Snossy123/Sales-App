@@ -37,7 +37,7 @@ export function getActiveBranchId(
   return user?.branch_id ?? user?.branch?.id ?? null
 }
 
-export async function persistActiveBranch(user: AuthUser, branchId: number): Promise<void> {
+export async function persistActiveBranch(branchId: number): Promise<void> {
   const { data } = await api.patch<AuthUser>('/auth/me/preferences', {
     active_branch_id: branchId,
   })
