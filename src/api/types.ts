@@ -438,8 +438,8 @@ export interface CollectionPaymentAccount {
   beneficiary_name: string
   bank_name?: string | null
   is_active: boolean
-  transaction_limit?: number | null
-  transactions_count?: number
+  amount_limit?: number | null
+  collected_amount?: number | string | null
 }
 
 export interface InstallmentReconciliation {

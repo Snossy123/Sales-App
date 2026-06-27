@@ -10,6 +10,7 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { formatMoney } from '../../../lib/theme'
 
 const paymentMethodLabels: Record<string, string> = {
   wallet: 'محفظة',
@@ -33,6 +34,7 @@ const emptyForm = {
   account_number: '',
   beneficiary_name: '',
   bank_name: DEFAULT_BANK_NAME,
+  amount_limit: '' as number | '',
   is_active: true,
 }
 
@@ -59,6 +61,7 @@ export function CollectionAccountsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const amountLimit = form.amount_limit === '' ? null : Number(form.amount_limit)
       const payload = isPhoneBasedMethod(form.payment_method)
         ? {
             payment_method: form.payment_method,
@@ -66,6 +69,7 @@ export function CollectionAccountsPage() {
             beneficiary_name: form.beneficiary_name,
             account_number: null,
             bank_name: null,
+            amount_limit: amountLimit,
             is_active: form.is_active,
           }
         : {
@@ -74,6 +78,7 @@ export function CollectionAccountsPage() {
             account_number: form.account_number,
             beneficiary_name: form.beneficiary_name,
             bank_name: form.bank_name,
+            amount_limit: amountLimit,
             is_active: form.is_active,
           }
       if (editId) {
@@ -113,6 +118,7 @@ export function CollectionAccountsPage() {
       account_number: account.account_number ?? '',
       beneficiary_name: account.beneficiary_name,
       bank_name: account.bank_name ?? DEFAULT_BANK_NAME,
+      amount_limit: account.amount_limit ?? '',
       is_active: account.is_active,
     })
     setShowForm(true)
@@ -178,9 +184,19 @@ export function CollectionAccountsPage() {
               render: (row) => <StatusBadge status={row.is_active ? 'active' : 'inactive'} />,
             },
             {
-              key: 'transactions_count',
-              header: 'العمليات',
-              render: (row) => row.transactions_count ?? 0,
+              key: 'collected_amount',
+              header: 'المبلغ المحصل',
+              render: (row) => {
+                const collected = Number(row.collected_amount ?? 0)
+                if (row.amount_limit != null) {
+                  return (
+                    <span dir="ltr">
+                      {formatMoney(collected)} / {formatMoney(Number(row.amount_limit))}
+                    </span>
+                  )
+                }
+                return formatMoney(collected)
+              },
             },
             {
               key: 'actions',
@@ -263,6 +279,23 @@ export function CollectionAccountsPage() {
               onChange={(e) => setForm((f) => ({ ...f, beneficiary_name: e.target.value }))}
               className="w-full rounded border border-outline-variant px-sm py-2"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-on-surface-variant">حد المبلغ (اختياري)</label>
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={form.amount_limit}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, amount_limit: e.target.value ? Number(e.target.value) : '' }))
+              }
+              className="w-full rounded border border-outline-variant px-sm py-2"
+              dir="ltr"
+            />
+            <p className="mt-1 text-xs text-on-surface-variant">
+              عند وصول إجمالي المبالغ المحصلة للحد يُعطَّل الحساب تلقائياً، ويُعاد تفعيله في أول كل شهر
+            </p>
           </div>
           <label className="flex items-center gap-xs text-sm">
             <input
