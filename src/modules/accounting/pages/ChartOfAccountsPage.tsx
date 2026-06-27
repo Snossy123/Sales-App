@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, getErrorMessage } from '../../../api/client'
-import type { AccountingAccount, PaginatedResponse } from '../../../api/types'
+import type { AccountingAccount, Branch, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
@@ -11,6 +11,7 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import {
   buildAccountTree,
+  formatMoney,
   primaryTypeLabels,
   type AccountTreeNode,
 } from '../../../lib/accounting'
@@ -22,6 +23,7 @@ const emptyForm = {
   gl_code: '',
   account_primary_type: 'asset' as AccountingAccount['account_primary_type'],
   parent_account_id: '' as number | '',
+  branch_id: '' as number | '',
   description: '',
   status: 'active' as 'active' | 'inactive',
 }
@@ -58,6 +60,9 @@ function AccountTreeRow({
               <span className="w-4" />
             )}
             <span className="font-medium">{node.name}</span>
+            {node.branch?.name && (
+              <span className="text-xs text-on-surface-variant">({node.branch.name})</span>
+            )}
           </div>
         </td>
         <td className="px-sm py-sm tabular-nums text-on-surface-variant" dir="ltr">
@@ -65,6 +70,9 @@ function AccountTreeRow({
         </td>
         <td className="px-sm py-sm text-on-surface-variant">
           {primaryTypeLabels[node.account_primary_type] ?? node.account_primary_type}
+        </td>
+        <td className="px-sm py-sm tabular-nums text-on-surface" dir="ltr">
+          {formatMoney(node.balance)}
         </td>
         <td className="px-sm py-sm">
           <StatusBadge
@@ -109,18 +117,28 @@ export function ChartOfAccountsPage() {
   const queryClient = useQueryClient()
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
+  const [branchFilter, setBranchFilter] = useState('')
   const [panel, setPanel] = useState<Panel>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
 
-  const query = useQuery({
-    queryKey: ['accounting', 'chart-of-accounts', typeFilter, statusFilter],
+  const branchesQuery = useQuery({
+    queryKey: ['branches', 'list'],
     queryFn: async () => {
-      const params: Record<string, string | number> = { per_page: 200 }
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params: { per_page: 100 } })
+      return data.data
+    },
+  })
+
+  const query = useQuery({
+    queryKey: ['accounting', 'chart-of-accounts', typeFilter, statusFilter, branchFilter],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { per_page: 200, with_balances: 1 }
       if (typeFilter) params['filter[account_primary_type]'] = typeFilter
       if (statusFilter) params['filter[status]'] = statusFilter
+      if (branchFilter) params['filter[branch_id]'] = branchFilter
       const { data } = await api.get<PaginatedResponse<AccountingAccount>>(
         '/accounting/chart-of-accounts',
         { params },
@@ -150,6 +168,7 @@ export function ChartOfAccountsPage() {
       gl_code: account.gl_code ?? '',
       account_primary_type: account.account_primary_type,
       parent_account_id: account.parent_account_id ?? '',
+      branch_id: account.branch_id ?? '',
       description: account.description ?? '',
       status: account.status,
     })
@@ -163,6 +182,7 @@ export function ChartOfAccountsPage() {
         gl_code: form.gl_code || undefined,
         account_primary_type: form.account_primary_type,
         parent_account_id: form.parent_account_id ? Number(form.parent_account_id) : undefined,
+        branch_id: form.branch_id ? Number(form.branch_id) : undefined,
         description: form.description || undefined,
         status: form.status,
       }
@@ -195,26 +215,59 @@ export function ChartOfAccountsPage() {
     onError: (err) => setError(getErrorMessage(err)),
   })
 
+  const seedBranchesMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/accounting/chart-of-accounts/seed-all-branches')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+      setToast('تم إنشاء حسابات الفروع')
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
   return (
     <div>
       <PageHeader
         title="دليل الحسابات"
         subtitle="شجرة الحسابات حسب التصنيف والكود المحاسبي"
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-          >
-            <Icon name="add" size={18} />
-            حساب جديد
-          </button>
+          <div className="flex flex-wrap gap-xs">
+            <button
+              type="button"
+              onClick={() => seedBranchesMutation.mutate()}
+              disabled={seedBranchesMutation.isPending}
+              className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium hover:bg-surface-container-low disabled:opacity-60"
+            >
+              إنشاء حسابات الفروع
+            </button>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            >
+              <Icon name="add" size={18} />
+              حساب جديد
+            </button>
+          </div>
         }
       />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <div className="mb-md flex flex-wrap gap-sm">
+        <select
+          value={branchFilter}
+          onChange={(e) => setBranchFilter(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+        >
+          <option value="">كل الفروع</option>
+          {(branchesQuery.data ?? []).map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
@@ -240,12 +293,13 @@ export function ChartOfAccountsPage() {
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <div className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+          <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-outline-variant bg-surface-container-low">
                 <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">الحساب</th>
                 <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">الكود</th>
                 <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">النوع</th>
+                <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">الرصيد</th>
                 <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">الحالة</th>
                 <th className="px-sm py-sm text-right text-xs font-bold text-on-surface-variant">إجراءات</th>
               </tr>
@@ -253,7 +307,7 @@ export function ChartOfAccountsPage() {
             <tbody>
               {tree.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-lg text-center text-on-surface-variant">
+                  <td colSpan={6} className="p-lg text-center text-on-surface-variant">
                     لا توجد حسابات — أنشئ الحسابات الافتراضية من الإعدادات
                   </td>
                 </tr>
@@ -313,6 +367,20 @@ export function ChartOfAccountsPage() {
             {Object.entries(primaryTypeLabels).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={form.branch_id}
+            onChange={(e) =>
+              setForm({ ...form, branch_id: e.target.value ? Number(e.target.value) : '' })
+            }
+            className={inputClass}
+          >
+            <option value="">بدون فرع</option>
+            {(branchesQuery.data ?? []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
               </option>
             ))}
           </select>

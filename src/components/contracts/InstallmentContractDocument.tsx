@@ -1,5 +1,6 @@
 import type { SalesInvoice } from '../../api/types'
 import {
+  branchLabel,
   buildInstallmentRows,
   fmtContractDate,
   fmtContractMoney,
@@ -25,7 +26,6 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
   const line = resolveInvoiceLine(invoice, lineId)
   const plan = resolveLinePlan(line, invoice)
   const installmentRows = buildInstallmentRows(line, invoice)
-  const devicePrice = Number(line?.line_total ?? invoice.subtotal ?? 0)
   const renewalType = line?.renewal_type ?? invoice.renewal_type
   const renewalDate = line?.subscription_renewal_date ?? invoice.subscription_renewal_date
   const { paid: paidForDevice, balance: balanceForDevice } = line
@@ -43,14 +43,25 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     balanceDisplay = Math.max(0, Number(line.line_total ?? 0) - paidDisplay)
   }
 
+  const deviceSuffix =
+    invoice.lines && invoice.lines.length > 1 && line
+      ? ` — جهاز ${invoice.lines.indexOf(line) + 1}`
+      : ''
+
+  const renewalDisplay =
+    renewalType === 'permanent'
+      ? renewalTypeLabels.permanent
+      : fmtContractDate(renewalDate ?? undefined)
+
   const renderTableCol = (start: number, end: number) => (
-    <div className="ic-table-col">
+    <div className="ic-tcol">
       {Array.from({ length: end - start + 1 }, (_, i) => {
         const num = start + i
         return (
-          <div key={num} className="ic-table-row">
-            <span className="ic-table-num">{num}</span>
-            <span className="ic-table-val">{installmentRows[num - 1]}</span>
+          <div key={num} className="ic-trow">
+            <span className="ic-tnum">{num}</span>
+            <span className="ic-tdash">-</span>
+            <span className="ic-tval">{installmentRows[num - 1]}</span>
           </div>
         )
       })}
@@ -59,187 +70,189 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
 
   return (
     <article className="installment-contract">
-      <header className="ic-header">
-        <div className="ic-header-en">
-          Al Iraqi
-          <span>Trading</span>
-          <span>Security Systems</span>
-        </div>
-        <div className="ic-header-center">
-          <div className="ic-logo-text">Al Iraqi</div>
-          <div className="ic-logo-badge">GPS</div>
-          <div className="ic-title-badge">
-            عقد تقسيط
-            {invoice.lines && invoice.lines.length > 1 && line
-              ? ` — جهاز ${invoice.lines.indexOf(line) + 1}`
-              : ''}
+      <div className="ic-frame">
+        <header className="ic-header">
+          <div className="ic-head-ar">
+            <div className="ic-head-ar-top">مؤسسة</div>
+            <div className="ic-head-ar-main">العراقى للتجارة</div>
+            <div className="ic-head-ar-sub">{branchLabel(invoice)}</div>
           </div>
-        </div>
-        <div className="ic-header-ar">العراقي</div>
-      </header>
-
-      <div className="ic-main">
-        <div className="ic-table-wrap">
-          <div className="ic-table-title">بيان تقسيط</div>
-          <div className="ic-table-grid">
-            {renderTableCol(1, 15)}
-            {renderTableCol(16, 30)}
-          </div>
-        </div>
-
-        <div className="ic-fields">
-          <div className="ic-field-row">
-            <span className="ic-field-label">السيد:</span>
-            <span className="ic-field-value">{customer?.name ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">الرقم القومي:</span>
-            <span className="ic-field-value">{customer?.national_id ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">رقم العميل 1:</span>
-            <span className="ic-field-value">{customer?.phone ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">رقم العميل 2:</span>
-            <span className="ic-field-value">{customer?.phone_2 ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">رقم العميل 3:</span>
-            <span className="ic-field-value">{customer?.phone_3 ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">علامة مميزة:</span>
-            <span className="ic-field-value">{customer?.distinctive_mark ?? ''}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">رقم الشريحة:</span>
-            <span className="ic-field-value" dir="ltr">
-              {resolveSim(line, customer)}
-            </span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">اسم المستخدم:</span>
-            <span className="ic-field-value">{resolveUsername(line, customer)}</span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">السريال:</span>
-            <span className="ic-field-value" dir="ltr">
-              {resolveSerial(line, customer)}
-            </span>
-          </div>
-          <div className="ic-field-row">
-            <span className="ic-field-label">قيمة الجهاز:</span>
-            <span className="ic-field-value">{fmtContractMoney(devicePrice)}</span>
-          </div>
-          {line && Number(line.discount ?? 0) > 0 && (
-            <div className="ic-field-row">
-              <span className="ic-field-label">خصم الجهاز:</span>
-              <span className="ic-field-value">{fmtContractMoney(line.discount)}</span>
+          <div className="ic-head-center">
+            <div className="ic-brandwords">
+              <span>Eleraqy</span>
+              <span>Trading</span>
             </div>
-          )}
+            <img className="ic-logo-img" src="/contract/logo.png" alt="Eleraqy Trading" />
+            <div className="ic-title-badge">عقد تقسيط{deviceSuffix}</div>
+          </div>
+          <div className="ic-head-en">
+            <div className="ic-head-en-top">Company</div>
+            <div className="ic-head-en-main">Eleraqy Trading</div>
+            <div className="ic-head-en-sub">Security Systems</div>
+          </div>
+        </header>
+
+        <div className="ic-main">
+          <div className="ic-fields">
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">السيد :</span>
+              <span className="ic-field-value">{customer?.name ?? ''}</span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">الرقم القومي :</span>
+              <span className="ic-field-value" dir="ltr">
+                {customer?.national_id ?? ''}
+              </span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">رقم العميل 1 :</span>
+              <span className="ic-field-value" dir="ltr">
+                {customer?.phone ?? ''}
+              </span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">رقم العميل 2 :</span>
+              <span className="ic-field-value" dir="ltr">
+                {customer?.phone_2 ?? ''}
+              </span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">رقم الشريحة :</span>
+              <span className="ic-field-value" dir="ltr">
+                {resolveSim(line, customer)}
+              </span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">اسم المستخدم :</span>
+              <span className="ic-field-value">{resolveUsername(line, customer)}</span>
+            </div>
+            <div className="ic-field-row">
+              <span className="ic-field-diamond">◆</span>
+              <span className="ic-field-label">السريال :</span>
+              <span className="ic-field-value" dir="ltr">
+                {resolveSerial(line, customer)}
+              </span>
+            </div>
+          </div>
+
+          <div className="ic-table-wrap">
+            <div className="ic-table-title">بيان تقسيط</div>
+            <div className="ic-table-grid">
+              {renderTableCol(1, 15)}
+              {renderTableCol(16, 30)}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="ic-summary">
-        <span className="ic-summary-item">
-          <strong>تم التعاقد يوم:</strong>
-          <span className="ic-summary-val">{fmtContractDate(invoice.invoice_date)}</span>
-        </span>
-        <span className="ic-summary-item">
-          <strong>تم دفع مبلغ:</strong>
-          <span className="ic-summary-val">{fmtContractMoney(paidDisplay, false)}</span>
-        </span>
-        <span className="ic-summary-item">
-          <strong>متبقى مبلغ:</strong>
-          <span className="ic-summary-val">{fmtContractMoney(balanceDisplay, false)}</span>
-        </span>
-        <span className="ic-oval">
-          <strong>الفني:</strong>
-          <span className="ic-summary-val">{resolveTechnician(line, invoice)}</span>
-        </span>
-        <span className="ic-oval">
-          <strong>المركبة:</strong>
-          <span className="ic-summary-val">{resolveVehicle(line, invoice)}</span>
-        </span>
-      </div>
+        <div className="ic-summary">
+          <div className="ic-srow">
+            <span className="ic-pill-label">تم التعاقد يوم</span>
+            <span className="ic-pill">{fmtContractDate(invoice.invoice_date)}</span>
+            <span className="ic-pill-label">تم دفع مبلغ</span>
+            <span className="ic-pill">{fmtContractMoney(paidDisplay, false)}</span>
+            <span className="ic-pill-label">متبقى مبلغ</span>
+            <span className="ic-pill">{fmtContractMoney(balanceDisplay, false)}</span>
+            <span className="ic-srow-left">
+              <span className="ic-pill">{resolveTechnician(line, invoice)}</span>
+              <span className="ic-pill-label">الفني</span>
+            </span>
+          </div>
 
-      <div className="ic-renewal-box">
-        <span className="ic-summary-item">
-          <strong>تاريخ تجديد اشتراك الجهاز:</strong>
-          <span className="ic-summary-val">
-            {renewalType === 'permanent'
-              ? renewalTypeLabels.permanent
-              : fmtContractDate(renewalDate ?? undefined)}
+          <div className="ic-srow">
+            <span className="ic-srow-center">غير شامل تجديد الاشتراك</span>
+            <span className="ic-srow-left">
+              <span className="ic-pill">{resolveVehicle(line, invoice)}</span>
+              <span className="ic-pill-label">المركبة</span>
+            </span>
+          </div>
+
+          <div className="ic-srow">
+            <span className="ic-pill-label is-red">تاريخ تجديد اشتراك الجهاز</span>
+            <span className="ic-pill">{renewalDisplay}</span>
+            <span className="ic-note-pill">ملحوظة هامة</span>
+            <span className="ic-note-text">
+              قيمة تجديد الاشتراك السنوى هى 25% من سعر الجهاز كاش فى وقت تجديده
+            </span>
+          </div>
+        </div>
+
+        <div className="ic-terms">
+          الرجاء الالتزام بسداد الأقساط المستحقة دفعها في الموعد المحدد لتجنب فرض غرامة{' '}
+          <b>10 جنيهات</b> لكل يوم تأخير، وفي حالة تأخير دفع القسط <b>ثلاثة أيام</b> فسوف يتم فقد
+          إشارة الجهاز أو تعطيل المركبة. وفي حالة استرجاع الجهاز للشركة يلتزم العميل بدفع{' '}
+          <b>25%</b> من قيمة الجهاز كاش ويتم دفع <b>350</b> سوفت وير ويتم دفع <b>150</b> جنية رسوم
+          فك ويطبق نسبة الفوائد <b>200</b> جنية لكل شهر مع دفع حق أي اجزاء تالفة للجهاز، ولا يحق
+          للعميل استرجاع الجهاز بعد مرور <b>29 يوم</b>
+        </div>
+
+        <div className="ic-warning">
+          برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد
+          إشارة الجهاز وإلزامك لعمل سوفت وير
+        </div>
+        <div className="ic-warning">
+          برجاء الإلتزام بموعد تجديد الاشتراك السنوي للجهاز لتجنب عمل سوفت وير
+        </div>
+        <div className="ic-warning">
+          برجاء الحفاظ على الرقم السرى لتجنب دفع 150 جنية رسوم ريست
+        </div>
+
+        <div className="ic-alert-grid">
+          <div className="ic-alert-box">
+            <div className="ic-alert-title">في حالة سرقة المركبة</div>
+            يلتزم العميل بالإتصال بخدمة الطوارئ فوراً في نفس وقت السرقة للحصول على اسرع اتجاهات
+            المركبة المسروقة وسرعة تحديد موقعها.{' '}
+            <span className="is-red">تحذير هام:</span> ممنوع إرسال أمر إيقاف للمركبة في حالة
+            السرقة لعدم لفت انتباه السارق بوجود جهاز تحكم
+          </div>
+          <div className="ic-alert-badge">
+            <span>تنبيه</span>
+            <span>هام</span>
+          </div>
+          <div className="ic-alert-box">
+            على العميل الإلتزام بسرعة التحرك في إتجاه المركبة المسروقة لتجنب إعطاء وقت للسارق
+            للوصول الى الجهاز أو فك الضفيرة كاملة والشركة غير مسئولة عن أى مشكلة نتيجة تأخر الوصول
+            الى المركبة أو أى مشاكل تخص تغطية الشبكات
+          </div>
+        </div>
+
+        <div className="ic-signatures">
+          <div>
+            توقيع الموظف <span className="ic-sign-name">{resolveTechnician(line, invoice)}</span>
+          </div>
+          <div>
+            توقيع العميل بعد الموافقة على بنود العقد / <span className="ic-sign-dots">………………………</span>
+          </div>
+        </div>
+
+        <div className="ic-app-bar">
+          <span>
+            طريقة تحميل الابلكيشن (الدخول من <span className="is-red">الموبايل</span> على متجر بلاي
+            أو أب ستور)
           </span>
-        </span>
-      </div>
-
-      <div className="ic-note-box">
-        <strong>ملحوظة هامة:</strong> قيمة تجديد الاشتراك السنوي هي 25% من سعر الجهاز كاش في وقت
-        تجديده
-      </div>
-
-      <div className="ic-terms">
-        <p>
-          أقر أنا الموقع أدناه بأنني اطلعت على بنود هذا العقد ووافقت عليها، وأتعهد بالسداد في
-          مواعيده المحددة. في حالة التأخير عن السداد يُفرض غرامة 10 جنيه عن كل يوم تأخير، وبعد
-          مرور 3 أيام من التأخير يحق للمؤسسة قطع إشارة الجهاز أو إيقاف المركبة.
-        </p>
-        <p>
-          في حالة رغبة العميل في فك الجهاز أو إرجاعه يتحمل 25% من قيمة الجهاز كاش وقت التركيب +
-          350 ج.م رسوم سوفت وير + 150 ج.م رسوم فك + 200 ج.م فائدة شهرية. لا يحق للعميل الإرجاع
-          بعد مرور 29 يوماً من تاريخ التعاقد.
-        </p>
-      </div>
-
-      <div className="ic-warning">
-        يجب شحن باقة الشريحة سنوياً/شهرياً حسب نوع الجهاز لتجنب قطع الإشارة ورسوم إعادة تشغيل
-        السوفت وير
-      </div>
-      <div className="ic-warning">
-        يلتزم العميل بتجديد الاشتراك السنوي في موعده المحدد أعلاه لتجنب رسوم السوفت وير
-      </div>
-      <div className="ic-warning">
-        يحتفظ العميل بكلمة السر PIN ولا يُعطيها لأحد — في حالة نسيانها رسوم إعادة ضبط 150 ج.م
-      </div>
-
-      <div className="ic-alert-grid">
-        <div className="ic-alert-box">
-          <div className="ic-alert-title">في حالة سرقة المركبة</div>
-          اتصل بخدمة العملاء فوراً لتفعيل التتبع.{' '}
-          <strong>تحذير:</strong> لا ترسل أمر إيقاف إذا كان السارق داخل المركبة حالياً.
+          <img src="/contract/itrack.png" alt="iTrack" />
         </div>
-        <div className="ic-alert-box">
-          <div className="ic-alert-title">تنبيه هام</div>
-          على العميل التحرك بسرعة نحو موقع المركبة المسروقة لمنع السارق من الوصول للجهاز. المؤسسة
-          غير مسؤولة عن التأخير أو ضعف التغطية الشبكية.
+
+        <div className="ic-footer">
+          <div className="ic-contact">
+            <span className="ic-contact-label">خدمة العملاء :</span>
+            <span className="ic-contact-icons">☎</span>
+            <span className="ic-contact-num">01070900079-01129707002</span>
+          </div>
+          <div className="ic-qr">
+            <img src="/contract/qr.png" alt="QR" />
+          </div>
+          <div className="ic-ref">
+            {invoice.invoice_number ? `#${invoice.invoice_number}` : ''}
+            {line?.product_unit?.imei ? ` — ${line.product_unit.imei}` : ''}
+          </div>
         </div>
       </div>
-
-      <div className="ic-signatures">
-        <div>
-          <strong>توقيع الموظف:</strong>
-          <div className="ic-signature-line" />
-        </div>
-        <div>
-          <strong>توقيع العميل بعد الموافقة على بنود العقد:</strong>
-          <div className="ic-signature-line" />
-        </div>
-      </div>
-
-      <div className="ic-app-bar">
-        طريقة تحميل الابلكيشن (الدخول من الموبايل على متجر بلاي أو أب ستور) — iTrack
-      </div>
-
-      <footer className="ic-footer">
-        <div className="ic-qr">QR</div>
-        <div className="ic-contact">خدمة العملاء: 01070900079 — 01129707002</div>
-        <div style={{ fontSize: '7pt', textAlign: 'left' }}>
-          {invoice.invoice_number ? `#${invoice.invoice_number}` : ''}
-          {line?.product_unit?.imei ? ` — ${line.product_unit.imei}` : ''}
-        </div>
-      </footer>
     </article>
   )
 }

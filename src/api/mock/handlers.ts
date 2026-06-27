@@ -1894,6 +1894,24 @@ export function handleMockRequest(
     return paginate(enriched, params)
   }
 
+  if (m === 'GET' && path.match(/^payment-transactions\/\d+$/)) {
+    const paymentId = Number(path.split('/')[1])
+    const payment = state.paymentTransactions.find((p) => p.id === paymentId)
+    if (!payment) throw mockError(404, 'عملية الدفع غير موجودة')
+    const invoice = state.invoices.find((i) => i.id === payment.sales_invoice_id)
+    return {
+      ...payment,
+      customer: state.customers.find((c) => c.id === payment.customer_id),
+      sales_invoice: invoice
+        ? {
+            ...invoice,
+            branch: state.branches.find((b) => b.id === invoice.branch_id),
+          }
+        : undefined,
+      user: state.users.find((u) => u.id === (payment as { user_id?: number }).user_id),
+    }
+  }
+
   if (m === 'POST' && path === 'sales-invoices/checkout') {
     const body = data as CheckoutPayload & {
       lines: { product_id?: number; quantity?: number; unit_price?: number }[]
@@ -2302,6 +2320,7 @@ export function handleMockRequest(
       journal_entries_count: state.journalEntries.length,
       transfers_count: state.transfers.length,
       unmapped_sales: unmapped,
+      unmapped_branches: [],
       recent_entries: recent,
     }
     return payload
@@ -2311,9 +2330,18 @@ export function handleMockRequest(
     let accounts = [...state.accountingAccounts]
     const status = params['filter[status]']
     const primaryType = params['filter[account_primary_type]']
+    const branchId = params['filter[branch_id]']
     if (status) accounts = accounts.filter((a) => a.status === status)
     if (primaryType) accounts = accounts.filter((a) => a.account_primary_type === primaryType)
+    if (branchId) accounts = accounts.filter((a) => !a.branch_id || String(a.branch_id) === String(branchId))
+    if (params.with_balances) {
+      accounts = accounts.map((a) => ({ ...a, balance: a.id * 100 }))
+    }
     return paginate(accounts, params)
+  }
+
+  if (m === 'POST' && path === 'accounting/chart-of-accounts/seed-all-branches') {
+    return { message: 'Branch accounts seeded.', branches: [] }
   }
 
   if (m === 'POST' && path === 'accounting/chart-of-accounts/create-default-accounts') {
@@ -2440,6 +2468,56 @@ export function handleMockRequest(
       s.transfers.unshift(created)
     })
     return created
+  }
+
+  if (m === 'PUT' && path.match(/^accounting\/transfers\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const body = data as {
+      from_account_id: number
+      to_account_id: number
+      amount: number
+      operation_date?: string
+      note?: string
+    }
+    let updated!: AccountingAccTransMapping
+    mutateState((s) => {
+      const idx = s.transfers.findIndex((t) => t.id === id)
+      if (idx < 0) throw mockError(404, 'Transfer not found')
+      const lines: AccountingTransactionLine[] = [
+        {
+          id: id * 10,
+          accounting_account_id: body.to_account_id,
+          acc_trans_mapping_id: id,
+          amount: body.amount,
+          type: 'debit',
+          account: s.accountingAccounts.find((a) => a.id === body.to_account_id),
+        },
+        {
+          id: id * 10 + 1,
+          accounting_account_id: body.from_account_id,
+          acc_trans_mapping_id: id,
+          amount: body.amount,
+          type: 'credit',
+          account: s.accountingAccounts.find((a) => a.id === body.from_account_id),
+        },
+      ]
+      updated = {
+        ...s.transfers[idx],
+        operation_date: body.operation_date ?? s.transfers[idx].operation_date,
+        note: body.note ?? s.transfers[idx].note,
+        lines,
+      }
+      s.transfers[idx] = updated
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^accounting\/transfers\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    mutateState((s) => {
+      s.transfers = s.transfers.filter((t) => t.id !== id)
+    })
+    return { message: 'Transfer deleted.' }
   }
 
   if (m === 'POST' && path === 'accounting/chart-of-accounts') {
@@ -2668,8 +2746,43 @@ export function handleMockRequest(
       equity: 90000,
       liabilities_and_equity: 125000,
       balanced: true,
+      accounts: state.accountingAccounts
+        .filter((a) => ['asset', 'liability', 'equity'].includes(a.account_primary_type))
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          gl_code: a.gl_code,
+          account_primary_type: a.account_primary_type,
+          balance: a.account_primary_type === 'asset' ? 50000 : 25000,
+        })),
     }
     return report
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/general-ledger') {
+    return { start_date: params.start_date ?? null, end_date: params.end_date ?? null, entries: [] }
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/budget-variance') {
+    return { financial_year: Number(params.financial_year ?? new Date().getFullYear()), rows: [] }
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/ar-reconciliation') {
+    return {
+      as_of_date: params.as_of_date ?? new Date().toISOString().split('T')[0],
+      gl_ar_balance: 8000,
+      operational_balance_due: 8000,
+      difference: 0,
+      reconciled: true,
+    }
+  }
+
+  if (m === 'GET' && path === 'accounting/reports/cash-statement') {
+    return { start_date: params.start_date ?? null, end_date: params.end_date ?? null, entries: [] }
+  }
+
+  if (m === 'POST' && path === 'accounting/settings/setup-wizard') {
+    return { message: 'Setup completed.', accounts_created: false, branches_seeded: state.branches.length, unmapped_branches: 0 }
   }
 
   if (m === 'GET' && path === 'accounting/budgets') {
@@ -2690,12 +2803,16 @@ export function handleMockRequest(
       })),
       accounts: state.accountingAccounts
         .filter((a) => a.status === 'active')
-        .map(({ id, name, gl_code, account_primary_type }) => ({
+        .map(({ id, name, gl_code, account_primary_type, branch_id, parent_account_id }) => ({
           id,
           name,
           gl_code,
           account_primary_type,
+          branch_id,
+          parent_account_id,
         })),
+      collection_accounts: [],
+      collection_gl_maps: [],
     }
     return settings
   }

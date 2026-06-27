@@ -7,6 +7,7 @@ import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 
 export interface PaymentTransactionRow {
   id: number
@@ -88,9 +89,22 @@ export function PaymentsPage() {
               header: '',
               render: (r) =>
                 r.status === 'active' && Number(r.amount) > 0 ? (
-                  <button type="button" onClick={() => setRefundTarget(r)} className="text-sm text-primary hover:underline">
-                    استرداد
-                  </button>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openPaymentReceiptPrint(r.id)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      طباعة
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefundTarget(r)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      استرداد
+                    </button>
+                  </div>
                 ) : (
                   '—'
                 ),

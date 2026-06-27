@@ -23,14 +23,18 @@ type BranchMapState = Record<
   }
 >
 
+type CollectionGlMapState = Record<number, string>
+
 export function AccountingSettingsPage() {
   const queryClient = useQueryClient()
   const [jePrefix, setJePrefix] = useState('JE')
   const [trPrefix, setTrPrefix] = useState('TR')
   const [branchMaps, setBranchMaps] = useState<BranchMapState>({})
+  const [collectionGlMaps, setCollectionGlMaps] = useState<CollectionGlMapState>({})
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [obDate, setObDate] = useState(new Date().toISOString().split('T')[0])
   const [obNote, setObNote] = useState('رصيد افتتاحي')
   const [obLines, setObLines] = useState<JournalLineForm[]>([emptyJournalLine(), emptyJournalLine()])
@@ -59,6 +63,12 @@ export function AccountingSettingsPage() {
       }
     }
     setBranchMaps(maps)
+
+    const collMaps: CollectionGlMapState = {}
+    for (const map of query.data.collection_gl_maps ?? []) {
+      collMaps[map.collection_payment_account_id] = String(map.id)
+    }
+    setCollectionGlMaps(collMaps)
   }, [query.data])
 
   const saveMutation = useMutation({
@@ -81,6 +91,12 @@ export function AccountingSettingsPage() {
             },
           } satisfies BranchAccountingMap,
         })),
+        collection_gl_maps: Object.entries(collectionGlMaps)
+          .filter(([, glId]) => glId)
+          .map(([collectionId, glId]) => ({
+            collection_payment_account_id: Number(collectionId),
+            accounting_account_id: Number(glId),
+          })),
       }
       const { data } = await api.put<AccountingSettings>('/accounting/settings', payload)
       return data
@@ -99,6 +115,26 @@ export function AccountingSettingsPage() {
     },
     onSuccess: () => {
       setToast('تم إنشاء الحسابات الافتراضية')
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const setupWizardMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ accounts_created: boolean; branches_seeded: number }>(
+        '/accounting/settings/setup-wizard',
+        { create_defaults: true, seed_branches: true },
+      )
+      return data
+    },
+    onSuccess: (data) => {
+      setWizardOpen(false)
+      setToast(
+        data.accounts_created
+          ? 'تم إنشاء الحسابات الافتراضية وحسابات الفروع'
+          : `تم إنشاء/تحديث حسابات ${data.branches_seeded} فرع`,
+      )
       queryClient.invalidateQueries({ queryKey: ['accounting'] })
     },
     onError: (err) => setError(getErrorMessage(err)),
@@ -159,6 +195,13 @@ export function AccountingSettingsPage() {
         subtitle="بادئات القيود وربط الحسابات الافتراضية لكل فرع"
         actions={
           <div className="flex flex-wrap gap-xs">
+            <button
+              type="button"
+              onClick={() => setWizardOpen(true)}
+              className="rounded-lg bg-secondary px-md py-sm text-sm font-bold text-on-secondary"
+            >
+              معالج الإعداد
+            </button>
             <button
               type="button"
               onClick={() => createDefaultsMutation.mutate()}
@@ -316,6 +359,39 @@ export function AccountingSettingsPage() {
             </div>
           </section>
 
+          {(query.data?.collection_accounts?.length ?? 0) > 0 && (
+            <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+              <h2 className="mb-md text-sm font-bold text-on-surface">ربط محافظ التحصيل بحسابات GL</h2>
+              <div className="flex flex-col gap-sm">
+                {(query.data?.collection_accounts ?? []).map((coll) => (
+                  <div
+                    key={coll.id}
+                    className="flex flex-wrap items-center gap-sm rounded-lg bg-surface-container-low p-sm"
+                  >
+                    <span className="min-w-[180px] text-sm text-on-surface">
+                      {coll.beneficiary_name ?? coll.bank_name ?? coll.phone ?? `#${coll.id}`}
+                    </span>
+                    <select
+                      value={collectionGlMaps[coll.id] ?? ''}
+                      onChange={(e) =>
+                        setCollectionGlMaps((prev) => ({ ...prev, [coll.id]: e.target.value }))
+                      }
+                      className="min-w-[220px] flex-1 rounded border border-outline-variant px-sm py-1.5 text-sm"
+                    >
+                      <option value="">— اختر حساب GL —</option>
+                      {accountOptions.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.gl_code ? `${acc.gl_code} — ` : ''}
+                          {acc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
             <h2 className="mb-md text-sm font-bold text-on-surface">الرصيد الافتتاحي</h2>
             <p className="mb-md text-xs text-on-surface-variant">
@@ -363,6 +439,25 @@ export function AccountingSettingsPage() {
           </button>
         </form>
       </AsyncState>
+
+      <Modal open={wizardOpen} onClose={() => setWizardOpen(false)} title="معالج إعداد المحاسبة">
+        <p className="mb-md text-sm text-on-surface-variant">
+          ينشئ دليل الحسابات الافتراضي (بالعربية) وحسابات لكل فرع نشط، ويربط حسابات المبيعات والتحصيل تلقائياً.
+        </p>
+        <div className="flex gap-sm">
+          <button
+            type="button"
+            onClick={() => setupWizardMutation.mutate()}
+            disabled={setupWizardMutation.isPending}
+            className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-60"
+          >
+            {setupWizardMutation.isPending ? 'جاري الإعداد...' : 'بدء الإعداد'}
+          </button>
+          <button type="button" onClick={() => setWizardOpen(false)} className="rounded-lg border px-md py-2 text-sm">
+            إلغاء
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)} title="إعادة ضبط بيانات المحاسبة">
         <p className="mb-md text-sm text-on-surface-variant">

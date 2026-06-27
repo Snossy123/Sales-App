@@ -9,6 +9,7 @@ import { Icon } from '../../../components/Icon'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../../lib/sales'
+import { openPaymentReceiptPrint } from '../../../lib/paymentReceipt'
 
 type InstallmentRow = InstallmentItem & Record<string, unknown>
 
@@ -78,8 +79,11 @@ export function ExternalCollectionPage() {
       })
       return data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (data?.id) {
+        openPaymentReceiptPrint(Number(data.id))
+      }
       setSelected(null)
       setAmount(0)
       setSenderNumber('')

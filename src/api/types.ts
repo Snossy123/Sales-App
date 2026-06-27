@@ -517,11 +517,30 @@ export interface SalesInvoice {
 
 export interface PaymentTransaction {
   id: number
+  transaction_number?: string
   installment_item_id?: number | null
   amount?: string | number
   paid_at?: string | null
   status?: string
+  payment_method?: string
+  payment_source?: string
+  collection_channel?: string
+  sender_transfer_number?: string | null
+  beneficiary_name?: string | null
+  bank_name?: string | null
+  account_number?: string | null
+  customer?: { id?: number; name?: string; phone?: string | null }
+  sales_invoice?: {
+    id?: number
+    invoice_number?: string
+    branch?: { id?: number; name?: string; name_ar?: string | null }
+  }
+  installment_item?: { id?: number; sequence?: number; installment_number?: number }
+  user?: { id?: number; name?: string }
+  collection_payment_account?: { id?: number; phone?: string; beneficiary_name?: string }
 }
+
+export type PaymentTransactionReceipt = PaymentTransaction
 
 export interface SalesInvoiceLine {
   id: number
@@ -953,12 +972,16 @@ export interface AccountingAccount {
   account_sub_type_id?: number | null
   detail_type_id?: number | null
   parent_account_id?: number | null
+  branch_id?: number | null
+  collection_payment_account_id?: number | null
   description?: string | null
   status: 'active' | 'inactive'
+  balance?: number
   account_sub_type?: AccountingAccountType | null
   detail_type?: AccountingAccountType | null
   parent_account?: AccountingAccount | null
   child_accounts?: AccountingAccount[]
+  branch?: { id: number; name: string; code?: string } | null
 }
 
 export interface AccountingTransactionLine {
@@ -989,6 +1012,7 @@ export interface AccountingDashboard {
   journal_entries_count: number
   transfers_count: number
   unmapped_sales: number
+  unmapped_branches?: Array<{ id: number; name: string; code: string }>
   recent_entries: AccountingAccTransMapping[]
 }
 
@@ -1012,11 +1036,67 @@ export interface TrialBalanceReport {
 
 export interface BalanceSheetReport {
   as_of_date: string
+  branch_id?: number | null
   assets: number
   liabilities: number
   equity: number
   liabilities_and_equity: number
   balanced: boolean
+  accounts?: BalanceSheetAccountRow[]
+}
+
+export interface BalanceSheetAccountRow {
+  id: number
+  name: string
+  gl_code?: string | null
+  account_primary_type: AccountPrimaryType
+  branch_id?: number | null
+  balance: number
+}
+
+export interface GeneralLedgerEntry {
+  account_id: number
+  account_name: string
+  gl_code?: string | null
+  transaction_id: number
+  operation_date: string
+  ref_no?: string | null
+  sub_type?: string | null
+  type: 'debit' | 'credit'
+  amount: number
+  running_balance: number
+  note?: string | null
+}
+
+export interface BudgetVarianceRow {
+  account_id: number
+  account_name: string
+  gl_code?: string | null
+  months: Array<{ month: string; budget: number; actual: number; variance: number }>
+  yearly_budget: number
+  yearly_actual: number
+}
+
+export interface ArReconciliationReport {
+  as_of_date: string
+  branch_id?: number | null
+  gl_ar_balance: number
+  operational_balance_due: number
+  difference: number
+  reconciled: boolean
+}
+
+export interface CashStatementEntry {
+  account_id: number
+  account_name: string
+  gl_code?: string | null
+  operation_date: string
+  ref_no?: string | null
+  sub_type?: string | null
+  type: 'debit' | 'credit'
+  amount: number
+  signed_amount: number
+  note?: string | null
 }
 
 export interface IncomeStatementLine {
@@ -1087,7 +1167,23 @@ export interface AccountingSettings {
     code: string
     accounting_default_map?: BranchAccountingMap | null
   }>
-  accounts: Array<Pick<AccountingAccount, 'id' | 'name' | 'gl_code' | 'account_primary_type'>>
+  accounts: Array<
+    Pick<AccountingAccount, 'id' | 'name' | 'gl_code' | 'account_primary_type' | 'branch_id' | 'parent_account_id'>
+  >
+  collection_accounts?: Array<{
+    id: number
+    beneficiary_name?: string | null
+    bank_name?: string | null
+    payment_method?: string | null
+    phone?: string | null
+    account_number?: string | null
+  }>
+  collection_gl_maps?: Array<{
+    id: number
+    name: string
+    gl_code?: string | null
+    collection_payment_account_id: number
+  }>
 }
 
 export interface TransactionMapPayload {

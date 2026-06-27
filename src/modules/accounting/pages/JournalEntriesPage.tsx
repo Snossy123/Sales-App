@@ -46,14 +46,21 @@ export function JournalEntriesPage() {
   const [lines, setLines] = useState<JournalLineForm[]>([emptyJournalLine(), emptyJournalLine()])
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [subTypeFilter, setSubTypeFilter] = useState('')
   const crudConfig = getEntityCrudConfig('journalEntries')
 
   const query = useQuery({
-    queryKey: ['accounting', 'journal-entries'],
+    queryKey: ['accounting', 'journal-entries', startDate, endDate, subTypeFilter],
     queryFn: async () => {
+      const params: Record<string, string | number> = { per_page: 50, include: 'lines.account' }
+      if (startDate) params['filter[start_date]'] = startDate
+      if (endDate) params['filter[end_date]'] = endDate
+      if (subTypeFilter) params['filter[sub_type]'] = subTypeFilter
       const { data } = await api.get<PaginatedResponse<AccountingAccTransMapping>>(
         '/accounting/journal-entries',
-        { params: { per_page: 50, include: 'lines.account' } },
+        { params },
       )
       return data.data
     },
@@ -174,6 +181,32 @@ export function JournalEntriesPage() {
       />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
+
+      <div className="mb-md flex flex-wrap gap-sm">
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+          dir="ltr"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+          dir="ltr"
+        />
+        <select
+          value={subTypeFilter}
+          onChange={(e) => setSubTypeFilter(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+        >
+          <option value="">كل الأنواع</option>
+          <option value="journal_entry">قيد يومية</option>
+          <option value="opening_balance">رصيد افتتاحي</option>
+        </select>
+      </div>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<AccountingAccTransMapping & Record<string, unknown>>

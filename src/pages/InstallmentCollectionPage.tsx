@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { AdminUser, Branch, InstallmentItem, PaginatedResponse } from '../api/types'
+import type { AdminUser, Branch, CollectionPaymentAccount, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
@@ -14,6 +14,7 @@ import {
   installmentStatusOptions,
   normalizeInstallmentItem,
 } from '../lib/sales'
+import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 import { useAuthStore } from '../stores/authStore'
 
 type InstallmentRow = InstallmentItem & Record<string, unknown>
@@ -26,9 +27,12 @@ function tierRowClass(tier?: string): string {
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'كاش' },
+  { value: 'wallet', label: 'محفظة' },
+  { value: 'instapay', label: 'انستا' },
   { value: 'bank_transfer', label: 'تحويل بنكي' },
-  { value: 'card', label: 'بطاقة' },
 ]
+
+const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 
 interface BranchStats {
   branch: Branch
@@ -103,6 +107,8 @@ export function InstallmentCollectionPage() {
   const [selected, setSelected] = useState<InstallmentRow | null>(null)
   const [amount, setAmount] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [accountId, setAccountId] = useState<number | ''>('')
+  const [senderNumber, setSenderNumber] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
   const [showReconcile, setShowReconcile] = useState(false)
@@ -216,6 +222,21 @@ export function InstallmentCollectionPage() {
 
   const selectedBranch = branchStats.find((s) => s.branch.id === selectedBranchId)?.branch
 
+  const accountsQuery = useQuery({
+    queryKey: ['collection-accounts', 'active', paymentMethod],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CollectionPaymentAccount[] }>('/collection-accounts/active', {
+        params: transferMethods.includes(paymentMethod) ? { payment_method: paymentMethod } : undefined,
+      })
+      return data.data
+    },
+    enabled: transferMethods.includes(paymentMethod),
+  })
+
+  useEffect(() => {
+    setAccountId('')
+  }, [paymentMethod])
+
   const installmentPaymentsQuery = useQuery({
     queryKey: ['payment-transactions', 'installment', selected?.id],
     queryFn: async () => {
@@ -246,6 +267,10 @@ export function InstallmentCollectionPage() {
         amount,
         payment_method: paymentMethod,
       }
+      if (transferMethods.includes(paymentMethod)) {
+        payload.collection_payment_account_id = accountId || undefined
+        payload.sender_transfer_number = senderNumber.trim() || undefined
+      }
       if (adjustNextDueDate && Number(selected.late_fee_accrued ?? 0) > 0) {
         payload.adjust_next_due_date = true
         if (dueDateShiftDays > 0) payload.due_date_shift_days = dueDateShiftDays
@@ -253,12 +278,18 @@ export function InstallmentCollectionPage() {
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      if (data?.id) {
+        openPaymentReceiptPrint(Number(data.id))
+      }
       setSelected(null)
       setAmount(0)
+      setPaymentMethod('cash')
+      setAccountId('')
+      setSenderNumber('')
       setAdjustNextDueDate(false)
       setDueDateShiftDays(0)
     },
@@ -295,6 +326,9 @@ export function InstallmentCollectionPage() {
   const selectRow = (row: InstallmentRow) => {
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
+    setPaymentMethod('cash')
+    setAccountId('')
+    setSenderNumber('')
     setShowReconcile(false)
     setAdjustNextDueDate(false)
     const dueDate = row.due_date ? new Date(String(row.due_date)) : null
@@ -534,6 +568,37 @@ export function InstallmentCollectionPage() {
                         </option>
                       ))}
                     </select>
+
+                    {transferMethods.includes(paymentMethod) && (
+                      <>
+                        <label className="mb-xs block text-sm text-on-surface-variant">
+                          {paymentMethod === 'bank_transfer' ? 'حساب البنك المفعل' : 'رقم المحفظة / انستا المفعل'}
+                        </label>
+                        <select
+                          value={accountId}
+                          onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
+                          className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                        >
+                          <option value="">اختر الحساب</option>
+                          {(accountsQuery.data ?? []).map((acc) => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.beneficiary_name} — {acc.account_number || acc.phone}
+                              {acc.bank_name ? ` (${acc.bank_name})` : ''}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="mb-xs block text-sm text-on-surface-variant">رقم التحويل من العميل</label>
+                        <input
+                          value={senderNumber}
+                          onChange={(e) => setSenderNumber(e.target.value)}
+                          className="mb-sm w-full rounded border border-outline-variant px-sm py-2"
+                          dir="ltr"
+                          placeholder="01xxxxxxxxx"
+                        />
+                      </>
+                    )}
+
                     <label className="mb-xs block text-sm text-on-surface-variant">مبلغ التحصيل</label>
                     <input
                       type="number"
@@ -614,7 +679,8 @@ export function InstallmentCollectionPage() {
                     disabled={
                       collectMutation.isPending ||
                       amount <= 0 ||
-                      Boolean(selected.has_open_reconciliation)
+                      Boolean(selected.has_open_reconciliation) ||
+                      (transferMethods.includes(paymentMethod) && (!accountId || !senderNumber.trim()))
                     }
                     className="mb-sm flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-3 font-bold text-on-primary disabled:opacity-60"
                   >

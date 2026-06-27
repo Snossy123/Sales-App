@@ -1,0 +1,175 @@
+.payment-receipt-page {
+  min-height: 100vh;
+  background: #e8e8e8;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.payment-receipt-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 80mm;
+}
+
+.payment-receipt-toolbar button,
+.payment-receipt-toolbar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #111;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.payment-receipt-toolbar button:last-child {
+  margin-inline-start: auto;
+  background: #1565c0;
+  border-color: #1565c0;
+  color: #fff;
+}
+
+.payment-receipt {
+  width: 80mm;
+  max-width: 80mm;
+  background: #fff;
+  color: #111;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  padding: 4mm 3mm;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  direction: rtl;
+  text-align: center;
+}
+
+.pr-header {
+  margin-bottom: 3mm;
+}
+
+.pr-logo {
+  max-height: 14mm;
+  max-width: 40mm;
+  object-fit: contain;
+  margin: 0 auto 2mm;
+  display: block;
+}
+
+.pr-org-name {
+  font-size: 12pt;
+  font-weight: 800;
+  margin: 0;
+}
+
+.pr-org-phone {
+  font-size: 9pt;
+  color: #444;
+  margin: 1mm 0 0;
+}
+
+.pr-title {
+  font-size: 13pt;
+  font-weight: 900;
+  border-top: 1px dashed #999;
+  border-bottom: 1px dashed #999;
+  padding: 2mm 0;
+  margin: 3mm 0;
+}
+
+.pr-meta {
+  text-align: right;
+  font-size: 10pt;
+  margin-bottom: 3mm;
+}
+
+.pr-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  padding: 1mm 0;
+  border-bottom: 1px dotted #ddd;
+}
+
+.pr-row dt {
+  color: #555;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pr-row dd {
+  margin: 0;
+  text-align: left;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.pr-amount-box {
+  margin: 4mm 0;
+  padding: 3mm;
+  border: 2px solid #111;
+  border-radius: 2mm;
+}
+
+.pr-amount-label {
+  font-size: 10pt;
+  color: #444;
+  margin-bottom: 1mm;
+}
+
+.pr-amount-value {
+  font-size: 18pt;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-footer {
+  margin-top: 4mm;
+  padding-top: 2mm;
+  border-top: 1px dashed #999;
+  font-size: 9pt;
+  color: #444;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 2mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .payment-receipt-page,
+  .payment-receipt-page * {
+    visibility: visible;
+  }
+
+  .payment-receipt-page {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    background: #fff;
+    align-items: stretch;
+  }
+
+  .payment-receipt-toolbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .payment-receipt {
+    box-shadow: none;
+    width: 100%;
+    max-width: none;
+    margin: 0 auto;
+  }
+}

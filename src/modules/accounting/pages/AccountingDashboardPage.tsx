@@ -75,6 +75,27 @@ export function AccountingDashboardPage() {
                 </div>
               </div>
 
+              {dashboard.unmapped_branches && dashboard.unmapped_branches.length > 0 && (
+                <div className="rounded-lg border border-warning/30 bg-warning-container/20 p-md">
+                  <p className="mb-sm text-sm font-bold text-on-surface">
+                    {dashboard.unmapped_branches.length} فرع بدون ربط محاسبي كامل
+                  </p>
+                  <ul className="mb-sm list-inside list-disc text-sm text-on-surface-variant">
+                    {dashboard.unmapped_branches.map((b) => (
+                      <li key={b.id}>
+                        {b.name} ({b.code})
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/accounting/settings"
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    إعداد الربط من الإعدادات ←
+                  </Link>
+                </div>
+              )}
+
               {dashboard.unmapped_sales > 0 && (
                 <div
                   data-tour="accounting-unmapped"

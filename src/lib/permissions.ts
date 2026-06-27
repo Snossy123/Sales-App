@@ -414,6 +414,10 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     return routeRoles['/contract-templates']?.includes(role) ?? false
   }
 
+  if (normalized.match(/^\/payments\/\d+\/receipt$/)) {
+    return routeRoles['/payments']?.includes(role) ?? false
+  }
+
   if (normalized.match(/^\/daily-reports\/\d+\/print$/)) {
     return routeRoles['/daily-reports']?.includes(role) ?? false
   }

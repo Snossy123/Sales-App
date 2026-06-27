@@ -14,6 +14,8 @@ function getTransferAccounts(lines: AccountingAccTransMapping['lines']) {
   const debit = lines?.find((l) => l.type === 'debit')
   const credit = lines?.find((l) => l.type === 'credit')
   return {
+    fromId: credit?.accounting_account_id,
+    toId: debit?.accounting_account_id,
     from: credit?.account?.name ?? credit?.accounting_account_id,
     to: debit?.account?.name ?? debit?.accounting_account_id,
     amount: debit ? Number(debit.amount) : 0,
@@ -22,24 +24,31 @@ function getTransferAccounts(lines: AccountingAccTransMapping['lines']) {
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
+type Panel = 'create' | 'edit' | null
+
 export function TransfersPage() {
   const queryClient = useQueryClient()
-  const [panelOpen, setPanelOpen] = useState(false)
+  const [panel, setPanel] = useState<Panel>(null)
+  const [selected, setSelected] = useState<AccountingAccTransMapping | null>(null)
   const [fromAccountId, setFromAccountId] = useState<number | ''>('')
   const [toAccountId, setToAccountId] = useState<number | ''>('')
   const [amount, setAmount] = useState('')
   const [operationDate, setOperationDate] = useState(new Date().toISOString().split('T')[0])
   const [note, setNote] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
 
   const query = useQuery({
-    queryKey: ['accounting', 'transfers'],
+    queryKey: ['accounting', 'transfers', startDate, endDate],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<AccountingAccTransMapping>>(
-        '/accounting/transfers',
-        { params: { per_page: 50, include: 'lines.account' } },
-      )
+      const params: Record<string, string | number> = { per_page: 50, include: 'lines.account' }
+      if (startDate) params['filter[start_date]'] = startDate
+      if (endDate) params['filter[end_date]'] = endDate
+      const { data } = await api.get<PaginatedResponse<AccountingAccTransMapping>>('/accounting/transfers', {
+        params,
+      })
       return data.data
     },
   })
@@ -53,16 +62,34 @@ export function TransfersPage() {
       )
       return data.data
     },
-    enabled: panelOpen,
+    enabled: panel !== null,
   })
 
   const closePanel = () => {
-    setPanelOpen(false)
+    setPanel(null)
+    setSelected(null)
     setFromAccountId('')
     setToAccountId('')
     setAmount('')
     setNote('')
     setError('')
+  }
+
+  const openCreate = () => {
+    closePanel()
+    setOperationDate(new Date().toISOString().split('T')[0])
+    setPanel('create')
+  }
+
+  const openEdit = (transfer: AccountingAccTransMapping) => {
+    const { fromId, toId, amount: amt } = getTransferAccounts(transfer.lines)
+    setSelected(transfer)
+    setFromAccountId(fromId ?? '')
+    setToAccountId(toId ?? '')
+    setAmount(String(amt || ''))
+    setOperationDate(transfer.operation_date?.split('T')[0] ?? new Date().toISOString().split('T')[0])
+    setNote(transfer.note ?? '')
+    setPanel('edit')
   }
 
   const createMutation = useMutation({
@@ -84,6 +111,37 @@ export function TransfersPage() {
     onError: (err) => setError(getErrorMessage(err)),
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected) throw new Error('No transfer selected')
+      const { data } = await api.put<AccountingAccTransMapping>(`/accounting/transfers/${selected.id}`, {
+        from_account_id: Number(fromAccountId),
+        to_account_id: Number(toAccountId),
+        amount: Number(amount),
+        operation_date: operationDate,
+        note: note || undefined,
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+      closePanel()
+      setToast('تم تحديث التحويل')
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/accounting/transfers/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounting'] })
+      setToast('تم حذف التحويل')
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
   const accounts = accountsQuery.data ?? []
   const canSubmit =
     fromAccountId &&
@@ -99,7 +157,7 @@ export function TransfersPage() {
         actions={
           <button
             type="button"
-            onClick={() => setPanelOpen(true)}
+            onClick={openCreate}
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >
             <Icon name="add" size={18} />
@@ -109,6 +167,23 @@ export function TransfersPage() {
       />
 
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
+
+      <div className="mb-md flex flex-wrap gap-sm">
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+          dir="ltr"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="rounded border border-outline-variant px-sm py-2 text-sm"
+          dir="ltr"
+        />
+      </div>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<AccountingAccTransMapping & Record<string, unknown>>
@@ -139,16 +214,45 @@ export function TransfersPage() {
               render: (row) => formatMoney(getTransferAccounts(row.lines).amount),
             },
             { key: 'note', header: 'ملاحظة', render: (row) => row.note ?? '—' },
+            {
+              key: 'actions',
+              header: 'إجراءات',
+              render: (row) => (
+                <div className="flex gap-xs">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(row)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('حذف هذا التحويل؟')) deleteMutation.mutate(row.id)
+                    }}
+                    className="text-xs text-error hover:underline"
+                  >
+                    حذف
+                  </button>
+                </div>
+              ),
+            },
           ]}
         />
       </AsyncState>
 
-      <Modal open={panelOpen} onClose={closePanel} title="تحويل بين الحسابات">
+      <Modal
+        open={panel === 'create' || panel === 'edit'}
+        onClose={closePanel}
+        title={panel === 'edit' ? 'تعديل تحويل' : 'تحويل بين الحسابات'}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
             if (!canSubmit) return
-            createMutation.mutate()
+            if (panel === 'edit') updateMutation.mutate()
+            else createMutation.mutate()
           }}
           className="grid gap-sm sm:grid-cols-2"
         >
@@ -210,10 +314,10 @@ export function TransfersPage() {
           <div className="flex gap-sm sm:col-span-2">
             <button
               type="submit"
-              disabled={!canSubmit || createMutation.isPending}
+              disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
               className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary disabled:opacity-60"
             >
-              إنشاء
+              {panel === 'edit' ? 'حفظ' : 'إنشاء'}
             </button>
             <button type="button" onClick={closePanel} className="rounded-lg border px-md py-2 text-sm">
               إلغاء
