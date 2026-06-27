@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Branch, Department, PaginatedResponse, Warehouse } from '../api/types'
-import { getScopedBranchId, getScopedDepartmentId } from '../lib/dataScope'
+import { getActiveBranchId, getAllowedBranchIds } from '../lib/activeBranch'
+import { canPickBranch, getScopedBranchId, getScopedDepartmentId } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 import { useContextStore } from '../stores/contextStore'
 
@@ -16,6 +17,8 @@ export function useContextData() {
 
   const scopedDepartmentId = getScopedDepartmentId(user)
   const scopedBranchId = getScopedBranchId(user)
+  const allowedBranchIds = getAllowedBranchIds(user)
+  const userCanPickBranch = canPickBranch(user)
 
   const {
     setDepartments,
@@ -38,7 +41,7 @@ export function useContextData() {
   })
 
   const branchesQuery = useQuery({
-    queryKey: ['branches', departmentId],
+    queryKey: ['branches', departmentId, allowedBranchIds.join(',')],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
         params: {
@@ -46,7 +49,11 @@ export function useContextData() {
           'filter[administration_id]': departmentId,
         },
       })
-      return data.data
+      const rows = data.data
+      if (allowedBranchIds.length > 0) {
+        return rows.filter((branch) => allowedBranchIds.includes(branch.id))
+      }
+      return rows
     },
     enabled: Boolean(departmentId),
   })
@@ -88,12 +95,24 @@ export function useContextData() {
     setBranchesLoading(branchesQuery.isLoading)
     if (branchesQuery.data) {
       setBranches(branchesQuery.data)
-      if (scopedBranchId != null) {
+
+      if (!userCanPickBranch && scopedBranchId != null) {
         if (branchId !== scopedBranchId) {
           setBranchId(scopedBranchId)
         }
-      } else if (!branchId && branchesQuery.data[0]) {
-        setBranchId(branchesQuery.data[0].id)
+        return
+      }
+
+      const preferredBranchId = getActiveBranchId(user, branchId)
+      const fallbackBranchId = preferredBranchId ?? branchesQuery.data[0]?.id ?? null
+
+      if (fallbackBranchId != null && branchId !== fallbackBranchId) {
+        const isCurrentAllowed = branchId != null && branchesQuery.data.some((branch) => branch.id === branchId)
+        if (!isCurrentAllowed) {
+          setBranchId(fallbackBranchId)
+        }
+      } else if (!branchId && fallbackBranchId != null) {
+        setBranchId(fallbackBranchId)
       }
     }
   }, [
@@ -101,6 +120,8 @@ export function useContextData() {
     branchesQuery.isLoading,
     branchId,
     scopedBranchId,
+    userCanPickBranch,
+    user,
     setBranchId,
     setBranches,
     setBranchesLoading,

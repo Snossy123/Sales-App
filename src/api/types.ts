@@ -188,8 +188,11 @@ export interface AuthUser {
   organization?: { id: number; name: string; name_ar?: string }
   roles?: Role[]
   permissions?: string[]
-  data_scope?: 'organization' | 'administration' | 'branch' | 'none'
+  data_scope?: 'organization' | 'administration' | 'branches' | 'branch' | 'none'
   data_scope_label?: string | null
+  allowed_branch_ids?: number[]
+  active_branch_id?: number | null
+  branches?: Branch[]
   preferences?: UserPreferences
   demo_role?: DemoRole
   workflow_section?: UserSection
@@ -197,6 +200,7 @@ export interface AuthUser {
 
 export interface UserPreferences {
   tours?: Partial<Record<string, boolean>>
+  active_branch_id?: number | null
 }
 
 export interface LoginResponse {

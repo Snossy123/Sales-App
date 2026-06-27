@@ -26,6 +26,7 @@ const emptyForm = {
   password: '',
   administration_id: '' as number | '',
   branch_id: '' as number | '',
+  branch_ids: [] as number[],
   section_id: '' as number | '',
   role_names: [] as string[],
 }
@@ -52,7 +53,7 @@ export function AdminUsersPage() {
       const params: Record<string, string | number> = {
         per_page: PER_PAGE,
         page,
-        include: 'administration,branch,section,roles',
+        include: 'administration,branch,branches,section,roles',
       }
       if (search) params['filter[name]'] = search
       if (adminFilter) params['filter[administration_id]'] = Number(adminFilter)
@@ -132,6 +133,7 @@ export function AdminUsersPage() {
         email: form.email,
         administration_id: form.administration_id ? Number(form.administration_id) : undefined,
         branch_id: form.branch_id ? Number(form.branch_id) : undefined,
+        branch_ids: form.branch_ids,
         section_id: form.section_id ? Number(form.section_id) : undefined,
         role_names: form.role_names,
         ...(form.password ? { password: form.password } : {}),
@@ -161,9 +163,19 @@ export function AdminUsersPage() {
       password: '',
       administration_id: user.administration_id ?? user.department_id ?? '',
       branch_id: user.branch_id ?? '',
+      branch_ids: user.branches?.map((branch) => branch.id) ?? user.allowed_branch_ids ?? [],
       section_id: user.section_id ?? '',
       role_names: user.roles?.map((r) => r.name) ?? [],
     })
+  }
+
+  const toggleAllowedBranch = (branchId: number) => {
+    setForm((prev) => ({
+      ...prev,
+      branch_ids: prev.branch_ids.includes(branchId)
+        ? prev.branch_ids.filter((id) => id !== branchId)
+        : [...prev.branch_ids, branchId],
+    }))
   }
 
   const toggleRole = (name: string) => {
@@ -223,6 +235,7 @@ export function AdminUsersPage() {
           ...form,
           administration_id: e.target.value ? Number(e.target.value) : '',
           branch_id: '',
+          branch_ids: [],
           section_id: '',
         })}
         disabled={!isOrgWide}
@@ -243,11 +256,32 @@ export function AdminUsersPage() {
         disabled={!form.administration_id}
         className={inputClass}
       >
-        <option value="">الفرع</option>
+        <option value="">الفرع الأساسي</option>
         {(formBranchesQuery.data ?? []).map((b) => (
           <option key={b.id} value={b.id}>{b.name_ar ?? b.name}</option>
         ))}
       </select>
+      <div className="sm:col-span-2">
+        <p className="mb-xs text-xs text-on-surface-variant">الفروع المسموحة (للموظف المتحرك)</p>
+        <div className="flex flex-wrap gap-xs rounded-lg border border-outline-variant p-sm">
+          {(formBranchesQuery.data ?? []).length === 0 && (
+            <span className="text-xs text-on-surface-variant">اختر الإدارة أولاً</span>
+          )}
+          {(formBranchesQuery.data ?? []).map((branch) => (
+            <label key={branch.id} className="flex cursor-pointer items-center gap-xs rounded-lg border border-outline-variant px-sm py-1 text-sm">
+              <input
+                type="checkbox"
+                checked={form.branch_ids.includes(branch.id)}
+                onChange={() => toggleAllowedBranch(branch.id)}
+              />
+              {branch.name_ar ?? branch.name}
+            </label>
+          ))}
+        </div>
+        <p className="mt-xs text-[11px] text-on-surface-variant">
+          اتركها فارغة لاستخدام كل فروع الإدارة. الفرع الأساسي يُستخدم للرواتب وHRM.
+        </p>
+      </div>
       <select
         value={form.section_id}
         onChange={(e) => setForm({ ...form, section_id: e.target.value ? Number(e.target.value) : '' })}
@@ -341,7 +375,15 @@ export function AdminUsersPage() {
               header: 'الإدارة',
               render: (row) => row.administration?.name_ar ?? row.administration?.name ?? '—',
             },
-            { key: 'branch', header: 'الفرع', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
+            { key: 'branch', header: 'الفرع الأساسي', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
+            {
+              key: 'allowed_branches',
+              header: 'فروع مسموحة',
+              render: (row) => {
+                const count = row.branches?.length ?? row.allowed_branch_ids?.length ?? 0
+                return count > 0 ? `${count} فرع` : 'كل الإدارة'
+              },
+            },
             { key: 'section', header: 'القسم', render: (row) => row.section?.name_ar ?? row.section?.name ?? '—' },
             { key: 'roles', header: 'الأدوار', render: (row) => row.roles?.map((r) => formatRoleLabel(r)).join('، ') ?? '—' },
             {

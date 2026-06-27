@@ -88,7 +88,7 @@ export function canAccessDepartment(user: AuthUser | null, departmentId: number)
   if (isOrgWideDataScope(user)) return true
   const scope = getUserDataScope(user)
   const userAdminId = getUserAdministrationId(user)
-  if (scope === 'administration' || scope === 'branch') {
+  if (scope === 'administration' || scope === 'branch' || scope === 'branches') {
     return userAdminId === departmentId
   }
   return false
@@ -106,6 +106,14 @@ export function canAccessBranch(
   const userAdminId = getUserAdministrationId(user)
 
   if (scope === 'administration') {
+    return adminId != null && adminId === userAdminId
+  }
+
+  if (scope === 'branches') {
+    const allowed = user.allowed_branch_ids ?? user.branches?.map((branch) => branch.id) ?? []
+    if (allowed.length > 0) {
+      return allowed.includes(branch.id)
+    }
     return adminId != null && adminId === userAdminId
   }
 

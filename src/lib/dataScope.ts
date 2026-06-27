@@ -1,6 +1,8 @@
 import type { AuthUser, Branch } from '../api/types'
+import { getActiveBranchId as resolveActiveBranchId } from './activeBranch'
+import { useAuthStore } from '../stores/authStore'
 
-export type DataScopeLevel = 'organization' | 'administration' | 'branch' | 'none'
+export type DataScopeLevel = 'organization' | 'administration' | 'branches' | 'branch' | 'none'
 
 function hasScopePermission(user: AuthUser | null, permission: string): boolean {
   return user?.permissions?.includes(permission) ?? false
@@ -13,6 +15,7 @@ export function getUserDataScope(user: AuthUser | null): DataScopeLevel {
   if (
     fromPayload === 'organization'
     || fromPayload === 'administration'
+    || fromPayload === 'branches'
     || fromPayload === 'branch'
     || fromPayload === 'none'
   ) {
@@ -21,6 +24,7 @@ export function getUserDataScope(user: AuthUser | null): DataScopeLevel {
 
   if (hasScopePermission(user, 'scope.organization')) return 'organization'
   if (hasScopePermission(user, 'scope.administration')) return 'administration'
+  if (hasScopePermission(user, 'scope.branches')) return 'branches'
   if (hasScopePermission(user, 'scope.branch')) return 'branch'
 
   if (user.demo_role === 'super_admin') return 'organization'
@@ -39,7 +43,7 @@ export function getScopedDepartmentId(user: AuthUser | null): number | null {
   return user.administration_id ?? user.department_id ?? null
 }
 
-/** null = not locked to a single branch (organization or administration scope) */
+/** null = not locked to a single branch (organization, administration, or branches scope) */
 export function getScopedBranchId(user: AuthUser | null): number | null {
   if (!user) return null
   if (getUserDataScope(user) !== 'branch') return null
@@ -58,7 +62,7 @@ export function getScopeApiFilters(user: AuthUser | null): Record<string, string
 
 export function canPickBranch(user: AuthUser | null): boolean {
   const scope = getUserDataScope(user)
-  return scope === 'organization' || scope === 'administration'
+  return scope === 'organization' || scope === 'administration' || scope === 'branches'
 }
 
 export function canPickAdministration(user: AuthUser | null): boolean {
@@ -73,6 +77,17 @@ export function getScopedBranchIds(
   if (scope === 'organization') return null
 
   if (scope === 'administration') {
+    const administrationId = user?.administration_id ?? user?.department_id
+    if (administrationId == null) return []
+    return branches
+      .filter((branch) => (branch.administration_id ?? branch.department_id) === administrationId)
+      .map((branch) => branch.id)
+  }
+
+  if (scope === 'branches') {
+    const allowed = user?.allowed_branch_ids ?? user?.branches?.map((branch) => branch.id) ?? []
+    if (allowed.length > 0) return allowed
+
     const administrationId = user?.administration_id ?? user?.department_id
     if (administrationId == null) return []
     return branches
@@ -103,24 +118,55 @@ export function getDataScopeLabel(user: AuthUser | null): string | null {
   return user?.data_scope_label ?? null
 }
 
-/** Locked branch filter for list queries — branch-scoped users only. */
-export function getListBranchFilter(user: AuthUser | null): Record<string, number> {
-  const branchId = getScopedBranchId(user)
-  if (branchId != null) {
-    return { 'filter[branch_id]': branchId }
+/** Locked branch filter for list queries. */
+export function getListBranchFilter(
+  user: AuthUser | null,
+  contextBranchId?: number | null,
+): Record<string, number> {
+  const scope = getUserDataScope(user)
+
+  if (scope === 'branch') {
+    const branchId = getScopedBranchId(user)
+    if (branchId != null) {
+      return { 'filter[branch_id]': branchId }
+    }
   }
+
+  if (scope === 'branches') {
+    const branchId = resolveActiveBranchId(user, contextBranchId)
+    if (branchId != null) {
+      return { 'filter[branch_id]': branchId }
+    }
+  }
+
   return {}
 }
 
-/** Merge list query params with data-scope branch filter (not UI context branch). */
+/** Merge list query params with data-scope branch filter. */
 export function mergeScopedListParams<T extends Record<string, unknown>>(
   user: AuthUser | null,
   params: T,
+  contextBranchId?: number | null,
 ): T & Record<string, string | number> {
-  return { ...params, ...getListBranchFilter(user) }
+  const branchId = contextBranchId ?? useAuthStore.getState().branchId
+  return { ...params, ...getListBranchFilter(user, branchId) }
 }
 
 /** Stable react-query key segment for scoped list endpoints. */
-export function getListScopeQueryKey(user: AuthUser | null): number | 'all' {
-  return getScopedBranchId(user) ?? 'all'
+export function getListScopeQueryKey(
+  user: AuthUser | null,
+  contextBranchId?: number | null,
+): number | 'all' {
+  const branchId = contextBranchId ?? useAuthStore.getState().branchId
+  const scope = getUserDataScope(user)
+
+  if (scope === 'branch') {
+    return getScopedBranchId(user) ?? 'all'
+  }
+
+  if (scope === 'branches') {
+    return resolveActiveBranchId(user, branchId) ?? 'all'
+  }
+
+  return 'all'
 }

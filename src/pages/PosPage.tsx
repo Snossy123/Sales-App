@@ -51,6 +51,7 @@ export function PosPage() {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
+  const contextBranchId = useAuthStore((s) => s.branchId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
   const enableInstallationFee = salesSettings?.enable_installation_fee ?? true
@@ -104,10 +105,10 @@ export function PosPage() {
 
   const resolvedBranchId =
     transactionSource === 'branch'
-      ? selectedBranch?.id ?? ''
+      ? selectedBranch?.id ?? contextBranchId ?? ''
       : transactionSource === 'distributor'
         ? selectedDistributor?.branch_id ?? ''
-        : selectedSalesRep?.branch_id ?? ''
+        : selectedSalesRep?.branch_id ?? contextBranchId ?? ''
 
   const handleCustomerChange = (customer: Customer | null) => {
     setSelectedCustomer(customer)

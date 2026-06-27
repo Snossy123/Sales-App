@@ -31,6 +31,7 @@ import {
   type ServiceLineDraft,
 } from '../components/services/ServiceLineCard'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 
 interface ServiceSalesPageProps {
@@ -56,6 +57,7 @@ export function ServiceSalesPage({
   catalogCategories,
 }: ServiceSalesPageProps) {
   const queryClient = useQueryClient()
+  const contextBranchId = useAuthStore((s) => s.branchId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
@@ -88,10 +90,10 @@ export function ServiceSalesPage({
 
   const resolvedBranchId =
     transactionSource === 'branch'
-      ? (selectedBranch?.id ?? '')
+      ? (selectedBranch?.id ?? contextBranchId ?? '')
       : transactionSource === 'distributor'
         ? (selectedDistributor?.branch_id ?? '')
-        : (selectedSalesRep?.branch_id ?? '')
+        : (selectedSalesRep?.branch_id ?? contextBranchId ?? '')
 
   const handleCustomerChange = (customer: Customer | null) => {
     setSelectedCustomer(customer)

@@ -267,11 +267,16 @@ function enrichAdminUser(state: DemoState, user: Omit<import('./seed').DemoUser,
     : null
   const branch = user.branch_id ? state.branches.find((b) => b.id === user.branch_id) : null
   const section = user.section_id ? state.sections.find((s) => s.id === user.section_id) : null
+  const allowedBranchIds = user.allowed_branch_ids ?? []
+  const branches = allowedBranchIds
+    .map((id) => state.branches.find((b) => b.id === id))
+    .filter(Boolean)
   return {
     ...user,
     department_id: user.administration_id ?? user.department_id ?? null,
     administration: administration ?? null,
     branch: branch ?? null,
+    branches,
     section: section ?? null,
   }
 }
@@ -453,17 +458,34 @@ export function handleMockRequest(
 
   if ((m === 'PATCH' || m === 'POST') && path === 'auth/me/preferences') {
     if (!ctx.user) throw mockError(401, 'غير مصرح')
-    const body = (data ?? {}) as { tours?: Record<string, boolean> }
+    const body = (data ?? {}) as { tours?: Record<string, boolean>; active_branch_id?: number | null }
     const userIndex = state.users.findIndex((u) => u.id === ctx.user!.id)
     if (userIndex < 0) throw mockError(404, 'المستخدم غير موجود')
 
     const currentPrefs = state.users[userIndex].preferences ?? {}
-    state.users[userIndex].preferences = {
+    const nextPrefs = {
       ...currentPrefs,
       tours: {
         ...(currentPrefs.tours ?? {}),
         ...(body.tours ?? {}),
       },
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'active_branch_id')) {
+      if (body.active_branch_id == null) {
+        delete nextPrefs.active_branch_id
+      } else if (!isBranchInScope(state, ctx, body.active_branch_id)) {
+        throw mockError(422, 'الفرع خارج النطاق المسموح')
+      } else {
+        nextPrefs.active_branch_id = body.active_branch_id
+      }
+    }
+
+    state.users[userIndex].preferences = nextPrefs
+    if (nextPrefs.active_branch_id != null) {
+      state.users[userIndex].active_branch_id = nextPrefs.active_branch_id
+    } else {
+      delete state.users[userIndex].active_branch_id
     }
     saveState(state)
 
@@ -3014,6 +3036,9 @@ export function handleMockRequest(
         administration_id: body.administration_id ? Number(body.administration_id) : null,
         department_id: body.administration_id ? Number(body.administration_id) : null,
         branch_id: body.branch_id ? Number(body.branch_id) : null,
+        allowed_branch_ids: Array.isArray(body.branch_ids)
+          ? (body.branch_ids as number[]).map(Number)
+          : [],
         section_id: body.section_id ? Number(body.section_id) : null,
         demo_role: 'sales',
         organization: s.organizationProfile
@@ -3061,6 +3086,9 @@ export function handleMockRequest(
       if (body.branch_id != null) {
         user.branch_id = body.branch_id ? Number(body.branch_id) : null
         user.branch = user.branch_id ? s.branches.find((b) => b.id === user.branch_id) : undefined
+      }
+      if (Array.isArray(body.branch_ids)) {
+        user.allowed_branch_ids = (body.branch_ids as number[]).map(Number)
       }
       if (body.section_id != null) {
         user.section_id = body.section_id ? Number(body.section_id) : null

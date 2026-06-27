@@ -134,6 +134,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
 const PERMISSIONS: PermissionDefinition[] = [
   { key: 'scope.organization', module: 'scope', category: 'other', label: 'رؤية بيانات الشركة كاملة', description: 'عرض بيانات جميع الإدارات والفروع في الشركة' },
   { key: 'scope.administration', module: 'scope', category: 'other', label: 'رؤية بيانات الإدارة', description: 'عرض بيانات إدارة المستخدم وفروعها فقط' },
+  { key: 'scope.branches', module: 'scope', category: 'other', label: 'فروع متعددة', description: 'العمل بين فروع محددة داخل الإدارة مع اختيار فرع اليوم' },
   { key: 'scope.branch', module: 'scope', category: 'other', label: 'رؤية بيانات الفرع', description: 'عرض بيانات فرع المستخدم فقط' },
   { key: 'dashboard.view', module: 'dashboard', category: 'view', label: 'عرض لوحة التحكم', description: 'الوصول إلى لوحة التحكم الرئيسية وملخص المؤشرات' },
   { key: 'branches.manage', module: 'branches', category: 'other', label: 'إدارة الفروع', description: 'إنشاء وتعديل وإدارة فروع الإدارات' },

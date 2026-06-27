@@ -35,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
           token,
           user,
           departmentId: user.administration_id ?? user.department_id ?? null,
-          branchId: user.branch_id ?? user.branch?.id ?? null,
+          branchId: user.active_branch_id ?? user.preferences?.active_branch_id ?? user.branch_id ?? user.branch?.id ?? null,
         })
       },
 
@@ -43,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user,
           departmentId: user.administration_id ?? user.department_id ?? state.departmentId,
-          branchId: user.branch_id ?? user.branch?.id ?? state.branchId,
+          branchId: user.active_branch_id ?? user.preferences?.active_branch_id ?? user.branch_id ?? user.branch?.id ?? state.branchId,
         }))
       },
 

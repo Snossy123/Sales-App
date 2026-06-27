@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../components/Icon'
+import { BranchSwitcher } from '../components/BranchSwitcher'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SidebarNav } from '../components/SidebarNav'
 import { TourProvider } from '../components/tour/TourProvider'
@@ -165,6 +166,7 @@ export function AppShell() {
           </button>
 
           <div className="flex flex-row-reverse items-center gap-md">
+            <BranchSwitcher />
             <div className="flex flex-row-reverse gap-sm">
               <ChatWidget />
               <div className="relative">
