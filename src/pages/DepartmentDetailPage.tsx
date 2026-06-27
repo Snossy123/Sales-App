@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Branch, Department, PaginatedResponse } from '../api/types'
+import type { Administration, Branch, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesTrendChart } from '../components/enterprise/SalesTrendChart'
@@ -15,51 +15,51 @@ import { buildDepartmentDashboard } from '../lib/departmentDashboard'
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const departmentId = Number(id)
+  const administrationId = Number(id)
   const user = useAuthStore((s) => s.user)
 
-  if (!id || Number.isNaN(departmentId)) {
+  if (!id || Number.isNaN(administrationId)) {
     return <Navigate to="/" replace />
   }
 
-  if (!canAccessDepartment(user, departmentId)) {
+  if (!canAccessDepartment(user, administrationId)) {
     return <Navigate to="/" replace />
   }
 
-  const departmentQuery = useQuery({
-    queryKey: ['departments', departmentId],
+  const administrationQuery = useQuery({
+    queryKey: ['administrations', administrationId],
     queryFn: async () => {
-      const { data } = await api.get<Department>(`/departments/${departmentId}`)
+      const { data } = await api.get<Administration>(`/administrations/${administrationId}`)
       return data
     },
   })
 
   const branchesQuery = useQuery({
-    queryKey: ['branches', 'department', departmentId],
+    queryKey: ['branches', 'administration', administrationId],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { per_page: 100, 'filter[administration_id]': departmentId },
+        params: { per_page: 100, 'filter[administration_id]': administrationId },
       })
       return data.data
     },
   })
 
-  const dept = departmentQuery.data
+  const administration = administrationQuery.data
   const branches = branchesQuery.data ?? []
 
   const dashboard = useMemo(() => {
-    if (!dept) return null
-    return buildDepartmentDashboard(dept, branches)
-  }, [dept, branches])
+    if (!administration) return null
+    return buildDepartmentDashboard(administration, branches)
+  }, [administration, branches])
 
-  const deptName = dept?.name_ar || dept?.name || '...'
-  const isLoading = departmentQuery.isLoading || branchesQuery.isLoading
-  const isError = departmentQuery.isError || branchesQuery.isError
-  const error = departmentQuery.error ?? branchesQuery.error
+  const adminName = administration?.name_ar || administration?.name || '...'
+  const isLoading = administrationQuery.isLoading || branchesQuery.isLoading
+  const isError = administrationQuery.isError || branchesQuery.isError
+  const error = administrationQuery.error ?? branchesQuery.error
 
   return (
     <AsyncState isLoading={isLoading} isError={isError} error={error}>
-      {dept && dashboard && (
+      {administration && dashboard && (
         <div className="space-y-xl">
           <div className="flex flex-wrap items-center justify-between gap-md">
             <nav className="flex items-center gap-xs text-on-surface-variant">
@@ -78,7 +78,7 @@ export function DepartmentDetailPage() {
                   <Icon name="chevron_right" size={14} className="rotate-180" />
                 </>
               )}
-              <span className="font-body-sm text-body-sm font-bold text-on-surface">{deptName}</span>
+              <span className="font-body-sm text-body-sm font-bold text-on-surface">{adminName}</span>
             </nav>
             <Link
               to="/inventory/add"
@@ -93,19 +93,21 @@ export function DepartmentDetailPage() {
             <div className="flex flex-wrap items-end justify-between gap-md">
               <div>
                 <h2 className="font-headline-md text-on-surface">
-                  لوحة الإدارة — {deptName}
+                  لوحة الإدارة — {adminName}
                 </h2>
                 <div className="mt-sm flex flex-wrap items-center gap-md">
                   <span className="rounded border border-outline-variant bg-surface-container-high px-sm py-1 font-label-md text-primary">
-                    {dept.code}
+                    {administration.code}
                   </span>
-                  <span
-                    className={`rounded-full px-sm py-0.5 font-label-sm ${
-                      dept.is_active ? 'bg-[#EAF6ED] text-[#34A853]' : 'bg-error-container text-error'
-                    }`}
-                  >
-                    {dept.is_active ? 'نشطة' : 'موقوفة'}
-                  </span>
+                  {administration.is_active != null && (
+                    <span
+                      className={`rounded-full px-sm py-0.5 font-label-sm ${
+                        administration.is_active ? 'bg-[#EAF6ED] text-[#34A853]' : 'bg-error-container text-error'
+                      }`}
+                    >
+                      {administration.is_active ? 'نشطة' : 'موقوفة'}
+                    </span>
+                  )}
                   <span className="flex items-center gap-xs font-body-sm text-on-surface-variant">
                     <Icon name="history" size={16} className="no-flip" />
                     تحديث تلقائي: منذ دقيقتين
