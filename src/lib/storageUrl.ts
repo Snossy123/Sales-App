@@ -4,20 +4,37 @@ function getApiOrigin(): string | undefined {
   return apiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
 }
 
+function ensureAbsoluteUrl(url: string): string {
+  if (
+    url.startsWith('blob:')
+    || url.startsWith('data:')
+    || url.startsWith('http://')
+    || url.startsWith('https://')
+  ) {
+    return url
+  }
+
+  if (url.startsWith('//')) {
+    return `https:${url}`
+  }
+
+  if (url.startsWith('/')) {
+    const origin = getApiOrigin() ?? (typeof window !== 'undefined' ? window.location.origin : '')
+    return `${origin}${url}`
+  }
+
+  // API sometimes returns "domain.com/path" without a scheme — treat as absolute HTTPS.
+  return `https://${url.replace(/^\/+/, '')}`
+}
+
 /**
  * Normalize public storage URLs when the API is served from the project root
- * (e.g. …/SALES-API/public/storage instead of …/SALES-API/storage).
+ * (e.g. …/public/storage instead of …/storage).
  */
 export function resolvePublicStorageUrl(url?: string | null): string | undefined {
   if (!url) return undefined
-  if (url.startsWith('blob:') || url.startsWith('data:')) return url
 
-  let resolved = url
-
-  if (resolved.startsWith('/')) {
-    const origin = getApiOrigin() ?? (typeof window !== 'undefined' ? window.location.origin : '')
-    resolved = `${origin}${resolved}`
-  }
+  let resolved = ensureAbsoluteUrl(url)
 
   if (import.meta.env.VITE_STORAGE_USE_PUBLIC_PREFIX === 'true') {
     if (resolved.includes('/public/storage/')) return resolved
