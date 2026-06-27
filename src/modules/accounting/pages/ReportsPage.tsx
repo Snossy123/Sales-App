@@ -33,6 +33,12 @@ type ReportTab =
   | 'ar-reconciliation'
   | 'cash-statement'
 
+function reportParams(branchId: string, extra: Record<string, string> = {}): Record<string, string> {
+  const params: Record<string, string> = { ...extra }
+  if (branchId) params.branch_id = branchId
+  return params
+}
+
 export function ReportsPage() {
   usePageTour('reports')
   const printRef = useRef<HTMLDivElement>(null)
@@ -52,14 +58,13 @@ export function ReportsPage() {
     },
   })
 
-  const branchParams = branchId ? { branch_id: branchId } : {}
-
   const trialQuery = useQuery({
     queryKey: ['accounting', 'reports', 'trial-balance', startDate, endDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (startDate) params.start_date = startDate
-      if (endDate) params.end_date = endDate
+      const params = reportParams(branchId, {
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+      })
       const { data } = await api.get<TrialBalanceReport>('/accounting/reports/trial-balance', { params })
       return data
     },
@@ -69,8 +74,7 @@ export function ReportsPage() {
   const balanceSheetQuery = useQuery({
     queryKey: ['accounting', 'reports', 'balance-sheet', asOfDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (asOfDate) params.as_of_date = asOfDate
+      const params = reportParams(branchId, asOfDate ? { as_of_date: asOfDate } : {})
       const { data } = await api.get<BalanceSheetReport>('/accounting/reports/balance-sheet', { params })
       return data
     },
@@ -82,7 +86,7 @@ export function ReportsPage() {
     queryFn: async () => {
       const { data } = await api.get<{ group_by: string; report: ArAgeingContactRow[] | Record<string, unknown[]> }>(
         '/accounting/reports/ar-ageing',
-        { params: { group_by: arGroupBy, ...branchParams } },
+        { params: reportParams(branchId, { group_by: arGroupBy }) },
       )
       return data
     },
@@ -92,9 +96,10 @@ export function ReportsPage() {
   const incomeQuery = useQuery({
     queryKey: ['accounting', 'reports', 'income-statement', startDate, endDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (startDate) params.start_date = startDate
-      if (endDate) params.end_date = endDate
+      const params = reportParams(branchId, {
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+      })
       const { data } = await api.get<IncomeStatementReport>('/accounting/reports/income-statement', { params })
       return data
     },
@@ -104,9 +109,10 @@ export function ReportsPage() {
   const glQuery = useQuery({
     queryKey: ['accounting', 'reports', 'general-ledger', startDate, endDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (startDate) params.start_date = startDate
-      if (endDate) params.end_date = endDate
+      const params = reportParams(branchId, {
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+      })
       const { data } = await api.get<{ entries: GeneralLedgerEntry[] }>('/accounting/reports/general-ledger', {
         params,
       })
@@ -119,7 +125,7 @@ export function ReportsPage() {
     queryKey: ['accounting', 'reports', 'budget-variance', financialYear, branchId],
     queryFn: async () => {
       const { data } = await api.get<{ rows: BudgetVarianceRow[] }>('/accounting/reports/budget-variance', {
-        params: { financial_year: financialYear, ...branchParams },
+        params: reportParams(branchId, { financial_year: financialYear }),
       })
       return data
     },
@@ -129,8 +135,7 @@ export function ReportsPage() {
   const arReconQuery = useQuery({
     queryKey: ['accounting', 'reports', 'ar-reconciliation', asOfDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (asOfDate) params.as_of_date = asOfDate
+      const params = reportParams(branchId, asOfDate ? { as_of_date: asOfDate } : {})
       const { data } = await api.get<ArReconciliationReport>('/accounting/reports/ar-reconciliation', { params })
       return data
     },
@@ -140,9 +145,10 @@ export function ReportsPage() {
   const cashQuery = useQuery({
     queryKey: ['accounting', 'reports', 'cash-statement', startDate, endDate, branchId],
     queryFn: async () => {
-      const params: Record<string, string> = { ...branchParams }
-      if (startDate) params.start_date = startDate
-      if (endDate) params.end_date = endDate
+      const params = reportParams(branchId, {
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+      })
       const { data } = await api.get<{ entries: CashStatementEntry[] }>('/accounting/reports/cash-statement', {
         params,
       })
@@ -529,7 +535,9 @@ export function ReportsPage() {
             {cashQuery.data && (
               <DataTable<CashStatementEntry & Record<string, unknown>>
                 data={cashQuery.data.entries as (CashStatementEntry & Record<string, unknown>)[]}
-                keyExtractor={(row, i) => `${row.account_id}-${row.operation_date}-${i}`}
+                keyExtractor={(row) =>
+                  `${row.account_id}-${row.operation_date}-${row.ref_no ?? ''}-${row.amount}-${row.type}`
+                }
                 pageSize={15}
                 emptyMessage="لا توجد حركات نقدية"
                 columns={[
