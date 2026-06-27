@@ -1302,6 +1302,13 @@ export function handleMockRequest(
       const q = nameFilter.toLowerCase()
       items = items.filter((c) => c.name.toLowerCase().includes(q))
     }
+    const phoneFilter = params['filter[phone]']
+    if (phoneFilter) {
+      const q = phoneFilter.replace(/\s/g, '')
+      items = items.filter((c) =>
+        [c.phone, c.phone_2, c.phone_3].some((phone) => phone?.replace(/\s/g, '').includes(q)),
+      )
+    }
     return paginate(
       items.map((customer) => {
         const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
@@ -1453,16 +1460,33 @@ export function handleMockRequest(
 
   if ((m === 'PATCH' || m === 'PUT') && path.match(/^customers\/\d+$/)) {
     const customerId = Number(path.split('/')[1])
-    const body = data as Partial<Customer>
+    const body = data as Partial<Customer> & { guarantors?: Omit<Guarantor, 'id'>[] }
     let updated: Customer | undefined
     mutateState((s) => {
       const customer = s.customers.find((c) => c.id === customerId)
       if (!customer) throw mockError(404, 'العميل غير موجود')
       if (body.branch_id !== undefined) {
-        if (!isBranchInScope(s, ctx, body.branch_id)) {
+        if (body.branch_id != null && !isBranchInScope(s, ctx, body.branch_id)) {
           throw mockError(403, 'لا يمكنك ربط العميل بهذا الفرع')
         }
-        customer.branch_id = body.branch_id
+        customer.branch_id = body.branch_id ?? null
+      }
+      if (body.name !== undefined) customer.name = body.name
+      if (body.phone !== undefined) customer.phone = body.phone
+      if (body.phone_2 !== undefined) customer.phone_2 = body.phone_2 ?? null
+      if (body.phone_3 !== undefined) customer.phone_3 = body.phone_3 ?? null
+      if (body.national_id !== undefined) customer.national_id = body.national_id ?? null
+      if (body.address !== undefined) customer.address = body.address ?? null
+      if (body.distinctive_mark !== undefined) customer.distinctive_mark = body.distinctive_mark ?? null
+      if (body.guarantors !== undefined) {
+        customer.guarantors = body.guarantors.map((g, index) => ({
+          id: index + 1,
+          name: g.name,
+          phone: g.phone,
+          national_id: g.national_id ?? null,
+          address: g.address ?? null,
+          relationship: g.relationship ?? null,
+        }))
       }
       updated = customer
     })

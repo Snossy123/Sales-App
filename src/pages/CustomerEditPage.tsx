@@ -7,7 +7,13 @@ import { CustomerAttachmentsSection } from '../components/customers/CustomerAtta
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
-import { customerToForm, emptyCustomerForm } from '../lib/customerForm'
+import {
+  customerToForm,
+  emptyCustomerForm,
+  emptyGuarantorForm,
+  guarantorToForm,
+  hasGuarantorData,
+} from '../lib/customerForm'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
@@ -15,11 +21,15 @@ export function CustomerEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyCustomerForm)
+  const [withGuarantor, setWithGuarantor] = useState(false)
+  const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
 
   const customerQuery = useQuery({
     queryKey: ['customer', id, 'edit'],
     queryFn: async () => {
-      const { data } = await api.get<Customer>(`/customers/${id}`)
+      const { data } = await api.get<Customer>(`/customers/${id}`, {
+        params: { include: 'guarantors' },
+      })
       return data
     },
     enabled: Boolean(id),
@@ -29,11 +39,29 @@ export function CustomerEditPage() {
     const customer = customerQuery.data
     if (!customer) return
     setForm(customerToForm(customer))
+    const existingGuarantor = customer.guarantors?.[0]
+    setWithGuarantor(Boolean(existingGuarantor))
+    setGuarantor(guarantorToForm(existingGuarantor))
   }, [customerQuery.data])
+
+  const handleGuarantorModeChange = (next: boolean) => {
+    setWithGuarantor(next)
+    if (!next) {
+      setGuarantor(emptyGuarantorForm)
+    }
+  }
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.patch<Customer>(`/customers/${id}`, form)
+      const payload: Record<string, unknown> = { ...form }
+
+      if (withGuarantor && hasGuarantorData(guarantor)) {
+        payload.guarantors = [guarantor]
+      } else {
+        payload.guarantors = []
+      }
+
+      const { data } = await api.patch<Customer>(`/customers/${id}`, payload)
       return data
     },
     onSuccess: (customer) => {
@@ -135,8 +163,83 @@ export function CustomerEditPage() {
                     className={inputClass}
                   />
                 </label>
+                <div className="col-span-12 block text-sm">
+                  <span className="mb-xs block text-on-surface-variant">الضامن</span>
+                  <div className="flex w-fit gap-1 rounded-lg border border-outline-variant p-0.5 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleGuarantorModeChange(true)}
+                      className={`rounded px-md py-1.5 font-medium ${
+                        withGuarantor ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                      }`}
+                    >
+                      ضامن
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGuarantorModeChange(false)}
+                      className={`rounded px-md py-1.5 font-medium ${
+                        !withGuarantor ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                      }`}
+                    >
+                      بدون ضامن
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
+
+            {withGuarantor && (
+              <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+                <h3 className="mb-sm text-sm font-bold text-on-surface">بيانات الضامن</h3>
+                <div className="grid grid-cols-12 gap-sm">
+                  <label className="col-span-12 block text-sm sm:col-span-4">
+                    <span className="mb-xs block text-on-surface-variant">الاسم *</span>
+                    <input
+                      value={guarantor.name}
+                      onChange={(e) => setGuarantor({ ...guarantor, name: e.target.value })}
+                      required
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="col-span-12 block text-sm sm:col-span-4">
+                    <span className="mb-xs block text-on-surface-variant">الرقم القومي</span>
+                    <input
+                      value={guarantor.national_id}
+                      onChange={(e) => setGuarantor({ ...guarantor, national_id: e.target.value })}
+                      dir="ltr"
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="col-span-12 block text-sm sm:col-span-4">
+                    <span className="mb-xs block text-on-surface-variant">الصلة</span>
+                    <input
+                      value={guarantor.relationship}
+                      onChange={(e) => setGuarantor({ ...guarantor, relationship: e.target.value })}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="col-span-12 block text-sm sm:col-span-6">
+                    <span className="mb-xs block text-on-surface-variant">العنوان</span>
+                    <input
+                      value={guarantor.address}
+                      onChange={(e) => setGuarantor({ ...guarantor, address: e.target.value })}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="col-span-12 block text-sm sm:col-span-6">
+                    <span className="mb-xs block text-on-surface-variant">رقم الهاتف *</span>
+                    <input
+                      value={guarantor.phone}
+                      onChange={(e) => setGuarantor({ ...guarantor, phone: e.target.value })}
+                      required
+                      dir="ltr"
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+              </section>
+            )}
 
             <CustomerAttachmentsSection mode="view" customerId={customer.id} />
 

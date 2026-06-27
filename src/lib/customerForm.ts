@@ -44,3 +44,19 @@ export function customerToForm(customer: {
     distinctive_mark: customer.distinctive_mark ?? '',
   }
 }
+
+export function guarantorToForm(guarantor?: {
+  name?: string
+  national_id?: string | null
+  address?: string | null
+  phone?: string
+  relationship?: string | null
+} | null): GuarantorFormState {
+  return {
+    name: guarantor?.name ?? '',
+    national_id: guarantor?.national_id ?? '',
+    address: guarantor?.address ?? '',
+    phone: guarantor?.phone ?? '',
+    relationship: guarantor?.relationship ?? '',
+  }
+}

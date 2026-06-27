@@ -19,6 +19,18 @@ import { getUserRole } from '../lib/permissions'
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
+function customerPhones(customer: Customer): string[] {
+  return [customer.phone, customer.phone_2, customer.phone_3].filter(
+    (phone): phone is string => Boolean(phone?.trim()),
+  )
+}
+
+function customerGuarantorLabel(customer: Customer): string {
+  const guarantor = customer.guarantors?.[0]
+  if (!guarantor?.name?.trim()) return 'بدون ضامن'
+  return guarantor.name
+}
+
 export function CustomersPage() {
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getListScopeQueryKey(user)
@@ -35,8 +47,16 @@ export function CustomersPage() {
       const params = mergeScopedListParams(user, {
         per_page: 25,
         page,
+        include: 'guarantors',
       })
-      if (debouncedSearch) params['filter[name]'] = debouncedSearch
+      const searchTerm = debouncedSearch.trim()
+      if (searchTerm) {
+        if (/^[\d+\s-]+$/.test(searchTerm)) {
+          params['filter[phone]'] = searchTerm.replace(/\s/g, '')
+        } else {
+          params['filter[name]'] = searchTerm
+        }
+      }
       if (statusFilter) params['filter[status]'] = statusFilter
 
       const { data } = await api.get<ApiPaginated<Customer>>('/customers', { params })
@@ -76,7 +96,7 @@ export function CustomersPage() {
             setSearch(value)
             setPage(1)
           }}
-          searchPlaceholder="بحث بالاسم..."
+          searchPlaceholder="بحث بالاسم أو الهاتف..."
           selects={[
             {
               id: 'status',
@@ -108,27 +128,61 @@ export function CustomersPage() {
               key: 'name',
               header: 'الاسم',
               render: (row) => (
-                <span className="inline-flex items-center gap-sm">
+                <Link
+                  to={`/customers/${row.id}`}
+                  className="inline-flex min-w-0 items-center gap-sm font-medium text-primary hover:underline"
+                >
                   <ProfileAvatar
                     name={row.name}
                     photoUrl={row.profile_photo_url}
                     variant="customer"
                     size="sm"
                   />
-                  {row.name}
+                  <span className="truncate">{row.name}</span>
+                </Link>
+              ),
+            },
+            {
+              key: 'phones',
+              header: 'للتواصل',
+              render: (row) => {
+                const phones = customerPhones(row)
+                if (phones.length === 0) return '—'
+                return (
+                  <div className="flex flex-col gap-0.5 text-xs tabular-nums" dir="ltr">
+                    {phones.map((phone) => (
+                      <a key={phone} href={`tel:${phone}`} className="text-primary hover:underline">
+                        {phone}
+                      </a>
+                    ))}
+                  </div>
+                )
+              },
+            },
+            {
+              key: 'national_id',
+              header: 'الرقم القومي',
+              className: 'tabular-nums',
+              render: (row) => row.national_id?.trim() || '—',
+            },
+            {
+              key: 'address',
+              header: 'العنوان',
+              render: (row) => (
+                <span className="line-clamp-2 max-w-[14rem] text-on-surface-variant">
+                  {row.address?.trim() || '—'}
                 </span>
               ),
             },
-            { key: 'phone', header: 'الهاتف', className: 'tabular-nums' },
+            {
+              key: 'guarantor',
+              header: 'الضامن',
+              render: (row) => customerGuarantorLabel(row),
+            },
             {
               key: 'status',
               header: 'الحالة',
               render: (row) => <StatusBadge status={row.status} />,
-            },
-            {
-              key: 'credit_score',
-              header: 'التقييم',
-              render: (row) => row.credit_score ?? '—',
             },
             {
               key: 'actions',
