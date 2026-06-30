@@ -13,7 +13,7 @@ import type {
   ServiceCategory,
   ServiceCheckoutPayload,
 } from '../api/types'
-import { type ApiPaginated } from '../lib/sales'
+import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -28,6 +28,7 @@ import {
   lineTotal,
   ServiceLineCard,
   validateServiceLineInstallment,
+  validateServiceLineCash,
   type ServiceLineDraft,
 } from '../components/services/ServiceLineCard'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
@@ -82,6 +83,7 @@ export function ServiceSalesPage({
   )
   const [selectedServiceId, setSelectedServiceId] = useState<number | ''>('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
@@ -255,8 +257,10 @@ export function ServiceSalesPage({
 
   const balanceDue = Math.max(0, total - paidNow)
 
-  const allInstallmentLinesValid = lines.every(
-    (line) => validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid,
+  const allLinesValid = lines.every(
+    (line) =>
+      validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
+      validateServiceLineCash(line).valid,
   )
 
   const sourceReady =
@@ -280,7 +284,6 @@ export function ServiceSalesPage({
           const base = {
             service_id: line.service_id,
             description: line.description,
-            quantity: line.quantity,
             unit_price: line.unit_price,
             payment_term: line.paymentTerm,
             cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
@@ -300,7 +303,10 @@ export function ServiceSalesPage({
             }
           }
 
-          return base
+          return {
+            ...base,
+            down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+          }
         }),
       }
 
@@ -318,6 +324,7 @@ export function ServiceSalesPage({
     onSuccess: (invoice) => {
       const hasInstallment = lines.some((line) => line.paymentTerm === 'installment')
       setLastInstallmentSale(hasInstallment)
+      setLastInvoice(invoice)
       setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
       setNotes('')
       setLines(
@@ -343,7 +350,6 @@ export function ServiceSalesPage({
         {
           service_id: service.id,
           description: service.name_ar || service.name,
-          quantity: 1,
           unit_price: Number(service.cash_price ?? service.default_price),
           cashPrice: Number(service.cash_price ?? service.default_price),
           installmentPrice: Number(service.installment_price ?? service.default_price),
@@ -358,7 +364,7 @@ export function ServiceSalesPage({
     setLines((prev) => [
       ...prev,
       createServiceLine(
-        { description: '', quantity: 1, unit_price: 0, cashPrice: 0, installmentPrice: 0 },
+        { description: '', unit_price: 0, cashPrice: 0, installmentPrice: 0 },
         { contractDate, minDownPercent },
       ),
     ])
@@ -370,7 +376,7 @@ export function ServiceSalesPage({
     lines.length > 0 &&
     lines.every((line) => line.description.trim() && line.unit_price > 0) &&
     total > 0 &&
-    allInstallmentLinesValid
+    allLinesValid
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -520,6 +526,19 @@ export function ServiceSalesPage({
             {successMsg && (
               <div className="space-y-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
                 <p>{successMsg}</p>
+                {lastInvoice?.lines?.map((line, index) => (
+                  <Link
+                    key={line.id}
+                    to={serviceContractPrintPath(lastInvoice.id, line.id, { autoPrint: false })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                  >
+                    <Icon name="print" size={18} />
+                    طباعة عقد الخدمة {index + 1}
+                    {line.description ? ` — ${line.description}` : ''}
+                  </Link>
+                ))}
                 {lastInstallmentSale && (
                   <Link to="/installments" className="inline-flex items-center gap-1 font-bold text-primary">
                     <Icon name="payments" size={18} />

@@ -4,7 +4,11 @@ import {
   computeMinDownPayment,
   suggestInstallmentAmount,
 } from '../../lib/sales'
-import { linePaidNow as cashLinePaidNow, type CashSchedule } from '../../lib/cashSchedule'
+import {
+  cashRemainder,
+  linePaidNow as cashLinePaidNow,
+  type CashSchedule,
+} from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from '../pos/CashScheduleSelector'
 import { PosMoneyInput } from '../pos/PosMoneyInput'
@@ -24,7 +28,6 @@ export interface ServiceLineDraft {
   id: number
   service_id?: number
   description: string
-  quantity: number
   unit_price: number
   cashPrice: number
   installmentPrice: number
@@ -43,7 +46,7 @@ function addDays(dateStr: string, days: number): string {
 }
 
 export function lineTotal(line: ServiceLineDraft): number {
-  return Math.max(0, Number(line.quantity) * Number(line.unit_price))
+  return Math.max(0, Number(line.unit_price))
 }
 
 export function lineInstallmentCount(
@@ -56,6 +59,23 @@ export function lineInstallmentCount(
     line.downPayment,
     maxInstallmentCount,
   )
+}
+
+export function validateServiceLineCash(
+  line: ServiceLineDraft,
+): { valid: boolean; errors: string[] } {
+  if (line.paymentTerm !== 'cash') return { valid: true, errors: [] }
+
+  const errors: string[] = []
+  const total = lineTotal(line)
+  if (line.downPayment < 0) {
+    errors.push('المقدم لا يمكن أن يكون سالبًا')
+  }
+  if (line.downPayment > total + 0.009) {
+    errors.push('المقدم يجب أن يكون أقل من أو يساوي إجمالي البند')
+  }
+
+  return { valid: errors.length === 0, errors }
 }
 
 export function validateServiceLineInstallment(
@@ -111,7 +131,9 @@ export function ServiceLineCard({
   onRemove,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
-  const validation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
+  const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
+  const cashValidation = validateServiceLineCash(line)
+  const remainderAmount = cashRemainder(total, line.downPayment)
   const computedCount = useMemo(
     () => lineInstallmentCount(line, maxInstallmentCount),
     [line, maxInstallmentCount],
@@ -121,12 +143,11 @@ export function ServiceLineCard({
 
   const switchToInstallment = () => {
     const price = line.installmentPrice
-    const total = Math.max(0, line.quantity * price)
     patch({
       paymentTerm: 'installment',
       unit_price: price,
-      downPayment: computeMinDownPayment(total, minDownPercent),
-      installmentAmount: suggestInstallmentAmount(total, 6, minDownPercent),
+      downPayment: computeMinDownPayment(price, minDownPercent),
+      installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
       firstDueDate: addDays(contractDate, 30),
     })
   }
@@ -136,6 +157,7 @@ export function ServiceLineCard({
       paymentTerm: 'cash',
       unit_price: line.cashPrice,
       cashSchedule: 'immediate',
+      downPayment: 0,
     })
   }
 
@@ -165,26 +187,14 @@ export function ServiceLineCard({
               className={`${posInputClass} read-only:bg-surface-container-lowest`}
             />
           </div>
-          <div className="grid grid-cols-2 gap-sm">
-            <div>
-              <label className={posLabelClass}>الكمية</label>
-              <input
-                type="number"
-                min={1}
-                value={line.quantity}
-                onChange={(e) => patch({ quantity: Number(e.target.value) })}
-                className={posInputClass}
-              />
-            </div>
-            <div>
-              <label className={posLabelClass}>السعر</label>
-              <PosMoneyInput
-                min={0}
-                step="0.01"
-                value={line.unit_price}
-                onChange={(e) => patch({ unit_price: Number(e.target.value) })}
-              />
-            </div>
+          <div>
+            <label className={posLabelClass}>السعر</label>
+            <PosMoneyInput
+              min={0}
+              step="0.01"
+              value={line.unit_price}
+              onChange={(e) => patch({ unit_price: Number(e.target.value) })}
+            />
           </div>
         </div>
 
@@ -265,19 +275,47 @@ export function ServiceLineCard({
                   </div>
                 </div>
               </div>
-              {!validation.valid &&
-                validation.errors.map((msg) => (
+              {!installmentValidation.valid &&
+                installmentValidation.errors.map((msg) => (
                   <p key={msg} className="text-xs text-error">
                     {msg}
                   </p>
                 ))}
             </div>
           ) : (
-            <CashScheduleSelector
-              schedule={line.cashSchedule}
-              contractDate={contractDate}
-              onChange={(cashSchedule) => patch({ cashSchedule })}
-            />
+            <div className="space-y-sm">
+              <CashScheduleSelector
+                schedule={line.cashSchedule}
+                contractDate={contractDate}
+                lineTotal={total}
+                downPayment={line.downPayment}
+                onChange={(cashSchedule) => patch({ cashSchedule })}
+              />
+              <div>
+                <label className={posLabelClass}>مقدم (اختياري)</label>
+                <PosMoneyInput
+                  min={0}
+                  max={total}
+                  step="0.01"
+                  value={line.downPayment || ''}
+                  onChange={(e) => patch({ downPayment: Number(e.target.value) })}
+                />
+                {line.downPayment > 0 && remainderAmount > 0 && (
+                  <p className="mt-xs text-xs text-on-surface-variant">
+                    المتبقي:{' '}
+                    <span className="font-medium tabular-nums text-on-surface">
+                      {remainderAmount.toLocaleString('ar-EG')} ج.م
+                    </span>
+                  </p>
+                )}
+              </div>
+              {!cashValidation.valid &&
+                cashValidation.errors.map((msg) => (
+                  <p key={msg} className="text-xs text-error">
+                    {msg}
+                  </p>
+                ))}
+            </div>
           )}
         </div>
       </div>
@@ -300,7 +338,6 @@ export function createServiceLine(
   const paymentTerm = options?.paymentTerm ?? 'cash'
   const unitPrice =
     paymentTerm === 'installment' ? partial.installmentPrice : partial.cashPrice
-  const total = Math.max(0, Number(partial.quantity) * unitPrice)
 
   return {
     id: lineId,
@@ -308,8 +345,8 @@ export function createServiceLine(
     unit_price: unitPrice,
     paymentTerm,
     cashSchedule: 'immediate',
-    downPayment: computeMinDownPayment(total, minDownPercent),
-    installmentAmount: suggestInstallmentAmount(total, 6, minDownPercent),
+    downPayment: computeMinDownPayment(unitPrice, minDownPercent),
+    installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     intervalType: 'monthly',
     firstDueDate: addDays(contractDate, 30),
   }

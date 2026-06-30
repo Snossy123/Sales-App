@@ -219,6 +219,21 @@ export function contractPrintPath(
   return `/invoices/${invoiceId}/contract-print${qs ? `?${qs}` : ''}`
 }
 
+export function serviceContractPrintPath(
+  invoiceId: number,
+  lineId: number,
+  options?: { autoPrint?: boolean },
+): string {
+  const params = new URLSearchParams()
+  if (options?.autoPrint) params.set('print', '1')
+  const qs = params.toString()
+  return `/invoices/${invoiceId}/service-contract/${lineId}${qs ? `?${qs}` : ''}`
+}
+
+export function isServiceInvoiceLine(line: { product_unit_id?: number | null }): boolean {
+  return !line.product_unit_id
+}
+
 /** يُحسب المقدم تلقائياً: الإجمالي − (قيمة القسط × عدد الأقساط) */
 export function computeInstallmentDownPayment(
   total: number,

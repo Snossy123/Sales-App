@@ -42,6 +42,13 @@ import type { DemoState, DemoUser } from './seed'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
+import {
+  cashDueDate,
+  cashRemainder,
+  isDeferredCashSchedule,
+  linePaidNow,
+  type CashSchedule,
+} from '../../lib/cashSchedule'
 
 interface MockContext {
   branchId?: number
@@ -1880,6 +1887,60 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path.match(/^sales-invoices\/\d+\/lines\/\d+\/contract$/)) {
+    const parts = path.split('/')
+    const invoiceId = Number(parts[1])
+    const lineId = Number(parts[3])
+    const invoice = state.invoices.find((i) => i.id === invoiceId)
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    const line = invoice.lines?.find((l) => l.id === lineId)
+    if (!line) throw mockError(404, 'البند غير موجود')
+    if (line.product_unit_id) {
+      throw mockError(422, 'هذا البند ليس خدمة — استخدم طباعة عقد الجهاز.')
+    }
+
+    const customer = state.customers.find((c) => c.id === invoice.customer_id)
+    const service = line.service_id
+      ? state.services.find((item) => item.id === line.service_id)
+      : undefined
+    const templateKey = service?.contract_template_key ?? 'service_receipt'
+    const description = line.description ?? service?.name_ar ?? service?.name ?? 'خدمة'
+    const lineTotal = Number(line.line_total ?? line.unit_price ?? 0)
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>عقد خدمة — ${description}</title>
+  <link rel="stylesheet" href="/tamplates/contract.css">
+</head>
+<body>
+  <article class="installment-contract">
+    <h1 style="text-align:center;color:#c41e3a;">إيصال / عقد خدمة</h1>
+    <p><strong>العميل:</strong> ${customer?.name ?? ''}</p>
+    <p><strong>الهاتف:</strong> ${customer?.phone ?? ''}</p>
+    <p><strong>التاريخ:</strong> ${invoice.invoice_date ?? ''}</p>
+    <p><strong>الخدمة:</strong> ${description}</p>
+    <p><strong>رقم الفاتورة:</strong> ${invoice.invoice_number ?? invoice.id}</p>
+    <table border="1" cellpadding="8" cellspacing="0" width="100%" style="margin-top:1rem;border-collapse:collapse;">
+      <thead><tr><th>البند</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>${description}</td>
+          <td>${Number(line.unit_price).toLocaleString('ar-EG')} ج.م</td>
+          <td>${lineTotal.toLocaleString('ar-EG')} ج.م</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:1rem;"><strong>الإجمالي:</strong> ${lineTotal.toLocaleString('ar-EG')} ج.م</p>
+    <p style="font-size:12px;color:#666;">نموذج: ${templateKey}</p>
+  </article>
+</body>
+</html>`
+
+    return html
+  }
+
   if (m === 'GET' && path === 'payment-transactions') {
     let rows = [...state.paymentTransactions]
     const customerId = params.customer_id ? Number(params.customer_id) : undefined
@@ -1967,7 +2028,7 @@ export function handleMockRequest(
         const discount = Number(line.discount ?? 0)
         const quantity = line.quantity ?? 1
         const lineTotal = isServiceLine
-          ? Math.max(0, price * quantity - discount)
+          ? Math.max(0, price - discount)
           : Math.max(0, price - discount)
         subtotal += lineTotal
         const technician = line.technician_id
@@ -1976,7 +2037,8 @@ export function handleMockRequest(
         return {
           id: s.counters.invoice * 100 + index + 1,
           product_id: isServiceLine ? undefined : s.gpsProduct.id,
-          product_unit_id: line.product_unit_id,
+          product_unit_id: isServiceLine ? undefined : line.product_unit_id,
+          service_id: isServiceLine ? line.service_id : undefined,
           description: line.description,
           quantity,
           unit_price: price,
@@ -2028,14 +2090,12 @@ export function handleMockRequest(
       let paidAmount = installationFee
       body.lines.forEach((line, index) => {
         const lineTotal = Number(invoiceLines[index].line_total ?? 0)
-        if ((line.payment_term ?? 'cash') === 'cash') {
-          const schedule = line.cash_schedule ?? 'immediate'
-          if (schedule === 'immediate') {
-            paidAmount += lineTotal
-          }
-        } else if (line.installment_plan) {
-          paidAmount += Number(line.installment_plan.down_payment ?? 0)
-        }
+        const term = line.payment_term ?? 'cash'
+        const down =
+          term === 'installment'
+            ? Number(line.installment_plan?.down_payment ?? 0)
+            : Number(line.down_payment ?? 0)
+        paidAmount += linePaidNow(term, line.cash_schedule, lineTotal, down)
       })
       paidAmount = Math.round(paidAmount * 100) / 100
 
@@ -2091,6 +2151,37 @@ export function handleMockRequest(
         generateInstallmentItems(s, invoice, invLine, plan)
       })
 
+      const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
+      body.lines.forEach((lineInput, index) => {
+        if ((lineInput.payment_term ?? 'cash') !== 'cash') return
+        const invLine = invoiceLines[index]
+        const lineTotal = Number(invLine.line_total ?? 0)
+        const down = Number(lineInput.down_payment ?? 0)
+        const remainder = cashRemainder(lineTotal, down)
+        if (remainder <= 0) return
+
+        const schedule = (lineInput.cash_schedule ?? 'immediate') as CashSchedule
+        const deferred = isDeferredCashSchedule(schedule)
+        if (!deferred && down <= 0) return
+
+        const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
+        if (!dueDate) return
+
+        const plan: InstallmentPlan = {
+          id: invoiceId * 100 + index + 50,
+          down_payment: down,
+          installment_count: 1,
+          installment_amount: remainder,
+          interval_type: 'monthly',
+          interval_days: 30,
+          first_due_date: dueDate,
+          status: 'draft' as const,
+          items: [],
+        }
+        invLine.installment_plan = plan
+        generateInstallmentItems(s, invoice, invLine, plan)
+      })
+
       s.invoices.push(invoice)
       created = invoice
     })
@@ -2113,7 +2204,7 @@ export function handleMockRequest(
       }
 
       const subtotal = body.items.reduce(
-        (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
+        (sum, item) => sum + Number(item.unit_price),
         0,
       )
 
@@ -2124,23 +2215,24 @@ export function handleMockRequest(
 
       let paidAmount = 0
       for (const item of body.items) {
-        const lineTotal = Number(item.quantity) * Number(item.unit_price)
+        const lineTotal = Number(item.unit_price)
         const term = item.payment_term ?? 'cash'
-        if (term === 'cash') {
-          paidAmount += lineTotal
-        } else if (term === 'installment') {
-          paidAmount += Number(item.installment_plan?.down_payment ?? 0)
-        }
+        const down =
+          term === 'installment'
+            ? Number(item.installment_plan?.down_payment ?? 0)
+            : Number(item.down_payment ?? 0)
+        paidAmount += linePaidNow(term, item.cash_schedule, lineTotal, down)
       }
 
       const balanceDue = Math.max(0, subtotal - paidAmount)
       const invoiceId = s.counters.invoice++
       const invoiceLines = body.items.map((item, index) => {
         const lineId = invoiceId * 100 + index
-        const lineTotal = Number(item.quantity) * Number(item.unit_price)
+        const lineTotal = Number(item.unit_price)
         const line: SalesInvoiceLine = {
           id: lineId,
-          quantity: item.quantity,
+          service_id: item.service_id,
+          quantity: 1,
           unit_price: item.unit_price,
           line_total: lineTotal,
           product_name_ar: item.description,
@@ -2162,6 +2254,30 @@ export function handleMockRequest(
             items: [],
           }
           line.installment_plan = plan
+        } else if ((item.payment_term ?? 'cash') === 'cash') {
+          const down = Number(item.down_payment ?? 0)
+          const remainder = cashRemainder(lineTotal, down)
+          const schedule = (item.cash_schedule ?? 'immediate') as CashSchedule
+          const deferred = isDeferredCashSchedule(schedule)
+          if (remainder > 0 && (deferred || down > 0)) {
+            const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
+            const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
+            if (dueDate) {
+              const plan: InstallmentPlan = {
+                id: lineId,
+                sales_invoice_line_id: lineId,
+                down_payment: down,
+                installment_count: 1,
+                installment_amount: remainder,
+                interval_days: 30,
+                interval_type: 'monthly',
+                first_due_date: dueDate,
+                status: 'active',
+                items: [],
+              }
+              line.installment_plan = plan
+            }
+          }
         }
 
         return line

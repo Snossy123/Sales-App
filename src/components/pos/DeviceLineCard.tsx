@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { Employee } from '../../api/types'
 import {
   amountFromPercent,
@@ -6,13 +6,14 @@ import {
   percentFromAmount,
   type DiscountMode,
 } from '../../lib/discount'
+import { normalizeScannedInput } from '../../lib/scanner'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import { renewalTypeLabels } from '../../lib/contractFields'
-import { type CashSchedule } from '../../lib/cashSchedule'
+import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from './CashScheduleSelector'
 import { SearchableSelect } from '../SearchableSelect'
@@ -84,6 +85,21 @@ export function lineInstallmentCount(
   )
 }
 
+export function validateCashLine(line: DeviceLineDraft): { valid: boolean; errors: string[] } {
+  if (line.paymentTerm !== 'cash') return { valid: true, errors: [] }
+
+  const errors: string[] = []
+  const net = lineNetTotal(line)
+  if (line.downPayment < 0) {
+    errors.push('المقدم لا يمكن أن يكون سالبًا')
+  }
+  if (line.downPayment > net + 0.009) {
+    errors.push('المقدم يجب أن يكون أقل من أو يساوي صافي الجهاز')
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
 export function validateInstallmentLine(
   line: DeviceLineDraft,
   minDownPercent: number,
@@ -139,14 +155,39 @@ export function DeviceLineCard({
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
+  const serialInputRef = useRef<HTMLInputElement>(null)
+  const simInputRef = useRef<HTMLInputElement>(null)
+  const usernameInputRef = useRef<HTMLInputElement>(null)
   const patch = (partial: Partial<DeviceLineDraft>) => onChange({ ...line, ...partial })
+
+  useEffect(() => {
+    if (index === 0 && expanded) {
+      serialInputRef.current?.focus()
+    }
+  }, [index, expanded])
+
+  const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
+    patch({ [field]: normalizeScannedInput(raw) } as Partial<DeviceLineDraft>)
+  }
+
+  const focusNextAfterScan = (
+    e: KeyboardEvent<HTMLInputElement>,
+    nextRef: RefObject<HTMLInputElement | null>,
+  ) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    nextRef.current?.focus()
+    nextRef.current?.select()
+  }
   const net = lineNetTotal(line)
   const renewalDate = line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
   const computedCount = useMemo(
     () => lineInstallmentCount(line, maxInstallmentCount),
     [line, maxInstallmentCount],
   )
-  const validation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
+  const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
+  const cashValidation = validateCashLine(line)
+  const cashRemainderAmount = cashRemainder(net, line.downPayment)
 
   const filteredEmployees = useMemo(() => {
     const q = technicianSearch.trim().toLowerCase()
@@ -175,6 +216,7 @@ export function DeviceLineCard({
       discountAmount: 0,
       discountPercent: 0,
       cashSchedule: 'immediate',
+      downPayment: 0,
     })
   }
 
@@ -233,34 +275,44 @@ export function DeviceLineCard({
             <div>
               <label className={posLabelClass}>السريال (جهاز)</label>
               <input
+                ref={serialInputRef}
                 value={line.serialNumber}
-                onChange={(e) => patch({ serialNumber: e.target.value })}
+                onChange={(e) => patchScanned('serialNumber', e.target.value)}
+                onKeyDown={(e) => focusNextAfterScan(e, simInputRef)}
                 placeholder="امسح أو أدخل السريال"
                 className={posScanClass}
                 dir="ltr"
                 autoComplete="off"
+                spellCheck={false}
+                data-tour={index === 0 ? 'pos-serial-scan' : undefined}
               />
             </div>
             <div>
               <label className={posLabelClass}>رقم الشريحة / الكارت</label>
               <input
+                ref={simInputRef}
                 value={line.simNumber}
-                onChange={(e) => patch({ simNumber: e.target.value })}
+                onChange={(e) => patchScanned('simNumber', e.target.value)}
+                onKeyDown={(e) => focusNextAfterScan(e, usernameInputRef)}
                 placeholder="امسح أو أدخل رقم الشريحة"
                 className={posScanClass}
                 dir="ltr"
                 autoComplete="off"
+                spellCheck={false}
+                inputMode="numeric"
               />
             </div>
             <div>
               <label className={posLabelClass}>اسم المستخدم (تطبيق التتبع)</label>
               <input
+                ref={usernameInputRef}
                 value={line.username}
-                onChange={(e) => patch({ username: e.target.value })}
+                onChange={(e) => patchScanned('username', e.target.value)}
                 placeholder="username"
                 className={posInputClass}
                 dir="ltr"
                 autoComplete="off"
+                spellCheck={false}
               />
             </div>
             <div>
@@ -438,19 +490,47 @@ export function DeviceLineCard({
                       </div>
                     </div>
                   </div>
-                  {!validation.valid &&
-                    validation.errors.map((msg) => (
+                  {!installmentValidation.valid &&
+                    installmentValidation.errors.map((msg) => (
                       <p key={msg} className="text-xs text-error">
                         {msg}
                       </p>
                     ))}
                 </div>
               ) : (
-                <CashScheduleSelector
-                  schedule={line.cashSchedule}
-                  contractDate={contractDate}
-                  onChange={(cashSchedule) => patch({ cashSchedule })}
-                />
+                <div className="space-y-sm">
+                  <CashScheduleSelector
+                    schedule={line.cashSchedule}
+                    contractDate={contractDate}
+                    lineTotal={net}
+                    downPayment={line.downPayment}
+                    onChange={(cashSchedule) => patch({ cashSchedule })}
+                  />
+                  <div>
+                    <label className={posLabelClass}>مقدم (اختياري)</label>
+                    <PosMoneyInput
+                      min={0}
+                      max={net}
+                      step="0.01"
+                      value={line.downPayment || ''}
+                      onChange={(e) => patch({ downPayment: Number(e.target.value) })}
+                    />
+                    {line.downPayment > 0 && cashRemainderAmount > 0 && (
+                      <p className="mt-xs text-xs text-on-surface-variant">
+                        المتبقي:{' '}
+                        <span className="font-medium tabular-nums text-on-surface">
+                          {cashRemainderAmount.toLocaleString('ar-EG')} ج.م
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  {!cashValidation.valid &&
+                    cashValidation.errors.map((msg) => (
+                      <p key={msg} className="text-xs text-error">
+                        {msg}
+                      </p>
+                    ))}
+                </div>
               )}
             </div>
 

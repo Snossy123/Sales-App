@@ -25,9 +25,21 @@ export function linePaidNow(
   lineTotal: number,
   downPayment = 0,
 ): number {
-  if (paymentTerm === 'installment') return downPayment
-  if (paymentTerm === 'cash' && isDeferredCashSchedule(cashSchedule)) return 0
-  return lineTotal
+  if (paymentTerm === 'installment') {
+    return Math.min(lineTotal, Math.max(0, downPayment))
+  }
+
+  const down = Math.min(lineTotal, Math.max(0, downPayment))
+
+  if (isDeferredCashSchedule(cashSchedule)) {
+    return down
+  }
+
+  return down > 0 ? down : lineTotal
+}
+
+export function cashRemainder(lineTotal: number, downPayment: number): number {
+  return Math.max(0, lineTotal - Math.min(lineTotal, Math.max(0, downPayment)))
 }
 
 export function priceForPaymentTerm(

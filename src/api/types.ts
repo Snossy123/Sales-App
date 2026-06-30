@@ -550,6 +550,7 @@ export interface SalesInvoiceLine {
   id: number
   product_id?: number
   product_unit_id?: number
+  service_id?: number | null
   description?: string | null
   quantity?: number
   unit_price: string | number
@@ -760,6 +761,7 @@ export interface CheckoutPayload {
     username?: string
     payment_term?: 'cash' | 'installment'
     cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
+    down_payment?: number
     technician_id?: number
     vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
     vehicle_plate_letters?: string
@@ -798,10 +800,11 @@ export interface ServiceCheckoutPayload {
   items: {
     service_id?: number
     description: string
-    quantity: number
+    quantity?: number
     unit_price: number
     payment_term?: 'cash' | 'installment'
     cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
+    down_payment?: number
     installment_plan?: {
       down_payment: number
       installment_amount: number

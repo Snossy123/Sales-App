@@ -17,7 +17,7 @@ import type {
   Promotion,
   Service,
 } from '../api/types'
-import { contractPrintPath } from '../lib/sales'
+import { contractPrintPath, isServiceInvoiceLine, serviceContractPrintPath } from '../lib/sales'
 import { linePaidNow } from '../lib/cashSchedule'
 import {
   resolveCustomerTransactionSource,
@@ -35,6 +35,7 @@ import {
   lineInstallmentCount,
   lineNetTotal,
   validateInstallmentLine,
+  validateCashLine,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
 import {
@@ -49,6 +50,7 @@ import {
   lineTotal as serviceLineTotal,
   ServiceLineCard,
   validateServiceLineInstallment,
+  validateServiceLineCash,
   type ServiceLineDraft,
 } from '../components/services/ServiceLineCard'
 
@@ -377,12 +379,16 @@ export function PosPage() {
     return paid
   }, [deviceLines, serviceLines, netInstallationFeeTotal])
 
-  const allInstallmentLinesValid =
+  const allLinesValid =
     deviceLines.every(
-      (line) => validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid,
+      (line) =>
+        validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid &&
+        validateCashLine(line).valid,
     ) &&
     serviceLines.every(
-      (line) => validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid,
+      (line) =>
+        validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
+        validateServiceLineCash(line).valid,
     )
 
   useEffect(() => {
@@ -431,7 +437,6 @@ export function PosPage() {
         {
           service_id: service.id,
           description: service.name_ar || service.name,
-          quantity: 1,
           unit_price: cash,
           cashPrice: cash,
           installmentPrice: installment,
@@ -456,7 +461,7 @@ export function PosPage() {
     if (!customerId || !sourceReady || (!hasDevices && !hasServices)) return
     if (hasDevices && !warehouseId) return
     if (hasDevices && !allowNegativeInventory && quantity > available) return
-    if (!allInstallmentLinesValid) return
+    if (!allLinesValid) return
 
     const units = unitsQuery.data ?? []
     const devicePayload: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
@@ -497,7 +502,10 @@ export function PosPage() {
         }
       }
 
-      return base
+      return {
+        ...base,
+        down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+      }
     })
 
     const servicePayload: CheckoutPayload['lines'] = serviceLines.map((line) => {
@@ -505,7 +513,6 @@ export function PosPage() {
         line_type: 'service' as const,
         service_id: line.service_id,
         description: line.description.trim(),
-        quantity: line.quantity,
         unit_price: line.unit_price,
         payment_term: line.paymentTerm,
         cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
@@ -525,7 +532,10 @@ export function PosPage() {
         }
       }
 
-      return base
+      return {
+        ...base,
+        down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+      }
     })
 
     const lines = [...devicePayload, ...servicePayload]
@@ -767,18 +777,35 @@ export function PosPage() {
               <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
                 <p>{successMsg}</p>
                 <div className="mt-sm flex flex-col gap-1">
-                  {(lastInvoice.lines ?? []).map((line, index) => (
-                    <Link
-                      key={line.id}
-                      to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                    >
-                      <Icon name="print" size={18} />
-                      طباعة عقد الجهاز {index + 1}
-                    </Link>
-                  ))}
+                  {(lastInvoice.lines ?? [])
+                    .filter((line) => !isServiceInvoiceLine(line))
+                    .map((line, index) => (
+                      <Link
+                        key={line.id}
+                        to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                      >
+                        <Icon name="print" size={18} />
+                        طباعة عقد الجهاز {index + 1}
+                      </Link>
+                    ))}
+                  {(lastInvoice.lines ?? [])
+                    .filter((line) => isServiceInvoiceLine(line))
+                    .map((line, index) => (
+                      <Link
+                        key={line.id}
+                        to={serviceContractPrintPath(lastInvoice.id, line.id, { autoPrint: false })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                      >
+                        <Icon name="print" size={18} />
+                        طباعة عقد الخدمة {index + 1}
+                        {line.description ? ` — ${line.description}` : ''}
+                      </Link>
+                    ))}
                 </div>
               </div>
             )}
@@ -796,7 +823,7 @@ export function PosPage() {
                 (deviceLines.length === 0 && serviceLines.length === 0) ||
                 (hasDeviceSale && !warehouseId) ||
                 (hasDeviceSale && !allowNegativeInventory && quantity > available) ||
-                !allInstallmentLinesValid ||
+                !allLinesValid ||
                 serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
               }
               className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
