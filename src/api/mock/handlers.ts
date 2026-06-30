@@ -2046,7 +2046,7 @@ export function handleMockRequest(
         invoice_date: body.invoice_date ?? new Date().toISOString().split('T')[0],
         branch_id:
           body.branch_id ?? distributor?.branch_id ?? ctx.branchId ?? stock?.branch_id ?? 1,
-        warehouse_id: warehouseId ?? null,
+        warehouse_id: warehouseId ?? undefined,
         customer_id: body.customer_id,
         distributor_id: body.distributor_id ?? null,
         status: 'confirmed',
