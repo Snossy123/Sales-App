@@ -4,7 +4,9 @@ import {
   computeMinDownPayment,
   suggestInstallmentAmount,
 } from '../../lib/sales'
+import { linePaidNow as cashLinePaidNow, type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
+import { CashScheduleSelector } from '../pos/CashScheduleSelector'
 import { PosMoneyInput } from '../pos/PosMoneyInput'
 import {
   posInputClass,
@@ -24,7 +26,10 @@ export interface ServiceLineDraft {
   description: string
   quantity: number
   unit_price: number
+  cashPrice: number
+  installmentPrice: number
   paymentTerm: ServiceLinePaymentTerm
+  cashSchedule: CashSchedule
   downPayment: number
   installmentAmount: number
   intervalType: ServiceIntervalType
@@ -83,8 +88,7 @@ export function validateServiceLineInstallment(
 
 export function linePaidNow(line: ServiceLineDraft): number {
   const total = lineTotal(line)
-  if (line.paymentTerm === 'cash') return total
-  return Math.min(total, line.downPayment)
+  return cashLinePaidNow(line.paymentTerm, line.cashSchedule, total, line.downPayment)
 }
 
 interface ServiceLineCardProps {
@@ -116,11 +120,22 @@ export function ServiceLineCard({
   const patch = (partial: Partial<ServiceLineDraft>) => onChange({ ...line, ...partial })
 
   const switchToInstallment = () => {
+    const price = line.installmentPrice
+    const total = Math.max(0, line.quantity * price)
     patch({
       paymentTerm: 'installment',
+      unit_price: price,
       downPayment: computeMinDownPayment(total, minDownPercent),
       installmentAmount: suggestInstallmentAmount(total, 6, minDownPercent),
       firstDueDate: addDays(contractDate, 30),
+    })
+  }
+
+  const switchToCash = () => {
+    patch({
+      paymentTerm: 'cash',
+      unit_price: line.cashPrice,
+      cashSchedule: 'immediate',
     })
   }
 
@@ -181,7 +196,7 @@ export function ServiceLineCard({
                 key={term}
                 type="button"
                 onClick={() =>
-                  term === 'installment' ? switchToInstallment() : patch({ paymentTerm: 'cash' })
+                  term === 'installment' ? switchToInstallment() : switchToCash()
                 }
                 className={posToggleBtn(line.paymentTerm === term)}
               >
@@ -258,9 +273,11 @@ export function ServiceLineCard({
                 ))}
             </div>
           ) : (
-            <p className="text-sm text-on-surface-variant">
-              الدفع كاش — يُضاف إجمالي البند للمدفوع الآن.
-            </p>
+            <CashScheduleSelector
+              schedule={line.cashSchedule}
+              contractDate={contractDate}
+              onChange={(cashSchedule) => patch({ cashSchedule })}
+            />
           )}
         </div>
       </div>
@@ -271,18 +288,26 @@ export function ServiceLineCard({
 let lineId = 0
 
 export function createServiceLine(
-  partial: Omit<ServiceLineDraft, 'id' | 'paymentTerm' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'>,
-  options?: { contractDate?: string; minDownPercent?: number },
+  partial: Omit<
+    ServiceLineDraft,
+    'id' | 'paymentTerm' | 'cashSchedule' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
+  >,
+  options?: { contractDate?: string; minDownPercent?: number; paymentTerm?: ServiceLinePaymentTerm },
 ): ServiceLineDraft {
   lineId += 1
   const contractDate = options?.contractDate ?? new Date().toISOString().split('T')[0]
   const minDownPercent = options?.minDownPercent ?? 10
-  const total = Math.max(0, Number(partial.quantity) * Number(partial.unit_price))
+  const paymentTerm = options?.paymentTerm ?? 'cash'
+  const unitPrice =
+    paymentTerm === 'installment' ? partial.installmentPrice : partial.cashPrice
+  const total = Math.max(0, Number(partial.quantity) * unitPrice)
 
   return {
     id: lineId,
     ...partial,
-    paymentTerm: 'cash',
+    unit_price: unitPrice,
+    paymentTerm,
+    cashSchedule: 'immediate',
     downPayment: computeMinDownPayment(total, minDownPercent),
     installmentAmount: suggestInstallmentAmount(total, 6, minDownPercent),
     intervalType: 'monthly',

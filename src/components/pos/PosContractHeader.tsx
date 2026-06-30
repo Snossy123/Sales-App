@@ -139,7 +139,7 @@ export function PosContractHeader({
     })
   }
 
-  const decQty = () => onQuantityChange(Math.max(1, quantity - 1))
+  const decQty = () => onQuantityChange(Math.max(0, quantity - 1))
   const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
 
   const feeFieldsDisabled = !enableInstallationFee || !applyInstallationFee
@@ -310,7 +310,7 @@ export function PosContractHeader({
               <button
                 type="button"
                 onClick={decQty}
-                disabled={quantity <= 1}
+                disabled={quantity <= 0}
                 className="flex h-full w-11 shrink-0 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-40"
                 aria-label="تقليل"
               >

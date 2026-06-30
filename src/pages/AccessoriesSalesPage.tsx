@@ -1,15 +1,5 @@
-import { ServiceSalesPage } from './ServiceSalesPage'
+import { Navigate } from 'react-router-dom'
 
 export function AccessoriesSalesPage() {
-  return (
-    <ServiceSalesPage
-      title="بيع الاكسسورات"
-      subtitle="تسجيل مبيعات الملحقات والإكسسوارات — كاش أو تقسيط"
-      saleCategory="accessories"
-      defaultLines={[
-        { description: 'حامل جهاز', quantity: 1, unit_price: 150 },
-      ]}
-      notesPlaceholder="مثال: كables، حامل، شاحن..."
-    />
-  )
+  return <Navigate to="/pos" replace />
 }

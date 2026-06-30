@@ -1226,15 +1226,20 @@ export function handleMockRequest(
       model_code?: string
       cost_price?: number | null
       sell_price?: number
+      cash_price?: number
+      installment_price?: number
     }
     let updated = state.gpsProduct
     mutateState((s) => {
       const hasProduct = Boolean(s.gpsProduct?.id)
+      const cashPrice = body.cash_price ?? body.sell_price
+      const installmentPrice = body.installment_price ?? cashPrice
+
       if (!hasProduct) {
         if (!body.name_ar?.trim()) {
           throw mockError(422, 'اسم المنتج مطلوب')
         }
-        if (body.sell_price == null || body.sell_price <= 0) {
+        if (cashPrice == null || cashPrice <= 0) {
           throw mockError(422, 'سعر البيع يجب أن يكون أكبر من صفر')
         }
         const nameAr = body.name_ar.trim()
@@ -1245,13 +1250,15 @@ export function handleMockRequest(
           brand: body.brand ?? null,
           model_code: 'GPS-PRO',
           cost_price: null,
-          sell_price: body.sell_price,
+          sell_price: cashPrice,
+          cash_price: cashPrice,
+          installment_price: installmentPrice ?? cashPrice,
         }
         updated = { ...s.gpsProduct }
         return
       }
 
-      if (body.sell_price == null || body.sell_price <= 0) {
+      if (cashPrice == null || cashPrice <= 0) {
         throw mockError(422, 'سعر البيع يجب أن يكون أكبر من صفر')
       }
       s.gpsProduct = {
@@ -1260,7 +1267,9 @@ export function handleMockRequest(
         name_ar: body.name_ar !== undefined ? body.name_ar : s.gpsProduct.name_ar,
         brand: body.brand !== undefined ? body.brand : s.gpsProduct.brand,
         cost_price: body.cost_price !== undefined ? body.cost_price : s.gpsProduct.cost_price,
-        sell_price: body.sell_price,
+        sell_price: cashPrice,
+        cash_price: cashPrice,
+        installment_price: installmentPrice ?? s.gpsProduct.installment_price ?? cashPrice,
       }
       updated = { ...s.gpsProduct }
     })

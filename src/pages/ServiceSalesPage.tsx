@@ -40,7 +40,7 @@ interface ServiceSalesPageProps {
   saleCategory: 'accessories' | 'maintenance'
   defaultLines?: Omit<
     ServiceLineDraft,
-    'id' | 'paymentTerm' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
+    'id' | 'paymentTerm' | 'cashSchedule' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
   >[]
   notesPlaceholder?: string
   useCatalog?: boolean
@@ -283,6 +283,7 @@ export function ServiceSalesPage({
             quantity: line.quantity,
             unit_price: line.unit_price,
             payment_term: line.paymentTerm,
+            cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
           }
 
           if (line.paymentTerm === 'installment') {
@@ -343,7 +344,9 @@ export function ServiceSalesPage({
           service_id: service.id,
           description: service.name_ar || service.name,
           quantity: 1,
-          unit_price: Number(service.default_price),
+          unit_price: Number(service.cash_price ?? service.default_price),
+          cashPrice: Number(service.cash_price ?? service.default_price),
+          installmentPrice: Number(service.installment_price ?? service.default_price),
         },
         { contractDate, minDownPercent },
       ),
@@ -355,7 +358,7 @@ export function ServiceSalesPage({
     setLines((prev) => [
       ...prev,
       createServiceLine(
-        { description: '', quantity: 1, unit_price: 0 },
+        { description: '', quantity: 1, unit_price: 0, cashPrice: 0, installmentPrice: 0 },
         { contractDate, minDownPercent },
       ),
     ])

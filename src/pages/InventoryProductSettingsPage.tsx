@@ -14,7 +14,8 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 const emptyForm = {
   name_ar: 'جهاز GPS',
   brand: '',
-  sell_price: '',
+  cash_price: '',
+  installment_price: '',
 }
 
 type GpsProductForm = typeof emptyForm
@@ -23,7 +24,8 @@ function toForm(product: GpsProduct): GpsProductForm {
   return {
     name_ar: product.name_ar || product.name,
     brand: product.brand ?? '',
-    sell_price: String(product.sell_price),
+    cash_price: String(product.cash_price ?? product.sell_price),
+    installment_price: String(product.installment_price ?? product.sell_price),
   }
 }
 
@@ -33,7 +35,8 @@ function toPayload(form: GpsProductForm) {
     name_ar: nameAr,
     name: nameAr,
     brand: form.brand.trim() || null,
-    sell_price: Number(form.sell_price),
+    cash_price: Number(form.cash_price),
+    installment_price: Number(form.installment_price),
   }
 }
 
@@ -155,21 +158,39 @@ export function InventoryProductSettingsPage() {
             />
           </div>
 
-          <div>
-            <label htmlFor="gps-product-sell" className="mb-1 block text-sm font-medium text-on-surface-variant">
-              سعر البيع (ج.م)
-            </label>
-            <input
-              id="gps-product-sell"
-              type="number"
-              min={0.01}
-              step="0.01"
-              value={form.sell_price}
-              onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-              required
-              dir="ltr"
-              className={`${inputClass} tabular-nums`}
-            />
+          <div className="grid gap-md sm:grid-cols-2">
+            <div>
+              <label htmlFor="gps-product-cash" className="mb-1 block text-sm font-medium text-on-surface-variant">
+                سعر البيع كاش (ج.م)
+              </label>
+              <input
+                id="gps-product-cash"
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={form.cash_price}
+                onChange={(e) => setForm({ ...form, cash_price: e.target.value })}
+                required
+                dir="ltr"
+                className={`${inputClass} tabular-nums`}
+              />
+            </div>
+            <div>
+              <label htmlFor="gps-product-installment" className="mb-1 block text-sm font-medium text-on-surface-variant">
+                سعر البيع قسط (ج.م)
+              </label>
+              <input
+                id="gps-product-installment"
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={form.installment_price}
+                onChange={(e) => setForm({ ...form, installment_price: e.target.value })}
+                required
+                dir="ltr"
+                className={`${inputClass} tabular-nums`}
+              />
+            </div>
           </div>
 
           {saveMutation.isError && (

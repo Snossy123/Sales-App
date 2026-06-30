@@ -12,11 +12,14 @@ interface GpsProductCardProps {
 export function GpsProductCard({ product, canEditPrice = false }: GpsProductCardProps) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
-  const [price, setPrice] = useState(String(product.sell_price))
+  const [cashPrice, setCashPrice] = useState(String(product.cash_price ?? product.sell_price))
+  const [installmentPrice, setInstallmentPrice] = useState(
+    String(product.installment_price ?? product.sell_price),
+  )
 
   const saveMutation = useMutation({
-    mutationFn: async (sellPrice: number) => {
-      const { data } = await api.put<GpsProduct>('/gps-product', { sell_price: sellPrice })
+    mutationFn: async (prices: { cash_price: number; installment_price: number }) => {
+      const { data } = await api.put<GpsProduct>('/gps-product', prices)
       return data
     },
     onSuccess: () => {
@@ -27,16 +30,21 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
   })
 
   const handleSave = () => {
-    const value = Number(price)
-    if (!value || value <= 0) return
-    saveMutation.mutate(value)
+    const cash = Number(cashPrice)
+    const installment = Number(installmentPrice)
+    if (!cash || cash <= 0 || !installment || installment <= 0) return
+    saveMutation.mutate({ cash_price: cash, installment_price: installment })
   }
 
   const handleCancel = () => {
-    setPrice(String(product.sell_price))
+    setCashPrice(String(product.cash_price ?? product.sell_price))
+    setInstallmentPrice(String(product.installment_price ?? product.sell_price))
     setEditing(false)
     saveMutation.reset()
   }
+
+  const displayCash = Number(product.cash_price ?? product.sell_price)
+  const displayInstallment = Number(product.installment_price ?? product.sell_price)
 
   return (
     <div className="mb-md flex flex-wrap items-center gap-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
@@ -49,56 +57,77 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
         </p>
         <div className="mt-xs flex flex-wrap items-center gap-sm text-sm text-on-surface-variant">
           {product.brand && <span>{product.brand} — </span>}
-          <span className="flex items-center gap-xs">
-            سعر البيع:
-            {editing && canEditPrice ? (
-              <>
+          {editing && canEditPrice ? (
+            <div className="flex flex-wrap items-center gap-sm">
+              <label className="flex items-center gap-xs">
+                كاش:
                 <input
                   type="number"
                   min={1}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  value={cashPrice}
+                  onChange={(e) => setCashPrice(e.target.value)}
                   dir="ltr"
-                  className="w-28 rounded border border-outline-variant px-sm py-1 text-sm tabular-nums text-on-surface"
+                  className="w-24 rounded border border-outline-variant px-sm py-1 text-sm tabular-nums text-on-surface"
                 />
-                <span>ج.م</span>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending}
-                  className="rounded bg-secondary px-sm py-0.5 text-xs font-bold text-on-secondary"
-                >
-                  {saveMutation.isPending ? '...' : 'حفظ'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="rounded border border-outline-variant px-sm py-0.5 text-xs"
-                >
-                  إلغاء
-                </button>
-              </>
-            ) : (
-              <>
+              </label>
+              <label className="flex items-center gap-xs">
+                قسط:
+                <input
+                  type="number"
+                  min={1}
+                  value={installmentPrice}
+                  onChange={(e) => setInstallmentPrice(e.target.value)}
+                  dir="ltr"
+                  className="w-24 rounded border border-outline-variant px-sm py-1 text-sm tabular-nums text-on-surface"
+                />
+              </label>
+              <span>ج.م</span>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                className="rounded bg-secondary px-sm py-0.5 text-xs font-bold text-on-secondary"
+              >
+                {saveMutation.isPending ? '...' : 'حفظ'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="rounded border border-outline-variant px-sm py-0.5 text-xs"
+              >
+                إلغاء
+              </button>
+            </div>
+          ) : (
+            <>
+              <span>
+                كاش:{' '}
                 <span className="font-medium text-on-surface tabular-nums">
-                  {Number(product.sell_price).toLocaleString('ar-EG')} ج.م
+                  {displayCash.toLocaleString('ar-EG')} ج.م
                 </span>
-                {canEditPrice && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrice(String(product.sell_price))
-                      setEditing(true)
-                    }}
-                    className="rounded p-0.5 text-primary hover:bg-primary/10"
-                    title="تعديل السعر"
-                  >
-                    <Icon name="edit" size={16} />
-                  </button>
-                )}
-              </>
-            )}
-          </span>
+              </span>
+              <span>
+                قسط:{' '}
+                <span className="font-medium text-on-surface tabular-nums">
+                  {displayInstallment.toLocaleString('ar-EG')} ج.م
+                </span>
+              </span>
+              {canEditPrice && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCashPrice(String(displayCash))
+                    setInstallmentPrice(String(displayInstallment))
+                    setEditing(true)
+                  }}
+                  className="rounded p-0.5 text-primary hover:bg-primary/10"
+                  title="تعديل الأسعار"
+                >
+                  <Icon name="edit" size={16} />
+                </button>
+              )}
+            </>
+          )}
         </div>
         {saveMutation.isError && (
           <p className="mt-xs text-xs text-error">{getErrorMessage(saveMutation.error)}</p>

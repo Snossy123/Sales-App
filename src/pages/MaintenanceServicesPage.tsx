@@ -1,14 +1,5 @@
-import { ServiceSalesPage } from './ServiceSalesPage'
+import { Navigate } from 'react-router-dom'
 
 export function MaintenanceServicesPage() {
-  return (
-    <ServiceSalesPage
-      title="خدمات الصيانة والسوفت وير"
-      subtitle="بيع الخدمات من الكتalog — كاش أو تقسيط"
-      saleCategory="maintenance"
-      useCatalog
-      catalogCategories={['maintenance', 'software', 'subscription', 'installation', 'transfer', 'other']}
-      notesPlaceholder="مثال: نوع الجهاز، IMEI، ملاحظات فنية..."
-    />
-  )
+  return <Navigate to="/pos" replace />
 }

@@ -83,8 +83,6 @@ export const navEntries: NavEntry[] = [
         { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/catalog', icon: 'sell', label: 'دليل الأسعار', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/sales/accessories', icon: 'headphones', label: 'بيع الاكسسورات', roles: ['super_admin', 'admin', 'sales'] },
-        { to: '/sales/maintenance', icon: 'build', label: 'صيانة وسوفت وير', roles: ['super_admin', 'admin', 'sales'] },
       ],
     },
   },

@@ -15,8 +15,10 @@ import type {
   SalesInvoice,
   SalesRep,
   Promotion,
+  Service,
 } from '../api/types'
 import { contractPrintPath } from '../lib/sales'
+import { linePaidNow } from '../lib/cashSchedule'
 import {
   resolveCustomerTransactionSource,
 } from '../lib/posCustomerSource'
@@ -40,6 +42,15 @@ import {
   type TransactionSource,
 } from '../components/pos/PosContractHeader'
 import type { DiscountMode } from '../lib/discount'
+import {
+  createServiceLine,
+  lineInstallmentCount as serviceLineInstallmentCount,
+  linePaidNow as serviceLinePaidNow,
+  lineTotal as serviceLineTotal,
+  ServiceLineCard,
+  validateServiceLineInstallment,
+  type ServiceLineDraft,
+} from '../components/services/ServiceLineCard'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -71,6 +82,8 @@ export function PosPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
+  const [serviceLines, setServiceLines] = useState<ServiceLineDraft[]>([])
+  const [selectedServiceId, setSelectedServiceId] = useState('')
   const [applyInstallationFee, setApplyInstallationFee] = useState(true)
   const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
@@ -228,7 +241,7 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data
     },
-    enabled: Boolean(warehouseId),
+    enabled: true,
   })
 
   const salesRepsQuery = useQuery({
@@ -240,7 +253,7 @@ export function PosPage() {
       const { data } = await api.get<{ data: SalesRep[] }>('/sales-reps', { params })
       return data.data
     },
-    enabled: transactionSource === 'sales' && Boolean(warehouseId),
+    enabled: transactionSource === 'sales',
   })
 
   const employeesQuery = useQuery({
@@ -254,7 +267,7 @@ export function PosPage() {
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
-    enabled: Boolean(warehouseId),
+    enabled: Boolean(resolvedBranchId) || Boolean(warehouseId),
   })
 
   const productQuery = useQuery({
@@ -291,28 +304,49 @@ export function PosPage() {
     enabled: Boolean(warehouseId),
   })
 
-  const unitPrice = productQuery.data?.sell_price ?? 0
+  const servicesQuery = useQuery({
+    queryKey: ['services', 'pos'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Service>>('/services', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
+
+  const cashPrice = Number(productQuery.data?.cash_price ?? productQuery.data?.sell_price ?? 0)
+  const installmentPrice = Number(
+    productQuery.data?.installment_price ?? productQuery.data?.sell_price ?? 0,
+  )
+  const unitPrice = installmentPrice
   const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
   const maxQuantity = allowNegativeInventory ? 999 : available
 
   useEffect(() => {
+    if (quantity <= 0) {
+      setDeviceLines([])
+      return
+    }
+
     const units = unitsQuery.data ?? []
     setDeviceLines((prev) => {
       const next: DeviceLineDraft[] = []
       for (let i = 0; i < quantity; i++) {
         const existing = prev[i]
         const unit = units[i]
+        const priceForTerm =
+          existing?.paymentTerm === 'cash' ? cashPrice : installmentPrice
         if (existing) {
           next.push({
             ...existing,
             productUnitId: unit?.id ?? existing.productUnitId,
             imei: unit?.imei ?? existing.imei,
-            unitPrice: Number(unitPrice),
+            unitPrice: priceForTerm,
             serialNumber: existing.serialNumber || unit?.serial_number || '',
           })
         } else {
           next.push(
-            createDeviceLine(Number(unitPrice), unit, {
+            createDeviceLine(installmentPrice, unit, {
               contractDate,
               minDownPercent,
             }),
@@ -321,7 +355,7 @@ export function PosPage() {
       }
       return next
     })
-  }, [quantity, unitPrice, unitsQuery.data, contractDate, minDownPercent])
+  }, [quantity, cashPrice, installmentPrice, unitsQuery.data, contractDate, minDownPercent])
 
   const grossInstallationFeePerUnit =
     enableInstallationFee && applyInstallationFee ? Number(installationFee) : 0
@@ -329,24 +363,28 @@ export function PosPage() {
   const netInstallationFeeTotal = netInstallationFeePerUnit * deviceLines.length
 
   const devicesSubtotal = deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)
-  const totalEstimate = devicesSubtotal + netInstallationFeeTotal
+  const servicesSubtotal = serviceLines.reduce((sum, line) => sum + serviceLineTotal(line), 0)
+  const totalEstimate = devicesSubtotal + servicesSubtotal + netInstallationFeeTotal
 
   const paidAtCheckout = useMemo(() => {
     let paid = netInstallationFeeTotal
     for (const line of deviceLines) {
       const net = lineNetTotal(line)
-      if (line.paymentTerm === 'cash') {
-        paid += net
-      } else {
-        paid += line.downPayment
-      }
+      paid += linePaidNow(line.paymentTerm, line.cashSchedule, net, line.downPayment)
+    }
+    for (const line of serviceLines) {
+      paid += serviceLinePaidNow(line)
     }
     return paid
-  }, [deviceLines, netInstallationFeeTotal])
+  }, [deviceLines, serviceLines, netInstallationFeeTotal])
 
-  const allInstallmentLinesValid = deviceLines.every(
-    (line) => validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid,
-  )
+  const allInstallmentLinesValid =
+    deviceLines.every(
+      (line) => validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid,
+    ) &&
+    serviceLines.every(
+      (line) => validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid,
+    )
 
   useEffect(() => {
     setInstallationFee(defaultInstallationFee)
@@ -360,9 +398,10 @@ export function PosPage() {
     onSuccess: (invoice) => {
       setLastInvoice(invoice)
       setSuccessMsg(
-        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 1} جهاز`,
+        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
       )
       setQuantity(1)
+      setServiceLines([])
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
@@ -375,6 +414,35 @@ export function PosPage() {
     setDeviceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
   }
 
+  const updateServiceLine = (index: number, line: ServiceLineDraft) => {
+    setServiceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
+  }
+
+  const addCatalogService = () => {
+    if (!selectedServiceId) return
+    const service = (servicesQuery.data ?? []).find((item) => item.id === Number(selectedServiceId))
+    if (!service) return
+
+    const cash = Number(service.cash_price ?? service.default_price)
+    const installment = Number(service.installment_price ?? service.default_price)
+
+    setServiceLines((prev) => [
+      ...prev,
+      createServiceLine(
+        {
+          service_id: service.id,
+          description: service.name_ar || service.name,
+          quantity: 1,
+          unit_price: cash,
+          cashPrice: cash,
+          installmentPrice: installment,
+        },
+        { contractDate, minDownPercent },
+      ),
+    ])
+    setSelectedServiceId('')
+  }
+
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
     const customerId = selectedCustomer?.id
@@ -384,16 +452,20 @@ export function PosPage() {
         : transactionSource === 'distributor'
           ? Boolean(selectedDistributor)
           : Boolean(selectedSalesRep)
-    if (!customerId || !sourceReady || !warehouseId || quantity <= 0 || deviceLines.length === 0) return
-    if (!allowNegativeInventory && quantity > available) return
+    const hasDevices = deviceLines.length > 0
+    const hasServices = serviceLines.length > 0
+    if (!customerId || !sourceReady || (!hasDevices && !hasServices)) return
+    if (hasDevices && !warehouseId) return
+    if (hasDevices && !allowNegativeInventory && quantity > available) return
     if (!allInstallmentLinesValid) return
 
     const units = unitsQuery.data ?? []
-    const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
+    const devicePayload: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
       const unit = units[index]
       const renewalDate =
         line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
       const base = {
+        line_type: 'device' as const,
         product_unit_id: line.productUnitId ?? unit?.id,
         unit_price: line.unitPrice,
         discount: line.discountAmount,
@@ -401,6 +473,7 @@ export function PosPage() {
         sim_number: line.simNumber.trim() || undefined,
         username: line.username.trim() || undefined,
         payment_term: line.paymentTerm,
+        cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
         technician_id: line.technician?.id,
         vehicle_type: line.vehicleType || undefined,
         vehicle_plate_letters: line.vehiclePlateLetters.trim() || undefined,
@@ -428,16 +501,51 @@ export function PosPage() {
       return base
     })
 
-    if (!allowNegativeInventory && lines.some((l) => !l.product_unit_id)) return
+    const servicePayload: CheckoutPayload['lines'] = serviceLines.map((line) => {
+      const base = {
+        line_type: 'service' as const,
+        service_id: line.service_id,
+        description: line.description.trim(),
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        payment_term: line.paymentTerm,
+        cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
+      }
+
+      if (line.paymentTerm === 'installment') {
+        return {
+          ...base,
+          installment_plan: {
+            installment_count: serviceLineInstallmentCount(line, maxInstallmentCount),
+            installment_amount: line.installmentAmount,
+            down_payment: line.downPayment,
+            interval_type: line.intervalType,
+            interval_days: line.intervalType === 'weekly' ? 7 : 30,
+            first_due_date: line.firstDueDate,
+          },
+        }
+      }
+
+      return base
+    })
+
+    const lines = [...devicePayload, ...servicePayload]
+
+    if (hasDevices && !allowNegativeInventory && lines.some((l) => l.line_type === 'device' && !l.product_unit_id)) {
+      return
+    }
 
     const payload: CheckoutPayload = {
       customer_id: customerId,
-      warehouse_id: warehouseId,
       branch_id: resolvedBranchId || undefined,
       installation_fee: grossInstallationFeePerUnit,
       discount_amount: feeDiscountAmount,
       invoice_date: contractDate,
       lines,
+    }
+
+    if (hasDevices && warehouseId) {
+      payload.warehouse_id = warehouseId
     }
 
     if (transactionSource === 'distributor' && selectedDistributor) {
@@ -456,18 +564,21 @@ export function PosPage() {
     checkoutMutation.mutate(payload)
   }
 
-  const stickySummary = deviceLines.length > 1
+  const stickySummary = deviceLines.length + serviceLines.length > 1
+  const hasDeviceSale = deviceLines.length > 0
 
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="الهيدر: بيانات التعاقد والمنتج — كل جهاز بعرض كامل تحته"
+      subtitle="بيع الأجهزة والخدمات من صفحة واحدة — كاش أو قسط لكل بند"
       actions={<StartTourButton tourId="pos" />}
     >
-      {!warehouseId ? (
-        <p className="text-on-surface-variant">يرجى اختيار مخزن قبل إتمام التعاقد.</p>
-      ) : (
-        <form onSubmit={handleCheckout} className="pos-form flex w-full flex-col gap-md">
+      {!warehouseId && (
+        <p className="mb-md rounded-lg border border-tertiary/30 bg-tertiary/5 p-sm text-sm text-on-surface-variant">
+          لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
+        </p>
+      )}
+      <form onSubmit={handleCheckout} className="pos-form flex w-full flex-col gap-md">
           <PosContractHeader
             transactionSource={transactionSource}
             onTransactionSourceChange={handleTransactionSourceChange}
@@ -495,7 +606,7 @@ export function PosPage() {
             onContractDateChange={setContractDate}
             productName={productQuery.data?.name_ar || productQuery.data?.name}
             available={available}
-            unitPrice={Number(unitPrice)}
+            unitPrice={Number(installmentPrice)}
             quantity={quantity}
             maxQuantity={maxQuantity}
             onQuantityChange={setQuantity}
@@ -519,20 +630,77 @@ export function PosPage() {
             netInstallationFeeTotal={netInstallationFeeTotal}
           />
 
-          <div className="flex w-full flex-col gap-md">
-            {deviceLines.map((line, index) => (
-              <DeviceLineCard
-                key={line.key}
-                index={index}
-                line={line}
-                contractDate={contractDate}
-                onChange={(next) => updateDeviceLine(index, next)}
-                minDownPercent={minDownPercent}
-                maxInstallmentCount={maxInstallmentCount}
-                employees={employeesQuery.data ?? []}
-                employeesLoading={employeesQuery.isLoading}
-              />
-            ))}
+          {hasDeviceSale && (
+            <div className="flex w-full flex-col gap-md">
+              {deviceLines.map((line, index) => (
+                <DeviceLineCard
+                  key={line.key}
+                  index={index}
+                  line={line}
+                  contractDate={contractDate}
+                  cashPrice={cashPrice}
+                  installmentPrice={installmentPrice}
+                  onChange={(next) => updateDeviceLine(index, next)}
+                  minDownPercent={minDownPercent}
+                  maxInstallmentCount={maxInstallmentCount}
+                  employees={employeesQuery.data ?? []}
+                  employeesLoading={employeesQuery.isLoading}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+            <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+              <h3 className="font-semibold text-on-surface">الخدمات</h3>
+              <div className="flex flex-wrap items-center gap-sm">
+                <select
+                  value={selectedServiceId}
+                  onChange={(e) => setSelectedServiceId(e.target.value)}
+                  className="min-w-[200px] rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                >
+                  <option value="">اختر خدمة من الكتالوج</option>
+                  {(servicesQuery.data ?? []).map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name_ar || service.name} — كاش{' '}
+                      {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')} /
+                      قسط{' '}
+                      {Number(service.installment_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
+                      ج.م
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addCatalogService}
+                  disabled={!selectedServiceId}
+                  className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
+                >
+                  إضافة خدمة
+                </button>
+              </div>
+            </div>
+
+            {serviceLines.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
+            ) : (
+              <div className="flex flex-col gap-md">
+                {serviceLines.map((line, index) => (
+                  <ServiceLineCard
+                    key={line.id}
+                    line={line}
+                    index={index}
+                    contractDate={contractDate}
+                    minDownPercent={minDownPercent}
+                    maxInstallmentCount={maxInstallmentCount}
+                    onChange={(next) => updateServiceLine(index, next)}
+                    onRemove={() =>
+                      setServiceLines((prev) => prev.filter((_, i) => i !== index))
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div
@@ -567,6 +735,12 @@ export function PosPage() {
                 <span>قيمة الأجهزة (بعد الخصم)</span>
                 <span className="font-medium text-on-surface">
                   {devicesSubtotal.toLocaleString('ar-EG')} ج.م
+                </span>
+              </div>
+              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
+                <span>قيمة الخدمات</span>
+                <span className="font-medium text-on-surface">
+                  {servicesSubtotal.toLocaleString('ar-EG')} ج.م
                 </span>
               </div>
               <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
@@ -620,10 +794,11 @@ export function PosPage() {
                   : transactionSource === 'distributor'
                     ? !selectedDistributor
                     : !selectedSalesRep) ||
-                quantity <= 0 ||
-                deviceLines.length === 0 ||
-                (!allowNegativeInventory && quantity > available) ||
-                !allInstallmentLinesValid
+                (deviceLines.length === 0 && serviceLines.length === 0) ||
+                (hasDeviceSale && !warehouseId) ||
+                (hasDeviceSale && !allowNegativeInventory && quantity > available) ||
+                !allInstallmentLinesValid ||
+                serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
               }
               className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
             >
@@ -632,7 +807,6 @@ export function PosPage() {
             </button>
           </div>
         </form>
-      )}
     </SalesPageShell>
   )
 }

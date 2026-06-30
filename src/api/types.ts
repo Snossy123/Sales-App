@@ -263,6 +263,8 @@ export interface GpsProduct {
   brand?: string | null
   model_code?: string | null
   sell_price: number
+  cash_price: number
+  installment_price: number
   cost_price?: number | null
 }
 
@@ -372,6 +374,8 @@ export interface Service {
   name_ar?: string | null
   category: ServiceCategory
   default_price: string | number
+  cash_price?: string | number
+  installment_price?: string | number
   is_active: boolean
   description?: string | null
   contract_template_key?: string | null
@@ -732,7 +736,7 @@ export interface CheckoutPayload {
   distributor_id?: number
   sales_user_id?: number
   promotion_id?: number
-  warehouse_id: number
+  warehouse_id?: number
   branch_id?: number
   payment_term?: 'cash' | 'credit' | 'installment' | 'mixed'
   discount_amount?: number
@@ -740,8 +744,12 @@ export interface CheckoutPayload {
   invoice_date?: string
   notes?: string
   lines: {
+    line_type?: 'device' | 'service'
     product_unit_id?: number
     product_id?: number
+    service_id?: number
+    description?: string
+    service_category?: string
     quantity?: number
     unit_price?: number
     discount?: number
@@ -749,6 +757,7 @@ export interface CheckoutPayload {
     sim_number?: string
     username?: string
     payment_term?: 'cash' | 'installment'
+    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
     technician_id?: number
     vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
     vehicle_plate_letters?: string
@@ -790,6 +799,7 @@ export interface ServiceCheckoutPayload {
     quantity: number
     unit_price: number
     payment_term?: 'cash' | 'installment'
+    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
     installment_plan?: {
       down_payment: number
       installment_amount: number

@@ -112,10 +112,18 @@ export function ServicesPage() {
               render: (row) => row.name_ar || row.name,
             },
             {
-              key: 'default_price',
-              header: 'السعر',
+              key: 'cash_price',
+              header: 'كاش',
               className: 'tabular-nums',
-              render: (row) => `${Number(row.default_price).toLocaleString('ar-EG')} ج.م`,
+              render: (row) =>
+                `${Number(row.cash_price ?? row.default_price).toLocaleString('ar-EG')} ج.م`,
+            },
+            {
+              key: 'installment_price',
+              header: 'قسط',
+              className: 'tabular-nums',
+              render: (row) =>
+                `${Number(row.installment_price ?? row.default_price).toLocaleString('ar-EG')} ج.م`,
             },
             {
               key: 'contract_template_key',

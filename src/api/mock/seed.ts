@@ -318,6 +318,8 @@ export function createSeedState(): DemoState {
     brand: 'TrackPro',
     model_code: 'GPS-PRO',
     sell_price: 3500,
+    cash_price: 3500,
+    installment_price: 3800,
     cost_price: 2200,
   }
 

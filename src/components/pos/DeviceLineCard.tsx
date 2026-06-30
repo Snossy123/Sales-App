@@ -12,7 +12,9 @@ import {
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import { renewalTypeLabels } from '../../lib/contractFields'
+import { type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
+import { CashScheduleSelector } from './CashScheduleSelector'
 import { SearchableSelect } from '../SearchableSelect'
 import { PosMoneyInput } from './PosMoneyInput'
 import {
@@ -43,6 +45,7 @@ export interface DeviceLineDraft {
   discountPercent: number
   discountMode: DiscountMode
   paymentTerm: LinePaymentTerm
+  cashSchedule: CashSchedule
   installmentAmount: number
   downPayment: number
   intervalType: IntervalType
@@ -113,6 +116,8 @@ interface DeviceLineCardProps {
   index: number
   line: DeviceLineDraft
   contractDate: string
+  cashPrice: number
+  installmentPrice: number
   onChange: (line: DeviceLineDraft) => void
   minDownPercent: number
   maxInstallmentCount: number
@@ -124,6 +129,8 @@ export function DeviceLineCard({
   index,
   line,
   contractDate,
+  cashPrice,
+  installmentPrice,
   onChange,
   minDownPercent,
   maxInstallmentCount,
@@ -148,12 +155,26 @@ export function DeviceLineCard({
   }, [employees, technicianSearch])
 
   const switchToInstallment = () => {
-    const minDown = computeMinDownPayment(net, minDownPercent)
+    const price = installmentPrice
+    const minDown = computeMinDownPayment(price, minDownPercent)
     patch({
       paymentTerm: 'installment',
+      unitPrice: price,
+      discountAmount: 0,
+      discountPercent: 0,
       downPayment: minDown,
-      installmentAmount: suggestInstallmentAmount(net, 6, minDownPercent),
+      installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
       firstDueDate: addDays(contractDate, 30),
+    })
+  }
+
+  const switchToCash = () => {
+    patch({
+      paymentTerm: 'cash',
+      unitPrice: cashPrice,
+      discountAmount: 0,
+      discountPercent: 0,
+      cashSchedule: 'immediate',
     })
   }
 
@@ -350,7 +371,7 @@ export function DeviceLineCard({
                     key={term}
                     type="button"
                     onClick={() =>
-                      term === 'installment' ? switchToInstallment() : patch({ paymentTerm: 'cash' })
+                      term === 'installment' ? switchToInstallment() : switchToCash()
                     }
                     className={posToggleBtn(line.paymentTerm === term)}
                   >
@@ -425,9 +446,11 @@ export function DeviceLineCard({
                     ))}
                 </div>
               ) : (
-                <p className="text-sm text-on-surface-variant">
-                  الدفع كاش — يُضاف صافي الجهاز للمطلوب عند التعاقد.
-                </p>
+                <CashScheduleSelector
+                  schedule={line.cashSchedule}
+                  contractDate={contractDate}
+                  onChange={(cashSchedule) => patch({ cashSchedule })}
+                />
               )}
             </div>
 
@@ -514,6 +537,7 @@ export function createDeviceLine(
     discountPercent: 0,
     discountMode: 'amount',
     paymentTerm: 'installment',
+    cashSchedule: 'immediate',
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     downPayment: minDown,
     intervalType: 'monthly',

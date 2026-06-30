@@ -13,7 +13,8 @@ interface ServiceForm {
   code: string
   name: string
   name_ar: string
-  default_price: number
+  cash_price: number
+  installment_price: number
   is_active: boolean
   description: string
   contract_template_key: string
@@ -23,7 +24,8 @@ const emptyForm: ServiceForm = {
   code: '',
   name: '',
   name_ar: '',
-  default_price: 0,
+  cash_price: 0,
+  installment_price: 0,
   is_active: true,
   description: '',
   contract_template_key: '',
@@ -61,7 +63,8 @@ export function ServiceFormPage() {
         code: service.code ?? '',
         name: service.name,
         name_ar: service.name_ar ?? '',
-        default_price: Number(service.default_price),
+        cash_price: Number(service.cash_price ?? service.default_price),
+        installment_price: Number(service.installment_price ?? service.default_price),
         is_active: service.is_active,
         description: service.description ?? '',
         contract_template_key: service.contract_template_key ?? '',
@@ -75,7 +78,8 @@ export function ServiceFormPage() {
         code: form.code.trim() || null,
         name: (form.name_ar || form.name).trim(),
         name_ar: form.name_ar.trim() || null,
-        default_price: form.default_price,
+        cash_price: form.cash_price,
+        installment_price: form.installment_price,
         is_active: form.is_active,
         description: form.description.trim() || null,
         contract_template_key: form.contract_template_key || null,
@@ -144,14 +148,27 @@ export function ServiceFormPage() {
             </div>
             <div>
               <label className="mb-xs block text-sm text-on-surface-variant">
-                السعر (ج.م)
+                سعر الكاش (ج.م)
               </label>
               <input
                 type="number"
                 min={0}
                 step="0.01"
-                value={form.default_price}
-                onChange={(e) => setForm({ ...form, default_price: Number(e.target.value) })}
+                value={form.cash_price}
+                onChange={(e) => setForm({ ...form, cash_price: Number(e.target.value) })}
+                className={`${inputClass} tabular-nums`}
+              />
+            </div>
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">
+                سعر القسط (ج.م)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.installment_price}
+                onChange={(e) => setForm({ ...form, installment_price: Number(e.target.value) })}
                 className={`${inputClass} tabular-nums`}
               />
             </div>
