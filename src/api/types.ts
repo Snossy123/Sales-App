@@ -556,6 +556,8 @@ export interface SalesInvoiceLine {
   discount?: string | number
   line_total?: string | number
   payment_term?: 'cash' | 'installment' | null
+  cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | null
+  cash_due_date?: string | null
   technician_id?: number | null
   username?: string | null
   technician?: { id: number; name: string; job_title?: string | null } | null

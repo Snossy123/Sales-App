@@ -1,5 +1,5 @@
 import { cashDueDate, cashScheduleOptions, type CashSchedule } from '../../lib/cashSchedule'
-import { posLabelClass, posToggleBtn } from '../pos/posFormStyles'
+import { posToggleBtn } from '../pos/posFormStyles'
 
 interface CashScheduleSelectorProps {
   schedule: CashSchedule

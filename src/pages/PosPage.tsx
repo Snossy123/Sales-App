@@ -318,7 +318,6 @@ export function PosPage() {
   const installmentPrice = Number(
     productQuery.data?.installment_price ?? productQuery.data?.sell_price ?? 0,
   )
-  const unitPrice = installmentPrice
   const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
   const maxQuantity = allowNegativeInventory ? 999 : available
 

@@ -1934,32 +1934,56 @@ export function handleMockRequest(
         : undefined
       if (body.distributor_id && !distributor) throw mockError(422, 'الموزع غير موجود')
 
-      const warehouseId = body.warehouse_id
-      const stock = getStock(s, warehouseId)
-      if (!stock) throw mockError(422, 'المخزن غير موجود')
+      const warehouseId = body.warehouse_id ?? ctx.warehouseId
+      const hasDeviceLines = body.lines.some(
+        (line) =>
+          line.line_type === 'device' ||
+          (line.line_type !== 'service' && line.product_unit_id != null),
+      )
+
+      let stock: ReturnType<typeof getStock>
+      if (hasDeviceLines) {
+        if (warehouseId == null) throw mockError(422, 'المخزن مطلوب')
+        stock = getStock(s, warehouseId)
+        if (!stock) throw mockError(422, 'المخزن غير موجود')
+      }
 
       const installationFeeGross = Number(body.installation_fee ?? 0)
       const feeDiscount = Number(body.discount_amount ?? 0)
       const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
-      const installationFee = installationFeePerUnit * body.lines.length
+      const deviceLineCount = body.lines.filter(
+        (line) =>
+          line.line_type === 'device' ||
+          (line.line_type !== 'service' && line.product_unit_id != null),
+      ).length
+      const installationFee = installationFeePerUnit * deviceLineCount
       let subtotal = 0
       const invoiceLines: SalesInvoiceLine[] = body.lines.map((line, index) => {
-        const price = Number(line.unit_price ?? s.gpsProduct.sell_price)
+        const isServiceLine =
+          line.line_type === 'service' || (!line.product_unit_id && Boolean(line.description))
+        const price = Number(
+          line.unit_price ?? (isServiceLine ? 0 : s.gpsProduct.sell_price),
+        )
         const discount = Number(line.discount ?? 0)
-        const lineTotal = Math.max(0, price - discount)
+        const quantity = line.quantity ?? 1
+        const lineTotal = isServiceLine
+          ? Math.max(0, price * quantity - discount)
+          : Math.max(0, price - discount)
         subtotal += lineTotal
         const technician = line.technician_id
           ? s.employees.find((e) => e.id === line.technician_id)
           : undefined
         return {
           id: s.counters.invoice * 100 + index + 1,
-          product_id: s.gpsProduct.id,
+          product_id: isServiceLine ? undefined : s.gpsProduct.id,
           product_unit_id: line.product_unit_id,
-          quantity: line.quantity ?? 1,
+          description: line.description,
+          quantity,
           unit_price: price,
           discount,
           line_total: lineTotal,
           payment_term: line.payment_term ?? 'cash',
+          cash_schedule: line.cash_schedule,
           technician_id: line.technician_id ?? null,
           username: line.username ?? null,
           technician: technician ? { id: technician.id, name: technician.name } : null,
@@ -1972,16 +1996,18 @@ export function handleMockRequest(
           engine_number: line.engine_number ?? null,
           renewal_type: line.renewal_type ?? null,
           subscription_renewal_date: line.subscription_renewal_date ?? null,
-          product_name_ar: s.gpsProduct.name_ar,
+          product_name_ar: isServiceLine ? line.description : s.gpsProduct.name_ar,
         }
       })
-      const qty = body.lines.length
-      const available = stock.quantity - stock.reserved
-      if (qty > available) {
-        throw mockError(422, `الكمية المتاحة ${available} قطعة فقط`)
-      }
 
-      stock.reserved += qty
+      if (hasDeviceLines && stock) {
+        const available = stock.quantity - stock.reserved
+        if (deviceLineCount > available) {
+          throw mockError(422, `الكمية المتاحة ${available} قطعة فقط`)
+        }
+
+        stock.reserved += deviceLineCount
+      }
 
       if (body.promotion_id) {
         subtotal = applyPromotionDiscount(s, body.promotion_id, subtotal)
@@ -2003,7 +2029,10 @@ export function handleMockRequest(
       body.lines.forEach((line, index) => {
         const lineTotal = Number(invoiceLines[index].line_total ?? 0)
         if ((line.payment_term ?? 'cash') === 'cash') {
-          paidAmount += lineTotal
+          const schedule = line.cash_schedule ?? 'immediate'
+          if (schedule === 'immediate') {
+            paidAmount += lineTotal
+          }
         } else if (line.installment_plan) {
           paidAmount += Number(line.installment_plan.down_payment ?? 0)
         }
@@ -2015,8 +2044,9 @@ export function handleMockRequest(
         id: invoiceId,
         invoice_number: `INV-2026-${String(invoiceId).padStart(4, '0')}`,
         invoice_date: body.invoice_date ?? new Date().toISOString().split('T')[0],
-        branch_id: body.branch_id ?? distributor?.branch_id ?? ctx.branchId ?? stock.branch_id,
-        warehouse_id: warehouseId,
+        branch_id:
+          body.branch_id ?? distributor?.branch_id ?? ctx.branchId ?? stock?.branch_id ?? 1,
+        warehouse_id: warehouseId ?? null,
         customer_id: body.customer_id,
         distributor_id: body.distributor_id ?? null,
         status: 'confirmed',
@@ -2030,7 +2060,7 @@ export function handleMockRequest(
         technician_name: null,
         technician_id: null,
         subtotal,
-        discount_amount: feeDiscount * body.lines.length,
+        discount_amount: feeDiscount * Math.max(1, deviceLineCount),
         installation_fee: installationFee,
         lines: invoiceLines,
         created_by: 2,
