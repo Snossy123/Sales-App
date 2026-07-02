@@ -44,7 +44,6 @@ import {
 import { PosContractSummary } from '../components/pos/PosContractSummary'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
-import type { DiscountMode } from '../lib/discount'
 import {
   createServiceLine,
   lineInstallmentCount as serviceLineInstallmentCount,
@@ -92,7 +91,6 @@ export function PosPage() {
   const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
   const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
-  const [feeDiscountMode, setFeeDiscountMode] = useState<DiscountMode>('amount')
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
@@ -630,8 +628,10 @@ export function PosPage() {
     selectedDistributor?.branch?.name_ar ||
     selectedDistributor?.branch?.name ||
     (contextBranchId
-      ? (branchesQuery.data ?? []).find((b) => b.id === contextBranchId)?.name_ar
-      : undefined)
+      ? (branchesQuery.data ?? []).find((b) => b.id === contextBranchId)?.name_ar ??
+        (branchesQuery.data ?? []).find((b) => b.id === contextBranchId)?.name
+      : undefined) ||
+    undefined
 
   const submitDisabled =
     checkoutMutation.isPending ||
@@ -709,10 +709,9 @@ export function PosPage() {
                 onInstallationFeeChange={setInstallationFee}
                 feeDiscountAmount={feeDiscountAmount}
                 feeDiscountPercent={feeDiscountPercent}
-                onFeeDiscountChange={({ amount, percent, mode }) => {
+                onFeeDiscountChange={({ amount, percent }) => {
                   setFeeDiscountAmount(amount)
                   setFeeDiscountPercent(percent)
-                  setFeeDiscountMode(mode)
                 }}
               />
 
