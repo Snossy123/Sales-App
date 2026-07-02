@@ -63,6 +63,7 @@ export interface DeviceLineFieldErrors {
   serialNumber?: string
   simNumber?: string
   username?: string
+  technician?: string
   vehicleType?: string
   vehiclePlateLetters?: string
   vehiclePlateNumbers?: string
@@ -171,6 +172,9 @@ export function validateDeviceLine(
   }
   if (!line.username.trim()) {
     fieldErrors.username = 'اسم المستخدم مطلوب'
+  }
+  if (!line.technician) {
+    fieldErrors.technician = 'الفني مطلوب'
   }
   if (!line.vehicleType) {
     fieldErrors.vehicleType = 'نوع المركبة مطلوب'
@@ -497,7 +501,7 @@ export function DeviceLineCard({
           </div>
 
           <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
-            <div>
+            <div className={posRequiredWrap(Boolean(fieldErrors.technician))}>
               <SearchableSelect
                 label="الفني"
                 options={filteredEmployees}
@@ -511,7 +515,11 @@ export function DeviceLineCard({
                 placeholder="ابحث باسم الفني..."
                 loading={employeesLoading}
                 emptyMessage="لا يوجد فني مطابق"
+                hasError={Boolean(fieldErrors.technician)}
               />
+              {fieldErrors.technician && (
+                <p className="mt-xs text-xs text-error">{fieldErrors.technician}</p>
+              )}
             </div>
             <div>
               <label className={posLabelClass}>التجديد</label>

@@ -6,7 +6,7 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
 } from '../api/types'
-import { formatInvoiceDate } from './sales'
+import { formatInvoiceDate, isServiceInvoiceLine } from './sales'
 
 export const vehicleTypeLabels: Record<string, string> = {
   car: 'سيارة',
@@ -255,16 +255,51 @@ export interface PerDeviceFee {
 
 export interface InvoiceContractSummary {
   lineCount: number
+  serviceLineCount: number
   feeGross: number
   feeDiscount: number
   feeNet: number
+  devicesGross: number
+  devicesDiscount: number
   devicesSubtotal: number
+  servicesGross: number
+  servicesDiscount: number
+  servicesSubtotal: number
+  grandGross: number
+  grandDiscount: number
   total: number
   perDeviceFee: PerDeviceFee | null
 }
 
+function sumLineField(
+  lines: SalesInvoiceLine[],
+  field: 'unit_price' | 'discount' | 'line_total',
+): number {
+  return lines.reduce((sum, line) => {
+    if (field === 'unit_price') return sum + Number(line.unit_price ?? 0)
+    if (field === 'discount') return sum + Number(line.discount ?? 0)
+    return sum + Number(line.line_total ?? 0)
+  }, 0)
+}
+
+export function resolveVehicleDistinctiveDetail(line: SalesInvoiceLine): string {
+  if (line.vehicle_type === 'tuk_tuk') {
+    const chassis = line.chassis_number?.trim()
+    const engine = line.engine_number?.trim()
+    if (chassis && engine) return `${chassis} / ${engine}`
+    return chassis || engine || displayValue(line.vehicle_info)
+  }
+  const plate = resolvePlateLabel(line)
+  if (plate !== '—') return plate
+  return displayValue(line.vehicle_info)
+}
+
 export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSummary {
-  const lineCount = invoice.lines?.length ?? 0
+  const allLines = invoice.lines ?? []
+  const deviceLines = allLines.filter((line) => !isServiceInvoiceLine(line))
+  const serviceLines = allLines.filter((line) => isServiceInvoiceLine(line))
+  const lineCount = deviceLines.length
+  const serviceLineCount = serviceLines.length
   const feeDiscount = Number(invoice.discount_amount ?? 0)
   const feeNet = Number(invoice.installation_fee ?? 0)
   const feeGross = feeNet + feeDiscount
@@ -277,13 +312,31 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
         }
       : null
 
+  const devicesGross = sumLineField(deviceLines, 'unit_price')
+  const devicesDiscount = sumLineField(deviceLines, 'discount')
+  const devicesSubtotal = sumLineField(deviceLines, 'line_total')
+  const servicesGross = sumLineField(serviceLines, 'unit_price')
+  const servicesDiscount = sumLineField(serviceLines, 'discount')
+  const servicesSubtotal = sumLineField(serviceLines, 'line_total')
+  const grandGross = feeGross + devicesGross + servicesGross
+  const grandDiscount = feeDiscount + devicesDiscount + servicesDiscount
+  const total = Number(invoice.total ?? 0)
+
   return {
     lineCount,
+    serviceLineCount,
     feeGross,
     feeDiscount,
     feeNet,
-    devicesSubtotal: Number(invoice.subtotal ?? 0),
-    total: Number(invoice.total ?? 0),
+    devicesGross,
+    devicesDiscount,
+    devicesSubtotal,
+    servicesGross,
+    servicesDiscount,
+    servicesSubtotal,
+    grandGross,
+    grandDiscount,
+    total,
     perDeviceFee,
   }
 }

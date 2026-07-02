@@ -2009,6 +2009,15 @@ export function handleMockRequest(
         if (!stock) throw mockError(422, 'المخزن غير موجود')
       }
 
+      body.lines.forEach((line, index) => {
+        const isDeviceLine =
+          line.line_type === 'device' ||
+          (line.line_type !== 'service' && line.product_unit_id != null)
+        if (isDeviceLine && !line.technician_id) {
+          throw mockError(422, `جهاز ${index + 1}: الفني مطلوب`)
+        }
+      })
+
       const installationFeeGross = Number(body.installation_fee ?? 0)
       const feeDiscount = Number(body.discount_amount ?? 0)
       const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
