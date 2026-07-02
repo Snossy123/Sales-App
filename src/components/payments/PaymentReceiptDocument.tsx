@@ -1,3 +1,4 @@
+import { forwardRef } from 'react'
 import type { PaymentTransactionReceipt } from '../../api/types'
 import { resolvePublicStorageUrl } from '../../lib/storageUrl'
 import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
@@ -45,7 +46,10 @@ function receivingAccountLabel(payment: PaymentTransactionReceipt): string | nul
   return parts.length > 0 ? parts.join(' — ') : null
 }
 
-export function PaymentReceiptDocument({ payment }: Props) {
+export const PaymentReceiptDocument = forwardRef<HTMLElement, Props>(function PaymentReceiptDocument(
+  { payment },
+  ref,
+) {
   const organization = useOrgSettingsStore((s) => s.organization)
   const general = useOrgSettingsStore((s) => s.general)
   const logoUrl = resolvePublicStorageUrl(general?.logo_url)
@@ -58,7 +62,7 @@ export function PaymentReceiptDocument({ payment }: Props) {
   const installmentNumber = payment.installment_item?.sequence ?? payment.installment_item?.installment_number
 
   return (
-    <article className="payment-receipt">
+    <article ref={ref} className="payment-receipt">
       <header className="pr-header">
         {logoUrl ? <img src={logoUrl} alt="" className="pr-logo" /> : null}
         <p className="pr-org-name">{orgName}</p>
@@ -147,4 +151,4 @@ export function PaymentReceiptDocument({ payment }: Props) {
       </footer>
     </article>
   )
-}
+})
