@@ -57,25 +57,13 @@ export function buildContractListColumns(
       render: (row) => fmtInvoiceContractDateTime(row),
     },
     {
-      key: 'fee_gross',
-      header: 'إجمالي رسوم التركيب',
+      key: 'fee_net',
+      header: 'رسوم التركيب',
       render: (row) => {
         const summary = invoiceContractSummary(row)
         return (
           <span className="tabular-nums whitespace-nowrap">
-            {fmtContractMoney(summary.feeGross)}
-          </span>
-        )
-      },
-    },
-    {
-      key: 'fee_discount',
-      header: 'إجمالي خصم رسوم التركيب',
-      render: (row) => {
-        const summary = invoiceContractSummary(row)
-        return (
-          <span className="tabular-nums whitespace-nowrap">
-            {summary.feeDiscount > 0 ? fmtContractMoney(summary.feeDiscount) : '—'}
+            {summary.feeNet > 0 ? fmtContractMoney(summary.feeNet) : '—'}
           </span>
         )
       },
@@ -96,7 +84,7 @@ export function buildContractListColumns(
     },
     {
       key: 'total',
-      header: 'إجمالي تعاقد جميع الأجهزة',
+      header: 'إجمالي التعاقد',
       render: (row) => (
         <span className="tabular-nums font-medium whitespace-nowrap">
           {fmtContractMoney(row.total)}
@@ -155,6 +143,12 @@ export function buildContractListColumns(
 export function defaultContractListActions(row: SalesInvoice): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
+      <Link
+        to={`/invoices/${row.id}`}
+        className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+      >
+        تفاصيل
+      </Link>
       {row.review_status === 'pending' && (
         <Link
           to={`/invoices/review/${row.id}`}

@@ -30,6 +30,7 @@ import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintP
 import { ServiceContractPrintPage } from '../pages/ServiceContractPrintPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
+import { InvoiceDetailPage } from '../pages/InvoiceDetailPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { PaymentReceiptPrintPage } from '../pages/PaymentReceiptPrintPage'
@@ -192,6 +193,7 @@ export function AppRoutes() {
             <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />
+            <Route path="invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="payments" element={<PaymentsPage />} />
