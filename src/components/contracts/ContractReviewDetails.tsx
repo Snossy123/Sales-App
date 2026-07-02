@@ -24,6 +24,7 @@ import {
 import { CollapsibleSection } from '../CollapsibleSection'
 import { CustomerAttachmentsSection } from '../customers/CustomerAttachmentsSection'
 import { DataTable } from '../DataTable'
+import { PosSectionCard } from '../pos/PosSectionCard'
 import { StatusBadge } from '../StatusBadge'
 
 function DetailRow({
@@ -49,15 +50,22 @@ function MoneyMetric({
   label,
   value,
   dir,
+  highlight = false,
 }: {
   label: string
   value: string
   dir?: 'ltr' | 'rtl'
+  highlight?: boolean
 }) {
   return (
     <div className="min-w-0 text-center">
       <p className="text-[11px] font-medium text-on-surface-variant">{label}</p>
-      <p className="truncate text-sm font-bold tabular-nums text-on-surface" dir={dir}>
+      <p
+        className={`truncate tabular-nums ${
+          highlight ? 'text-base font-extrabold text-primary' : 'text-sm font-bold text-on-surface'
+        }`}
+        dir={dir}
+      >
         {value}
       </p>
     </div>
@@ -87,6 +95,74 @@ function FinancialBlock({
   )
 }
 
+function resolveServiceLineLabel(line: SalesInvoiceLine): string {
+  return (
+    line.description ??
+    line.service?.name_ar ??
+    line.service?.name ??
+    line.product_name_ar ??
+    '—'
+  )
+}
+
+function ContractReviewHeader({
+  invoice,
+  summary,
+}: {
+  invoice: SalesInvoice
+  summary: ReturnType<typeof invoiceContractSummary>
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+      <div className="border-b border-outline-variant/60 px-sm py-sm sm:px-md">
+        <div className="flex flex-wrap items-start justify-between gap-sm">
+          <div className="min-w-0">
+            <h2 className="text-[16px] font-extrabold text-on-surface">ملخص التعاقد</h2>
+            <div className="mt-xs flex flex-wrap items-center gap-x-sm gap-y-1 text-[12px] text-on-surface-variant">
+              {invoice.invoice_number ? (
+                <span className="rounded-md bg-surface-container-high px-1.5 py-0.5 font-medium tabular-nums">
+                  {invoice.invoice_number}
+                </span>
+              ) : null}
+              <span>{contractSourceLabel(invoice)}</span>
+              <span aria-hidden>·</span>
+              <span className="tabular-nums" dir="ltr">
+                {fmtInvoiceContractDateTime(invoice)}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-xs">
+            {invoice.payment_status ? (
+              <StatusBadge status={invoice.payment_status} />
+            ) : null}
+            <StatusBadge
+              status={reviewStatusForBadge(invoice.review_status)}
+              label={reviewStatusLabel(invoice.review_status)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-sm px-sm py-sm sm:grid-cols-4 sm:px-md">
+        <MoneyMetric label="الأجهزة" value={String(summary.lineCount)} />
+        <MoneyMetric label="الخدمات" value={String(summary.serviceLineCount)} />
+        <MoneyMetric label="الصافي" value={fmtContractMoney(summary.total)} highlight />
+        <MoneyMetric label="المدفوع" value={fmtContractMoney(invoice.paid_amount)} />
+      </div>
+
+      <div
+        className="h-3 bg-surface-container-lowest"
+        style={{
+          backgroundImage:
+            'linear-gradient(135deg, var(--color-surface-container-low) 33.33%, transparent 33.33%, transparent 50%, var(--color-surface-container-low) 50%, var(--color-surface-container-low) 83.33%, transparent 83.33%, transparent 100%)',
+          backgroundSize: '12px 12px',
+        }}
+        aria-hidden
+      />
+    </div>
+  )
+}
+
 function DeviceIdentifiersTable({
   lines,
   customer,
@@ -94,7 +170,13 @@ function DeviceIdentifiersTable({
   lines: SalesInvoiceLine[]
   customer: SalesInvoice['customer']
 }) {
-  if (lines.length === 0) return null
+  if (lines.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-outline-variant/60 bg-surface-container-low/30 px-sm py-md text-center text-sm text-on-surface-variant">
+        لا توجد أجهزة في هذا التعاقد
+      </p>
+    )
+  }
 
   return (
     <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
@@ -126,6 +208,54 @@ function DeviceIdentifiersTable({
               </td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ServiceLinesTable({ lines }: { lines: SalesInvoiceLine[] }) {
+  if (lines.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-outline-variant/60 bg-surface-container-low/30 px-sm py-md text-center text-sm text-on-surface-variant">
+        لا توجد خدمات في هذا التعاقد
+      </p>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
+      <table className="w-full min-w-[28rem] text-sm">
+        <thead>
+          <tr className="border-b border-outline-variant/60 bg-surface-container-low text-[11px] text-on-surface-variant">
+            <th className="px-sm py-2 text-start font-bold">#</th>
+            <th className="px-sm py-2 text-start font-bold">الخدمة</th>
+            <th className="px-sm py-2 text-start font-bold">السعر</th>
+            <th className="px-sm py-2 text-start font-bold">الخصم</th>
+            <th className="px-sm py-2 text-start font-bold">الصافي</th>
+            <th className="px-sm py-2 text-start font-bold">الدفع</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((line, index) => {
+            const discount = Number(line.discount ?? 0)
+            return (
+              <tr key={line.id} className="border-b border-outline-variant/30 last:border-0">
+                <td className="px-sm py-2 font-medium text-on-surface">{index + 1}</td>
+                <td className="px-sm py-2 font-medium">{resolveServiceLineLabel(line)}</td>
+                <td className="px-sm py-2 tabular-nums">{fmtContractMoney(line.unit_price)}</td>
+                <td className="px-sm py-2 tabular-nums">
+                  {discount > 0 ? fmtContractMoney(line.discount) : '—'}
+                </td>
+                <td className="px-sm py-2 font-medium tabular-nums">
+                  {fmtContractMoney(line.line_total)}
+                </td>
+                <td className="px-sm py-2 text-on-surface-variant">
+                  {paymentTermLabel(line.payment_term)}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -203,17 +333,12 @@ function ServiceLineDetails({
   return (
     <CollapsibleSection
       title={`خدمة ${index + 1}`}
-      summary={line.description || line.service?.name_ar || line.service?.name || line.product_name_ar || undefined}
+      summary={resolveServiceLineLabel(line)}
       defaultOpen={index === 0}
       className="mb-0 h-full"
     >
       <dl className="divide-y divide-outline-variant/40">
-        <DetailRow
-          label="الوصف"
-          value={displayValue(
-            line.description ?? line.service?.name_ar ?? line.service?.name ?? line.product_name_ar,
-          )}
-        />
+        <DetailRow label="الوصف" value={displayValue(resolveServiceLineLabel(line))} />
         <DetailRow label="السعر" value={fmtContractMoney(line.unit_price)} />
         <DetailRow
           label="الخصم"
@@ -245,128 +370,83 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
   const discountDisplay = (amount: number) =>
     amount > 0 ? fmtContractMoney(amount) : '—'
 
+  let sectionNumber = 1
+
   return (
     <div className="space-y-md">
-      <div className="grid grid-cols-1 items-start gap-md xl:grid-cols-2">
-        <CollapsibleSection title="بيانات العميل" defaultOpen className="mb-0 h-full">
-          <dl className="divide-y divide-outline-variant/40">
-            <DetailRow label="الاسم" value={customer?.name ?? '—'} />
-            <DetailRow label="الرقم القومي" value={displayValue(customer?.national_id)} dir="ltr" />
-            <DetailRow label="رقم الهاتف 1" value={displayValue(customer?.phone)} dir="ltr" />
-            <DetailRow label="رقم الهاتف 2" value={displayValue(customer?.phone_2)} dir="ltr" />
-            <DetailRow label="العنوان" value={displayValue(customer?.address)} />
-            <DetailRow label="علامة مميزة" value={displayValue(customer?.distinctive_mark)} />
-          </dl>
+      <ContractReviewHeader invoice={invoice} summary={summary} />
 
-          {guarantors.length > 0 && (
-            <div className="mt-md">
-              <h4 className="mb-sm text-xs font-bold text-on-surface-variant">الضامنون</h4>
-              <DataTable
-                data={guarantors as unknown as Record<string, unknown>[]}
-                keyExtractor={(row) => Number(row.id)}
-                pageSize={10}
-                columns={[
-                  { key: 'name', header: 'الاسم', render: (row) => String(row.name ?? '—') },
-                  {
-                    key: 'phone',
-                    header: 'الجوال',
-                    render: (row) => String(row.phone ?? '—'),
-                  },
-                  {
-                    key: 'national_id',
-                    header: 'الرقم القومي',
-                    render: (row) => String(row.national_id ?? '—'),
-                  },
-                  {
-                    key: 'relationship',
-                    header: 'الصلة',
-                    render: (row) => String(row.relationship ?? '—'),
-                  },
-                ]}
-              />
-            </div>
-          )}
-        </CollapsibleSection>
+      <PosSectionCard
+        number={sectionNumber++}
+        title="بيانات التعاقد"
+        subtitle="الأجهزة والخدمات والإجماليات المالية"
+        contentClassName="space-y-md p-sm sm:p-md"
+      >
+        <div>
+          <h4 className="mb-sm text-xs font-bold text-on-surface-variant">جدول الأجهزة</h4>
+          <DeviceIdentifiersTable lines={deviceLines} customer={customer} />
+        </div>
 
-        <CollapsibleSection title="بيانات تعاقد جميع الأجهزة" defaultOpen className="mb-0 h-full">
-          <dl className="divide-y divide-outline-variant/40">
-            <DetailRow label="المصدر" value={contractSourceLabel(invoice)} />
-            <DetailRow label="تاريخ التعاقد" value={fmtInvoiceContractDateTime(invoice)} />
-          </dl>
+        <div>
+          <h4 className="mb-sm text-xs font-bold text-on-surface-variant">جدول الخدمات</h4>
+          <ServiceLinesTable lines={serviceLines} />
+        </div>
 
-          <div className="mt-md space-y-md">
-            <DeviceIdentifiersTable lines={deviceLines} customer={customer} />
+        <div className="grid grid-cols-1 gap-sm md:grid-cols-3">
+          <FinancialBlock
+            title="التركيب"
+            metrics={[
+              { label: 'رسوم', value: fmtContractMoney(summary.feeGross) },
+              { label: 'خصم', value: discountDisplay(summary.feeDiscount) },
+              { label: 'صافي', value: fmtContractMoney(summary.feeNet) },
+            ]}
+          />
+          <FinancialBlock
+            title="الأجهزة"
+            columns={4}
+            metrics={[
+              { label: 'عدد', value: String(summary.lineCount) },
+              { label: 'رسوم', value: fmtContractMoney(summary.devicesGross) },
+              { label: 'خصم', value: discountDisplay(summary.devicesDiscount) },
+              { label: 'صافي', value: fmtContractMoney(summary.devicesSubtotal) },
+            ]}
+          />
+          <FinancialBlock
+            title="الخدمات"
+            columns={4}
+            metrics={[
+              { label: 'عدد', value: String(summary.serviceLineCount) },
+              { label: 'رسوم', value: fmtContractMoney(summary.servicesGross) },
+              { label: 'خصم', value: discountDisplay(summary.servicesDiscount) },
+              { label: 'صافي', value: fmtContractMoney(summary.servicesSubtotal) },
+            ]}
+          />
+        </div>
 
-            <FinancialBlock
-              title="التركيب"
-              metrics={[
-                { label: 'رسوم', value: fmtContractMoney(summary.feeGross) },
-                { label: 'خصم', value: discountDisplay(summary.feeDiscount) },
-                { label: 'صافي', value: fmtContractMoney(summary.feeNet) },
-              ]}
+        <div className="rounded-lg border border-primary/20 bg-primary/8 p-sm">
+          <h4 className="mb-sm text-xs font-bold text-on-surface">الإجماليات</h4>
+          <div className="grid grid-cols-3 gap-sm">
+            <MoneyMetric
+              label="إجمالي الرسوم"
+              value={fmtContractMoney(summary.grandGross)}
             />
-
-            <FinancialBlock
-              title="الأجهزة"
-              columns={4}
-              metrics={[
-                { label: 'عدد', value: String(summary.lineCount) },
-                { label: 'رسوم', value: fmtContractMoney(summary.devicesGross) },
-                { label: 'خصم', value: discountDisplay(summary.devicesDiscount) },
-                { label: 'صافي', value: fmtContractMoney(summary.devicesSubtotal) },
-              ]}
+            <MoneyMetric
+              label="الخصم"
+              value={discountDisplay(summary.grandDiscount)}
             />
+            <MoneyMetric label="الصافي" value={fmtContractMoney(summary.total)} highlight />
+          </div>
+        </div>
 
-            <FinancialBlock
-              title="الخدمات"
-              columns={4}
-              metrics={[
-                { label: 'عدد', value: String(summary.serviceLineCount) },
-                { label: 'رسوم', value: fmtContractMoney(summary.servicesGross) },
-                { label: 'خصم', value: discountDisplay(summary.servicesDiscount) },
-                { label: 'صافي', value: fmtContractMoney(summary.servicesSubtotal) },
-              ]}
-            />
-
-            {serviceLines.length > 0 ? (
-              <div className="space-y-sm">
-                {serviceLines.map((line, index) => (
-                  <FinancialBlock
-                    key={line.id}
-                    title={`خدمة ${index + 1}${line.description ? ` — ${line.description}` : ''}`}
-                    columns={4}
-                    metrics={[
-                      { label: 'عدد', value: String(line.quantity ?? 1) },
-                      { label: 'رسوم', value: fmtContractMoney(line.unit_price) },
-                      {
-                        label: 'خصم',
-                        value: discountDisplay(Number(line.discount ?? 0)),
-                      },
-                      { label: 'صافي', value: fmtContractMoney(line.line_total) },
-                    ]}
-                  />
-                ))}
-              </div>
-            ) : null}
-
-            <div className="rounded-lg border border-primary/20 bg-primary/8 p-sm">
-              <h4 className="mb-sm text-xs font-bold text-on-surface">الإجماليات</h4>
-              <div className="grid grid-cols-3 gap-sm">
-                <MoneyMetric
-                  label="إجمالي الرسوم"
-                  value={fmtContractMoney(summary.grandGross)}
-                />
-                <MoneyMetric
-                  label="الخصم"
-                  value={discountDisplay(summary.grandDiscount)}
-                />
-                <MoneyMetric label="الصافي" value={fmtContractMoney(summary.total)} />
-              </div>
-            </div>
-
-            <dl className="divide-y divide-outline-variant/40 border-t border-outline-variant/40 pt-sm">
+        <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+          <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low/40 p-sm">
+            <dl className="divide-y divide-outline-variant/40">
               <DetailRow label="المدفوع" value={fmtContractMoney(invoice.paid_amount)} />
               <DetailRow label="المتبقي (للأقساط)" value={fmtContractMoney(invoice.balance_due)} />
+            </dl>
+          </div>
+          <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low/40 p-sm">
+            <dl className="divide-y divide-outline-variant/40">
               <div className="flex justify-between gap-sm py-1.5 text-sm">
                 <dt className="text-on-surface-variant">حالة السداد</dt>
                 <dd>
@@ -388,49 +468,94 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
               </div>
             </dl>
           </div>
-        </CollapsibleSection>
-      </div>
+        </div>
+      </PosSectionCard>
+
+      <PosSectionCard
+        number={sectionNumber++}
+        title="بيانات العميل"
+        subtitle={customer?.name ?? undefined}
+        contentClassName="p-sm sm:p-md"
+      >
+        <dl className="divide-y divide-outline-variant/40">
+          <DetailRow label="الاسم" value={customer?.name ?? '—'} />
+          <DetailRow label="الرقم القومي" value={displayValue(customer?.national_id)} dir="ltr" />
+          <DetailRow label="رقم الهاتف 1" value={displayValue(customer?.phone)} dir="ltr" />
+          <DetailRow label="رقم الهاتف 2" value={displayValue(customer?.phone_2)} dir="ltr" />
+          <DetailRow label="العنوان" value={displayValue(customer?.address)} />
+          <DetailRow label="علامة مميزة" value={displayValue(customer?.distinctive_mark)} />
+        </dl>
+
+        {guarantors.length > 0 && (
+          <div className="mt-md">
+            <h4 className="mb-sm text-xs font-bold text-on-surface-variant">الضامنون</h4>
+            <DataTable
+              data={guarantors as unknown as Record<string, unknown>[]}
+              keyExtractor={(row) => Number(row.id)}
+              pageSize={10}
+              columns={[
+                { key: 'name', header: 'الاسم', render: (row) => String(row.name ?? '—') },
+                {
+                  key: 'phone',
+                  header: 'الجوال',
+                  render: (row) => String(row.phone ?? '—'),
+                },
+                {
+                  key: 'national_id',
+                  header: 'الرقم القومي',
+                  render: (row) => String(row.national_id ?? '—'),
+                },
+                {
+                  key: 'relationship',
+                  header: 'الصلة',
+                  render: (row) => String(row.relationship ?? '—'),
+                },
+              ]}
+            />
+          </div>
+        )}
+      </PosSectionCard>
 
       {deviceLines.length > 0 && (
-        <section>
-          <h3 className="mb-sm text-sm font-bold text-on-surface">
-            تفاصيل الأجهزة ({deviceLines.length})
-          </h3>
-          <div className="grid grid-cols-1 gap-sm xl:grid-cols-2">
-            {deviceLines.map((line, index) => (
-              <DeviceLineDetails
-                key={line.id}
-                line={line}
-                index={index}
-                invoice={invoice}
-                perDeviceFee={summary.perDeviceFee}
-              />
-            ))}
-          </div>
-        </section>
+        <PosSectionCard
+          number={sectionNumber++}
+          title="تفاصيل الأجهزة"
+          subtitle={`${deviceLines.length} جهاز`}
+          contentClassName="grid grid-cols-1 gap-sm p-sm sm:p-md xl:grid-cols-2"
+        >
+          {deviceLines.map((line, index) => (
+            <DeviceLineDetails
+              key={line.id}
+              line={line}
+              index={index}
+              invoice={invoice}
+              perDeviceFee={summary.perDeviceFee}
+            />
+          ))}
+        </PosSectionCard>
       )}
 
       {serviceLines.length > 0 && (
-        <section>
-          <h3 className="mb-sm text-sm font-bold text-on-surface">
-            تفاصيل الخدمات ({serviceLines.length})
-          </h3>
-          <div className="grid grid-cols-1 gap-sm xl:grid-cols-2">
-            {serviceLines.map((line, index) => (
-              <ServiceLineDetails key={line.id} line={line} index={index} invoice={invoice} />
-            ))}
-          </div>
-        </section>
+        <PosSectionCard
+          number={sectionNumber++}
+          title="تفاصيل الخدمات"
+          subtitle={`${serviceLines.length} خدمة`}
+          contentClassName="grid grid-cols-1 gap-sm p-sm sm:p-md xl:grid-cols-2"
+        >
+          {serviceLines.map((line, index) => (
+            <ServiceLineDetails key={line.id} line={line} index={index} invoice={invoice} />
+          ))}
+        </PosSectionCard>
       )}
 
       {invoice.customer_id && (
-        <CollapsibleSection title="المرفقات" defaultOpen>
+        <PosSectionCard number={sectionNumber} title="المرفقات" contentClassName="p-sm sm:p-md">
           <CustomerAttachmentsSection
             customerId={invoice.customer_id}
             mode="view"
             canManage={false}
           />
-        </CollapsibleSection>
+        </PosSectionCard>
       )}
     </div>
   )

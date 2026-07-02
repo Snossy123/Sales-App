@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
+import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractPrintPath } from '../lib/sales'
 
 export function InvoiceReviewDetailPage() {
@@ -77,6 +78,17 @@ export function InvoiceReviewDetailPage() {
         invoice?.customer?.name
           ? `مراجعة عقد ${invoice.customer.name}`
           : 'مراجعة العقد'
+      }
+      subtitle={
+        invoice
+          ? [
+              invoice.invoice_number,
+              contractSourceLabel(invoice),
+              fmtInvoiceContractDateTime(invoice),
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : undefined
       }
       actions={
         <Link
