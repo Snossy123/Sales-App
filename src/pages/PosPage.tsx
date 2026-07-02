@@ -897,6 +897,7 @@ export function PosPage() {
           />
         </div>
         <PosMobileCheckoutBar
+          totalEstimate={totalEstimate}
           paidAtCheckout={paidAtCheckout}
           submitDisabled={submitDisabled}
           submitPending={checkoutMutation.isPending}
