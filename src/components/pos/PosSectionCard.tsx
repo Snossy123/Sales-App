@@ -20,7 +20,7 @@ export function PosSectionCard({
 }: PosSectionCardProps) {
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm ${className}`}
+      className={`rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm ${className}`}
     >
       <div className="flex items-start gap-sm border-b border-outline-variant/60 px-md py-sm">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary">

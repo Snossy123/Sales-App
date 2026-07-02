@@ -1,17 +1,15 @@
 import type { DiscountMode } from '../../lib/discount'
 import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { Icon } from '../Icon'
-import { DiscountInput } from './DiscountInput'
+import { OptionalDiscountFields } from './OptionalDiscountFields'
 import { PosMoneyInput } from './PosMoneyInput'
 import {
   posControlHeightClass,
   posLabelClass,
-  posStaticFieldClass,
   posStepperClass,
 } from './posFormStyles'
 
 export interface PosDevicesToolbarProps {
-  productName?: string
   available: number
   cashPrice: number
   installmentPrice: number
@@ -36,7 +34,6 @@ export interface PosDevicesToolbarProps {
 }
 
 export function PosDevicesToolbar({
-  productName,
   available,
   cashPrice,
   installmentPrice,
@@ -60,27 +57,29 @@ export function PosDevicesToolbar({
   const feeFieldsDisabled = !enableInstallationFee || !applyInstallationFee
 
   return (
-    <div className="space-y-sm">
-      <div
-        className="grid items-end gap-md sm:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_auto_auto_auto_minmax(0,1fr)]"
-        data-tour="pos-product"
-      >
-        <div className="min-w-0">
-          <label className={posLabelClass}>المنتج</label>
-          {productLoading ? (
-            <p
-              className={`${posControlHeightClass} flex items-center text-[14px] text-on-surface-variant`}
-            >
-              جاري التحميل...
-            </p>
-          ) : (
-            <div className={`${posStaticFieldClass} gap-xs`}>
-              <Icon name="inventory_2" className="shrink-0 text-primary" size={20} />
-              <span className="flex-1 truncate font-bold">{productName ?? 'GPS'}</span>
-            </div>
-          )}
+    <div className="space-y-sm" data-tour="pos-product">
+      {!productLoading ? (
+        <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low px-sm py-sm text-[14px] leading-snug text-on-surface-variant">
+          متاح: <strong className="tabular-nums text-on-surface">{available}</strong>
+          <span className="mx-sm text-outline-variant">|</span>
+          كاش:{' '}
+          <strong className="tabular-nums text-on-surface">
+            {Number(cashPrice).toLocaleString('ar-EG')} ج.م
+          </strong>
+          <span className="mx-sm text-outline-variant">|</span>
+          تقسيط:{' '}
+          <strong className="tabular-nums text-on-surface">
+            {Number(installmentPrice).toLocaleString('ar-EG')} ج.م
+          </strong>
+          {allowNegativeInventory ? (
+            <span className="ms-sm text-amber-800">· المخزون السالب مفعّل</span>
+          ) : null}
         </div>
+      ) : (
+        <p className="text-[14px] text-on-surface-variant">جاري تحميل الأسعار...</p>
+      )}
 
+      <div className="grid items-end gap-md sm:grid-cols-2 xl:grid-cols-[auto_auto_auto_minmax(0,1fr)]">
         <div className="shrink-0">
           <label className={posLabelClass}>عدد الأجهزة</label>
           <div className={posStepperClass}>
@@ -135,10 +134,9 @@ export function PosDevicesToolbar({
               />
             </div>
 
-            <div className="min-w-0 shrink-0">
-              <label className={posLabelClass}>خصم عام</label>
-              <DiscountInput
-                compact
+            <div className="min-w-0">
+              <OptionalDiscountFields
+                label="خصم عام"
                 baseAmount={installationFeePerUnit}
                 amount={feeDiscountAmount}
                 percent={feeDiscountPercent}
@@ -149,23 +147,6 @@ export function PosDevicesToolbar({
           </>
         )}
       </div>
-
-      {!productLoading && (
-        <p className="text-[13px] leading-snug text-on-surface-variant">
-          متاح: <strong className="tabular-nums">{available}</strong>
-          {' — '}
-          كاش:{' '}
-          <strong className="tabular-nums">{Number(cashPrice).toLocaleString('ar-EG')} ج.م</strong>
-          {' — '}
-          تقسيط:{' '}
-          <strong className="tabular-nums">
-            {Number(installmentPrice).toLocaleString('ar-EG')} ج.م
-          </strong>
-          {allowNegativeInventory ? (
-            <span className="ms-sm text-amber-800">· المخزون السالب مفعّل</span>
-          ) : null}
-        </p>
-      )}
     </div>
   )
 }

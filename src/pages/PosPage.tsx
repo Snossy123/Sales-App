@@ -656,7 +656,7 @@ export function PosPage() {
       )}
       <form onSubmit={handleCheckout} className="pos-form w-full">
         <div className="grid items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
-          <div className="flex min-w-0 flex-col gap-md">
+          <div className="flex min-h-0 min-w-0 flex-col gap-md lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pe-1">
             <PosContractHeader
               transactionSource={transactionSource}
               onTransactionSourceChange={handleTransactionSourceChange}
@@ -688,11 +688,10 @@ export function PosPage() {
             <PosSectionCard
               number={2}
               title="الأجهزة"
-              subtitle="اختر المنتج وحدد بيانات كل جهاز وطريقة دفعه"
-              contentClassName="space-y-md p-md"
+              subtitle="حدد عدد الأجهزة وبيانات كل جهاز وطريقة الدفع"
+              contentClassName="space-y-md overflow-visible p-md"
             >
               <PosDevicesToolbar
-                productName={productQuery.data?.name_ar || productQuery.data?.name}
                 available={available}
                 cashPrice={cashPrice}
                 installmentPrice={installmentPrice}
@@ -716,7 +715,7 @@ export function PosPage() {
               />
 
               {hasDeviceSale ? (
-                <div className="flex flex-col gap-md">
+                <div className="flex flex-col gap-md overflow-visible">
                   {deviceLines.map((line, index) => (
                     <DeviceLineCard
                       key={line.key}
@@ -745,7 +744,7 @@ export function PosPage() {
               number={3}
               title="الخدمات"
               subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
-              contentClassName="space-y-md p-md"
+              contentClassName="space-y-md overflow-visible p-md"
             >
               <div className="flex flex-wrap items-center gap-sm">
                 <select
@@ -780,7 +779,7 @@ export function PosPage() {
               {serviceLines.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
               ) : (
-                <div className="flex flex-col gap-md">
+                <div className="flex max-h-none flex-col gap-md overflow-visible">
                   {serviceLines.map((line, index) => (
                     <ServiceLineCard
                       key={line.id}

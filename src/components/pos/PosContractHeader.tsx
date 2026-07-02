@@ -88,6 +88,41 @@ export function PosContractHeader({
       contentClassName="p-md"
     >
       <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <SearchableSelect
+            data-tour="pos-customer"
+            label="العميل"
+            options={customers}
+            value={selectedCustomer}
+            onChange={onCustomerChange}
+            onSearchChange={onCustomerSearchChange}
+            getOptionValue={(c) => c.id}
+            getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+            placeholder="ابحث بالاسم أو الموبايل..."
+            loading={customersLoading}
+            emptyMessage="لا يوجد عميل مطابق"
+            hasError={customerError}
+          />
+          {customerError && <p className="mt-xs text-xs text-error">يجب اختيار العميل</p>}
+          {selectedCustomer?.sales_user && (
+            <p className="mt-xs text-[13px] leading-snug text-secondary">
+              تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
+            </p>
+          )}
+          {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
+            <p className="mt-xs text-[13px] leading-snug text-secondary">
+              تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
+            </p>
+          )}
+          {selectedCustomer?.branch &&
+            !selectedCustomer.sales_user_id &&
+            !selectedCustomer.distributor_id && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
+              </p>
+            )}
+        </div>
+
         {sourceToggleOptions.length > 0 && (
           <div>
             <label className={posLabelClass}>مصدر التعاقد</label>
@@ -165,42 +200,7 @@ export function PosContractHeader({
               />
               {sourceError && <p className="mt-xs text-xs text-error">يجب اختيار الموزع</p>}
             </>
-          ) : null}
-        </div>
-
-        <div>
-          <SearchableSelect
-            data-tour="pos-customer"
-            label="العميل"
-            options={customers}
-            value={selectedCustomer}
-            onChange={onCustomerChange}
-            onSearchChange={onCustomerSearchChange}
-            getOptionValue={(c) => c.id}
-            getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-            placeholder="ابحث بالاسم أو الموبايل..."
-            loading={customersLoading}
-            emptyMessage="لا يوجد عميل مطابق"
-            hasError={customerError}
-          />
-          {customerError && <p className="mt-xs text-xs text-error">يجب اختيار العميل</p>}
-          {selectedCustomer?.sales_user && (
-            <p className="mt-xs text-[13px] leading-snug text-secondary">
-              تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
-            </p>
-          )}
-          {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
-            <p className="mt-xs text-[13px] leading-snug text-secondary">
-              تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
-            </p>
-          )}
-          {selectedCustomer?.branch &&
-            !selectedCustomer.sales_user_id &&
-            !selectedCustomer.distributor_id && (
-              <p className="mt-xs text-[13px] leading-snug text-secondary">
-                تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
-              </p>
-            )}
+            ) : null}
         </div>
 
         <div>

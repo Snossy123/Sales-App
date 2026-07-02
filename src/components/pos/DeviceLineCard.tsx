@@ -14,7 +14,7 @@ import { renewalTypeLabels } from '../../lib/contractFields'
 import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from './CashScheduleSelector'
-import { DiscountInput } from './DiscountInput'
+import { OptionalDiscountFields } from './OptionalDiscountFields'
 import { SearchableSelect } from '../SearchableSelect'
 import { PosMoneyInput } from './PosMoneyInput'
 import {
@@ -317,7 +317,7 @@ export function DeviceLineCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
+    <div className="rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -329,11 +329,6 @@ export function DeviceLineCard({
           className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
         <span className="font-semibold text-on-surface">جهاز {index + 1}</span>
-        {line.imei && (
-          <span className="text-on-surface-variant" dir="ltr">
-            IMEI: {line.imei}
-          </span>
-        )}
         <span className="mr-auto tabular-nums text-on-surface">
           <strong>{net.toLocaleString('ar-EG')} ج.م</strong>
         </span>
@@ -510,9 +505,8 @@ export function DeviceLineCard({
             )}
 
             <div className="md:col-span-2 xl:col-span-2">
-              <label className={posLabelClass}>خصم الجهاز</label>
-              <DiscountInput
-                compact
+              <OptionalDiscountFields
+                label="خصم الجهاز"
                 baseAmount={line.unitPrice}
                 amount={line.discountAmount}
                 percent={line.discountPercent}
@@ -571,7 +565,7 @@ export function DeviceLineCard({
 
             {line.paymentTerm === 'installment' ? (
               <div className="space-y-sm">
-                <div className="grid gap-sm sm:grid-cols-3">
+                <div className="grid gap-sm sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <label className={posLabelClass}>المقدم</label>
                     <PosMoneyInput
@@ -580,6 +574,17 @@ export function DeviceLineCard({
                       value={line.downPayment}
                       onChange={(e) =>
                         patch({ downPayment: parseLocalizedNumber(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={posLabelClass}>قيمة القسط</label>
+                    <PosMoneyInput
+                      min={0}
+                      step="0.01"
+                      value={line.installmentAmount}
+                      onChange={(e) =>
+                        patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
                       }
                     />
                   </div>
@@ -600,17 +605,6 @@ export function DeviceLineCard({
                       className={posInputClass}
                     />
                   </div>
-                </div>
-                <div>
-                  <label className={posLabelClass}>قيمة القسط</label>
-                  <PosMoneyInput
-                    min={0}
-                    step="0.01"
-                    value={line.installmentAmount}
-                    onChange={(e) =>
-                      patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
-                    }
-                  />
                 </div>
                 <div className="grid gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3">
                   <div className="tabular-nums">

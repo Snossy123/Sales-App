@@ -162,7 +162,7 @@ export function ServiceLineCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
+    <div className="rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
       <div className="flex flex-wrap items-center gap-sm bg-primary/10 px-md py-sm">
         <span className="font-semibold text-on-surface">خدمة {index + 1}</span>
         <span className="flex-1 truncate text-sm text-on-surface-variant">{line.description || '—'}</span>
