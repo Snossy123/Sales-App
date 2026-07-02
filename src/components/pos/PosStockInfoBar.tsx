@@ -1,5 +1,4 @@
 export interface PosStockInfoBarProps {
-  productName?: string
   available: number
   cashPrice: number
   installmentPrice: number
@@ -8,7 +7,6 @@ export interface PosStockInfoBarProps {
 }
 
 export function PosStockInfoBar({
-  productName,
   available,
   cashPrice,
   installmentPrice,
@@ -17,42 +15,41 @@ export function PosStockInfoBar({
 }: PosStockInfoBarProps) {
   if (loading) {
     return (
-      <div className="mb-md rounded-xl border border-outline-variant/70 bg-surface-container-low px-md py-sm text-sm text-on-surface-variant">
-        جاري تحميل إحصائيات المخزون...
+      <div className="flex flex-wrap items-stretch gap-xs" data-tour="pos-stock-info">
+        {[0, 1, 2].map((key) => (
+          <div
+            key={key}
+            className="h-14 min-w-[5.5rem] animate-pulse rounded-lg border border-outline-variant/50 bg-surface-container-low"
+          />
+        ))}
       </div>
     )
   }
 
   return (
-    <div
-      className="mb-md rounded-xl border border-primary/20 bg-primary/5 p-md"
-      data-tour="pos-stock-info"
-    >
-      {productName ? (
-        <p className="mb-sm text-sm font-semibold text-on-surface">{productName}</p>
-      ) : null}
-      <div className="grid gap-sm sm:grid-cols-3">
-        <div className="text-center sm:text-start">
-          <p className="text-xs font-medium text-on-surface-variant">متاح في المخزن</p>
-          <p className="text-2xl font-extrabold tabular-nums text-primary">{available}</p>
-        </div>
-        <div className="text-center sm:text-start">
-          <p className="text-xs font-medium text-on-surface-variant">سعر الكاش</p>
-          <p className="text-xl font-bold tabular-nums text-on-surface">
-            {cashPrice.toLocaleString('ar-EG')}{' '}
-            <span className="text-sm font-medium">ج.م</span>
-          </p>
-        </div>
-        <div className="text-center sm:text-start">
-          <p className="text-xs font-medium text-on-surface-variant">سعر التقسيط</p>
-          <p className="text-xl font-bold tabular-nums text-on-surface">
-            {installmentPrice.toLocaleString('ar-EG')}{' '}
-            <span className="text-sm font-medium">ج.م</span>
-          </p>
-        </div>
+    <div className="flex flex-wrap items-stretch gap-xs" data-tour="pos-stock-info">
+      <div className="rounded-lg border border-primary/25 bg-primary/5 px-sm py-xs">
+        <p className="text-[11px] font-medium text-on-surface-variant">متاح</p>
+        <p className="text-lg font-extrabold leading-tight tabular-nums text-primary">
+          {available}
+        </p>
+      </div>
+      <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low px-sm py-xs">
+        <p className="text-[11px] font-medium text-on-surface-variant">كاش</p>
+        <p className="text-sm font-bold leading-tight tabular-nums text-on-surface">
+          {cashPrice.toLocaleString('ar-EG')}{' '}
+          <span className="text-[11px] font-medium">ج.م</span>
+        </p>
+      </div>
+      <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low px-sm py-xs">
+        <p className="text-[11px] font-medium text-on-surface-variant">تقسيط</p>
+        <p className="text-sm font-bold leading-tight tabular-nums text-on-surface">
+          {installmentPrice.toLocaleString('ar-EG')}{' '}
+          <span className="text-[11px] font-medium">ج.م</span>
+        </p>
       </div>
       {allowNegativeInventory ? (
-        <p className="mt-sm text-xs text-amber-800">المخزون السالب مفعّل</p>
+        <span className="self-center text-[11px] text-amber-800">مخزون سالب</span>
       ) : null}
     </div>
   )

@@ -649,7 +649,17 @@ export function PosPage() {
   return (
     <SalesPageShell
       title="تعاقد جديد"
-      subtitle="بيع الأجهزة والخدمات من صفحة واحدة — كاش أو قسط لكل بند"
+      headerExtra={
+        warehouseId ? (
+          <PosStockInfoBar
+            available={available}
+            cashPrice={cashPrice}
+            installmentPrice={installmentPrice}
+            loading={productQuery.isLoading || stockQuery.isLoading}
+            allowNegativeInventory={allowNegativeInventory}
+          />
+        ) : null
+      }
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId && (
@@ -657,16 +667,6 @@ export function PosPage() {
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
-      {warehouseId ? (
-        <PosStockInfoBar
-          productName={productQuery.data?.name_ar || productQuery.data?.name}
-          available={available}
-          cashPrice={cashPrice}
-          installmentPrice={installmentPrice}
-          loading={productQuery.isLoading || stockQuery.isLoading}
-          allowNegativeInventory={allowNegativeInventory}
-        />
-      ) : null}
       <form onSubmit={handleCheckout} className="pos-form w-full">
         <div className="grid items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
           <div className="flex min-h-0 min-w-0 flex-col gap-md lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pe-1">
