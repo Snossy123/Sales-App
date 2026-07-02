@@ -75,6 +75,37 @@ function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number |
   return branchIds.includes(branchId)
 }
 
+function resolveMockInvoiceLineType(line: SalesInvoiceLine): 'device' | 'service' {
+  if (line.line_type === 'service' || line.line_type === 'device') {
+    return line.line_type
+  }
+  if (line.service_id) return 'service'
+  if (line.product_unit_id) return 'device'
+  if (line.serial_number || line.sim_number || line.renewal_type) return 'device'
+  return line.description ? 'service' : 'device'
+}
+
+function enrichMockInvoiceLine(state: DemoState, line: SalesInvoiceLine): SalesInvoiceLine {
+  const lineType = resolveMockInvoiceLineType(line)
+  const service = line.service_id
+    ? (state.services ?? []).find((item) => item.id === line.service_id)
+    : undefined
+
+  return {
+    ...line,
+    line_type: lineType,
+    description:
+      line.description ??
+      service?.name_ar ??
+      service?.name ??
+      (lineType === 'service' ? line.product_name_ar ?? null : line.product_name_ar),
+    service,
+    installment_plan: line.installment_plan
+      ? { ...line.installment_plan, items: line.installment_plan.items ?? [] }
+      : null,
+  }
+}
+
 function enrichSection(state: DemoState, section: import('./seed').DemoState['sections'][0]) {
   const branch = section.branch_id
     ? state.branches.find((b) => b.id === section.branch_id)
@@ -1855,12 +1886,7 @@ export function handleMockRequest(
     const invoice = state.invoices.find((i) => i.id === id)
     if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
     const customer = state.customers.find((c) => c.id === invoice.customer_id)
-    const lines = (invoice.lines ?? []).map((line) => ({
-      ...line,
-      installment_plan: line.installment_plan
-        ? { ...line.installment_plan, items: line.installment_plan.items ?? [] }
-        : null,
-    }))
+    const lines = (invoice.lines ?? []).map((line) => enrichMockInvoiceLine(state, line))
     const installmentPlans = lines
       .map((line) => line.installment_plan)
       .filter((plan): plan is NonNullable<typeof plan> => plan != null)
@@ -2030,7 +2056,8 @@ export function handleMockRequest(
       let subtotal = 0
       const invoiceLines: SalesInvoiceLine[] = body.lines.map((line, index) => {
         const isServiceLine =
-          line.line_type === 'service' || (!line.product_unit_id && Boolean(line.description))
+          line.line_type === 'service' ||
+          (line.line_type !== 'device' && !line.product_unit_id && Boolean(line.description))
         const price = Number(
           line.unit_price ?? (isServiceLine ? 0 : s.gpsProduct.sell_price),
         )
@@ -2045,6 +2072,7 @@ export function handleMockRequest(
           : undefined
         return {
           id: s.counters.invoice * 100 + index + 1,
+          line_type: isServiceLine ? 'service' : 'device',
           product_id: isServiceLine ? undefined : s.gpsProduct.id,
           product_unit_id: isServiceLine ? undefined : line.product_unit_id,
           service_id: isServiceLine ? line.service_id : undefined,
@@ -2192,7 +2220,12 @@ export function handleMockRequest(
       })
 
       s.invoices.push(invoice)
-      created = invoice
+      created = {
+        ...invoice,
+        lines: invoiceLines.map((line) => enrichMockInvoiceLine(s, line)),
+        customer,
+        distributor: s.distributors.find((d) => d.id === invoice.distributor_id),
+      }
     })
     return created
   }
@@ -2240,6 +2273,7 @@ export function handleMockRequest(
         const lineTotal = Number(item.unit_price)
         const line: SalesInvoiceLine = {
           id: lineId,
+          line_type: 'service',
           service_id: item.service_id,
           quantity: 1,
           unit_price: item.unit_price,
@@ -2329,7 +2363,11 @@ export function handleMockRequest(
         }
       }
 
-      created = invoice
+      created = {
+        ...invoice,
+        lines: invoiceLines.map((line) => enrichMockInvoiceLine(s, line)),
+        customer,
+      }
       s.invoices.push(invoice)
     })
     return created

@@ -6,7 +6,7 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
 } from '../api/types'
-import { formatInvoiceDate, isServiceInvoiceLine } from './sales'
+import { distributorLabel, formatInvoiceDate, isServiceInvoiceLine } from './sales'
 
 export const vehicleTypeLabels: Record<string, string> = {
   car: 'سيارة',
@@ -34,6 +34,28 @@ export function fmtContractMoney(value: string | number | null | undefined, suff
 export function fmtContractDate(value: string | null | undefined): string {
   if (!value) return '—'
   return formatInvoiceDate(value)
+}
+
+export function fmtContractDateTime(value: string | null | undefined): string {
+  if (!value) return '—'
+  const hasTime = value.includes('T') || /\d{1,2}:\d{2}/.test(value)
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return formatInvoiceDate(value)
+  if (!hasTime) return formatInvoiceDate(value)
+  return d.toLocaleString('ar-EG', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+export function fmtInvoiceContractDateTime(
+  invoice: Pick<SalesInvoice, 'confirmed_at' | 'invoice_date'>,
+): string {
+  return fmtContractDateTime(invoice.confirmed_at ?? invoice.invoice_date)
 }
 
 export function displayValue(value: string | number | null | undefined): string {
@@ -245,6 +267,19 @@ function formatInstallmentCellValue(item: InstallmentItem, invoice?: SalesInvoic
 
 export function branchLabel(invoice: SalesInvoice): string {
   return invoice.branch?.name_ar ?? invoice.branch?.name ?? '—'
+}
+
+export function contractSourceLabel(invoice: SalesInvoice): string {
+  if (invoice.sales_user_id || invoice.sales_user) {
+    const name = invoice.sales_user?.name
+    return name ? `موظف ${name}` : 'موظف —'
+  }
+  if (invoice.distributor_id || invoice.distributor) {
+    const name = distributorLabel(invoice.distributor)
+    return name !== '—' ? `موزع ${name}` : '—'
+  }
+  const branch = branchLabel(invoice)
+  return branch !== '—' ? `فرع ${branch}` : '—'
 }
 
 export interface PerDeviceFee {

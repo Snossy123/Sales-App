@@ -230,8 +230,21 @@ export function serviceContractPrintPath(
   return `/invoices/${invoiceId}/service-contract/${lineId}${qs ? `?${qs}` : ''}`
 }
 
-export function isServiceInvoiceLine(line: { product_unit_id?: number | null }): boolean {
-  return !line.product_unit_id
+export function isServiceInvoiceLine(line: {
+  line_type?: 'device' | 'service' | string | null
+  product_unit_id?: number | null
+  service_id?: number | null
+  description?: string | null
+  serial_number?: string | null
+  sim_number?: string | null
+  renewal_type?: string | null
+}): boolean {
+  if (line.line_type === 'service') return true
+  if (line.line_type === 'device') return false
+  if (line.service_id != null && line.service_id !== 0) return true
+  if (line.product_unit_id != null && line.product_unit_id !== 0) return false
+  if (line.serial_number || line.sim_number || line.renewal_type) return false
+  return Boolean(line.description?.trim())
 }
 
 /** يُحسب المقدم تلقائياً: الإجمالي − (قيمة القسط × عدد الأقساط) */

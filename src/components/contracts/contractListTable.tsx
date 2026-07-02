@@ -5,8 +5,8 @@ import type { Column } from '../DataTable'
 import { StatusBadge } from '../StatusBadge'
 import { Icon } from '../Icon'
 import {
-  branchLabel,
-  fmtContractDate,
+  contractSourceLabel,
+  fmtInvoiceContractDateTime,
   fmtContractMoney,
   invoiceContractSummary,
 } from '../../lib/contractFields'
@@ -46,28 +46,14 @@ export function buildContractListColumns(
       ),
     },
     {
-      key: 'branch',
-      header: 'الفرع / المصدر',
-      render: (row) =>
-        row.sales_user_id || row.sales_user ? (
-          <span className="inline-flex items-center gap-1">
-            <Icon name="track_changes" size={16} className="text-primary" />
-            {row.sales_user?.name ?? '—'}
-          </span>
-        ) : (
-          branchLabel(row)
-        ),
-    },
-    {
-      key: 'distributor',
-      header: 'الموزع',
-      render: (row) =>
-        row.sales_user_id || row.sales_user ? '—' : distributorLabel(row.distributor) || '—',
+      key: 'source',
+      header: 'المصدر',
+      render: (row) => contractSourceLabel(row),
     },
     {
       key: 'invoice_date',
       header: 'تاريخ التعاقد',
-      render: (row) => fmtContractDate(row.invoice_date),
+      render: (row) => fmtInvoiceContractDateTime(row),
     },
     {
       key: 'fee_gross',
@@ -207,11 +193,13 @@ export function filterContractListRows(rows: SalesInvoice[], search: string): Sa
     const customer = String(row.customer?.name ?? '').toLowerCase()
     const phone1 = String(row.customer?.phone ?? '').toLowerCase()
     const phone2 = String(row.customer?.phone_2 ?? '').toLowerCase()
+    const source = contractSourceLabel(row).toLowerCase()
     const distributor = distributorLabel(row.distributor).toLowerCase()
     return (
       customer.includes(q) ||
       phone1.includes(q) ||
       phone2.includes(q) ||
+      source.includes(q) ||
       distributor.includes(q)
     )
   })

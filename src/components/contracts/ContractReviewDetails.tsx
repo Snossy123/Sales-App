@@ -1,9 +1,9 @@
 import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
-  branchLabel,
+  contractSourceLabel,
   displayValue,
-  fmtContractDate,
   fmtContractMoney,
+  fmtInvoiceContractDateTime,
   invoiceContractSummary,
   resolveInstallmentMethodLabel,
   resolveProductModelName,
@@ -16,7 +16,6 @@ import {
   resolveVehicleDistinctiveDetail,
 } from '../../lib/contractFields'
 import {
-  distributorLabel,
   isServiceInvoiceLine,
   paymentTermLabel,
   reviewStatusForBadge,
@@ -204,12 +203,17 @@ function ServiceLineDetails({
   return (
     <CollapsibleSection
       title={`خدمة ${index + 1}`}
-      summary={line.description || line.product_name_ar || undefined}
+      summary={line.description || line.service?.name_ar || line.service?.name || line.product_name_ar || undefined}
       defaultOpen={index === 0}
       className="mb-0 h-full"
     >
       <dl className="divide-y divide-outline-variant/40">
-        <DetailRow label="الوصف" value={displayValue(line.description ?? line.product_name_ar)} />
+        <DetailRow
+          label="الوصف"
+          value={displayValue(
+            line.description ?? line.service?.name_ar ?? line.service?.name ?? line.product_name_ar,
+          )}
+        />
         <DetailRow label="السعر" value={fmtContractMoney(line.unit_price)} />
         <DetailRow
           label="الخصم"
@@ -286,18 +290,8 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
 
         <CollapsibleSection title="بيانات تعاقد جميع الأجهزة" defaultOpen className="mb-0 h-full">
           <dl className="divide-y divide-outline-variant/40">
-            {invoice.sales_user_id || invoice.sales_user ? (
-              <DetailRow
-                label="موظف المبيعات"
-                value={invoice.sales_user?.name ?? '—'}
-              />
-            ) : (
-              <>
-                <DetailRow label="الفرع" value={branchLabel(invoice)} />
-                <DetailRow label="الموزع" value={distributorLabel(invoice.distributor) || '—'} />
-              </>
-            )}
-            <DetailRow label="تاريخ التعاقد" value={fmtContractDate(invoice.invoice_date)} />
+            <DetailRow label="المصدر" value={contractSourceLabel(invoice)} />
+            <DetailRow label="تاريخ التعاقد" value={fmtInvoiceContractDateTime(invoice)} />
           </dl>
 
           <div className="mt-md space-y-md">

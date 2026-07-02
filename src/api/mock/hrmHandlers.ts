@@ -252,8 +252,19 @@ export function tryHandleHrmRequest(
 
   if (m === 'GET' && path === 'employees') {
     let items = state.employees.map((e) => enrichEmployee(state, e))
+    const statusFilter = params['filter[status]']
+    if (statusFilter) items = items.filter((e) => e.status === statusFilter)
     const branchFilter = params['filter[branch_id]']
     if (branchFilter) items = items.filter((e) => e.branch_id === Number(branchFilter))
+    const administrationFilter = params['filter[administration_id]'] ?? params['filter[department_id]']
+    if (administrationFilter) {
+      const adminId = Number(administrationFilter)
+      items = items.filter((e) => {
+        const branch = e.branch ?? state.branches.find((b) => b.id === e.branch_id)
+        if (!branch) return false
+        return (branch.administration_id ?? branch.department_id) === adminId
+      })
+    }
     return paginate(items, params)
   }
 

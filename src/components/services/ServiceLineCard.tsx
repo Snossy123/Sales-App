@@ -378,7 +378,7 @@ export function createServiceLine(
     unit_price: unitPrice,
     paymentTerm,
     cashSchedule: 'immediate',
-    downPayment: computeMinDownPayment(unitPrice, minDownPercent),
+    downPayment: paymentTerm === 'cash' ? 0 : computeMinDownPayment(unitPrice, minDownPercent),
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     intervalType: 'monthly',
     firstDueDate: addDays(contractDate, 30),

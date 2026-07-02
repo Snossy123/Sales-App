@@ -68,6 +68,7 @@ export function PosPage() {
   const queryClient = useQueryClient()
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const contextBranchId = useAuthStore((s) => s.branchId)
+  const contextDepartmentId = useAuthStore((s) => s.departmentId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const allowNegativeInventory = salesSettings?.allow_negative_inventory ?? false
   const enableInstallationFee = salesSettings?.enable_installation_fee ?? true
@@ -196,6 +197,45 @@ export function PosPage() {
     },
   })
 
+  const resolvedAdministrationId = useMemo(() => {
+    const administrationFromBranch = (branch: Branch | null | undefined): number | '' => {
+      if (!branch) return ''
+      return branch.administration_id ?? branch.department_id ?? ''
+    }
+    const branchFromId = (id: number | '' | undefined): Branch | null => {
+      if (!id) return null
+      if (selectedBranch?.id === id) return selectedBranch
+      if (selectedDistributor?.branch_id === id && selectedDistributor.branch) {
+        return selectedDistributor.branch
+      }
+      return branchesQuery.data?.find((b) => b.id === id) ?? null
+    }
+
+    if (transactionSource === 'branch' && selectedBranch) {
+      return administrationFromBranch(selectedBranch) || contextDepartmentId || ''
+    }
+    if (transactionSource === 'distributor' && selectedDistributor) {
+      const branch =
+        selectedDistributor.branch ?? branchFromId(selectedDistributor.branch_id)
+      return administrationFromBranch(branch) || contextDepartmentId || ''
+    }
+    if (transactionSource === 'sales' && selectedSalesRep?.branch_id) {
+      return administrationFromBranch(branchFromId(selectedSalesRep.branch_id)) || contextDepartmentId || ''
+    }
+    if (resolvedBranchId) {
+      return administrationFromBranch(branchFromId(resolvedBranchId)) || contextDepartmentId || ''
+    }
+    return contextDepartmentId ?? ''
+  }, [
+    transactionSource,
+    selectedBranch,
+    selectedDistributor,
+    selectedSalesRep,
+    resolvedBranchId,
+    contextDepartmentId,
+    branchesQuery.data,
+  ])
+
   const filteredBranches = useMemo(() => {
     const q = branchSearch.trim().toLowerCase()
     const branches = branchesQuery.data ?? []
@@ -275,17 +315,17 @@ export function PosPage() {
   })
 
   const employeesQuery = useQuery({
-    queryKey: ['employees', 'pos', resolvedBranchId],
+    queryKey: ['employees', 'pos', resolvedAdministrationId],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 100,
         'filter[status]': 'active',
       }
-      if (resolvedBranchId) params['filter[branch_id]'] = resolvedBranchId
+      if (resolvedAdministrationId) params['filter[administration_id]'] = resolvedAdministrationId
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
       return data.data
     },
-    enabled: Boolean(resolvedBranchId) || Boolean(warehouseId),
+    enabled: Boolean(resolvedAdministrationId) || Boolean(warehouseId),
   })
 
   const productQuery = useQuery({

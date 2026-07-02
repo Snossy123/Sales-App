@@ -548,6 +548,7 @@ export type PaymentTransactionReceipt = PaymentTransaction
 
 export interface SalesInvoiceLine {
   id: number
+  line_type?: 'device' | 'service'
   product_id?: number
   product_unit_id?: number
   service_id?: number | null
@@ -566,6 +567,7 @@ export interface SalesInvoiceLine {
   product_name_ar?: string | null
   product_unit?: ProductUnit
   product_model?: ProductModel
+  service?: Service | null
   serial_number?: string | null
   sim_number?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null

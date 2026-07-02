@@ -25,7 +25,12 @@ export function InvoiceReviewDetailPage() {
   const query = useQuery({
     queryKey: ['sales-invoice', 'review', id],
     queryFn: async () => {
-      const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`)
+      const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
+        params: {
+          include:
+            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan',
+        },
+      })
       return data
     },
     enabled: Boolean(id),
