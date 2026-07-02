@@ -16,13 +16,13 @@ export function PosSectionCard({
   subtitle,
   children,
   className = '',
-  contentClassName = 'p-md',
+  contentClassName = 'p-sm sm:p-md',
 }: PosSectionCardProps) {
   return (
     <section
       className={`rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm ${className}`}
     >
-      <div className="flex items-start gap-sm border-b border-outline-variant/60 px-md py-sm">
+      <div className="flex items-start gap-sm border-b border-outline-variant/60 px-sm py-sm sm:px-md">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary">
           {number}
         </span>

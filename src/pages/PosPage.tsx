@@ -667,8 +667,8 @@ export function PosPage() {
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
-      <form onSubmit={handleCheckout} className="pos-form w-full">
-        <div className="grid items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+      <form onSubmit={handleCheckout} className="pos-form w-full pb-28 lg:pb-0">
+        <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
           <div className="flex min-h-0 min-w-0 flex-col gap-md lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pe-1">
             <PosContractHeader
               transactionSource={transactionSource}
@@ -702,7 +702,7 @@ export function PosPage() {
               number={2}
               title="الأجهزة"
               subtitle="حدد عدد الأجهزة وبيانات كل جهاز وطريقة الدفع"
-              contentClassName="space-y-md overflow-visible p-md"
+              contentClassName="space-y-md overflow-visible p-sm sm:p-md"
             >
               <PosDevicesToolbar
                 quantity={quantity}
@@ -753,13 +753,13 @@ export function PosPage() {
                 number={3}
                 title="الخدمات"
                 subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
-                contentClassName="space-y-md overflow-visible p-md"
+                contentClassName="space-y-md overflow-visible p-sm sm:p-md"
               >
-                <div className="flex flex-wrap items-center gap-sm">
+                <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center">
                   <select
                     value={selectedServiceId}
                     onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="min-w-[min(100%,280px)] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                    className="w-full min-w-0 flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
                   >
                     <option value="">اختر خدمة من الكتالوج...</option>
                     {(servicesQuery.data ?? []).map((service) => (
@@ -778,7 +778,7 @@ export function PosPage() {
                     type="button"
                     onClick={addCatalogService}
                     disabled={!selectedServiceId}
-                    className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50 sm:w-auto"
                   >
                     <Icon name="add" size={18} />
                     إضافة خدمة
@@ -787,7 +787,7 @@ export function PosPage() {
                     <button
                       type="button"
                       onClick={() => setServicesOpen(false)}
-                      className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high"
+                      className="inline-flex w-full items-center justify-center gap-xs rounded-lg border border-outline-variant px-md py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high sm:w-auto"
                     >
                       إلغاء
                     </button>

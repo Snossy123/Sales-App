@@ -85,9 +85,9 @@ export function PosContractHeader({
       number={1}
       title="بيانات التعاقد"
       subtitle="اختر مصدر التعاقد والعميل وتاريخ التسجيل"
-      contentClassName="p-md"
+      contentClassName="p-sm sm:p-md"
     >
-      <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <SearchableSelect
             data-tour="pos-customer"

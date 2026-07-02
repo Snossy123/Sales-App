@@ -69,7 +69,8 @@ export interface DeviceLineFieldErrors {
   engineNumber?: string
 }
 
-const colBox = 'rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm'
+const colBox =
+  'rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm sm:p-md'
 
 function fieldErrorClass(hasError: boolean, baseClass: string): string {
   return hasError ? `${baseClass} border-error` : baseClass
@@ -321,7 +322,7 @@ export function DeviceLineCard({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-sm bg-primary/10 px-md py-sm text-sm transition-colors hover:bg-primary/15"
+        className="flex w-full flex-wrap items-center gap-sm bg-primary/10 px-sm py-sm transition-colors hover:bg-primary/15 sm:px-md"
       >
         <Icon
           name="expand_more"
@@ -332,8 +333,8 @@ export function DeviceLineCard({
       </button>
 
       {expanded && (
-        <div className="space-y-md p-md">
-          <div className="grid gap-sm md:grid-cols-3">
+        <div className="space-y-md p-sm sm:p-md">
+          <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className={posLabelClass}>السريال</label>
               <input
@@ -389,12 +390,12 @@ export function DeviceLineCard({
           </div>
 
           <div
-            className={`grid gap-sm ${
-              line.vehicleType === 'car' || line.vehicleType === 'motorcycle'
-                ? 'md:grid-cols-3'
-                : line.vehicleType === 'tuk_tuk'
-                  ? 'md:grid-cols-3'
-                  : 'md:grid-cols-1'
+            className={`grid grid-cols-1 gap-sm sm:grid-cols-2 ${
+              line.vehicleType === 'car' ||
+              line.vehicleType === 'motorcycle' ||
+              line.vehicleType === 'tuk_tuk'
+                ? 'lg:grid-cols-3'
+                : ''
             }`}
           >
             <div>
@@ -479,7 +480,7 @@ export function DeviceLineCard({
             )}
           </div>
 
-          <div className="grid gap-sm md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
             <div>
               <SearchableSelect
                 label="الفني"
@@ -512,7 +513,7 @@ export function DeviceLineCard({
             </div>
           </div>
 
-          <div className="max-w-xl">
+          <div className="w-full min-w-0">
             <OptionalDiscountFields
               label="خصم الجهاز"
               baseAmount={line.unitPrice}
@@ -523,10 +524,10 @@ export function DeviceLineCard({
           </div>
 
           <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
-            <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+            <div className="mb-sm flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <h4 className={posSectionTitleClass}>طريقة الدفع — الجهاز</h4>
-              <div className="flex flex-wrap items-center gap-sm">
-                <div className={`${posModeToggleGroupClass} w-[11rem] text-xs`}>
+              <div className="flex w-full flex-col gap-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                <div className={`${posModeToggleGroupClass} w-full sm:w-[11rem] text-xs`}>
                   {PAYMENT_TERMS.map((term) => (
                     <button
                       key={term}
@@ -545,7 +546,7 @@ export function DeviceLineCard({
                   ))}
                 </div>
                 {line.paymentTerm === 'installment' && (
-                  <div className={`${posModeToggleGroupClass} w-[11rem] text-xs`}>
+                  <div className={`${posModeToggleGroupClass} w-full sm:w-[11rem] text-xs`}>
                     {INTERVAL_TYPES.map((type) => (
                       <button
                         key={type}
@@ -572,7 +573,7 @@ export function DeviceLineCard({
 
             {line.paymentTerm === 'installment' ? (
               <div className="space-y-sm">
-                <div className="grid gap-sm sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <label className={posLabelClass}>المقدم</label>
                     <PosMoneyInput
@@ -613,7 +614,7 @@ export function DeviceLineCard({
                     />
                   </div>
                 </div>
-                <div className="grid gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3">
                   <div className="tabular-nums">
                     <span className="text-on-surface-variant">قيمة القسط: </span>
                     <strong className="text-on-surface">

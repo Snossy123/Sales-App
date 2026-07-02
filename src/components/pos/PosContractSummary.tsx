@@ -41,10 +41,12 @@ export function PosContractSummary({
   submitDisabled,
   submitPending,
 }: PosContractSummaryProps) {
+  const submitLabel = submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'
+
   return (
     <aside className="flex flex-col gap-md lg:sticky lg:top-4 lg:self-start">
       <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-        <div className="border-b border-outline-variant/60 px-md py-sm">
+        <div className="border-b border-outline-variant/60 px-sm py-sm sm:px-md">
           <h2 className="text-[16px] font-extrabold text-on-surface">ملخص التعاقد</h2>
           <div className="mt-xs flex flex-wrap gap-x-sm gap-y-0.5 text-[12px] text-on-surface-variant">
             {branchLabel ? <span>{branchLabel}</span> : null}
@@ -55,7 +57,7 @@ export function PosContractSummary({
           </div>
         </div>
 
-        <div className="space-y-sm px-md py-sm text-sm">
+        <div className="space-y-sm px-sm py-sm text-sm sm:px-md">
           {showPromotions && promotions.length > 0 && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-sm">
               <label className="mb-xs block text-xs font-medium text-on-surface">عروض نشطة</label>
@@ -79,23 +81,23 @@ export function PosContractSummary({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-sm tabular-nums">
+          <div className="flex items-start justify-between gap-sm tabular-nums">
             <span className="text-on-surface-variant">قيمة الأجهزة (بعد الخصم)</span>
-            <span className="font-medium text-on-surface">
+            <span className="shrink-0 font-medium text-on-surface">
               {devicesSubtotal.toLocaleString('ar-EG')} ج.م
             </span>
           </div>
-          <div className="flex items-center justify-between gap-sm tabular-nums">
+          <div className="flex items-start justify-between gap-sm tabular-nums">
             <span className="text-on-surface-variant">
               رسوم التركيب ({deviceCount} × جهاز)
             </span>
-            <span className="font-medium text-on-surface">
+            <span className="shrink-0 font-medium text-on-surface">
               {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
             </span>
           </div>
-          <div className="flex items-center justify-between gap-sm tabular-nums">
+          <div className="flex items-start justify-between gap-sm tabular-nums">
             <span className="text-on-surface-variant">قيمة الخدمات</span>
-            <span className="font-medium text-on-surface">
+            <span className="shrink-0 font-medium text-on-surface">
               {servicesSubtotal.toLocaleString('ar-EG')} ج.م
             </span>
           </div>
@@ -151,11 +153,30 @@ export function PosContractSummary({
         type="submit"
         data-tour="pos-submit"
         disabled={submitDisabled}
-        className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="hidden w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50 lg:flex"
       >
         <Icon name="check_circle" />
-        {submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'}
+        {submitLabel}
       </button>
+
+      <div className="fixed inset-x-0 bottom-16 z-40 border-t border-outline-variant bg-surface-container-lowest/95 px-margin py-sm shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm lg:hidden">
+        <div className="flex items-center gap-sm">
+          <div className="min-w-0 flex-1 tabular-nums">
+            <p className="text-[11px] font-medium text-on-surface-variant">المطلوب عند التعاقد</p>
+            <p className="text-lg font-extrabold text-tertiary">
+              {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={submitDisabled}
+            className="inline-flex shrink-0 items-center justify-center gap-xs rounded-lg bg-secondary px-md py-3 text-sm font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            <Icon name="check_circle" size={20} />
+            {submitLabel}
+          </button>
+        </div>
+      </div>
     </aside>
   )
 }

@@ -163,18 +163,20 @@ export function ServiceLineCard({
 
   return (
     <div className="rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
-      <div className="flex flex-wrap items-center gap-sm bg-primary/10 px-md py-sm">
-        <span className="font-semibold text-on-surface">خدمة {index + 1}</span>
-        <span className="flex-1 truncate text-sm text-on-surface-variant">{line.description || '—'}</span>
-        <span className="tabular-nums text-on-surface">
+      <div className="flex flex-wrap items-center gap-sm bg-primary/10 px-sm py-sm sm:px-md">
+        <span className="shrink-0 font-semibold text-on-surface">خدمة {index + 1}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-on-surface-variant">
+          {line.description || '—'}
+        </span>
+        <span className="shrink-0 tabular-nums text-on-surface">
           <strong>{total.toLocaleString('ar-EG')} ج.م</strong>
         </span>
-        <button type="button" onClick={onRemove} className="text-error" aria-label="حذف">
+        <button type="button" onClick={onRemove} className="shrink-0 text-error" aria-label="حذف">
           <Icon name="delete" size={20} />
         </button>
       </div>
 
-      <div className="grid gap-md p-md lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-md p-sm sm:p-md lg:grid-cols-2">
         <div className="space-y-sm">
           <div>
             <label className={posLabelClass}>الوصف</label>
@@ -238,7 +240,7 @@ export function ServiceLineCard({
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-sm">
+              <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
                 <div>
                   <label className={posLabelClass}>قيمة المقدم</label>
                   <PosMoneyInput

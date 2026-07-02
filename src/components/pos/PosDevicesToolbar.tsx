@@ -48,7 +48,7 @@ export function PosDevicesToolbar({
 
   return (
     <div className="space-y-sm" data-tour="pos-product">
-      <div className="grid items-end gap-md sm:grid-cols-2 xl:grid-cols-[auto_auto_auto_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-end gap-md sm:grid-cols-2 lg:grid-cols-4">
         <div className="shrink-0">
           <label className={posLabelClass}>عدد الأجهزة</label>
           <div className={posStepperClass}>
@@ -79,7 +79,7 @@ export function PosDevicesToolbar({
         {enableInstallationFee && (
           <>
             {allowDisableFeeInSale && (
-              <div className={`flex shrink-0 items-center ${posControlHeightClass}`}>
+              <div className={`flex items-center sm:col-span-2 lg:col-span-1 ${posControlHeightClass}`}>
                 <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
                   <input
                     type="checkbox"
@@ -103,7 +103,7 @@ export function PosDevicesToolbar({
               />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 sm:col-span-2 lg:col-span-1">
               <OptionalDiscountFields
                 label="خصم عام"
                 baseAmount={installationFeePerUnit}
