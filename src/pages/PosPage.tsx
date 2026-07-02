@@ -609,10 +609,34 @@ export function PosPage() {
       else if (transactionSource === 'distributor') messages.push('يجب اختيار الموزع')
       else messages.push('يجب اختيار موظف المبيعات')
     }
+    if (deviceLines.length > 0 && !warehouseId) {
+      messages.push('يجب اختيار مخزن لبيع الأجهزة')
+    }
+    if (deviceLines.length === 0 && serviceLines.length === 0) {
+      messages.push('يجب إضافة جهاز أو خدمة واحدة على الأقل')
+    }
     deviceLines.forEach((line, index) => {
       const result = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
       if (!result.valid) {
         messages.push(`جهاز ${index + 1}: ${result.errors[0]}`)
+      }
+    })
+    serviceLines.forEach((line, index) => {
+      if (!line.description.trim()) {
+        messages.push(`خدمة ${index + 1}: الوصف مطلوب`)
+      } else if (line.unit_price <= 0) {
+        messages.push(`خدمة ${index + 1}: السعر مطلوب`)
+      } else if (
+        !validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid ||
+        !validateServiceLineCash(line).valid
+      ) {
+        const installmentErrors = validateServiceLineInstallment(
+          line,
+          minDownPercent,
+          maxInstallmentCount,
+        ).errors
+        const cashErrors = validateServiceLineCash(line).errors
+        messages.push(`خدمة ${index + 1}: ${[...installmentErrors, ...cashErrors][0]}`)
       }
     })
     return messages
@@ -622,9 +646,25 @@ export function PosPage() {
     sourceReady,
     transactionSource,
     deviceLines,
+    serviceLines,
+    warehouseId,
     minDownPercent,
     maxInstallmentCount,
   ])
+
+  const hasDeviceFieldErrors =
+    submitAttempted &&
+    deviceLines.some((line) => !validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid)
+  const hasWarehouseError = submitAttempted && hasDeviceSale && !warehouseId
+  const hasServiceErrors =
+    submitAttempted &&
+    serviceLines.some(
+      (line) =>
+        !line.description.trim() ||
+        line.unit_price <= 0 ||
+        !validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid ||
+        !validateServiceLineCash(line).valid,
+    )
 
   const branchLabel =
     selectedBranch?.name_ar ||
@@ -647,6 +687,8 @@ export function PosPage() {
     !allLinesValid ||
     serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
 
+  const submitInvalid = submitDisabled && !checkoutMutation.isPending
+
   return (
     <SalesPageShell
       title="تعاقد جديد"
@@ -664,7 +706,13 @@ export function PosPage() {
       actions={<StartTourButton tourId="pos" />}
     >
       {!warehouseId && (
-        <p className="mb-md rounded-lg border border-tertiary/30 bg-tertiary/5 p-sm text-sm text-on-surface-variant">
+        <p
+          className={`mb-md rounded-lg border p-sm text-sm ${
+            submitAttempted && deviceLines.length > 0
+              ? 'border-error/30 bg-error/[0.07] text-error'
+              : 'border-tertiary/30 bg-tertiary/5 text-on-surface-variant'
+          }`}
+        >
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
@@ -707,6 +755,7 @@ export function PosPage() {
               number={2}
               title="الأجهزة"
               subtitle="حدد عدد الأجهزة وبيانات كل جهاز وطريقة الدفع"
+              highlighted={hasDeviceFieldErrors || hasWarehouseError}
               contentClassName="space-y-md overflow-visible p-sm sm:p-md"
             >
               <PosDevicesToolbar
@@ -758,6 +807,7 @@ export function PosPage() {
                 number={3}
                 title="الخدمات"
                 subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
+                highlighted={hasServiceErrors}
                 contentClassName="space-y-md overflow-visible p-sm sm:p-md"
               >
                 <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center">
@@ -815,6 +865,7 @@ export function PosPage() {
                         onRemove={() =>
                           setServiceLines((prev) => prev.filter((_, i) => i !== index))
                         }
+                        showErrors={submitAttempted}
                       />
                     ))}
                   </div>
@@ -894,6 +945,7 @@ export function PosPage() {
             }
             submitDisabled={submitDisabled}
             submitPending={checkoutMutation.isPending}
+            submitInvalid={submitInvalid}
           />
         </div>
         <PosMobileCheckoutBar
@@ -901,6 +953,7 @@ export function PosPage() {
           paidAtCheckout={paidAtCheckout}
           submitDisabled={submitDisabled}
           submitPending={checkoutMutation.isPending}
+          submitInvalid={submitInvalid}
         />
       </form>
     </SalesPageShell>

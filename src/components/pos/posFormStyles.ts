@@ -42,3 +42,13 @@ export const posStepperClass =
   'flex h-[var(--pos-control-h)] min-h-[var(--pos-control-h)] items-center overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest'
 
 export const posSectionTitleClass = 'text-[16px] font-extrabold text-on-surface'
+
+/** تمييز خفيف للحقول المطلوبة عند محاولة الإتمام */
+export const posRequiredWrapClass =
+  'rounded-lg border border-error/25 bg-error/[0.07] p-sm'
+
+export function posRequiredWrap(highlight: boolean, extra = ''): string {
+  return highlight ? `${posRequiredWrapClass} ${extra}`.trim() : extra
+}
+
+export const posSectionHighlightClass = 'border-error/30 bg-error/[0.04]'

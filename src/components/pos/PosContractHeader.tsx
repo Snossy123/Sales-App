@@ -3,7 +3,7 @@ import { distributorLabel } from '../../lib/sales'
 import { Icon } from '../Icon'
 import { SearchableSelect } from '../SearchableSelect'
 import { PosSectionCard } from './PosSectionCard'
-import { posInputClass, posLabelClass, posSourceToggle } from './posFormStyles'
+import { posInputClass, posLabelClass, posRequiredWrap, posSourceToggle } from './posFormStyles'
 
 export type TransactionSource = 'branch' | 'distributor' | 'sales'
 
@@ -86,9 +86,10 @@ export function PosContractHeader({
       title="بيانات التعاقد"
       subtitle="اختر مصدر التعاقد والعميل وتاريخ التسجيل"
       contentClassName="p-sm sm:p-md"
+      highlighted={customerError || sourceError}
     >
       <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+        <div className={posRequiredWrap(customerError)}>
           <SearchableSelect
             data-tour="pos-customer"
             label="العميل"
@@ -141,7 +142,7 @@ export function PosContractHeader({
           </div>
         )}
 
-        <div>
+        <div className={posRequiredWrap(sourceError)}>
           {customerLinkedToSalesRep || transactionSource === 'sales' ? (
             <>
               <SearchableSelect
@@ -200,7 +201,7 @@ export function PosContractHeader({
               />
               {sourceError && <p className="mt-xs text-xs text-error">يجب اختيار الموزع</p>}
             </>
-            ) : null}
+          ) : null}
         </div>
 
         <div>

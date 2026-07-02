@@ -18,6 +18,7 @@ import {
   posModeToggleGroupClass,
   posSectionTitleClass,
   posStaticFieldClass,
+  posRequiredWrap,
   posToggleBtn,
 } from '../pos/posFormStyles'
 
@@ -119,6 +120,7 @@ interface ServiceLineCardProps {
   maxInstallmentCount: number
   onChange: (line: ServiceLineDraft) => void
   onRemove: () => void
+  showErrors?: boolean
 }
 
 export function ServiceLineCard({
@@ -129,6 +131,7 @@ export function ServiceLineCard({
   maxInstallmentCount,
   onChange,
   onRemove,
+  showErrors = false,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
   const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
@@ -161,9 +164,25 @@ export function ServiceLineCard({
     })
   }
 
+  const descriptionError = showErrors && !line.description.trim()
+  const priceError = showErrors && line.unit_price <= 0
+  const hasLineErrors =
+    showErrors &&
+    (!installmentValidation.valid || !cashValidation.valid || descriptionError || priceError)
+
   return (
-    <div className="rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
-      <div className="flex flex-wrap items-center gap-sm bg-primary/10 px-sm py-sm sm:px-md">
+    <div
+      className={`rounded-lg border shadow-sm ${
+        hasLineErrors
+          ? 'border-error/35 bg-error/[0.04]'
+          : 'border-outline-variant bg-surface-container-low'
+      }`}
+    >
+      <div
+        className={`flex flex-wrap items-center gap-sm px-sm py-sm sm:px-md ${
+          hasLineErrors ? 'bg-error/10' : 'bg-primary/10'
+        }`}
+      >
         <span className="shrink-0 font-semibold text-on-surface">خدمة {index + 1}</span>
         <span className="min-w-0 flex-1 truncate text-sm text-on-surface-variant">
           {line.description || '—'}
@@ -178,7 +197,7 @@ export function ServiceLineCard({
 
       <div className="grid grid-cols-1 gap-md p-sm sm:p-md lg:grid-cols-2">
         <div className="space-y-sm">
-          <div>
+          <div className={posRequiredWrap(descriptionError)}>
             <label className={posLabelClass}>الوصف</label>
             <input
               value={line.description}
@@ -186,10 +205,13 @@ export function ServiceLineCard({
               placeholder="الوصف"
               required
               readOnly={Boolean(line.service_id)}
-              className={`${posInputClass} read-only:bg-surface-container-lowest`}
+              className={`${posInputClass} read-only:bg-surface-container-lowest${descriptionError ? ' border-error' : ''}`}
             />
+            {descriptionError ? (
+              <p className="mt-xs text-xs text-error">الوصف مطلوب</p>
+            ) : null}
           </div>
-          <div>
+          <div className={posRequiredWrap(priceError)}>
             <label className={posLabelClass}>السعر</label>
             <PosMoneyInput
               min={0}
@@ -197,10 +219,17 @@ export function ServiceLineCard({
               value={line.unit_price}
               onChange={(e) => patch({ unit_price: Number(e.target.value) })}
             />
+            {priceError ? <p className="mt-xs text-xs text-error">السعر مطلوب</p> : null}
           </div>
         </div>
 
-        <div className="flex flex-col gap-sm rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm">
+        <div
+          className={`flex flex-col gap-sm rounded-lg border p-sm ${
+            showErrors && (!installmentValidation.valid || !cashValidation.valid)
+              ? 'border-error/25 bg-error/[0.06]'
+              : 'border-outline-variant/70 bg-surface-container-lowest'
+          }`}
+        >
           <h4 className={posSectionTitleClass}>طريقة الدفع</h4>
           <div className="flex gap-sm">
             {(['installment', 'cash'] as const).map((term) => (
@@ -277,7 +306,8 @@ export function ServiceLineCard({
                   </div>
                 </div>
               </div>
-              {!installmentValidation.valid &&
+              {showErrors &&
+                !installmentValidation.valid &&
                 installmentValidation.errors.map((msg) => (
                   <p key={msg} className="text-xs text-error">
                     {msg}
@@ -311,7 +341,8 @@ export function ServiceLineCard({
                   </p>
                 )}
               </div>
-              {!cashValidation.valid &&
+              {showErrors &&
+                !cashValidation.valid &&
                 cashValidation.errors.map((msg) => (
                   <p key={msg} className="text-xs text-error">
                     {msg}

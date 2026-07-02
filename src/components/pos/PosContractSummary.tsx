@@ -20,6 +20,7 @@ interface PosContractSummaryProps {
   successBlock?: ReactNode
   submitDisabled: boolean
   submitPending: boolean
+  submitInvalid?: boolean
 }
 
 export function PosContractSummary({
@@ -40,6 +41,7 @@ export function PosContractSummary({
   successBlock,
   submitDisabled,
   submitPending,
+  submitInvalid = false,
 }: PosContractSummaryProps) {
   const submitLabel = submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'
 
@@ -102,10 +104,10 @@ export function PosContractSummary({
             </span>
           </div>
 
-          <div className="rounded-lg border border-tertiary/30 bg-tertiary/10 px-sm py-sm">
+          <div className="rounded-lg border border-primary/20 bg-primary/8 px-sm py-sm">
             <div className="flex items-center justify-between gap-sm tabular-nums">
               <span className="font-bold text-on-surface">المطلوب عند التعاقد</span>
-              <span className="text-lg font-extrabold text-tertiary">
+              <span className="text-lg font-extrabold text-primary">
                 {paidAtCheckout.toLocaleString('ar-EG')} ج.م
               </span>
             </div>
@@ -152,8 +154,11 @@ export function PosContractSummary({
       <button
         type="submit"
         data-tour="pos-submit"
-        disabled={submitDisabled}
-        className="hidden w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50 lg:flex"
+        disabled={submitPending}
+        aria-disabled={submitDisabled}
+        className={`hidden w-full items-center justify-center gap-xs rounded-lg bg-primary py-4 text-base font-bold text-on-primary transition-opacity lg:flex ${
+          submitInvalid ? 'opacity-60' : 'hover:opacity-90'
+        } disabled:cursor-not-allowed disabled:opacity-50`}
       >
         <Icon name="check_circle" />
         {submitLabel}

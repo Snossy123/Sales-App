@@ -21,6 +21,7 @@ import {
   posInputClass,
   posLabelClass,
   posModeToggleGroupClass,
+  posRequiredWrap,
   posScanClass,
   posSelectClass,
   posSectionTitleClass,
@@ -280,6 +281,13 @@ export function DeviceLineCard({
     return employees.filter((e) => e.name.toLowerCase().includes(q))
   }, [employees, technicianSearch])
 
+  const hasDeviceErrors = showErrors && !deviceValidation.valid
+  const hasPaymentErrors =
+    showErrors &&
+    (line.paymentTerm === 'installment'
+      ? !installmentValidation.valid
+      : !cashValidation.valid)
+
   const switchToInstallment = () => {
     const price = installmentPrice
     const minDown = computeMinDownPayment(price, minDownPercent)
@@ -318,11 +326,19 @@ export function DeviceLineCard({
   }
 
   return (
-    <div className="rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
+    <div
+      className={`rounded-lg border shadow-sm ${
+        hasDeviceErrors
+          ? 'border-error/35 bg-error/[0.04]'
+          : 'border-outline-variant bg-surface-container-low'
+      }`}
+    >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-sm bg-primary/10 px-sm py-sm transition-colors hover:bg-primary/15 sm:px-md"
+        className={`flex w-full flex-wrap items-center gap-sm px-sm py-sm transition-colors sm:px-md ${
+          hasDeviceErrors ? 'bg-error/10 hover:bg-error/15' : 'bg-primary/10 hover:bg-primary/15'
+        }`}
       >
         <Icon
           name="expand_more"
@@ -335,7 +351,7 @@ export function DeviceLineCard({
       {expanded && (
         <div className="space-y-md p-sm sm:p-md">
           <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div>
+            <div className={posRequiredWrap(Boolean(fieldErrors.serialNumber))}>
               <label className={posLabelClass}>السريال</label>
               <input
                 ref={serialInputRef}
@@ -353,7 +369,7 @@ export function DeviceLineCard({
                 <p className="mt-xs text-xs text-error">{fieldErrors.serialNumber}</p>
               )}
             </div>
-            <div>
+            <div className={posRequiredWrap(Boolean(fieldErrors.simNumber))}>
               <label className={posLabelClass}>رقم الشريحة / الكارت</label>
               <input
                 ref={simInputRef}
@@ -371,7 +387,7 @@ export function DeviceLineCard({
                 <p className="mt-xs text-xs text-error">{fieldErrors.simNumber}</p>
               )}
             </div>
-            <div>
+            <div className={posRequiredWrap(Boolean(fieldErrors.username))}>
               <label className={posLabelClass}>اسم المستخدم</label>
               <input
                 ref={usernameInputRef}
@@ -398,7 +414,7 @@ export function DeviceLineCard({
                 : ''
             }`}
           >
-            <div>
+            <div className={posRequiredWrap(Boolean(fieldErrors.vehicleType))}>
               <label className={posLabelClass}>نوع المركبة</label>
               <select
                 value={line.vehicleType}
@@ -418,7 +434,7 @@ export function DeviceLineCard({
 
             {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
               <>
-                <div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateLetters))}>
                   <label className={posLabelClass}>حروف اللوحة</label>
                   <input
                     value={line.vehiclePlateLetters}
@@ -432,7 +448,7 @@ export function DeviceLineCard({
                     <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
                   )}
                 </div>
-                <div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateNumbers))}>
                   <label className={posLabelClass}>أرقام اللوحة</label>
                   <input
                     value={line.vehiclePlateNumbers}
@@ -452,7 +468,7 @@ export function DeviceLineCard({
 
             {line.vehicleType === 'tuk_tuk' && (
               <>
-                <div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.chassisNumber))}>
                   <label className={posLabelClass}>الشاسيه</label>
                   <input
                     value={line.chassisNumber}
@@ -464,7 +480,7 @@ export function DeviceLineCard({
                     <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
                   )}
                 </div>
-                <div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.engineNumber))}>
                   <label className={posLabelClass}>الموتور</label>
                   <input
                     value={line.engineNumber}
@@ -523,7 +539,10 @@ export function DeviceLineCard({
             />
           </div>
 
-          <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
+          <div
+            className={`${colBox} ${hasPaymentErrors ? 'border-error/25 bg-error/[0.06]' : ''}`}
+            data-tour={index === 0 ? 'pos-payment' : undefined}
+          >
             <div className="mb-sm flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <h4 className={posSectionTitleClass}>طريقة الدفع — الجهاز</h4>
               <div className="flex w-full flex-col gap-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
