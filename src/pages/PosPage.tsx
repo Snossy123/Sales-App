@@ -692,14 +692,9 @@ export function PosPage() {
               contentClassName="space-y-md overflow-visible p-md"
             >
               <PosDevicesToolbar
-                available={available}
-                cashPrice={cashPrice}
-                installmentPrice={installmentPrice}
                 quantity={quantity}
                 maxQuantity={maxQuantity}
                 onQuantityChange={setQuantity}
-                productLoading={productQuery.isLoading || stockQuery.isLoading}
-                allowNegativeInventory={allowNegativeInventory}
                 enableInstallationFee={enableInstallationFee}
                 applyInstallationFee={applyInstallationFee}
                 onApplyInstallationFeeChange={setApplyInstallationFee}
@@ -724,6 +719,12 @@ export function PosPage() {
                       contractDate={contractDate}
                       cashPrice={cashPrice}
                       installmentPrice={installmentPrice}
+                      available={
+                        index === 0 && !productQuery.isLoading && !stockQuery.isLoading
+                          ? available
+                          : undefined
+                      }
+                      allowNegativeInventory={allowNegativeInventory}
                       onChange={(next) => updateDeviceLine(index, next)}
                       minDownPercent={minDownPercent}
                       maxInstallmentCount={maxInstallmentCount}

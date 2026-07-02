@@ -209,6 +209,8 @@ interface DeviceLineCardProps {
   contractDate: string
   cashPrice: number
   installmentPrice: number
+  available?: number
+  allowNegativeInventory?: boolean
   onChange: (line: DeviceLineDraft) => void
   minDownPercent: number
   maxInstallmentCount: number
@@ -223,6 +225,8 @@ export function DeviceLineCard({
   contractDate,
   cashPrice,
   installmentPrice,
+  available,
+  allowNegativeInventory,
   onChange,
   minDownPercent,
   maxInstallmentCount,
@@ -329,14 +333,62 @@ export function DeviceLineCard({
           className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
         <span className="font-semibold text-on-surface">جهاز {index + 1}</span>
+        <span className="hidden gap-md text-sm tabular-nums text-on-surface-variant sm:flex">
+          <span>
+            كاش:{' '}
+            <strong className="text-on-surface">{cashPrice.toLocaleString('ar-EG')}</strong>
+          </span>
+          <span>
+            تقسيط:{' '}
+            <strong className="text-on-surface">{installmentPrice.toLocaleString('ar-EG')}</strong>
+          </span>
+        </span>
         <span className="mr-auto tabular-nums text-on-surface">
-          <strong>{net.toLocaleString('ar-EG')} ج.م</strong>
+          <span className="text-xs font-normal text-on-surface-variant">الصافي </span>
+          <strong className="text-base">{net.toLocaleString('ar-EG')} ج.م</strong>
         </span>
       </button>
 
       {expanded && (
         <div className="space-y-md p-md">
-          <div className="grid gap-sm md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={`grid gap-sm rounded-xl border border-primary/20 bg-primary/5 p-md ${
+              index === 0 && available != null ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+            }`}
+          >
+            {index === 0 && available != null ? (
+              <div className="text-center sm:text-start">
+                <p className="text-xs font-medium text-on-surface-variant">متاح في المخزن</p>
+                <p className="text-2xl font-extrabold tabular-nums text-primary">{available}</p>
+              </div>
+            ) : null}
+            <div className="text-center sm:text-start">
+              <p className="text-xs font-medium text-on-surface-variant">سعر الكاش</p>
+              <p className="text-xl font-bold tabular-nums text-on-surface">
+                {cashPrice.toLocaleString('ar-EG')}{' '}
+                <span className="text-sm font-medium">ج.م</span>
+              </p>
+            </div>
+            <div className="text-center sm:text-start">
+              <p className="text-xs font-medium text-on-surface-variant">سعر التقسيط</p>
+              <p className="text-xl font-bold tabular-nums text-on-surface">
+                {installmentPrice.toLocaleString('ar-EG')}{' '}
+                <span className="text-sm font-medium">ج.م</span>
+              </p>
+            </div>
+            <div className="text-center sm:text-start">
+              <p className="text-xs font-medium text-on-surface-variant">صافي الجهاز بعد الخصم</p>
+              <p className="text-xl font-bold tabular-nums text-on-surface">
+                {net.toLocaleString('ar-EG')}{' '}
+                <span className="text-sm font-medium">ج.م</span>
+              </p>
+            </div>
+            {index === 0 && allowNegativeInventory ? (
+              <p className="text-xs text-amber-800 sm:col-span-full">المخزون السالب مفعّل</p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-sm md:grid-cols-3">
             <div>
               <label className={posLabelClass}>السريال (جهاز)</label>
               <input
@@ -389,25 +441,17 @@ export function DeviceLineCard({
                 <p className="mt-xs text-xs text-error">{fieldErrors.username}</p>
               )}
             </div>
-            <div>
-              <SearchableSelect
-                label="الفني (دعم)"
-                options={filteredEmployees}
-                value={line.technician}
-                onChange={(technician) => patch({ technician })}
-                onSearchChange={setTechnicianSearch}
-                getOptionValue={(emp) => emp.id}
-                getOptionLabel={(emp) =>
-                  `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
-                }
-                placeholder="ابحث باسم الفني..."
-                loading={employeesLoading}
-                emptyMessage="لا يوجد فني مطابق"
-              />
-            </div>
           </div>
 
-          <div className="grid gap-sm md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={`grid gap-sm ${
+              line.vehicleType === 'car' || line.vehicleType === 'motorcycle'
+                ? 'md:grid-cols-3'
+                : line.vehicleType === 'tuk_tuk'
+                  ? 'md:grid-cols-3'
+                  : 'md:grid-cols-1'
+            }`}
+          >
             <div>
               <label className={posLabelClass}>نوع المركبة</label>
               <select
@@ -423,21 +467,6 @@ export function DeviceLineCard({
               </select>
               {fieldErrors.vehicleType && (
                 <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
-              )}
-            </div>
-
-            <div>
-              <label className={posLabelClass}>التجديد</label>
-              <select
-                value={line.renewalType}
-                onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
-                className={posSelectClass}
-              >
-                <option value="annual">{renewalTypeLabels.annual}</option>
-                <option value="permanent">{renewalTypeLabels.permanent}</option>
-              </select>
-              {line.renewalType === 'annual' && renewalDate && (
-                <p className="mt-xs text-xs text-on-surface-variant">التجديد: {renewalDate}</p>
               )}
             </div>
 
@@ -503,16 +532,49 @@ export function DeviceLineCard({
                 </div>
               </>
             )}
+          </div>
 
-            <div className="md:col-span-2 xl:col-span-2">
-              <OptionalDiscountFields
-                label="خصم الجهاز"
-                baseAmount={line.unitPrice}
-                amount={line.discountAmount}
-                percent={line.discountPercent}
-                onChange={handleDiscountChange}
+          <div className="grid gap-sm md:grid-cols-2">
+            <div>
+              <SearchableSelect
+                label="الفني (دعم)"
+                options={filteredEmployees}
+                value={line.technician}
+                onChange={(technician) => patch({ technician })}
+                onSearchChange={setTechnicianSearch}
+                getOptionValue={(emp) => emp.id}
+                getOptionLabel={(emp) =>
+                  `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+                }
+                placeholder="ابحث باسم الفني..."
+                loading={employeesLoading}
+                emptyMessage="لا يوجد فني مطابق"
               />
             </div>
+            <div>
+              <label className={posLabelClass}>التجديد</label>
+              <select
+                value={line.renewalType}
+                onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
+                className={posSelectClass}
+              >
+                <option value="annual">{renewalTypeLabels.annual}</option>
+                <option value="permanent">{renewalTypeLabels.permanent}</option>
+              </select>
+              {line.renewalType === 'annual' && renewalDate && (
+                <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-xl">
+            <OptionalDiscountFields
+              label="خصم الجهاز"
+              baseAmount={line.unitPrice}
+              amount={line.discountAmount}
+              percent={line.discountPercent}
+              onChange={handleDiscountChange}
+            />
           </div>
 
           <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>

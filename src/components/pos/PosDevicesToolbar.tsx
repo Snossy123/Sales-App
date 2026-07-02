@@ -10,14 +10,9 @@ import {
 } from './posFormStyles'
 
 export interface PosDevicesToolbarProps {
-  available: number
-  cashPrice: number
-  installmentPrice: number
   quantity: number
   maxQuantity: number
   onQuantityChange: (qty: number) => void
-  productLoading?: boolean
-  allowNegativeInventory?: boolean
   enableInstallationFee: boolean
   applyInstallationFee: boolean
   onApplyInstallationFeeChange: (apply: boolean) => void
@@ -34,14 +29,9 @@ export interface PosDevicesToolbarProps {
 }
 
 export function PosDevicesToolbar({
-  available,
-  cashPrice,
-  installmentPrice,
   quantity,
   maxQuantity,
   onQuantityChange,
-  productLoading,
-  allowNegativeInventory,
   enableInstallationFee,
   applyInstallationFee,
   onApplyInstallationFeeChange,
@@ -58,27 +48,6 @@ export function PosDevicesToolbar({
 
   return (
     <div className="space-y-sm" data-tour="pos-product">
-      {!productLoading ? (
-        <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low px-sm py-sm text-[14px] leading-snug text-on-surface-variant">
-          متاح: <strong className="tabular-nums text-on-surface">{available}</strong>
-          <span className="mx-sm text-outline-variant">|</span>
-          كاش:{' '}
-          <strong className="tabular-nums text-on-surface">
-            {Number(cashPrice).toLocaleString('ar-EG')} ج.م
-          </strong>
-          <span className="mx-sm text-outline-variant">|</span>
-          تقسيط:{' '}
-          <strong className="tabular-nums text-on-surface">
-            {Number(installmentPrice).toLocaleString('ar-EG')} ج.م
-          </strong>
-          {allowNegativeInventory ? (
-            <span className="ms-sm text-amber-800">· المخزون السالب مفعّل</span>
-          ) : null}
-        </div>
-      ) : (
-        <p className="text-[14px] text-on-surface-variant">جاري تحميل الأسعار...</p>
-      )}
-
       <div className="grid items-end gap-md sm:grid-cols-2 xl:grid-cols-[auto_auto_auto_minmax(0,1fr)]">
         <div className="shrink-0">
           <label className={posLabelClass}>عدد الأجهزة</label>
