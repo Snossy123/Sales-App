@@ -150,6 +150,9 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
+        <Route element={<RoleRoute />}>
+          <Route path="payments/:id/receipt" element={<PaymentReceiptPrintPage />} />
+        </Route>
         <Route element={<AppShell />}>
           <Route element={<RoleRoute />}>
             <Route index element={<DashboardPage />} />
@@ -189,7 +192,6 @@ export function AppRoutes() {
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
-            <Route path="payments/:id/receipt" element={<PaymentReceiptPrintPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="help/faq" element={<FaqPage />} />
             <Route path="profile" element={<MyProfilePage />} />
