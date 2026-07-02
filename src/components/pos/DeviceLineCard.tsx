@@ -25,7 +25,6 @@ import {
   posSelectClass,
   posSectionTitleClass,
   posStaticFieldClass,
-  posToggleBtn,
 } from './posFormStyles'
 
 export type VehicleType = 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
@@ -70,7 +69,11 @@ export interface DeviceLineFieldErrors {
   engineNumber?: string
 }
 
-const colBox = 'flex h-full flex-col gap-sm rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm'
+const colBox = 'rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm'
+
+function fieldErrorClass(hasError: boolean, baseClass: string): string {
+  return hasError ? `${baseClass} border-error` : baseClass
+}
 
 const PAYMENT_TERMS: LinePaymentTerm[] = ['installment', 'cash']
 const INTERVAL_TYPES: IntervalType[] = ['weekly', 'monthly']
@@ -81,8 +84,14 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
-function fieldErrorClass(hasError: boolean, baseClass: string): string {
-  return hasError ? `${baseClass} border-error` : baseClass
+function lastInstallmentDate(
+  firstDueDate: string,
+  count: number,
+  intervalType: IntervalType,
+): string | null {
+  if (count < 1 || !firstDueDate) return null
+  const stepDays = intervalType === 'weekly' ? 7 : 30
+  return addDays(firstDueDate, stepDays * (count - 1))
 }
 
 export function lineNetTotal(line: DeviceLineDraft): number {
@@ -258,6 +267,11 @@ export function DeviceLineCard({
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
   const cashValidation = validateCashLine(line)
   const cashRemainderAmount = cashRemainder(net, line.downPayment)
+  const totalAfterDown = Math.max(0, net - line.downPayment)
+  const lastDueDate =
+    line.paymentTerm === 'installment'
+      ? lastInstallmentDate(line.firstDueDate, computedCount, line.intervalType)
+      : null
 
   const filteredEmployees = useMemo(() => {
     const q = technicianSearch.trim().toLowerCase()
@@ -303,7 +317,7 @@ export function DeviceLineCard({
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -320,11 +334,7 @@ export function DeviceLineCard({
             IMEI: {line.imei}
           </span>
         )}
-        <span className="text-xs text-on-surface-variant tabular-nums">
-          كاش: {cashPrice.toLocaleString('ar-EG')} | تقسيط: {installmentPrice.toLocaleString('ar-EG')}
-        </span>
         <span className="mr-auto tabular-nums text-on-surface">
-          السعر الإجمالي:{' '}
           <strong>{net.toLocaleString('ar-EG')} ج.م</strong>
         </span>
       </button>
@@ -402,126 +412,139 @@ export function DeviceLineCard({
             </div>
           </div>
 
-          <div className="grid gap-md lg:grid-cols-3">
-            <div className={colBox}>
-              <h4 className={posSectionTitleClass}>المركبة والتجديد</h4>
-              <div>
-                <label className={posLabelClass}>نوع المركبة</label>
-                <select
-                  value={line.vehicleType}
-                  onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
-                  className={fieldErrorClass(Boolean(fieldErrors.vehicleType), posSelectClass)}
-                >
-                  <option value="">— اختر —</option>
-                  <option value="car">سيارة</option>
-                  <option value="tuk_tuk">توك توك</option>
-                  <option value="motorcycle">دراجة نارية</option>
-                  <option value="other">أخرى</option>
-                </select>
-                {fieldErrors.vehicleType && (
-                  <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
-                )}
-              </div>
-
-              {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
-                <div className="grid grid-cols-2 gap-xs">
-                  <div>
-                    <label className={posLabelClass}>حروف اللوحة</label>
-                    <input
-                      value={line.vehiclePlateLetters}
-                      onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
-                      className={fieldErrorClass(
-                        Boolean(fieldErrors.vehiclePlateLetters),
-                        posInputClass,
-                      )}
-                    />
-                    {fieldErrors.vehiclePlateLetters && (
-                      <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className={posLabelClass}>أرقام اللوحة</label>
-                    <input
-                      value={line.vehiclePlateNumbers}
-                      onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
-                      dir="ltr"
-                      className={fieldErrorClass(
-                        Boolean(fieldErrors.vehiclePlateNumbers),
-                        posInputClass,
-                      )}
-                    />
-                    {fieldErrors.vehiclePlateNumbers && (
-                      <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateNumbers}</p>
-                    )}
-                  </div>
-                </div>
+          <div className="grid gap-sm md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label className={posLabelClass}>نوع المركبة</label>
+              <select
+                value={line.vehicleType}
+                onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
+                className={fieldErrorClass(Boolean(fieldErrors.vehicleType), posSelectClass)}
+              >
+                <option value="">— اختر —</option>
+                <option value="car">سيارة</option>
+                <option value="tuk_tuk">توك توك</option>
+                <option value="motorcycle">دراجة نارية</option>
+                <option value="other">أخرى</option>
+              </select>
+              {fieldErrors.vehicleType && (
+                <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
               )}
-
-              {line.vehicleType === 'tuk_tuk' && (
-                <div className="grid grid-cols-2 gap-xs">
-                  <div>
-                    <label className={posLabelClass}>الشاسيه</label>
-                    <input
-                      value={line.chassisNumber}
-                      onChange={(e) => patch({ chassisNumber: e.target.value })}
-                      dir="ltr"
-                      className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
-                    />
-                    {fieldErrors.chassisNumber && (
-                      <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className={posLabelClass}>الموتور</label>
-                    <input
-                      value={line.engineNumber}
-                      onChange={(e) => patch({ engineNumber: e.target.value })}
-                      dir="ltr"
-                      className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
-                    />
-                    {fieldErrors.engineNumber && (
-                      <p className="mt-xs text-xs text-error">{fieldErrors.engineNumber}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className={posLabelClass}>التجديد</label>
-                <select
-                  value={line.renewalType}
-                  onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
-                  className={posSelectClass}
-                >
-                  <option value="annual">{renewalTypeLabels.annual}</option>
-                  <option value="permanent">{renewalTypeLabels.permanent}</option>
-                </select>
-                {line.renewalType === 'annual' && renewalDate && (
-                  <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
-                )}
-              </div>
             </div>
 
-            <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
-              <h4 className={posSectionTitleClass}>طريقة الدفع</h4>
-              <div className="flex gap-sm">
-                {PAYMENT_TERMS.map((term) => (
-                  <button
-                    key={term}
-                    type="button"
-                    onClick={() =>
-                      term === 'installment' ? switchToInstallment() : switchToCash()
-                    }
-                    className={posToggleBtn(line.paymentTerm === term)}
-                  >
-                    {term === 'cash' ? 'كاش' : 'تقسيط'}
-                  </button>
-                ))}
-              </div>
+            <div>
+              <label className={posLabelClass}>التجديد</label>
+              <select
+                value={line.renewalType}
+                onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
+                className={posSelectClass}
+              >
+                <option value="annual">{renewalTypeLabels.annual}</option>
+                <option value="permanent">{renewalTypeLabels.permanent}</option>
+              </select>
+              {line.renewalType === 'annual' && renewalDate && (
+                <p className="mt-xs text-xs text-on-surface-variant">التجديد: {renewalDate}</p>
+              )}
+            </div>
 
-              {line.paymentTerm === 'installment' ? (
-                <div className="space-y-sm">
-                  <div className={`${posModeToggleGroupClass} text-xs`}>
+            {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
+              <>
+                <div>
+                  <label className={posLabelClass}>حروف اللوحة</label>
+                  <input
+                    value={line.vehiclePlateLetters}
+                    onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
+                    className={fieldErrorClass(
+                      Boolean(fieldErrors.vehiclePlateLetters),
+                      posInputClass,
+                    )}
+                  />
+                  {fieldErrors.vehiclePlateLetters && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
+                  )}
+                </div>
+                <div>
+                  <label className={posLabelClass}>أرقام اللوحة</label>
+                  <input
+                    value={line.vehiclePlateNumbers}
+                    onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
+                    dir="ltr"
+                    className={fieldErrorClass(
+                      Boolean(fieldErrors.vehiclePlateNumbers),
+                      posInputClass,
+                    )}
+                  />
+                  {fieldErrors.vehiclePlateNumbers && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateNumbers}</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {line.vehicleType === 'tuk_tuk' && (
+              <>
+                <div>
+                  <label className={posLabelClass}>الشاسيه</label>
+                  <input
+                    value={line.chassisNumber}
+                    onChange={(e) => patch({ chassisNumber: e.target.value })}
+                    dir="ltr"
+                    className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
+                  />
+                  {fieldErrors.chassisNumber && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
+                  )}
+                </div>
+                <div>
+                  <label className={posLabelClass}>الموتور</label>
+                  <input
+                    value={line.engineNumber}
+                    onChange={(e) => patch({ engineNumber: e.target.value })}
+                    dir="ltr"
+                    className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
+                  />
+                  {fieldErrors.engineNumber && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.engineNumber}</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="md:col-span-2 xl:col-span-2">
+              <label className={posLabelClass}>خصم الجهاز</label>
+              <DiscountInput
+                compact
+                baseAmount={line.unitPrice}
+                amount={line.discountAmount}
+                percent={line.discountPercent}
+                onChange={handleDiscountChange}
+              />
+            </div>
+          </div>
+
+          <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
+            <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+              <h4 className={posSectionTitleClass}>طريقة الدفع — الجهاز</h4>
+              <div className="flex flex-wrap items-center gap-sm">
+                <div className={`${posModeToggleGroupClass} w-[11rem] text-xs`}>
+                  {PAYMENT_TERMS.map((term) => (
+                    <button
+                      key={term}
+                      type="button"
+                      onClick={() =>
+                        term === 'installment' ? switchToInstallment() : switchToCash()
+                      }
+                      className={`flex h-full flex-1 items-center justify-center rounded-md text-xs font-medium transition-colors ${
+                        line.paymentTerm === term
+                          ? 'bg-primary text-on-primary'
+                          : 'text-on-surface-variant'
+                      }`}
+                    >
+                      {term === 'cash' ? 'كاش' : 'تقسيط'}
+                    </button>
+                  ))}
+                </div>
+                {line.paymentTerm === 'installment' && (
+                  <div className={`${posModeToggleGroupClass} w-[11rem] text-xs`}>
                     {INTERVAL_TYPES.map((type) => (
                       <button
                         key={type}
@@ -542,109 +565,120 @@ export function DeviceLineCard({
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-sm">
-                    <div>
-                      <label className={posLabelClass}>قيمة المقدم</label>
-                      <PosMoneyInput
-                        min={0}
-                        step="0.01"
-                        value={line.downPayment}
-                        onChange={(e) =>
-                          patch({ downPayment: parseLocalizedNumber(e.target.value) })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={posLabelClass}>أول استحقاق</label>
-                      <input
-                        type="date"
-                        value={line.firstDueDate}
-                        onChange={(e) => patch({ firstDueDate: e.target.value })}
-                        className={posInputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className={posLabelClass}>قيمة القسط</label>
-                      <PosMoneyInput
-                        min={0}
-                        step="0.01"
-                        value={line.installmentAmount}
-                        onChange={(e) =>
-                          patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={posLabelClass}>عدد الأقساط</label>
-                      <div className={`${posStaticFieldClass} bg-surface-container-low font-medium tabular-nums`}>
-                        {computedCount > 0 ? computedCount : '—'}
-                      </div>
-                    </div>
-                  </div>
-                  {showErrors &&
-                    !installmentValidation.valid &&
-                    installmentValidation.errors.map((msg) => (
-                      <p key={msg} className="text-xs text-error">
-                        {msg}
-                      </p>
-                    ))}
-                </div>
-              ) : (
-                <div className="space-y-sm">
-                  <CashScheduleSelector
-                    schedule={line.cashSchedule}
-                    contractDate={contractDate}
-                    lineTotal={net}
-                    downPayment={line.downPayment}
-                    onChange={(cashSchedule) => patch({ cashSchedule })}
-                  />
+                )}
+              </div>
+            </div>
+
+            {line.paymentTerm === 'installment' ? (
+              <div className="space-y-sm">
+                <div className="grid gap-sm sm:grid-cols-3">
                   <div>
-                    <label className={posLabelClass}>مقدم (اختياري)</label>
+                    <label className={posLabelClass}>المقدم</label>
                     <PosMoneyInput
                       min={0}
-                      max={net}
                       step="0.01"
-                      value={line.downPayment || ''}
+                      value={line.downPayment}
                       onChange={(e) =>
                         patch({ downPayment: parseLocalizedNumber(e.target.value) })
                       }
                     />
-                    {line.downPayment > 0 && cashRemainderAmount > 0 && (
-                      <p className="mt-xs text-xs text-on-surface-variant">
-                        المتبقي:{' '}
-                        <span className="font-medium tabular-nums text-on-surface">
-                          {cashRemainderAmount.toLocaleString('ar-EG')} ج.م
-                        </span>
-                      </p>
-                    )}
                   </div>
-                  {showErrors &&
-                    !cashValidation.valid &&
-                    cashValidation.errors.map((msg) => (
-                      <p key={msg} className="text-xs text-error">
-                        {msg}
-                      </p>
-                    ))}
+                  <div>
+                    <label className={posLabelClass}>عدد الأقساط</label>
+                    <div
+                      className={`${posStaticFieldClass} bg-surface-container-low font-medium tabular-nums`}
+                    >
+                      {computedCount > 0 ? computedCount : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={posLabelClass}>أول استحقاق</label>
+                    <input
+                      type="date"
+                      value={line.firstDueDate}
+                      onChange={(e) => patch({ firstDueDate: e.target.value })}
+                      className={posInputClass}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div className={colBox}>
-              <h4 className={posSectionTitleClass}>خصم الجهاز</h4>
-              <DiscountInput
-                compact
-                baseAmount={line.unitPrice}
-                amount={line.discountAmount}
-                percent={line.discountPercent}
-                onChange={handleDiscountChange}
-              />
-              <div className="mt-auto rounded-lg bg-surface-container-low p-sm">
-                <p className="text-xs text-on-surface-variant">الصافي بعد الخصم</p>
-                <p className="text-lg font-bold tabular-nums text-on-surface">
-                  {net.toLocaleString('ar-EG')} ج.م
-                </p>
+                <div>
+                  <label className={posLabelClass}>قيمة القسط</label>
+                  <PosMoneyInput
+                    min={0}
+                    step="0.01"
+                    value={line.installmentAmount}
+                    onChange={(e) =>
+                      patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
+                    }
+                  />
+                </div>
+                <div className="grid gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3">
+                  <div className="tabular-nums">
+                    <span className="text-on-surface-variant">قيمة القسط: </span>
+                    <strong className="text-on-surface">
+                      {line.installmentAmount > 0
+                        ? line.installmentAmount.toLocaleString('ar-EG')
+                        : '—'}{' '}
+                      ج.م
+                    </strong>
+                  </div>
+                  <div className="tabular-nums">
+                    <span className="text-on-surface-variant">إجمالي بعد المقدم: </span>
+                    <strong className="text-on-surface">
+                      {totalAfterDown.toLocaleString('ar-EG')} ج.م
+                    </strong>
+                  </div>
+                  <div className="tabular-nums" dir="ltr">
+                    <span className="text-on-surface-variant">آخر قسط: </span>
+                    <strong className="text-on-surface">{lastDueDate ?? '—'}</strong>
+                  </div>
+                </div>
+                {showErrors &&
+                  !installmentValidation.valid &&
+                  installmentValidation.errors.map((msg) => (
+                    <p key={msg} className="text-xs text-error">
+                      {msg}
+                    </p>
+                  ))}
               </div>
-            </div>
+            ) : (
+              <div className="space-y-sm">
+                <CashScheduleSelector
+                  schedule={line.cashSchedule}
+                  contractDate={contractDate}
+                  lineTotal={net}
+                  downPayment={line.downPayment}
+                  onChange={(cashSchedule) => patch({ cashSchedule })}
+                />
+                <div>
+                  <label className={posLabelClass}>مقدم (اختياري)</label>
+                  <PosMoneyInput
+                    min={0}
+                    max={net}
+                    step="0.01"
+                    value={line.downPayment || ''}
+                    onChange={(e) =>
+                      patch({ downPayment: parseLocalizedNumber(e.target.value) })
+                    }
+                  />
+                  {line.downPayment > 0 && cashRemainderAmount > 0 && (
+                    <p className="mt-xs text-xs text-on-surface-variant">
+                      المتبقي:{' '}
+                      <span className="font-medium tabular-nums text-on-surface">
+                        {cashRemainderAmount.toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </p>
+                  )}
+                </div>
+                {showErrors &&
+                  !cashValidation.valid &&
+                  cashValidation.errors.map((msg) => (
+                    <p key={msg} className="text-xs text-error">
+                      {msg}
+                    </p>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -41,6 +41,9 @@ import {
   PosContractHeader,
   type TransactionSource,
 } from '../components/pos/PosContractHeader'
+import { PosContractSummary } from '../components/pos/PosContractSummary'
+import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
+import { PosSectionCard } from '../components/pos/PosSectionCard'
 import type { DiscountMode } from '../lib/discount'
 import {
   createServiceLine,
@@ -585,7 +588,6 @@ export function PosPage() {
     checkoutMutation.mutate(payload)
   }
 
-  const stickySummary = deviceLines.length + serviceLines.length > 1
   const hasDeviceSale = deviceLines.length > 0
 
   const sourceReady =
@@ -622,6 +624,25 @@ export function PosPage() {
     maxInstallmentCount,
   ])
 
+  const branchLabel =
+    selectedBranch?.name_ar ||
+    selectedBranch?.name ||
+    selectedDistributor?.branch?.name_ar ||
+    selectedDistributor?.branch?.name ||
+    (contextBranchId
+      ? (branchesQuery.data ?? []).find((b) => b.id === contextBranchId)?.name_ar
+      : undefined)
+
+  const submitDisabled =
+    checkoutMutation.isPending ||
+    !selectedCustomer ||
+    !sourceReady ||
+    (deviceLines.length === 0 && serviceLines.length === 0) ||
+    (hasDeviceSale && !warehouseId) ||
+    (hasDeviceSale && !allowNegativeInventory && quantity > available) ||
+    !allLinesValid ||
+    serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
+
   return (
     <SalesPageShell
       title="تعاقد جديد"
@@ -633,97 +654,115 @@ export function PosPage() {
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
-      <form onSubmit={handleCheckout} className="pos-form flex w-full flex-col gap-md">
-          <PosContractHeader
-            transactionSource={transactionSource}
-            onTransactionSourceChange={handleTransactionSourceChange}
-            selectedBranch={selectedBranch}
-            onBranchChange={setSelectedBranch}
-            onBranchSearchChange={setBranchSearch}
-            filteredBranches={filteredBranches}
-            branchesLoading={branchesQuery.isLoading}
-            selectedDistributor={selectedDistributor}
-            onDistributorChange={setSelectedDistributor}
-            onDistributorSearchChange={setDistributorSearch}
-            distributors={distributorsQuery.data ?? []}
-            distributorsLoading={distributorsQuery.isLoading}
-            selectedSalesRep={selectedSalesRep}
-            onSalesRepChange={setSelectedSalesRep}
-            onSalesRepSearchChange={setSalesRepSearch}
-            salesReps={salesRepsQuery.data ?? []}
-            salesRepsLoading={salesRepsQuery.isLoading}
-            selectedCustomer={selectedCustomer}
-            onCustomerChange={handleCustomerChange}
-            onCustomerSearchChange={setCustomerSearch}
-            customers={customersQuery.data ?? []}
-            customersLoading={customersQuery.isLoading}
-            contractDate={contractDate}
-            onContractDateChange={setContractDate}
-            productName={productQuery.data?.name_ar || productQuery.data?.name}
-            available={available}
-            cashPrice={cashPrice}
-            installmentPrice={installmentPrice}
-            quantity={quantity}
-            maxQuantity={maxQuantity}
-            onQuantityChange={setQuantity}
-            productLoading={productQuery.isLoading || stockQuery.isLoading}
-            allowNegativeInventory={allowNegativeInventory}
-            enableInstallationFee={enableInstallationFee}
-            applyInstallationFee={applyInstallationFee}
-            onApplyInstallationFeeChange={setApplyInstallationFee}
-            allowDisableFeeInSale={allowDisableFeeInSale}
-            installationFeePerUnit={installationFee}
-            onInstallationFeeChange={setInstallationFee}
-            feeDiscountAmount={feeDiscountAmount}
-            feeDiscountPercent={feeDiscountPercent}
-            feeDiscountMode={feeDiscountMode}
-            onFeeDiscountChange={({ amount, percent, mode }) => {
-              setFeeDiscountAmount(amount)
-              setFeeDiscountPercent(percent)
-              setFeeDiscountMode(mode)
-            }}
-            deviceCount={deviceLines.length}
-            netInstallationFeeTotal={netInstallationFeeTotal}
-            submitAttempted={submitAttempted}
-          />
+      <form onSubmit={handleCheckout} className="pos-form w-full">
+        <div className="grid items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+          <div className="flex min-w-0 flex-col gap-md">
+            <PosContractHeader
+              transactionSource={transactionSource}
+              onTransactionSourceChange={handleTransactionSourceChange}
+              selectedBranch={selectedBranch}
+              onBranchChange={setSelectedBranch}
+              onBranchSearchChange={setBranchSearch}
+              filteredBranches={filteredBranches}
+              branchesLoading={branchesQuery.isLoading}
+              selectedDistributor={selectedDistributor}
+              onDistributorChange={setSelectedDistributor}
+              onDistributorSearchChange={setDistributorSearch}
+              distributors={distributorsQuery.data ?? []}
+              distributorsLoading={distributorsQuery.isLoading}
+              selectedSalesRep={selectedSalesRep}
+              onSalesRepChange={setSelectedSalesRep}
+              onSalesRepSearchChange={setSalesRepSearch}
+              salesReps={salesRepsQuery.data ?? []}
+              salesRepsLoading={salesRepsQuery.isLoading}
+              selectedCustomer={selectedCustomer}
+              onCustomerChange={handleCustomerChange}
+              onCustomerSearchChange={setCustomerSearch}
+              customers={customersQuery.data ?? []}
+              customersLoading={customersQuery.isLoading}
+              contractDate={contractDate}
+              onContractDateChange={setContractDate}
+              submitAttempted={submitAttempted}
+            />
 
-          {hasDeviceSale && (
-            <div className="flex w-full flex-col gap-md">
-              {deviceLines.map((line, index) => (
-                <DeviceLineCard
-                  key={line.key}
-                  index={index}
-                  line={line}
-                  contractDate={contractDate}
-                  cashPrice={cashPrice}
-                  installmentPrice={installmentPrice}
-                  onChange={(next) => updateDeviceLine(index, next)}
-                  minDownPercent={minDownPercent}
-                  maxInstallmentCount={maxInstallmentCount}
-                  employees={employeesQuery.data ?? []}
-                  employeesLoading={employeesQuery.isLoading}
-                  showErrors={submitAttempted}
-                />
-              ))}
-            </div>
-          )}
+            <PosSectionCard
+              number={2}
+              title="الأجهزة"
+              subtitle="اختر المنتج وحدد بيانات كل جهاز وطريقة دفعه"
+              contentClassName="space-y-md p-md"
+            >
+              <PosDevicesToolbar
+                productName={productQuery.data?.name_ar || productQuery.data?.name}
+                available={available}
+                cashPrice={cashPrice}
+                installmentPrice={installmentPrice}
+                quantity={quantity}
+                maxQuantity={maxQuantity}
+                onQuantityChange={setQuantity}
+                productLoading={productQuery.isLoading || stockQuery.isLoading}
+                allowNegativeInventory={allowNegativeInventory}
+                enableInstallationFee={enableInstallationFee}
+                applyInstallationFee={applyInstallationFee}
+                onApplyInstallationFeeChange={setApplyInstallationFee}
+                allowDisableFeeInSale={allowDisableFeeInSale}
+                installationFeePerUnit={installationFee}
+                onInstallationFeeChange={setInstallationFee}
+                feeDiscountAmount={feeDiscountAmount}
+                feeDiscountPercent={feeDiscountPercent}
+                onFeeDiscountChange={({ amount, percent, mode }) => {
+                  setFeeDiscountAmount(amount)
+                  setFeeDiscountPercent(percent)
+                  setFeeDiscountMode(mode)
+                }}
+              />
 
-          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-            <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
-              <h3 className="font-semibold text-on-surface">الخدمات</h3>
+              {hasDeviceSale ? (
+                <div className="flex flex-col gap-md">
+                  {deviceLines.map((line, index) => (
+                    <DeviceLineCard
+                      key={line.key}
+                      index={index}
+                      line={line}
+                      contractDate={contractDate}
+                      cashPrice={cashPrice}
+                      installmentPrice={installmentPrice}
+                      onChange={(next) => updateDeviceLine(index, next)}
+                      minDownPercent={minDownPercent}
+                      maxInstallmentCount={maxInstallmentCount}
+                      employees={employeesQuery.data ?? []}
+                      employeesLoading={employeesQuery.isLoading}
+                      showErrors={submitAttempted}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-on-surface-variant">
+                  اختر عدد الأجهزة من الأعلى لبدء إدخال بيانات الأجهزة.
+                </p>
+              )}
+            </PosSectionCard>
+
+            <PosSectionCard
+              number={3}
+              title="الخدمات"
+              subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
+              contentClassName="space-y-md p-md"
+            >
               <div className="flex flex-wrap items-center gap-sm">
                 <select
                   value={selectedServiceId}
                   onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="min-w-[200px] rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                  className="min-w-[min(100%,280px)] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
                 >
-                  <option value="">اختر خدمة من الكتالوج</option>
+                  <option value="">اختر خدمة من الكتالوج...</option>
                   {(servicesQuery.data ?? []).map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name_ar || service.name} — كاش{' '}
-                      {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')} /
-                      قسط{' '}
-                      {Number(service.installment_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
+                      {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
+                      / قسط{' '}
+                      {Number(
+                        service.installment_price ?? service.default_price,
+                      ).toLocaleString('ar-EG')}{' '}
                       ج.م
                     </option>
                   ))}
@@ -732,166 +771,101 @@ export function PosPage() {
                   type="button"
                   onClick={addCatalogService}
                   disabled={!selectedServiceId}
-                  className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
+                  className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
                 >
+                  <Icon name="add" size={18} />
                   إضافة خدمة
                 </button>
               </div>
-            </div>
 
-            {serviceLines.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
-            ) : (
-              <div className="flex flex-col gap-md">
-                {serviceLines.map((line, index) => (
-                  <ServiceLineCard
-                    key={line.id}
-                    line={line}
-                    index={index}
-                    contractDate={contractDate}
-                    minDownPercent={minDownPercent}
-                    maxInstallmentCount={maxInstallmentCount}
-                    onChange={(next) => updateServiceLine(index, next)}
-                    onRemove={() =>
-                      setServiceLines((prev) => prev.filter((_, i) => i !== index))
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div
-            className={`w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-md ${
-              stickySummary ? 'sticky bottom-0 z-10 border-t shadow-md' : ''
-            }`}
-          >
-            <div className="mb-sm grid gap-sm text-sm text-on-surface-variant md:grid-cols-3">
-              {(activePromotionsQuery.data?.length ?? 0) > 0 && deviceLines.length > 0 && (
-                <div className="md:col-span-3 rounded-lg border border-primary/30 bg-primary/5 p-sm">
-                  <label className="mb-xs block text-sm font-medium text-on-surface">عروض نشطة</label>
-                  <select
-                    value={selectedPromotionId}
-                    onChange={(e) =>
-                      setSelectedPromotionId(e.target.value ? Number(e.target.value) : '')
-                    }
-                    className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
-                  >
-                    <option value="">بدون عرض</option>
-                    {(activePromotionsQuery.data ?? []).map((promo) => (
-                      <option key={promo.id} value={promo.id}>
-                        {promo.name_ar}
-                        {promo.promotion_type === 'percent'
-                          ? ` (${promo.discount_value}%)`
-                          : ` (${Number(promo.discount_value).toLocaleString('ar-EG')} ج.م)`}
-                      </option>
-                    ))}
-                  </select>
+              {serviceLines.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
+              ) : (
+                <div className="flex flex-col gap-md">
+                  {serviceLines.map((line, index) => (
+                    <ServiceLineCard
+                      key={line.id}
+                      line={line}
+                      index={index}
+                      contractDate={contractDate}
+                      minDownPercent={minDownPercent}
+                      maxInstallmentCount={maxInstallmentCount}
+                      onChange={(next) => updateServiceLine(index, next)}
+                      onRemove={() =>
+                        setServiceLines((prev) => prev.filter((_, i) => i !== index))
+                      }
+                    />
+                  ))}
                 </div>
               )}
-              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
-                <span>قيمة الأجهزة (بعد الخصم)</span>
-                <span className="font-medium text-on-surface">
-                  {devicesSubtotal.toLocaleString('ar-EG')} ج.م
-                </span>
-              </div>
-              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
-                <span>قيمة الخدمات</span>
-                <span className="font-medium text-on-surface">
-                  {servicesSubtotal.toLocaleString('ar-EG')} ج.م
-                </span>
-              </div>
-              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
-                <span>رسوم التركيب ({deviceLines.length} × جهاز)</span>
-                <span className="font-medium text-on-surface">
-                  {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
-                </span>
-              </div>
-              <div className="flex justify-between tabular-nums md:flex-col md:gap-xs">
-                <span>المطلوب عند التعاقد</span>
-                <span className="font-medium text-on-surface">
-                  {paidAtCheckout.toLocaleString('ar-EG')} ج.م
-                </span>
-              </div>
-            </div>
-            <p className="mb-sm text-lg font-bold tabular-nums">
-              إجمالي التعاقد: {totalEstimate.toLocaleString('ar-EG')} ج.م
-            </p>
-            {checkoutMutation.isError && (
-              <p className="mb-sm text-sm text-error">
-                {getErrorMessage(checkoutMutation.error)}
-              </p>
-            )}
-            {validationSummary.length > 0 && (
-              <div className="mb-sm rounded-lg border border-error/30 bg-error/5 p-sm text-sm text-error">
-                <p className="font-medium">يرجى إكمال الحقول المطلوبة:</p>
-                <ul className="mt-xs list-inside list-disc">
-                  {validationSummary.map((msg) => (
-                    <li key={msg}>{msg}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {successMsg && lastInvoice && (
-              <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
-                <p>{successMsg}</p>
-                <div className="mt-sm flex flex-col gap-1">
-                  {(lastInvoice.lines ?? [])
-                    .filter((line) => !isServiceInvoiceLine(line))
-                    .map((line, index) => (
-                      <Link
-                        key={line.id}
-                        to={contractPrintPath(lastInvoice.id, { lineId: line.id, autoPrint: false })}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                      >
-                        <Icon name="print" size={18} />
-                        طباعة عقد الجهاز {index + 1}
-                      </Link>
-                    ))}
-                  {(lastInvoice.lines ?? [])
-                    .filter((line) => isServiceInvoiceLine(line))
-                    .map((line, index) => (
-                      <Link
-                        key={line.id}
-                        to={serviceContractPrintPath(lastInvoice.id, line.id, { autoPrint: false })}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                      >
-                        <Icon name="print" size={18} />
-                        طباعة عقد الخدمة {index + 1}
-                        {line.description ? ` — ${line.description}` : ''}
-                      </Link>
-                    ))}
-                </div>
-              </div>
-            )}
-            <button
-              type="submit"
-              data-tour="pos-submit"
-              disabled={
-                checkoutMutation.isPending ||
-                !selectedCustomer ||
-                (transactionSource === 'branch'
-                  ? !selectedBranch
-                  : transactionSource === 'distributor'
-                    ? !selectedDistributor
-                    : !selectedSalesRep) ||
-                (deviceLines.length === 0 && serviceLines.length === 0) ||
-                (hasDeviceSale && !warehouseId) ||
-                (hasDeviceSale && !allowNegativeInventory && quantity > available) ||
-                !allLinesValid ||
-                serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
-              }
-              className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary py-4 text-base font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              <Icon name="check_circle" />
-              {checkoutMutation.isPending ? 'جاري الحفظ...' : 'إتمام التعاقد'}
-            </button>
+            </PosSectionCard>
           </div>
-        </form>
+
+          <PosContractSummary
+            branchLabel={branchLabel}
+            contractDate={contractDate}
+            devicesSubtotal={devicesSubtotal}
+            servicesSubtotal={servicesSubtotal}
+            netInstallationFeeTotal={netInstallationFeeTotal}
+            deviceCount={deviceLines.length}
+            paidAtCheckout={paidAtCheckout}
+            totalEstimate={totalEstimate}
+            promotions={activePromotionsQuery.data ?? []}
+            selectedPromotionId={selectedPromotionId}
+            onPromotionChange={setSelectedPromotionId}
+            showPromotions={deviceLines.length > 0}
+            validationSummary={validationSummary}
+            checkoutError={
+              checkoutMutation.isError ? getErrorMessage(checkoutMutation.error) : undefined
+            }
+            successBlock={
+              successMsg && lastInvoice ? (
+                <div className="rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
+                  <p>{successMsg}</p>
+                  <div className="mt-sm flex flex-col gap-1">
+                    {(lastInvoice.lines ?? [])
+                      .filter((line) => !isServiceInvoiceLine(line))
+                      .map((line, index) => (
+                        <Link
+                          key={line.id}
+                          to={contractPrintPath(lastInvoice.id, {
+                            lineId: line.id,
+                            autoPrint: false,
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                        >
+                          <Icon name="print" size={18} />
+                          طباعة عقد الجهاز {index + 1}
+                        </Link>
+                      ))}
+                    {(lastInvoice.lines ?? [])
+                      .filter((line) => isServiceInvoiceLine(line))
+                      .map((line, index) => (
+                        <Link
+                          key={line.id}
+                          to={serviceContractPrintPath(lastInvoice.id, line.id, {
+                            autoPrint: false,
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                        >
+                          <Icon name="print" size={18} />
+                          طباعة عقد الخدمة {index + 1}
+                          {line.description ? ` — ${line.description}` : ''}
+                        </Link>
+                      ))}
+                  </div>
+                </div>
+              ) : undefined
+            }
+            submitDisabled={submitDisabled}
+            submitPending={checkoutMutation.isPending}
+          />
+        </div>
+      </form>
     </SalesPageShell>
   )
 }
