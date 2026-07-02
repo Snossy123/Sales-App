@@ -158,25 +158,6 @@ export function PosContractSummary({
         <Icon name="check_circle" />
         {submitLabel}
       </button>
-
-      <div className="fixed inset-x-0 bottom-16 z-40 border-t border-outline-variant bg-surface-container-lowest/95 px-margin py-sm shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm lg:hidden">
-        <div className="flex items-center gap-sm">
-          <div className="min-w-0 flex-1 tabular-nums">
-            <p className="text-[11px] font-medium text-on-surface-variant">المطلوب عند التعاقد</p>
-            <p className="text-lg font-extrabold text-tertiary">
-              {paidAtCheckout.toLocaleString('ar-EG')} ج.م
-            </p>
-          </div>
-          <button
-            type="submit"
-            disabled={submitDisabled}
-            className="inline-flex shrink-0 items-center justify-center gap-xs rounded-lg bg-secondary px-md py-3 text-sm font-bold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <Icon name="check_circle" size={20} />
-            {submitLabel}
-          </button>
-        </div>
-      </div>
     </aside>
   )
 }

@@ -42,6 +42,7 @@ import {
   type TransactionSource,
 } from '../components/pos/PosContractHeader'
 import { PosContractSummary } from '../components/pos/PosContractSummary'
+import { PosMobileCheckoutBar } from '../components/pos/PosMobileCheckoutBar'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
@@ -667,7 +668,11 @@ export function PosPage() {
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
-      <form onSubmit={handleCheckout} className="pos-form w-full pb-28 lg:pb-0">
+      <form
+        id="pos-checkout-form"
+        onSubmit={handleCheckout}
+        className="pos-form w-full pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
+      >
         <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
           <div className="flex min-h-0 min-w-0 flex-col gap-md lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pe-1">
             <PosContractHeader
@@ -891,6 +896,11 @@ export function PosPage() {
             submitPending={checkoutMutation.isPending}
           />
         </div>
+        <PosMobileCheckoutBar
+          paidAtCheckout={paidAtCheckout}
+          submitDisabled={submitDisabled}
+          submitPending={checkoutMutation.isPending}
+        />
       </form>
     </SalesPageShell>
   )
