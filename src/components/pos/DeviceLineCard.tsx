@@ -329,48 +329,10 @@ export function DeviceLineCard({
           className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
         <span className="font-semibold text-on-surface">جهاز {index + 1}</span>
-        <span className="hidden gap-md text-sm tabular-nums text-on-surface-variant sm:flex">
-          <span>
-            كاش:{' '}
-            <strong className="text-on-surface">{cashPrice.toLocaleString('ar-EG')}</strong>
-          </span>
-          <span>
-            تقسيط:{' '}
-            <strong className="text-on-surface">{installmentPrice.toLocaleString('ar-EG')}</strong>
-          </span>
-        </span>
-        <span className="mr-auto tabular-nums text-on-surface">
-          <span className="text-xs font-normal text-on-surface-variant">الصافي </span>
-          <strong className="text-base">{net.toLocaleString('ar-EG')} ج.م</strong>
-        </span>
       </button>
 
       {expanded && (
         <div className="space-y-md p-md">
-          <div className="grid gap-sm rounded-xl border border-primary/20 bg-primary/5 p-md sm:grid-cols-3">
-            <div className="text-center sm:text-start">
-              <p className="text-xs font-medium text-on-surface-variant">سعر الكاش</p>
-              <p className="text-xl font-bold tabular-nums text-on-surface">
-                {cashPrice.toLocaleString('ar-EG')}{' '}
-                <span className="text-sm font-medium">ج.م</span>
-              </p>
-            </div>
-            <div className="text-center sm:text-start">
-              <p className="text-xs font-medium text-on-surface-variant">سعر التقسيط</p>
-              <p className="text-xl font-bold tabular-nums text-on-surface">
-                {installmentPrice.toLocaleString('ar-EG')}{' '}
-                <span className="text-sm font-medium">ج.م</span>
-              </p>
-            </div>
-            <div className="text-center sm:text-start">
-              <p className="text-xs font-medium text-on-surface-variant">صافي الجهاز بعد الخصم</p>
-              <p className="text-xl font-bold tabular-nums text-on-surface">
-                {net.toLocaleString('ar-EG')}{' '}
-                <span className="text-sm font-medium">ج.م</span>
-              </p>
-            </div>
-          </div>
-
           <div className="grid gap-sm md:grid-cols-3">
             <div>
               <label className={posLabelClass}>السريال</label>
