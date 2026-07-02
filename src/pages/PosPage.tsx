@@ -34,8 +34,7 @@ import {
   DeviceLineCard,
   lineInstallmentCount,
   lineNetTotal,
-  validateInstallmentLine,
-  validateCashLine,
+  validateDeviceLine,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
 import {
@@ -73,7 +72,7 @@ export function PosPage() {
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
-  const [transactionSource, setTransactionSource] = useState<TransactionSource>('distributor')
+  const [transactionSource, setTransactionSource] = useState<TransactionSource>('branch')
   const [branchSearch, setBranchSearch] = useState('')
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
   const [distributorSearch, setDistributorSearch] = useState('')
@@ -95,6 +94,7 @@ export function PosPage() {
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -135,7 +135,7 @@ export function PosPage() {
       setBranchSearch('')
       setDistributorSearch('')
       setSalesRepSearch('')
-      setTransactionSource('distributor')
+      setTransactionSource('branch')
       return
     }
 
@@ -202,6 +202,18 @@ export function PosPage() {
       return name.includes(q) || code.includes(q)
     })
   }, [branchesQuery.data, branchSearch])
+
+  useEffect(() => {
+    if (
+      transactionSource === 'branch' &&
+      !selectedBranch &&
+      contextBranchId &&
+      branchesQuery.data
+    ) {
+      const branch = branchesQuery.data.find((b) => b.id === contextBranchId)
+      if (branch) setSelectedBranch(branch)
+    }
+  }, [transactionSource, selectedBranch, contextBranchId, branchesQuery.data])
 
   const distributorsQuery = useQuery({
     queryKey: ['distributors', 'pos', debouncedDistributorSearch],
@@ -381,9 +393,7 @@ export function PosPage() {
 
   const allLinesValid =
     deviceLines.every(
-      (line) =>
-        validateInstallmentLine(line, minDownPercent, maxInstallmentCount).valid &&
-        validateCashLine(line).valid,
+      (line) => validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid,
     ) &&
     serviceLines.every(
       (line) =>
@@ -402,6 +412,7 @@ export function PosPage() {
     },
     onSuccess: (invoice) => {
       setLastInvoice(invoice)
+      setSubmitAttempted(false)
       setSuccessMsg(
         `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
       )
@@ -449,6 +460,7 @@ export function PosPage() {
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
+    setSubmitAttempted(true)
     const customerId = selectedCustomer?.id
     const sourceReady =
       transactionSource === 'branch'
@@ -576,6 +588,40 @@ export function PosPage() {
   const stickySummary = deviceLines.length + serviceLines.length > 1
   const hasDeviceSale = deviceLines.length > 0
 
+  const sourceReady =
+    transactionSource === 'branch'
+      ? Boolean(selectedBranch)
+      : transactionSource === 'distributor'
+        ? Boolean(selectedDistributor)
+        : Boolean(selectedSalesRep)
+
+  const validationSummary = useMemo(() => {
+    if (!submitAttempted) return []
+
+    const messages: string[] = []
+    if (!selectedCustomer) messages.push('يجب اختيار العميل')
+    if (!sourceReady) {
+      if (transactionSource === 'branch') messages.push('يجب اختيار الفرع')
+      else if (transactionSource === 'distributor') messages.push('يجب اختيار الموزع')
+      else messages.push('يجب اختيار موظف المبيعات')
+    }
+    deviceLines.forEach((line, index) => {
+      const result = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
+      if (!result.valid) {
+        messages.push(`جهاز ${index + 1}: ${result.errors[0]}`)
+      }
+    })
+    return messages
+  }, [
+    submitAttempted,
+    selectedCustomer,
+    sourceReady,
+    transactionSource,
+    deviceLines,
+    minDownPercent,
+    maxInstallmentCount,
+  ])
+
   return (
     <SalesPageShell
       title="تعاقد جديد"
@@ -615,7 +661,8 @@ export function PosPage() {
             onContractDateChange={setContractDate}
             productName={productQuery.data?.name_ar || productQuery.data?.name}
             available={available}
-            unitPrice={Number(installmentPrice)}
+            cashPrice={cashPrice}
+            installmentPrice={installmentPrice}
             quantity={quantity}
             maxQuantity={maxQuantity}
             onQuantityChange={setQuantity}
@@ -637,6 +684,7 @@ export function PosPage() {
             }}
             deviceCount={deviceLines.length}
             netInstallationFeeTotal={netInstallationFeeTotal}
+            submitAttempted={submitAttempted}
           />
 
           {hasDeviceSale && (
@@ -654,6 +702,7 @@ export function PosPage() {
                   maxInstallmentCount={maxInstallmentCount}
                   employees={employeesQuery.data ?? []}
                   employeesLoading={employeesQuery.isLoading}
+                  showErrors={submitAttempted}
                 />
               ))}
             </div>
@@ -772,6 +821,16 @@ export function PosPage() {
               <p className="mb-sm text-sm text-error">
                 {getErrorMessage(checkoutMutation.error)}
               </p>
+            )}
+            {validationSummary.length > 0 && (
+              <div className="mb-sm rounded-lg border border-error/30 bg-error/5 p-sm text-sm text-error">
+                <p className="font-medium">يرجى إكمال الحقول المطلوبة:</p>
+                <ul className="mt-xs list-inside list-disc">
+                  {validationSummary.map((msg) => (
+                    <li key={msg}>{msg}</li>
+                  ))}
+                </ul>
+              </div>
             )}
             {successMsg && lastInvoice && (
               <div className="mb-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">

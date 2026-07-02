@@ -1,4 +1,5 @@
-import type { InputHTMLAttributes } from 'react'
+import type { ChangeEvent, InputHTMLAttributes } from 'react'
+import { normalizeDigits } from '../../lib/normalizeDigits'
 import { posControlHeightClass } from './posFormStyles'
 
 type PosMoneyInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
@@ -10,8 +11,18 @@ export function PosMoneyInput({
   className = '',
   disabled,
   onFocus,
+  onChange,
   ...props
 }: PosMoneyInputProps) {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!onChange) return
+    const normalized = normalizeDigits(e.target.value)
+    onChange({
+      ...e,
+      target: { ...e.target, value: normalized },
+    } as ChangeEvent<HTMLInputElement>)
+  }
+
   return (
     <div
       className={`pos-money-field flex items-stretch overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest focus-within:border-primary ${posControlHeightClass} ${
@@ -19,10 +30,12 @@ export function PosMoneyInput({
       }`}
     >
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         dir="ltr"
         disabled={disabled}
         {...props}
+        onChange={handleChange}
         onFocus={(e) => {
           const { value } = e.currentTarget
           if (value === '0' || value === '0.0' || value === '0.00') {

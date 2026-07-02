@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { Employee } from '../../api/types'
 import {
-  amountFromPercent,
-  clampDiscountAmount,
-  percentFromAmount,
   type DiscountMode,
 } from '../../lib/discount'
+import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { normalizeScannedInput } from '../../lib/scanner'
 import {
   computeInstallmentCount,
@@ -16,6 +14,7 @@ import { renewalTypeLabels } from '../../lib/contractFields'
 import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from './CashScheduleSelector'
+import { DiscountInput } from './DiscountInput'
 import { SearchableSelect } from '../SearchableSelect'
 import { PosMoneyInput } from './PosMoneyInput'
 import {
@@ -60,12 +59,30 @@ export interface DeviceLineDraft {
   renewalType: RenewalType
 }
 
+export interface DeviceLineFieldErrors {
+  serialNumber?: string
+  simNumber?: string
+  username?: string
+  vehicleType?: string
+  vehiclePlateLetters?: string
+  vehiclePlateNumbers?: string
+  chassisNumber?: string
+  engineNumber?: string
+}
+
 const colBox = 'flex h-full flex-col gap-sm rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm'
+
+const PAYMENT_TERMS: LinePaymentTerm[] = ['installment', 'cash']
+const INTERVAL_TYPES: IntervalType[] = ['weekly', 'monthly']
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
   d.setDate(d.getDate() + days)
   return d.toISOString().split('T')[0]
+}
+
+function fieldErrorClass(hasError: boolean, baseClass: string): string {
+  return hasError ? `${baseClass} border-error` : baseClass
 }
 
 export function lineNetTotal(line: DeviceLineDraft): number {
@@ -128,6 +145,55 @@ export function validateInstallmentLine(
   return { valid: errors.length === 0, errors }
 }
 
+export function validateDeviceLine(
+  line: DeviceLineDraft,
+  minDownPercent: number,
+  maxInstallmentCount: number,
+): { valid: boolean; fieldErrors: DeviceLineFieldErrors; errors: string[] } {
+  const fieldErrors: DeviceLineFieldErrors = {}
+
+  if (!line.serialNumber.trim()) {
+    fieldErrors.serialNumber = 'السريال مطلوب'
+  }
+  if (!line.simNumber.trim()) {
+    fieldErrors.simNumber = 'رقم الشريحة مطلوب'
+  }
+  if (!line.username.trim()) {
+    fieldErrors.username = 'اسم المستخدم مطلوب'
+  }
+  if (!line.vehicleType) {
+    fieldErrors.vehicleType = 'نوع المركبة مطلوب'
+  }
+  if (line.vehicleType === 'car' || line.vehicleType === 'motorcycle') {
+    if (!line.vehiclePlateLetters.trim()) {
+      fieldErrors.vehiclePlateLetters = 'حروف اللوحة مطلوبة'
+    }
+    if (!line.vehiclePlateNumbers.trim()) {
+      fieldErrors.vehiclePlateNumbers = 'أرقام اللوحة مطلوبة'
+    }
+  }
+  if (line.vehicleType === 'tuk_tuk') {
+    if (!line.chassisNumber.trim()) {
+      fieldErrors.chassisNumber = 'رقم الشاسيه مطلوب'
+    }
+    if (!line.engineNumber.trim()) {
+      fieldErrors.engineNumber = 'رقم الموتور مطلوب'
+    }
+  }
+
+  const cashValidation = validateCashLine(line)
+  const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
+  const paymentErrors = [...cashValidation.errors, ...installmentValidation.errors]
+  const fieldErrorMessages = Object.values(fieldErrors)
+  const errors = [...fieldErrorMessages, ...paymentErrors]
+
+  return {
+    valid: errors.length === 0,
+    fieldErrors,
+    errors,
+  }
+}
+
 interface DeviceLineCardProps {
   index: number
   line: DeviceLineDraft
@@ -139,6 +205,7 @@ interface DeviceLineCardProps {
   maxInstallmentCount: number
   employees: Employee[]
   employeesLoading: boolean
+  showErrors?: boolean
 }
 
 export function DeviceLineCard({
@@ -152,6 +219,7 @@ export function DeviceLineCard({
   maxInstallmentCount,
   employees,
   employeesLoading,
+  showErrors = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -185,6 +253,8 @@ export function DeviceLineCard({
     () => lineInstallmentCount(line, maxInstallmentCount),
     [line, maxInstallmentCount],
   )
+  const deviceValidation = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
+  const fieldErrors = showErrors ? deviceValidation.fieldErrors : {}
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
   const cashValidation = validateCashLine(line)
   const cashRemainderAmount = cashRemainder(net, line.downPayment)
@@ -220,32 +290,20 @@ export function DeviceLineCard({
     })
   }
 
-  const setDiscountMode = (mode: DiscountMode) => {
-    patch({ discountMode: mode })
-  }
-
-  const handleDiscountAmount = (raw: number) => {
-    const amount = clampDiscountAmount(line.unitPrice, raw)
+  const handleDiscountChange = (next: {
+    amount: number
+    percent: number
+    mode: DiscountMode
+  }) => {
     patch({
-      discountAmount: amount,
-      discountPercent: percentFromAmount(line.unitPrice, amount),
-      discountMode: 'amount',
-    })
-  }
-
-  const handleDiscountPercent = (raw: number) => {
-    const percent = Math.min(100, Math.max(0, raw))
-    const amount = amountFromPercent(line.unitPrice, percent)
-    patch({
-      discountAmount: amount,
-      discountPercent: percent,
-      discountMode: 'percent',
+      discountAmount: next.amount,
+      discountPercent: next.percent,
+      discountMode: next.mode,
     })
   }
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low shadow-sm">
-      {/* Header — collapsible */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -262,6 +320,9 @@ export function DeviceLineCard({
             IMEI: {line.imei}
           </span>
         )}
+        <span className="text-xs text-on-surface-variant tabular-nums">
+          كاش: {cashPrice.toLocaleString('ar-EG')} | تقسيط: {installmentPrice.toLocaleString('ar-EG')}
+        </span>
         <span className="mr-auto tabular-nums text-on-surface">
           السعر الإجمالي:{' '}
           <strong>{net.toLocaleString('ar-EG')} ج.م</strong>
@@ -270,7 +331,6 @@ export function DeviceLineCard({
 
       {expanded && (
         <div className="space-y-md p-md">
-          {/* صف بيانات الجهاز */}
           <div className="grid gap-sm md:grid-cols-2 xl:grid-cols-4">
             <div>
               <label className={posLabelClass}>السريال (جهاز)</label>
@@ -280,12 +340,15 @@ export function DeviceLineCard({
                 onChange={(e) => patchScanned('serialNumber', e.target.value)}
                 onKeyDown={(e) => focusNextAfterScan(e, simInputRef)}
                 placeholder="امسح أو أدخل السريال"
-                className={posScanClass}
+                className={fieldErrorClass(Boolean(fieldErrors.serialNumber), posScanClass)}
                 dir="ltr"
                 autoComplete="off"
                 spellCheck={false}
                 data-tour={index === 0 ? 'pos-serial-scan' : undefined}
               />
+              {fieldErrors.serialNumber && (
+                <p className="mt-xs text-xs text-error">{fieldErrors.serialNumber}</p>
+              )}
             </div>
             <div>
               <label className={posLabelClass}>رقم الشريحة / الكارت</label>
@@ -295,12 +358,15 @@ export function DeviceLineCard({
                 onChange={(e) => patchScanned('simNumber', e.target.value)}
                 onKeyDown={(e) => focusNextAfterScan(e, usernameInputRef)}
                 placeholder="امسح أو أدخل رقم الشريحة"
-                className={posScanClass}
+                className={fieldErrorClass(Boolean(fieldErrors.simNumber), posScanClass)}
                 dir="ltr"
                 autoComplete="off"
                 spellCheck={false}
                 inputMode="numeric"
               />
+              {fieldErrors.simNumber && (
+                <p className="mt-xs text-xs text-error">{fieldErrors.simNumber}</p>
+              )}
             </div>
             <div>
               <label className={posLabelClass}>اسم المستخدم (تطبيق التتبع)</label>
@@ -309,11 +375,14 @@ export function DeviceLineCard({
                 value={line.username}
                 onChange={(e) => patchScanned('username', e.target.value)}
                 placeholder="username"
-                className={posInputClass}
+                className={fieldErrorClass(Boolean(fieldErrors.username), posInputClass)}
                 dir="ltr"
                 autoComplete="off"
                 spellCheck={false}
               />
+              {fieldErrors.username && (
+                <p className="mt-xs text-xs text-error">{fieldErrors.username}</p>
+              )}
             </div>
             <div>
               <SearchableSelect
@@ -333,9 +402,7 @@ export function DeviceLineCard({
             </div>
           </div>
 
-          {/* 3 أعمدة: مركبة | دفع | خصم */}
           <div className="grid gap-md lg:grid-cols-3">
-            {/* المركبة والتجديد */}
             <div className={colBox}>
               <h4 className={posSectionTitleClass}>المركبة والتجديد</h4>
               <div>
@@ -343,7 +410,7 @@ export function DeviceLineCard({
                 <select
                   value={line.vehicleType}
                   onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
-                  className={posSelectClass}
+                  className={fieldErrorClass(Boolean(fieldErrors.vehicleType), posSelectClass)}
                 >
                   <option value="">— اختر —</option>
                   <option value="car">سيارة</option>
@@ -351,6 +418,9 @@ export function DeviceLineCard({
                   <option value="motorcycle">دراجة نارية</option>
                   <option value="other">أخرى</option>
                 </select>
+                {fieldErrors.vehicleType && (
+                  <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
+                )}
               </div>
 
               {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
@@ -360,8 +430,14 @@ export function DeviceLineCard({
                     <input
                       value={line.vehiclePlateLetters}
                       onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
-                      className={posInputClass}
+                      className={fieldErrorClass(
+                        Boolean(fieldErrors.vehiclePlateLetters),
+                        posInputClass,
+                      )}
                     />
+                    {fieldErrors.vehiclePlateLetters && (
+                      <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
+                    )}
                   </div>
                   <div>
                     <label className={posLabelClass}>أرقام اللوحة</label>
@@ -369,8 +445,14 @@ export function DeviceLineCard({
                       value={line.vehiclePlateNumbers}
                       onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
                       dir="ltr"
-                      className={posInputClass}
+                      className={fieldErrorClass(
+                        Boolean(fieldErrors.vehiclePlateNumbers),
+                        posInputClass,
+                      )}
                     />
+                    {fieldErrors.vehiclePlateNumbers && (
+                      <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateNumbers}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -383,8 +465,11 @@ export function DeviceLineCard({
                       value={line.chassisNumber}
                       onChange={(e) => patch({ chassisNumber: e.target.value })}
                       dir="ltr"
-                      className={posInputClass}
+                      className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
                     />
+                    {fieldErrors.chassisNumber && (
+                      <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
+                    )}
                   </div>
                   <div>
                     <label className={posLabelClass}>الموتور</label>
@@ -392,8 +477,11 @@ export function DeviceLineCard({
                       value={line.engineNumber}
                       onChange={(e) => patch({ engineNumber: e.target.value })}
                       dir="ltr"
-                      className={posInputClass}
+                      className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
                     />
+                    {fieldErrors.engineNumber && (
+                      <p className="mt-xs text-xs text-error">{fieldErrors.engineNumber}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -414,11 +502,10 @@ export function DeviceLineCard({
               </div>
             </div>
 
-            {/* طريقة الدفع */}
             <div className={colBox} data-tour={index === 0 ? 'pos-payment' : undefined}>
               <h4 className={posSectionTitleClass}>طريقة الدفع</h4>
               <div className="flex gap-sm">
-                {(['cash', 'installment'] as const).map((term) => (
+                {PAYMENT_TERMS.map((term) => (
                   <button
                     key={term}
                     type="button"
@@ -435,7 +522,7 @@ export function DeviceLineCard({
               {line.paymentTerm === 'installment' ? (
                 <div className="space-y-sm">
                   <div className={`${posModeToggleGroupClass} text-xs`}>
-                    {(['monthly', 'weekly'] as const).map((type) => (
+                    {INTERVAL_TYPES.map((type) => (
                       <button
                         key={type}
                         type="button"
@@ -462,7 +549,9 @@ export function DeviceLineCard({
                         min={0}
                         step="0.01"
                         value={line.downPayment}
-                        onChange={(e) => patch({ downPayment: Number(e.target.value) })}
+                        onChange={(e) =>
+                          patch({ downPayment: parseLocalizedNumber(e.target.value) })
+                        }
                       />
                     </div>
                     <div>
@@ -480,7 +569,9 @@ export function DeviceLineCard({
                         min={0}
                         step="0.01"
                         value={line.installmentAmount}
-                        onChange={(e) => patch({ installmentAmount: Number(e.target.value) })}
+                        onChange={(e) =>
+                          patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
+                        }
                       />
                     </div>
                     <div>
@@ -490,7 +581,8 @@ export function DeviceLineCard({
                       </div>
                     </div>
                   </div>
-                  {!installmentValidation.valid &&
+                  {showErrors &&
+                    !installmentValidation.valid &&
                     installmentValidation.errors.map((msg) => (
                       <p key={msg} className="text-xs text-error">
                         {msg}
@@ -513,7 +605,9 @@ export function DeviceLineCard({
                       max={net}
                       step="0.01"
                       value={line.downPayment || ''}
-                      onChange={(e) => patch({ downPayment: Number(e.target.value) })}
+                      onChange={(e) =>
+                        patch({ downPayment: parseLocalizedNumber(e.target.value) })
+                      }
                     />
                     {line.downPayment > 0 && cashRemainderAmount > 0 && (
                       <p className="mt-xs text-xs text-on-surface-variant">
@@ -524,7 +618,8 @@ export function DeviceLineCard({
                       </p>
                     )}
                   </div>
-                  {!cashValidation.valid &&
+                  {showErrors &&
+                    !cashValidation.valid &&
                     cashValidation.errors.map((msg) => (
                       <p key={msg} className="text-xs text-error">
                         {msg}
@@ -534,54 +629,15 @@ export function DeviceLineCard({
               )}
             </div>
 
-            {/* خصم الجهاز */}
             <div className={colBox}>
-              <div className="flex items-center justify-between gap-sm">
-                <h4 className={posSectionTitleClass}>خصم الجهاز</h4>
-                <div className={`${posModeToggleGroupClass} shrink-0 text-xs`}>
-                  <button
-                    type="button"
-                    onClick={() => setDiscountMode('amount')}
-                    className={`flex h-full flex-1 items-center justify-center rounded-md px-2 ${
-                      line.discountMode === 'amount' ? 'bg-primary text-on-primary' : ''
-                    }`}
-                  >
-                    مبلغ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDiscountMode('percent')}
-                    className={`flex h-full flex-1 items-center justify-center rounded-md px-2 ${
-                      line.discountMode === 'percent' ? 'bg-primary text-on-primary' : ''
-                    }`}
-                  >
-                    %
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className={posLabelClass}>قيمة الخصم</label>
-                {line.discountMode === 'amount' ? (
-                  <PosMoneyInput
-                    min={0}
-                    max={line.unitPrice}
-                    step="0.01"
-                    value={line.discountAmount || ''}
-                    onChange={(e) => handleDiscountAmount(Number(e.target.value))}
-                  />
-                ) : (
-                  <PosMoneyInput
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    step="0.01"
-                    value={line.discountPercent || ''}
-                    onChange={(e) => handleDiscountPercent(Number(e.target.value))}
-                  />
-                )}
-              </div>
-
+              <h4 className={posSectionTitleClass}>خصم الجهاز</h4>
+              <DiscountInput
+                compact
+                baseAmount={line.unitPrice}
+                amount={line.discountAmount}
+                percent={line.discountPercent}
+                onChange={handleDiscountChange}
+              />
               <div className="mt-auto rounded-lg bg-surface-container-low p-sm">
                 <p className="text-xs text-on-surface-variant">الصافي بعد الخصم</p>
                 <p className="text-lg font-bold tabular-nums text-on-surface">

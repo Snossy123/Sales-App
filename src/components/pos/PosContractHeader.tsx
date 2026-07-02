@@ -1,19 +1,14 @@
 import type { Branch, Customer, Distributor, SalesRep } from '../../api/types'
-import {
-  amountFromPercent,
-  clampDiscountAmount,
-  percentFromAmount,
-  type DiscountMode,
-} from '../../lib/discount'
+import type { DiscountMode } from '../../lib/discount'
+import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { distributorLabel } from '../../lib/sales'
 import { Icon } from '../Icon'
 import { SearchableSelect } from '../SearchableSelect'
+import { DiscountInput } from './DiscountInput'
 import { PosMoneyInput } from './PosMoneyInput'
 import {
   posInputClass,
   posLabelClass,
-  posModeToggle,
-  posModeToggleGroupClass,
   posSectionTitleClass,
   posSourceToggle,
   posStaticFieldClass,
@@ -50,7 +45,8 @@ export interface PosContractHeaderProps {
   onContractDateChange: (date: string) => void
   productName?: string
   available: number
-  unitPrice: number
+  cashPrice: number
+  installmentPrice: number
   quantity: number
   maxQuantity: number
   onQuantityChange: (qty: number) => void
@@ -72,6 +68,7 @@ export interface PosContractHeaderProps {
   }) => void
   deviceCount: number
   netInstallationFeeTotal: number
+  submitAttempted?: boolean
 }
 
 export function PosContractHeader({
@@ -101,7 +98,8 @@ export function PosContractHeader({
   onContractDateChange,
   productName,
   available,
-  unitPrice,
+  cashPrice,
+  installmentPrice,
   quantity,
   maxQuantity,
   onQuantityChange,
@@ -115,30 +113,11 @@ export function PosContractHeader({
   onInstallationFeeChange,
   feeDiscountAmount,
   feeDiscountPercent,
-  feeDiscountMode,
   onFeeDiscountChange,
   deviceCount,
   netInstallationFeeTotal,
+  submitAttempted = false,
 }: PosContractHeaderProps) {
-  const handleFeeDiscountAmount = (raw: number) => {
-    const amount = clampDiscountAmount(installationFeePerUnit, raw)
-    onFeeDiscountChange({
-      amount,
-      percent: percentFromAmount(installationFeePerUnit, amount),
-      mode: 'amount',
-    })
-  }
-
-  const handleFeeDiscountPercent = (raw: number) => {
-    const percent = Math.min(100, Math.max(0, raw))
-    const amount = amountFromPercent(installationFeePerUnit, percent)
-    onFeeDiscountChange({
-      amount,
-      percent,
-      mode: 'percent',
-    })
-  }
-
   const decQty = () => onQuantityChange(Math.max(0, quantity - 1))
   const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
 
@@ -152,6 +131,16 @@ export function PosContractHeader({
         { id: 'distributor' as const, label: 'موزع' },
       ]
 
+  const sourceReady =
+    transactionSource === 'branch'
+      ? Boolean(selectedBranch)
+      : transactionSource === 'distributor'
+        ? Boolean(selectedDistributor)
+        : Boolean(selectedSalesRep)
+
+  const customerError = submitAttempted && !selectedCustomer
+  const sourceError = submitAttempted && !sourceReady
+
   return (
     <section className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
       {/* ── بيانات التعاقد ── */}
@@ -162,39 +151,6 @@ export function PosContractHeader({
         </div>
 
         <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <SearchableSelect
-              data-tour="pos-customer"
-              label="العميل"
-              options={customers}
-              value={selectedCustomer}
-              onChange={onCustomerChange}
-              onSearchChange={onCustomerSearchChange}
-              getOptionValue={(c) => c.id}
-              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-              placeholder="ابحث بالاسم أو الموبايل..."
-              loading={customersLoading}
-              emptyMessage="لا يوجد عميل مطابق"
-            />
-            {selectedCustomer?.sales_user && (
-              <p className="mt-xs text-[13px] leading-snug text-secondary">
-                تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
-              </p>
-            )}
-            {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
-              <p className="mt-xs text-[13px] leading-snug text-secondary">
-                تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
-              </p>
-            )}
-            {selectedCustomer?.branch &&
-              !selectedCustomer.sales_user_id &&
-              !selectedCustomer.distributor_id && (
-                <p className="mt-xs text-[13px] leading-snug text-secondary">
-                  تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
-                </p>
-              )}
-          </div>
-
           {sourceToggleOptions.length > 0 && (
             <div>
               <label className={posLabelClass}>مصدر التعاقد</label>
@@ -215,50 +171,105 @@ export function PosContractHeader({
 
           <div>
             {customerLinkedToSalesRep || transactionSource === 'sales' ? (
-              <SearchableSelect
-                data-tour="pos-source"
-                label="موظف المبيعات"
-                options={salesReps}
-                value={selectedSalesRep}
-                onChange={onSalesRepChange}
-                onSearchChange={onSalesRepSearchChange}
-                getOptionValue={(r) => r.id}
-                getOptionLabel={(r) => r.name}
-                placeholder="ابحث باسم الموظف..."
-                loading={salesRepsLoading}
-                emptyMessage="لا يوجد موظف مطابق"
-              />
+              <>
+                <SearchableSelect
+                  data-tour="pos-source"
+                  label="موظف المبيعات"
+                  options={salesReps}
+                  value={selectedSalesRep}
+                  onChange={onSalesRepChange}
+                  onSearchChange={onSalesRepSearchChange}
+                  getOptionValue={(r) => r.id}
+                  getOptionLabel={(r) => r.name}
+                  placeholder="ابحث باسم الموظف..."
+                  loading={salesRepsLoading}
+                  emptyMessage="لا يوجد موظف مطابق"
+                  hasError={sourceError}
+                />
+                {sourceError && (
+                  <p className="mt-xs text-xs text-error">يجب اختيار موظف المبيعات</p>
+                )}
+              </>
             ) : transactionSource === 'branch' ? (
-              <SearchableSelect
-                data-tour="pos-source"
-                label="الفرع"
-                options={filteredBranches}
-                value={selectedBranch}
-                onChange={onBranchChange}
-                onSearchChange={onBranchSearchChange}
-                getOptionValue={(b) => b.id}
-                getOptionLabel={(b) => b.name_ar || b.name}
-                placeholder="ابحث باسم الفرع..."
-                loading={branchesLoading}
-                emptyMessage="لا يوجد فرع مطابق"
-              />
+              <>
+                <SearchableSelect
+                  data-tour="pos-source"
+                  label="الفرع"
+                  options={filteredBranches}
+                  value={selectedBranch}
+                  onChange={onBranchChange}
+                  onSearchChange={onBranchSearchChange}
+                  getOptionValue={(b) => b.id}
+                  getOptionLabel={(b) => b.name_ar || b.name}
+                  placeholder="ابحث باسم الفرع..."
+                  loading={branchesLoading}
+                  emptyMessage="لا يوجد فرع مطابق"
+                  hasError={sourceError}
+                />
+                {sourceError && (
+                  <p className="mt-xs text-xs text-error">يجب اختيار الفرع</p>
+                )}
+              </>
             ) : transactionSource === 'distributor' ? (
-              <SearchableSelect
-                data-tour="pos-source"
-                label="الموزع"
-                options={distributors}
-                value={selectedDistributor}
-                onChange={onDistributorChange}
-                onSearchChange={onDistributorSearchChange}
-                getOptionValue={(d) => d.id}
-                getOptionLabel={(d) =>
-                  `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
-                }
-                placeholder="ابحث بالكود أو الاسم..."
-                loading={distributorsLoading}
-                emptyMessage="لا يوجد موزع مطابق"
-              />
+              <>
+                <SearchableSelect
+                  data-tour="pos-source"
+                  label="الموزع"
+                  options={distributors}
+                  value={selectedDistributor}
+                  onChange={onDistributorChange}
+                  onSearchChange={onDistributorSearchChange}
+                  getOptionValue={(d) => d.id}
+                  getOptionLabel={(d) =>
+                    `${d.code} — ${distributorLabel(d)}${d.phone ? ` — ${d.phone}` : ''}`
+                  }
+                  placeholder="ابحث بالكود أو الاسم..."
+                  loading={distributorsLoading}
+                  emptyMessage="لا يوجد موزع مطابق"
+                  hasError={sourceError}
+                />
+                {sourceError && (
+                  <p className="mt-xs text-xs text-error">يجب اختيار الموزع</p>
+                )}
+              </>
             ) : null}
+          </div>
+
+          <div>
+            <SearchableSelect
+              data-tour="pos-customer"
+              label="العميل"
+              options={customers}
+              value={selectedCustomer}
+              onChange={onCustomerChange}
+              onSearchChange={onCustomerSearchChange}
+              getOptionValue={(c) => c.id}
+              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+              placeholder="ابحث بالاسم أو الموبايل..."
+              loading={customersLoading}
+              emptyMessage="لا يوجد عميل مطابق"
+              hasError={customerError}
+            />
+            {customerError && (
+              <p className="mt-xs text-xs text-error">يجب اختيار العميل</p>
+            )}
+            {selectedCustomer?.sales_user && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
+              </p>
+            )}
+            {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
+              </p>
+            )}
+            {selectedCustomer?.branch &&
+              !selectedCustomer.sales_user_id &&
+              !selectedCustomer.distributor_id && (
+                <p className="mt-xs text-[13px] leading-snug text-secondary">
+                  تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
+                </p>
+              )}
           </div>
 
           <div>
@@ -283,7 +294,7 @@ export function PosContractHeader({
       {/* ── المنتج والأسعار ── */}
       <div className="p-md">
         <div
-          className="grid items-end gap-md sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_auto] xl:grid-cols-[minmax(0,1.4fr)_auto_auto_auto_auto_auto_auto]"
+          className="grid items-end gap-md sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_auto] xl:grid-cols-[minmax(0,1.4fr)_auto_auto_auto_auto_auto]"
         >
           {/* المنتج */}
           <div className="min-w-0" data-tour="pos-product">
@@ -356,66 +367,19 @@ export function PosContractHeader({
                   step="0.01"
                   value={installationFeePerUnit}
                   disabled={feeFieldsDisabled}
-                  onChange={(e) => onInstallationFeeChange(Number(e.target.value))}
+                  onChange={(e) => onInstallationFeeChange(parseLocalizedNumber(e.target.value))}
                 />
               </div>
 
-              <div className="shrink-0">
-                <label className={posLabelClass}>نوع الخصم</label>
-                <div className={posModeToggleGroupClass}>
-                  <button
-                    type="button"
-                    disabled={feeFieldsDisabled}
-                    onClick={() =>
-                      onFeeDiscountChange({
-                        amount: feeDiscountAmount,
-                        percent: feeDiscountPercent,
-                        mode: 'percent',
-                      })
-                    }
-                    className={`${posModeToggle(feeDiscountMode === 'percent')} disabled:opacity-50`}
-                  >
-                    %
-                  </button>
-                  <button
-                    type="button"
-                    disabled={feeFieldsDisabled}
-                    onClick={() =>
-                      onFeeDiscountChange({
-                        amount: feeDiscountAmount,
-                        percent: feeDiscountPercent,
-                        mode: 'amount',
-                      })
-                    }
-                    className={`${posModeToggle(feeDiscountMode === 'amount')} disabled:opacity-50`}
-                  >
-                    مبلغ
-                  </button>
-                </div>
-              </div>
-
-              <div className="min-w-[6.5rem] shrink-0">
-                <label className={posLabelClass}>الخصم (ج.م)</label>
-                <PosMoneyInput
-                  min={0}
-                  max={installationFeePerUnit}
-                  step="0.01"
-                  value={feeDiscountAmount || ''}
+              <div className="min-w-[13rem] shrink-0">
+                <label className={posLabelClass}>الخصم</label>
+                <DiscountInput
+                  compact
+                  baseAmount={installationFeePerUnit}
+                  amount={feeDiscountAmount}
+                  percent={feeDiscountPercent}
                   disabled={feeFieldsDisabled}
-                  onChange={(e) => handleFeeDiscountAmount(Number(e.target.value))}
-                />
-              </div>
-
-              <div className="min-w-[6rem] shrink-0">
-                <label className={posLabelClass}>الخصم (%)</label>
-                <PosMoneyInput
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  value={feeDiscountPercent || ''}
-                  disabled={feeFieldsDisabled}
-                  onChange={(e) => handleFeeDiscountPercent(Number(e.target.value))}
+                  onChange={onFeeDiscountChange}
                 />
               </div>
             </>
@@ -425,9 +389,16 @@ export function PosContractHeader({
         {!productLoading && (
           <div className="mt-sm space-y-0.5 text-[14px] leading-snug text-on-surface-variant">
             <p>
-              متاح: <strong className="tabular-nums">{available}</strong> — سعر:{' '}
+              متاح: <strong className="tabular-nums">{available}</strong>
+              {' — '}
+              كاش:{' '}
               <strong className="tabular-nums">
-                {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                {Number(cashPrice).toLocaleString('ar-EG')} ج.م
+              </strong>
+              {' — '}
+              تقسيط:{' '}
+              <strong className="tabular-nums">
+                {Number(installmentPrice).toLocaleString('ar-EG')} ج.م
               </strong>
             </p>
             {allowNegativeInventory && (

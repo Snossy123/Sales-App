@@ -16,6 +16,7 @@ export interface SearchableSelectProps<T> {
   disabled?: boolean
   emptyMessage?: string
   label?: string
+  hasError?: boolean
   'data-tour'?: string
 }
 
@@ -31,6 +32,7 @@ export function SearchableSelect<T>({
   disabled = false,
   emptyMessage = 'لا توجد نتائج',
   label,
+  hasError = false,
   'data-tour': dataTour,
 }: SearchableSelectProps<T>) {
   const listId = useId()
@@ -99,7 +101,7 @@ export function SearchableSelect<T>({
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className={inputClass}
+          className={`${inputClass}${hasError ? ' border-error' : ''}`}
           autoComplete="off"
         />
         {value ? (

@@ -201,7 +201,7 @@ export function ServiceLineCard({
         <div className="flex flex-col gap-sm rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm">
           <h4 className={posSectionTitleClass}>طريقة الدفع</h4>
           <div className="flex gap-sm">
-            {(['cash', 'installment'] as const).map((term) => (
+            {(['installment', 'cash'] as const).map((term) => (
               <button
                 key={term}
                 type="button"
@@ -218,7 +218,7 @@ export function ServiceLineCard({
           {line.paymentTerm === 'installment' ? (
             <div className="space-y-sm">
               <div className={`${posModeToggleGroupClass} text-xs`}>
-                {(['monthly', 'weekly'] as const).map((type) => (
+                {(['weekly', 'monthly'] as const).map((type) => (
                   <button
                     key={type}
                     type="button"
