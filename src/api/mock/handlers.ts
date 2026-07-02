@@ -1872,6 +1872,11 @@ export function handleMockRequest(
     if (dateFrom) items = items.filter((i) => String(i.invoice_date) >= String(dateFrom))
     const dateTo = params['filter[invoice_date_to]']
     if (dateTo) items = items.filter((i) => String(i.invoice_date) <= String(dateTo))
+    items.sort((a, b) => {
+      const aTime = new Date(a.confirmed_at ?? a.invoice_date ?? 0).getTime()
+      const bTime = new Date(b.confirmed_at ?? b.invoice_date ?? 0).getTime()
+      return bTime - aTime || b.id - a.id
+    })
     return paginate(
       items.map((inv) => ({
         ...inv,

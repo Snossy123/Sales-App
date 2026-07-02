@@ -81,6 +81,7 @@ export const navEntries: NavEntry[] = [
       icon: 'edit_document',
       items: [
         { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/pos/services', icon: 'home_repair_service', label: 'تعاقد خدمات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/catalog', icon: 'sell', label: 'دليل الأسعار', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
       ],
@@ -252,6 +253,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/inventory/warehouses': ['super_admin', 'admin'],
   '/inventory/settings': ['super_admin', 'admin'],
   '/pos': ['super_admin', 'admin', 'sales'],
+  '/pos/services': ['super_admin', 'admin', 'sales'],
   '/pricing/catalog': ['super_admin', 'admin', 'sales'],
   '/pricing/promotions': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],

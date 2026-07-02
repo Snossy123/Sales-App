@@ -9,6 +9,7 @@ import {
   contractReviewRowClass,
   filterContractListRows,
   reviewOnlyContractListActions,
+  sortContractsByDateTime,
 } from '../components/contracts/contractListTable'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
@@ -40,7 +41,7 @@ export function InvoiceReviewPage() {
   })
 
   const filteredRows = useMemo(
-    () => filterContractListRows(query.data ?? [], invoiceSearch),
+    () => sortContractsByDateTime(filterContractListRows(query.data ?? [], invoiceSearch)),
     [query.data, invoiceSearch],
   )
 

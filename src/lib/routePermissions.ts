@@ -2,6 +2,7 @@
 export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/': 'dashboard.view',
   '/pos': 'sales.pos',
+  '/pos/services': 'sales.pos',
   '/pricing/catalog': 'sales.pos',
   '/pricing/promotions': 'sales.pos',
   '/sales/accessories': 'sales.pos',

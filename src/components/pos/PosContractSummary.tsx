@@ -15,6 +15,8 @@ interface PosContractSummaryProps {
   selectedPromotionId: number | ''
   onPromotionChange: (id: number | '') => void
   showPromotions: boolean
+  devicesOnly?: boolean
+  servicesOnly?: boolean
   validationSummary: string[]
   checkoutError?: string
   successBlock?: ReactNode
@@ -36,6 +38,8 @@ export function PosContractSummary({
   selectedPromotionId,
   onPromotionChange,
   showPromotions,
+  devicesOnly = false,
+  servicesOnly = false,
   validationSummary,
   checkoutError,
   successBlock,
@@ -83,35 +87,43 @@ export function PosContractSummary({
             </div>
           )}
 
-          <div className="flex items-start justify-between gap-sm tabular-nums">
-            <span className="text-on-surface-variant">قيمة الأجهزة (بعد الخصم)</span>
-            <span className="shrink-0 font-medium text-on-surface">
-              {devicesSubtotal.toLocaleString('ar-EG')} ج.م
-            </span>
-          </div>
-          <div className="flex items-start justify-between gap-sm tabular-nums">
-            <span className="text-on-surface-variant">
-              رسوم التركيب ({deviceCount} × جهاز)
-            </span>
-            <span className="shrink-0 font-medium text-on-surface">
-              {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
-            </span>
-          </div>
-          <div className="flex items-start justify-between gap-sm tabular-nums">
-            <span className="text-on-surface-variant">قيمة الخدمات</span>
-            <span className="shrink-0 font-medium text-on-surface">
-              {servicesSubtotal.toLocaleString('ar-EG')} ج.م
-            </span>
-          </div>
-
-          <div className="rounded-lg border border-primary/20 bg-primary/8 px-sm py-sm">
-            <div className="flex items-center justify-between gap-sm tabular-nums">
-              <span className="font-bold text-on-surface">المطلوب عند التعاقد</span>
-              <span className="text-lg font-extrabold text-primary">
-                {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+          {!servicesOnly && devicesSubtotal > 0 ? (
+            <div className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">قيمة الأجهزة (بعد الخصم)</span>
+              <span className="shrink-0 font-medium text-on-surface">
+                {devicesSubtotal.toLocaleString('ar-EG')} ج.م
               </span>
             </div>
-          </div>
+          ) : null}
+          {!servicesOnly && netInstallationFeeTotal > 0 ? (
+            <div className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">
+                رسوم التركيب ({deviceCount} × جهاز)
+              </span>
+              <span className="shrink-0 font-medium text-on-surface">
+                {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
+              </span>
+            </div>
+          ) : null}
+          {!devicesOnly && servicesSubtotal > 0 ? (
+            <div className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">قيمة الخدمات</span>
+              <span className="shrink-0 font-medium text-on-surface">
+                {servicesSubtotal.toLocaleString('ar-EG')} ج.م
+              </span>
+            </div>
+          ) : null}
+
+          {paidAtCheckout > 0 ? (
+            <div className="rounded-lg border border-primary/20 bg-primary/8 px-sm py-sm">
+              <div className="flex items-center justify-between gap-sm tabular-nums">
+                <span className="font-bold text-on-surface">المطلوب عند التعاقد</span>
+                <span className="text-lg font-extrabold text-primary">
+                  {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+                </span>
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between gap-sm border-t border-outline-variant/60 pt-sm tabular-nums">
             <span className="font-bold text-on-surface">إجمالي التعاقد</span>

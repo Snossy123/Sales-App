@@ -16,6 +16,7 @@ import type {
 import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
+import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   ServiceContractHeader,
@@ -46,6 +47,7 @@ interface ServiceSalesPageProps {
   notesPlaceholder?: string
   useCatalog?: boolean
   catalogCategories?: ServiceCategory[]
+  showContractTypeTabs?: boolean
 }
 
 export function ServiceSalesPage({
@@ -56,6 +58,7 @@ export function ServiceSalesPage({
   notesPlaceholder,
   useCatalog = false,
   catalogCategories,
+  showContractTypeTabs = false,
 }: ServiceSalesPageProps) {
   const queryClient = useQueryClient()
   const contextBranchId = useAuthStore((s) => s.branchId)
@@ -63,7 +66,7 @@ export function ServiceSalesPage({
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
-  const [transactionSource, setTransactionSource] = useState<TransactionSource>('distributor')
+  const [transactionSource, setTransactionSource] = useState<TransactionSource>('branch')
   const [branchSearch, setBranchSearch] = useState('')
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
   const [distributorSearch, setDistributorSearch] = useState('')
@@ -386,6 +389,7 @@ export function ServiceSalesPage({
 
   return (
     <SalesPageShell title={title} subtitle={subtitle}>
+      {showContractTypeTabs ? <PosContractTypeTabs /> : null}
       <form onSubmit={handleSubmit} className="space-y-md">
         <ServiceContractHeader
           transactionSource={transactionSource}

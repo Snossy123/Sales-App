@@ -15,9 +15,8 @@ import type {
   SalesInvoice,
   SalesRep,
   Promotion,
-  Service,
 } from '../api/types'
-import { contractPrintPath, isServiceInvoiceLine, serviceContractPrintPath } from '../lib/sales'
+import { contractPrintPath } from '../lib/sales'
 import { linePaidNow } from '../lib/cashSchedule'
 import {
   resolveCustomerTransactionSource,
@@ -43,19 +42,10 @@ import {
 } from '../components/pos/PosContractHeader'
 import { PosContractSummary } from '../components/pos/PosContractSummary'
 import { PosMobileCheckoutBar } from '../components/pos/PosMobileCheckoutBar'
+import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
-import {
-  createServiceLine,
-  lineInstallmentCount as serviceLineInstallmentCount,
-  linePaidNow as serviceLinePaidNow,
-  lineTotal as serviceLineTotal,
-  ServiceLineCard,
-  validateServiceLineInstallment,
-  validateServiceLineCash,
-  type ServiceLineDraft,
-} from '../components/services/ServiceLineCard'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -88,8 +78,6 @@ export function PosPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
-  const [serviceLines, setServiceLines] = useState<ServiceLineDraft[]>([])
-  const [selectedServiceId, setSelectedServiceId] = useState('')
   const [applyInstallationFee, setApplyInstallationFee] = useState(true)
   const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
@@ -99,7 +87,6 @@ export function PosPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const [servicesOpen, setServicesOpen] = useState(false)
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -362,15 +349,6 @@ export function PosPage() {
     enabled: Boolean(warehouseId),
   })
 
-  const servicesQuery = useQuery({
-    queryKey: ['services', 'pos'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Service>>('/services', {
-        params: { per_page: 100, 'filter[is_active]': 1 },
-      })
-      return data.data
-    },
-  })
 
   const cashPrice = Number(productQuery.data?.cash_price ?? productQuery.data?.sell_price ?? 0)
   const installmentPrice = Number(
@@ -420,8 +398,7 @@ export function PosPage() {
   const netInstallationFeeTotal = netInstallationFeePerUnit * deviceLines.length
 
   const devicesSubtotal = deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)
-  const servicesSubtotal = serviceLines.reduce((sum, line) => sum + serviceLineTotal(line), 0)
-  const totalEstimate = devicesSubtotal + servicesSubtotal + netInstallationFeeTotal
+  const totalEstimate = devicesSubtotal + netInstallationFeeTotal
 
   const paidAtCheckout = useMemo(() => {
     let paid = netInstallationFeeTotal
@@ -429,21 +406,12 @@ export function PosPage() {
       const net = lineNetTotal(line)
       paid += linePaidNow(line.paymentTerm, line.cashSchedule, net, line.downPayment)
     }
-    for (const line of serviceLines) {
-      paid += serviceLinePaidNow(line)
-    }
     return paid
-  }, [deviceLines, serviceLines, netInstallationFeeTotal])
+  }, [deviceLines, netInstallationFeeTotal])
 
-  const allLinesValid =
-    deviceLines.every(
-      (line) => validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid,
-    ) &&
-    serviceLines.every(
-      (line) =>
-        validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
-        validateServiceLineCash(line).valid,
-    )
+  const allLinesValid = deviceLines.every(
+    (line) => validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid,
+  )
 
   useEffect(() => {
     setInstallationFee(defaultInstallationFee)
@@ -461,8 +429,6 @@ export function PosPage() {
         `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
       )
       setQuantity(1)
-      setServiceLines([])
-      setServicesOpen(false)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
@@ -475,34 +441,6 @@ export function PosPage() {
     setDeviceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
   }
 
-  const updateServiceLine = (index: number, line: ServiceLineDraft) => {
-    setServiceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
-  }
-
-  const addCatalogService = () => {
-    if (!selectedServiceId) return
-    const service = (servicesQuery.data ?? []).find((item) => item.id === Number(selectedServiceId))
-    if (!service) return
-
-    const cash = Number(service.cash_price ?? service.default_price)
-    const installment = Number(service.installment_price ?? service.default_price)
-
-    setServiceLines((prev) => [
-      ...prev,
-      createServiceLine(
-        {
-          service_id: service.id,
-          description: service.name_ar || service.name,
-          unit_price: cash,
-          cashPrice: cash,
-          installmentPrice: installment,
-        },
-        { contractDate, minDownPercent },
-      ),
-    ])
-    setSelectedServiceId('')
-  }
-
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
     setSubmitAttempted(true)
@@ -513,15 +451,13 @@ export function PosPage() {
         : transactionSource === 'distributor'
           ? Boolean(selectedDistributor)
           : Boolean(selectedSalesRep)
-    const hasDevices = deviceLines.length > 0
-    const hasServices = serviceLines.length > 0
-    if (!customerId || !sourceReady || (!hasDevices && !hasServices)) return
-    if (hasDevices && !warehouseId) return
-    if (hasDevices && !allowNegativeInventory && quantity > available) return
+    if (!customerId || !sourceReady || deviceLines.length === 0) return
+    if (!warehouseId) return
+    if (!allowNegativeInventory && quantity > available) return
     if (!allLinesValid) return
 
     const units = unitsQuery.data ?? []
-    const devicePayload: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
+    const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
       const unit = units[index]
       const renewalDate =
         line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
@@ -565,39 +501,10 @@ export function PosPage() {
       }
     })
 
-    const servicePayload: CheckoutPayload['lines'] = serviceLines.map((line) => {
-      const base = {
-        line_type: 'service' as const,
-        service_id: line.service_id,
-        description: line.description.trim(),
-        unit_price: line.unit_price,
-        payment_term: line.paymentTerm,
-        cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
-      }
-
-      if (line.paymentTerm === 'installment') {
-        return {
-          ...base,
-          installment_plan: {
-            installment_count: serviceLineInstallmentCount(line, maxInstallmentCount),
-            installment_amount: line.installmentAmount,
-            down_payment: line.downPayment,
-            interval_type: line.intervalType,
-            interval_days: line.intervalType === 'weekly' ? 7 : 30,
-            first_due_date: line.firstDueDate,
-          },
-        }
-      }
-
-      return {
-        ...base,
-        down_payment: line.downPayment > 0 ? line.downPayment : undefined,
-      }
-    })
-
-    const lines = [...devicePayload, ...servicePayload]
-
-    if (hasDevices && !allowNegativeInventory && lines.some((l) => l.line_type === 'device' && !l.product_unit_id)) {
+    if (
+      !allowNegativeInventory &&
+      lines.some((l) => l.line_type === 'device' && !l.product_unit_id)
+    ) {
       return
     }
 
@@ -610,7 +517,7 @@ export function PosPage() {
       lines,
     }
 
-    if (hasDevices && warehouseId) {
+    if (warehouseId) {
       payload.warehouse_id = warehouseId
     }
 
@@ -652,31 +559,13 @@ export function PosPage() {
     if (deviceLines.length > 0 && !warehouseId) {
       messages.push('يجب اختيار مخزن لبيع الأجهزة')
     }
-    if (deviceLines.length === 0 && serviceLines.length === 0) {
-      messages.push('يجب إضافة جهاز أو خدمة واحدة على الأقل')
+    if (deviceLines.length === 0) {
+      messages.push('يجب إضافة جهاز واحد على الأقل')
     }
     deviceLines.forEach((line, index) => {
       const result = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
       if (!result.valid) {
         messages.push(`جهاز ${index + 1}: ${result.errors[0]}`)
-      }
-    })
-    serviceLines.forEach((line, index) => {
-      if (!line.description.trim()) {
-        messages.push(`خدمة ${index + 1}: الوصف مطلوب`)
-      } else if (line.unit_price <= 0) {
-        messages.push(`خدمة ${index + 1}: السعر مطلوب`)
-      } else if (
-        !validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid ||
-        !validateServiceLineCash(line).valid
-      ) {
-        const installmentErrors = validateServiceLineInstallment(
-          line,
-          minDownPercent,
-          maxInstallmentCount,
-        ).errors
-        const cashErrors = validateServiceLineCash(line).errors
-        messages.push(`خدمة ${index + 1}: ${[...installmentErrors, ...cashErrors][0]}`)
       }
     })
     return messages
@@ -686,7 +575,6 @@ export function PosPage() {
     sourceReady,
     transactionSource,
     deviceLines,
-    serviceLines,
     warehouseId,
     minDownPercent,
     maxInstallmentCount,
@@ -696,15 +584,6 @@ export function PosPage() {
     submitAttempted &&
     deviceLines.some((line) => !validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid)
   const hasWarehouseError = submitAttempted && hasDeviceSale && !warehouseId
-  const hasServiceErrors =
-    submitAttempted &&
-    serviceLines.some(
-      (line) =>
-        !line.description.trim() ||
-        line.unit_price <= 0 ||
-        !validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid ||
-        !validateServiceLineCash(line).valid,
-    )
 
   const branchLabel =
     selectedBranch?.name_ar ||
@@ -721,11 +600,10 @@ export function PosPage() {
     checkoutMutation.isPending ||
     !selectedCustomer ||
     !sourceReady ||
-    (deviceLines.length === 0 && serviceLines.length === 0) ||
-    (hasDeviceSale && !warehouseId) ||
-    (hasDeviceSale && !allowNegativeInventory && quantity > available) ||
-    !allLinesValid ||
-    serviceLines.some((line) => !line.description.trim() || line.unit_price <= 0)
+    deviceLines.length === 0 ||
+    !warehouseId ||
+    (!allowNegativeInventory && quantity > available) ||
+    !allLinesValid
 
   const submitInvalid = submitDisabled && !checkoutMutation.isPending
 
@@ -745,15 +623,16 @@ export function PosPage() {
       }
       actions={<StartTourButton tourId="pos" />}
     >
+      <PosContractTypeTabs />
       {!warehouseId && (
         <p
           className={`mb-md rounded-lg border p-sm text-sm ${
-            submitAttempted && deviceLines.length > 0
+            submitAttempted
               ? 'border-error/30 bg-error/[0.07] text-error'
               : 'border-tertiary/30 bg-tertiary/5 text-on-surface-variant'
           }`}
         >
-          لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
+          يرجى اختيار مخزن من الشريط العلوي لبدء تعاقد الأجهزة.
         </p>
       )}
       <form
@@ -841,93 +720,13 @@ export function PosPage() {
                 </p>
               )}
             </PosSectionCard>
-
-            {servicesOpen || serviceLines.length > 0 ? (
-              <PosSectionCard
-                number={3}
-                title="الخدمات"
-                subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
-                highlighted={hasServiceErrors}
-                contentClassName="space-y-md overflow-visible p-sm sm:p-md"
-              >
-                <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center">
-                  <select
-                    value={selectedServiceId}
-                    onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="w-full min-w-0 flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
-                  >
-                    <option value="">اختر خدمة من الكتالوج...</option>
-                    {(servicesQuery.data ?? []).map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name_ar || service.name} — كاش{' '}
-                        {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
-                        / قسط{' '}
-                        {Number(
-                          service.installment_price ?? service.default_price,
-                        ).toLocaleString('ar-EG')}{' '}
-                        ج.م
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={addCatalogService}
-                    disabled={!selectedServiceId}
-                    className="inline-flex w-full items-center justify-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50 sm:w-auto"
-                  >
-                    <Icon name="add" size={18} />
-                    إضافة خدمة
-                  </button>
-                  {serviceLines.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setServicesOpen(false)}
-                      className="inline-flex w-full items-center justify-center gap-xs rounded-lg border border-outline-variant px-md py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high sm:w-auto"
-                    >
-                      إلغاء
-                    </button>
-                  ) : null}
-                </div>
-
-                {serviceLines.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
-                ) : (
-                  <div className="flex max-h-none flex-col gap-md overflow-visible">
-                    {serviceLines.map((line, index) => (
-                      <ServiceLineCard
-                        key={line.id}
-                        line={line}
-                        index={index}
-                        contractDate={contractDate}
-                        minDownPercent={minDownPercent}
-                        maxInstallmentCount={maxInstallmentCount}
-                        onChange={(next) => updateServiceLine(index, next)}
-                        onRemove={() =>
-                          setServiceLines((prev) => prev.filter((_, i) => i !== index))
-                        }
-                        showErrors={submitAttempted}
-                      />
-                    ))}
-                  </div>
-                )}
-              </PosSectionCard>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setServicesOpen(true)}
-                className="flex w-full items-center justify-center gap-xs rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest px-md py-md text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
-              >
-                <Icon name="add" size={20} />
-                إضافة خدمات
-              </button>
-            )}
           </div>
 
           <PosContractSummary
             branchLabel={branchLabel}
             contractDate={contractDate}
             devicesSubtotal={devicesSubtotal}
-            servicesSubtotal={servicesSubtotal}
+            servicesSubtotal={0}
             netInstallationFeeTotal={netInstallationFeeTotal}
             deviceCount={deviceLines.length}
             paidAtCheckout={paidAtCheckout}
@@ -936,6 +735,7 @@ export function PosPage() {
             selectedPromotionId={selectedPromotionId}
             onPromotionChange={setSelectedPromotionId}
             showPromotions={deviceLines.length > 0}
+            devicesOnly
             validationSummary={validationSummary}
             checkoutError={
               checkoutMutation.isError ? getErrorMessage(checkoutMutation.error) : undefined
@@ -945,40 +745,21 @@ export function PosPage() {
                 <div className="rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
                   <p>{successMsg}</p>
                   <div className="mt-sm flex flex-col gap-1">
-                    {(lastInvoice.lines ?? [])
-                      .filter((line) => !isServiceInvoiceLine(line))
-                      .map((line, index) => (
-                        <Link
-                          key={line.id}
-                          to={contractPrintPath(lastInvoice.id, {
-                            lineId: line.id,
-                            autoPrint: false,
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                        >
-                          <Icon name="print" size={18} />
-                          طباعة عقد الجهاز {index + 1}
-                        </Link>
-                      ))}
-                    {(lastInvoice.lines ?? [])
-                      .filter((line) => isServiceInvoiceLine(line))
-                      .map((line, index) => (
-                        <Link
-                          key={line.id}
-                          to={serviceContractPrintPath(lastInvoice.id, line.id, {
-                            autoPrint: false,
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                        >
-                          <Icon name="print" size={18} />
-                          طباعة عقد الخدمة {index + 1}
-                          {line.description ? ` — ${line.description}` : ''}
-                        </Link>
-                      ))}
+                    {(lastInvoice.lines ?? []).map((line, index) => (
+                      <Link
+                        key={line.id}
+                        to={contractPrintPath(lastInvoice.id, {
+                          lineId: line.id,
+                          autoPrint: false,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                      >
+                        <Icon name="print" size={18} />
+                        طباعة عقد الجهاز {index + 1}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               ) : undefined

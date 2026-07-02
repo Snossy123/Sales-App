@@ -4,13 +4,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
-import { contractPrintPath } from '../lib/sales'
+import { contractPrintPath, reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
 export function InvoiceReviewDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -90,6 +92,17 @@ export function InvoiceReviewDetailPage() {
               .join(' · ')
           : undefined
       }
+      headerExtra={
+        invoice ? (
+          <div className="mt-xs flex flex-wrap gap-xs">
+            <StatusBadge
+              status={reviewStatusForBadge(invoice.review_status)}
+              label={reviewStatusLabel(invoice.review_status)}
+            />
+            {invoice.payment_status ? <StatusBadge status={invoice.payment_status} /> : null}
+          </div>
+        ) : undefined
+      }
       actions={
         <Link
           to="/invoices/review"
@@ -102,49 +115,54 @@ export function InvoiceReviewDetailPage() {
     >
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {invoice && (
-          <div className="w-full space-y-md">
+          <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
             <ContractReviewDetails invoice={invoice} />
 
-            {canReview && (
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-                <label className="mb-xs block text-xs text-on-surface-variant">
-                  سبب الرفض (اختياري)
-                </label>
-                <input
-                  type="text"
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="مثال: بيانات غير مكتملة"
-                  className="mb-md w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                />
+            <ContractReviewDecisionPanel invoice={invoice}>
+              {canReview ? (
+                <>
+                  {canReject ? (
+                    <label className="block text-xs text-on-surface-variant">
+                      سبب الرفض (اختياري)
+                      <input
+                        type="text"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="مثال: بيانات غير مكتملة"
+                        className="mt-xs w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                      />
+                    </label>
+                  ) : null}
 
-                {mutationError && <p className="mb-md text-sm text-error">{mutationError}</p>}
+                  {mutationError ? (
+                    <p className="text-sm text-error">{mutationError}</p>
+                  ) : null}
 
-                <div className="grid grid-cols-3 gap-2 sm:gap-sm">
-                  {canPrint && (
-                    <Link
-                      to={contractPrintPath(invoice.id, { autoPrint: true })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border border-primary px-2 py-2.5 text-xs font-bold text-primary hover:bg-primary/5 sm:gap-xs sm:px-md sm:py-sm sm:text-sm"
-                    >
-                      <Icon name="print" size={18} className="shrink-0" />
-                      <span className="truncate">طباعة العقد</span>
-                    </Link>
-                  )}
-                  {canApprove && (
+                  {canApprove ? (
                     <button
                       type="button"
                       onClick={() => approveMutation.mutate(invoiceId)}
                       disabled={approveMutation.isPending || rejectMutation.isPending}
-                      className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg bg-secondary px-2 py-2.5 text-xs font-bold text-on-secondary disabled:opacity-60 sm:gap-xs sm:px-md sm:py-sm sm:text-sm"
+                      className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary px-md py-3 text-sm font-bold text-on-secondary disabled:opacity-60"
                     >
-                      <Icon name="check_circle" size={18} className="shrink-0" />
-                      <span className="truncate sm:hidden">اعتماد</span>
-                      <span className="hidden truncate sm:inline">تأكيد وإرسال الأقساط</span>
+                      <Icon name="check_circle" size={20} />
+                      تأكيد وإرسال الأقساط
                     </button>
-                  )}
-                  {canReject && (
+                  ) : null}
+
+                  {canPrint ? (
+                    <Link
+                      to={contractPrintPath(invoice.id, { autoPrint: true })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-3 text-sm font-bold text-on-surface hover:bg-surface-container-low"
+                    >
+                      <Icon name="print" size={20} />
+                      طباعة العقد
+                    </Link>
+                  ) : null}
+
+                  {canReject ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -154,24 +172,19 @@ export function InvoiceReviewDetailPage() {
                         })
                       }
                       disabled={approveMutation.isPending || rejectMutation.isPending}
-                      className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border border-error px-2 py-2.5 text-xs font-bold text-error disabled:opacity-60 sm:gap-xs sm:px-md sm:py-sm sm:text-sm"
+                      className="flex w-full items-center justify-center gap-xs rounded-lg border border-error px-md py-3 text-sm font-bold text-error disabled:opacity-60"
                     >
-                      <Icon name="cancel" size={18} className="shrink-0" />
-                      <span className="truncate">رفض</span>
+                      <Icon name="cancel" size={20} />
+                      رفض العقد
                     </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {!canReview && (
-              <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md text-center text-sm text-on-surface-variant">
-                هذه الفاتورة ليست بانتظار المراجعة.
-                <Link to="/invoices/review" className="mr-xs text-primary hover:underline">
-                  العودة للقائمة
-                </Link>
-              </div>
-            )}
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-center text-sm text-on-surface-variant">
+                  هذه الفاتورة ليست بانتظار المراجعة.
+                </p>
+              )}
+            </ContractReviewDecisionPanel>
           </div>
         )}
       </AsyncState>

@@ -10,6 +10,7 @@ import { InventoryTransfersPage } from '../pages/InventoryTransfersPage'
 import { InventoryProductSettingsPage } from '../pages/InventoryProductSettingsPage'
 import { WarehousesPage } from '../pages/WarehousesPage'
 import { PosPage } from '../pages/PosPage'
+import { PosServicesPage } from '../pages/PosServicesPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
 import { ServicesPage } from '../pages/ServicesPage'
@@ -168,6 +169,7 @@ export function AppRoutes() {
             <Route path="inventory/settings" element={<InventoryProductSettingsPage />} />
             <Route path="inventory/warehouses" element={<WarehousesPage />} />
             <Route path="pos" element={<PosPage />} />
+            <Route path="pos/services" element={<PosServicesPage />} />
             <Route path="pricing/catalog" element={<PricingCatalogPage />} />
             <Route path="pricing/promotions" element={<PromotionsPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />

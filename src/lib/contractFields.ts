@@ -58,6 +58,15 @@ export function fmtInvoiceContractDateTime(
   return fmtContractDateTime(invoice.confirmed_at ?? invoice.invoice_date)
 }
 
+export function contractSortTimestamp(
+  invoice: Pick<SalesInvoice, 'confirmed_at' | 'invoice_date' | 'id'>,
+): number {
+  const value = invoice.confirmed_at ?? invoice.invoice_date
+  if (!value) return invoice.id ?? 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? invoice.id ?? 0 : time
+}
+
 export function displayValue(value: string | number | null | undefined): string {
   if (value == null || value === '') return '—'
   return String(value)

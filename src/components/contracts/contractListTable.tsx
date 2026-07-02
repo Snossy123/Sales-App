@@ -6,6 +6,7 @@ import { StatusBadge } from '../StatusBadge'
 import { Icon } from '../Icon'
 import {
   contractSourceLabel,
+  contractSortTimestamp,
   fmtInvoiceContractDateTime,
   fmtContractMoney,
   invoiceContractSummary,
@@ -202,6 +203,17 @@ export function filterContractListRows(rows: SalesInvoice[], search: string): Sa
       source.includes(q) ||
       distributor.includes(q)
     )
+  })
+}
+
+export function sortContractsByDateTime(
+  rows: SalesInvoice[],
+  direction: 'asc' | 'desc' = 'desc',
+): SalesInvoice[] {
+  return [...rows].sort((a, b) => {
+    const diff = contractSortTimestamp(a) - contractSortTimestamp(b)
+    if (diff !== 0) return direction === 'desc' ? -diff : diff
+    return direction === 'desc' ? b.id - a.id : a.id - b.id
   })
 }
 
