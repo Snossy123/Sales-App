@@ -43,6 +43,7 @@ import {
 } from '../components/pos/PosContractHeader'
 import { PosContractSummary } from '../components/pos/PosContractSummary'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
+import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
 import {
   createServiceLine,
@@ -96,6 +97,7 @@ export function PosPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [servicesOpen, setServicesOpen] = useState(false)
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -419,6 +421,7 @@ export function PosPage() {
       )
       setQuantity(1)
       setServiceLines([])
+      setServicesOpen(false)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
@@ -654,6 +657,16 @@ export function PosPage() {
           لبيع الأجهزة يرجى اختيار مخزن من الشريط العلوي. يمكنك إضافة الخدمات بدون مخزن.
         </p>
       )}
+      {warehouseId ? (
+        <PosStockInfoBar
+          productName={productQuery.data?.name_ar || productQuery.data?.name}
+          available={available}
+          cashPrice={cashPrice}
+          installmentPrice={installmentPrice}
+          loading={productQuery.isLoading || stockQuery.isLoading}
+          allowNegativeInventory={allowNegativeInventory}
+        />
+      ) : null}
       <form onSubmit={handleCheckout} className="pos-form w-full">
         <div className="grid items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
           <div className="flex min-h-0 min-w-0 flex-col gap-md lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pe-1">
@@ -719,12 +732,6 @@ export function PosPage() {
                       contractDate={contractDate}
                       cashPrice={cashPrice}
                       installmentPrice={installmentPrice}
-                      available={
-                        index === 0 && !productQuery.isLoading && !stockQuery.isLoading
-                          ? available
-                          : undefined
-                      }
-                      allowNegativeInventory={allowNegativeInventory}
                       onChange={(next) => updateDeviceLine(index, next)}
                       minDownPercent={minDownPercent}
                       maxInstallmentCount={maxInstallmentCount}
@@ -741,63 +748,83 @@ export function PosPage() {
               )}
             </PosSectionCard>
 
-            <PosSectionCard
-              number={3}
-              title="الخدمات"
-              subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
-              contentClassName="space-y-md overflow-visible p-md"
-            >
-              <div className="flex flex-wrap items-center gap-sm">
-                <select
-                  value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="min-w-[min(100%,280px)] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
-                >
-                  <option value="">اختر خدمة من الكتالوج...</option>
-                  {(servicesQuery.data ?? []).map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name_ar || service.name} — كاش{' '}
-                      {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
-                      / قسط{' '}
-                      {Number(
-                        service.installment_price ?? service.default_price,
-                      ).toLocaleString('ar-EG')}{' '}
-                      ج.م
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={addCatalogService}
-                  disabled={!selectedServiceId}
-                  className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
-                >
-                  <Icon name="add" size={18} />
-                  إضافة خدمة
-                </button>
-              </div>
-
-              {serviceLines.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
-              ) : (
-                <div className="flex max-h-none flex-col gap-md overflow-visible">
-                  {serviceLines.map((line, index) => (
-                    <ServiceLineCard
-                      key={line.id}
-                      line={line}
-                      index={index}
-                      contractDate={contractDate}
-                      minDownPercent={minDownPercent}
-                      maxInstallmentCount={maxInstallmentCount}
-                      onChange={(next) => updateServiceLine(index, next)}
-                      onRemove={() =>
-                        setServiceLines((prev) => prev.filter((_, i) => i !== index))
-                      }
-                    />
-                  ))}
+            {servicesOpen || serviceLines.length > 0 ? (
+              <PosSectionCard
+                number={3}
+                title="الخدمات"
+                subtitle="أضف خدمات من الكتالوج مع طريقة الدفع لكل بند"
+                contentClassName="space-y-md overflow-visible p-md"
+              >
+                <div className="flex flex-wrap items-center gap-sm">
+                  <select
+                    value={selectedServiceId}
+                    onChange={(e) => setSelectedServiceId(e.target.value)}
+                    className="min-w-[min(100%,280px)] flex-1 rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                  >
+                    <option value="">اختر خدمة من الكتالوج...</option>
+                    {(servicesQuery.data ?? []).map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name_ar || service.name} — كاش{' '}
+                        {Number(service.cash_price ?? service.default_price).toLocaleString('ar-EG')}{' '}
+                        / قسط{' '}
+                        {Number(
+                          service.installment_price ?? service.default_price,
+                        ).toLocaleString('ar-EG')}{' '}
+                        ج.م
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={addCatalogService}
+                    disabled={!selectedServiceId}
+                    className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
+                  >
+                    <Icon name="add" size={18} />
+                    إضافة خدمة
+                  </button>
+                  {serviceLines.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setServicesOpen(false)}
+                      className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high"
+                    >
+                      إلغاء
+                    </button>
+                  ) : null}
                 </div>
-              )}
-            </PosSectionCard>
+
+                {serviceLines.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">لم تُضف خدمات بعد.</p>
+                ) : (
+                  <div className="flex max-h-none flex-col gap-md overflow-visible">
+                    {serviceLines.map((line, index) => (
+                      <ServiceLineCard
+                        key={line.id}
+                        line={line}
+                        index={index}
+                        contractDate={contractDate}
+                        minDownPercent={minDownPercent}
+                        maxInstallmentCount={maxInstallmentCount}
+                        onChange={(next) => updateServiceLine(index, next)}
+                        onRemove={() =>
+                          setServiceLines((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </PosSectionCard>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setServicesOpen(true)}
+                className="flex w-full items-center justify-center gap-xs rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest px-md py-md text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
+              >
+                <Icon name="add" size={20} />
+                إضافة خدمات
+              </button>
+            )}
           </div>
 
           <PosContractSummary

@@ -209,8 +209,6 @@ interface DeviceLineCardProps {
   contractDate: string
   cashPrice: number
   installmentPrice: number
-  available?: number
-  allowNegativeInventory?: boolean
   onChange: (line: DeviceLineDraft) => void
   minDownPercent: number
   maxInstallmentCount: number
@@ -225,8 +223,6 @@ export function DeviceLineCard({
   contractDate,
   cashPrice,
   installmentPrice,
-  available,
-  allowNegativeInventory,
   onChange,
   minDownPercent,
   maxInstallmentCount,
@@ -351,17 +347,7 @@ export function DeviceLineCard({
 
       {expanded && (
         <div className="space-y-md p-md">
-          <div
-            className={`grid gap-sm rounded-xl border border-primary/20 bg-primary/5 p-md ${
-              index === 0 && available != null ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
-            }`}
-          >
-            {index === 0 && available != null ? (
-              <div className="text-center sm:text-start">
-                <p className="text-xs font-medium text-on-surface-variant">متاح في المخزن</p>
-                <p className="text-2xl font-extrabold tabular-nums text-primary">{available}</p>
-              </div>
-            ) : null}
+          <div className="grid gap-sm rounded-xl border border-primary/20 bg-primary/5 p-md sm:grid-cols-3">
             <div className="text-center sm:text-start">
               <p className="text-xs font-medium text-on-surface-variant">سعر الكاش</p>
               <p className="text-xl font-bold tabular-nums text-on-surface">
@@ -383,14 +369,11 @@ export function DeviceLineCard({
                 <span className="text-sm font-medium">ج.م</span>
               </p>
             </div>
-            {index === 0 && allowNegativeInventory ? (
-              <p className="text-xs text-amber-800 sm:col-span-full">المخزون السالب مفعّل</p>
-            ) : null}
           </div>
 
           <div className="grid gap-sm md:grid-cols-3">
             <div>
-              <label className={posLabelClass}>السريال (جهاز)</label>
+              <label className={posLabelClass}>السريال</label>
               <input
                 ref={serialInputRef}
                 value={line.serialNumber}
@@ -426,7 +409,7 @@ export function DeviceLineCard({
               )}
             </div>
             <div>
-              <label className={posLabelClass}>اسم المستخدم (تطبيق التتبع)</label>
+              <label className={posLabelClass}>اسم المستخدم</label>
               <input
                 ref={usernameInputRef}
                 value={line.username}
@@ -537,7 +520,7 @@ export function DeviceLineCard({
           <div className="grid gap-sm md:grid-cols-2">
             <div>
               <SearchableSelect
-                label="الفني (دعم)"
+                label="الفني"
                 options={filteredEmployees}
                 value={line.technician}
                 onChange={(technician) => patch({ technician })}
