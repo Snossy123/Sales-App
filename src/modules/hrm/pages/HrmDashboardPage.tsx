@@ -109,7 +109,7 @@ function DashboardView({ stats }: { stats: HrmDashboard }) {
     ([label, value]) => ({ label, value: Number(value) }),
   )
   const deptTotal = deptData.reduce((sum, slice) => sum + slice.value, 0)
-  const totalEmployees = stats.total_employees ?? deptTotal || stats.present_today
+  const totalEmployees = stats.total_employees ?? (deptTotal || stats.present_today)
 
   const leaveStatusData: DonutSlice[] = Object.entries(stats.leaves_by_status ?? {}).map(
     ([status, value]) => ({ label: LEAVE_STATUS_LABELS[status] ?? status, value: Number(value) }),

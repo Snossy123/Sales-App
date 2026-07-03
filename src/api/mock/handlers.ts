@@ -100,6 +100,7 @@ function mockAccrueDistributorCommission(
   if (ledger.some((e) => e.sales_invoice_id === invoice.id && e.type === 'credit')) return
   distributor.commission_balance = Number(distributor.commission_balance ?? 0) + amount
   if (!state.distributorCommissionLedger) state.distributorCommissionLedger = []
+  if (state.counters.commissionLedger == null) state.counters.commissionLedger = 1
   state.distributorCommissionLedger.push({
     id: state.counters.commissionLedger++,
     distributor_id: distributor.id,
@@ -128,6 +129,7 @@ function mockDebitDistributorBalance(
   }
   distributor.commission_balance = Number(distributor.commission_balance ?? 0) - debit
   if (!state.distributorCommissionLedger) state.distributorCommissionLedger = []
+  if (state.counters.commissionLedger == null) state.counters.commissionLedger = 1
   state.distributorCommissionLedger.push({
     id: state.counters.commissionLedger++,
     distributor_id: distributor.id,

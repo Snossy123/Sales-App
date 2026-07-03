@@ -1,6 +1,6 @@
 export type CustomerPhoneEntry = {
   number: string
-  label: string
+  label?: string | null
 }
 
 export const DEFAULT_PHONE_COUNT = 3
@@ -71,7 +71,7 @@ export function phoneEntriesToPayload(entries: CustomerPhoneEntry[]): {
 } {
   const normalized = entries.map((entry) => ({
     number: entry.number.trim(),
-    label: entry.label.trim(),
+    label: (entry.label ?? '').trim(),
   }))
 
   const [first, second, third, ...rest] = normalized

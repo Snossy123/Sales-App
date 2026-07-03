@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getErrorMessage } from '../../api/client'
-import type { ServiceEvaluationQuestion } from '../../api/types'
-import { AsyncState } from '../../components/AsyncState'
-import { DataTable } from '../../components/DataTable'
-import { Modal } from '../../components/Modal'
-import { PageHeader } from '../../components/PageHeader'
-import { StatusBadge } from '../../components/StatusBadge'
+import { getErrorMessage } from '../../../api/client'
+import type { ServiceEvaluationQuestion } from '../../../api/types'
+import { AsyncState } from '../../../components/AsyncState'
+import { DataTable } from '../../../components/DataTable'
+import { Modal } from '../../../components/Modal'
+import { PageHeader } from '../../../components/PageHeader'
+import { StatusBadge } from '../../../components/StatusBadge'
 import {
   ANSWER_TYPE_LABELS,
   createEvaluationQuestion,
   deleteEvaluationQuestion,
   listEvaluationQuestions,
   updateEvaluationQuestion,
-} from './api'
+} from '../api'
 
 const QUERY_KEY = ['review', 'evaluation-questions']
 

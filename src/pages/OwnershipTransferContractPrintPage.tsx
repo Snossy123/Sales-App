@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
-import { Icon } from '../Icon'
+import { Icon } from '../components/Icon'
 import { mockContractPreviewHtml } from '../lib/contractTemplates'
 import { contractKindLabel } from '../lib/contractKinds'
 

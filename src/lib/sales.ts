@@ -1,4 +1,4 @@
-import type { Customer, Distributor, DistributorType, InstallmentItem, SalesInvoice } from '../api/types'
+import type { Distributor, DistributorType, InstallmentItem, SalesInvoice } from '../api/types'
 import { formatDate as formatAccountingDate } from './accounting'
 import { customerAllPhoneNumbers } from './customerForm'
 
@@ -125,6 +125,7 @@ export function paginatedMeta(response: ApiPaginated<unknown>): PaginationMeta {
 
 type InstallmentLike = InstallmentItem & {
   sequence?: number
+  customer_id?: number
   sales_invoice?: {
     id?: number
     invoice_number?: string

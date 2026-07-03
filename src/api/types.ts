@@ -543,6 +543,7 @@ export interface InstallmentItem {
   late_fee_accrued?: string | number
   late_fee_waived_at?: string | null
   total_due?: number
+  customer_id?: number
   customer_name?: string
   customer_phone?: string
   customer_phones?: string[]

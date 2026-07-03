@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getErrorMessage } from '../../api/client'
-import type { ServiceEvaluationQuestion } from '../../api/types'
-import { AsyncState } from '../../components/AsyncState'
-import { PageHeader } from '../../components/PageHeader'
-import { StatusBadge } from '../../components/StatusBadge'
-import { formatDate } from '../../lib/accounting'
+import { getErrorMessage } from '../../../api/client'
+import type { ServiceEvaluationQuestion } from '../../../api/types'
+import { AsyncState } from '../../../components/AsyncState'
+import { PageHeader } from '../../../components/PageHeader'
+import { StatusBadge } from '../../../components/StatusBadge'
+import { formatDate } from '../../../lib/accounting'
 import {
   EVALUATION_STATUS_LABELS,
   formatEvaluationAnswer,
