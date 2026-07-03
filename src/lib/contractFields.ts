@@ -16,8 +16,8 @@ export const vehicleTypeLabels: Record<string, string> = {
 }
 
 export const renewalTypeLabels: Record<string, string> = {
-  annual: 'سنوي',
-  permanent: 'مدى الحياة',
+  annual: 'اشتراك سنوي',
+  permanent: 'اشتراك مدى الحياة',
 }
 
 export const intervalTypeLabels: Record<string, string> = {
@@ -79,6 +79,14 @@ export function resolveInvoiceLine(invoice: SalesInvoice, lineId?: number): Sale
     return lines.find((line) => line.id === lineId) ?? lines[0]
   }
   return lines[0]
+}
+
+export function resolveLinePaymentTerm(
+  line: SalesInvoiceLine | undefined,
+  invoice: SalesInvoice,
+): 'cash' | 'installment' {
+  const term = line?.payment_term ?? invoice.payment_term
+  return term === 'cash' ? 'cash' : 'installment'
 }
 
 export function resolveSerial(line?: SalesInvoiceLine, customer?: Customer | null): string {

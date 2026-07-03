@@ -26,8 +26,16 @@ export async function assignSupportTask(taskId: number, employeeId: number) {
   return data
 }
 
-export async function updateSupportTaskStatus(taskId: number, status: SupportTaskStatus) {
-  const { data } = await api.patch<SupportTask>(`/support/tasks/${taskId}/status`, { status })
+export async function updateSupportTaskStatus(
+  taskId: number,
+  status: SupportTaskStatus,
+  executedAt?: string,
+) {
+  const body: { status: SupportTaskStatus; executed_at?: string } = { status }
+  if (status === 'completed' && executedAt) {
+    body.executed_at = executedAt
+  }
+  const { data } = await api.patch<SupportTask>(`/support/tasks/${taskId}/status`, body)
   return data
 }
 
@@ -35,7 +43,7 @@ export const SUPPORT_STATUS_LABELS: Record<SupportTaskStatus, string> = {
   pending: 'بانتظار التعيين',
   assigned: 'تم التعيين',
   in_progress: 'قيد التنفيذ',
-  completed: 'مكتمل',
+  completed: 'تم التنفيذ',
   cancelled: 'ملغى',
 }
 

@@ -5,6 +5,8 @@ import { api } from '../api/client'
 import type { Customer, Distributor, SalesInvoice } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
 import { CustomerContractsSection } from '../components/customers/CustomerContractsSection'
+import { CustomerOwnershipTransfersSection } from '../components/customers/CustomerOwnershipTransfersSection'
+import { CustomerEvaluationsSection } from '../components/customers/CustomerEvaluationsSection'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
@@ -21,6 +23,7 @@ import {
   formatDistributorAgreedAmount,
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
+import { customerToPhoneEntries } from '../lib/customerForm'
 
 function getCustomerDistributorProfile(customer: Customer): Distributor | undefined {
   return (
@@ -96,7 +99,7 @@ export function CustomerDetailPage() {
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
         params: {
-          include: 'guarantors,distributorProfile,salesInvoices.lines.installmentPlan.items',
+          include: 'guarantors,distributorProfile,salesInvoices.lines.installmentPlan.items,ownershipTransfersFrom,ownershipTransfersTo',
           sales_invoice_status: 'all',
         },
       })
@@ -123,6 +126,16 @@ export function CustomerDetailPage() {
   const invoices =
     customer?.sales_invoices ??
     (customer as Customer & { salesInvoices?: SalesInvoice[] })?.salesInvoices ??
+    []
+  const ownershipTransfersFrom =
+    customer?.ownership_transfers_from ??
+    (customer as Customer & { ownershipTransfersFrom?: Customer['ownership_transfers_from'] })
+      ?.ownershipTransfersFrom ??
+    []
+  const ownershipTransfersTo =
+    customer?.ownership_transfers_to ??
+    (customer as Customer & { ownershipTransfersTo?: Customer['ownership_transfers_to'] })
+      ?.ownershipTransfersTo ??
     []
 
   return (
@@ -156,6 +169,8 @@ export function CustomerDetailPage() {
                       {distributorTypeLabel(distributorProfile.type)}
                       {' · '}
                       {formatDistributorAgreedAmount(distributorProfile.agreed_amount)}
+                      {' · رصيد: '}
+                      {formatDistributorAgreedAmount(distributorProfile.commission_balance)}
                     </p>
                   </div>
                 </div>
@@ -214,9 +229,16 @@ export function CustomerDetailPage() {
               </div>
 
               <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
-                <ProfileDetailItem icon="call" label="الهاتف" value={customer.phone} />
-                <ProfileDetailItem icon="call" label="رقم الهاتف 2" value={customer.phone_2} />
-                <ProfileDetailItem icon="call" label="رقم الهاتف 3" value={customer.phone_3} />
+                {customerToPhoneEntries(customer)
+                  .filter((entry) => entry.number.trim())
+                  .map((entry, index) => (
+                    <ProfileDetailItem
+                      key={`${entry.number}-${index}`}
+                      icon="call"
+                      label={entry.label.trim() || `رقم الهاتف ${index + 1}`}
+                      value={entry.number}
+                    />
+                  ))}
                 <ProfileDetailItem icon="badge" label="الرقم القومي" value={customer.national_id} />
                 <ProfileDetailItem
                   icon="location_on"
@@ -319,7 +341,14 @@ export function CustomerDetailPage() {
               />
             </div>
 
+            <CustomerOwnershipTransfersSection
+              transfersFrom={ownershipTransfersFrom}
+              transfersTo={ownershipTransfersTo}
+            />
+
             <CustomerContractsSection invoices={invoices} />
+
+            {customer && <CustomerEvaluationsSection customerId={customer.id} />}
           </>
         )}
       </AsyncState>

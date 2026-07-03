@@ -88,6 +88,7 @@ export function ServiceSalesPage({
   const [successMsg, setSuccessMsg] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
+  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -102,6 +103,7 @@ export function ServiceSalesPage({
 
   const handleCustomerChange = (customer: Customer | null) => {
     setSelectedCustomer(customer)
+    setDistributorBalanceAmount(0)
 
     if (!customer) {
       setSelectedBranch(null)
@@ -260,6 +262,22 @@ export function ServiceSalesPage({
 
   const balanceDue = Math.max(0, total - paidNow)
 
+  const customerDistributorQuery = useQuery({
+    queryKey: ['customer', selectedCustomer?.id, 'distributor-profile-service'],
+    queryFn: async () => {
+      const { data } = await api.get<Customer>(`/customers/${selectedCustomer!.id}`, {
+        params: { include: 'distributorProfile' },
+      })
+      return data.distributor_profile ?? null
+    },
+    enabled: Boolean(selectedCustomer?.id),
+  })
+
+  const customerDistributorProfile =
+    selectedCustomer?.distributor_profile ?? customerDistributorQuery.data ?? null
+  const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
+  const maxDistributorBalanceUse = Math.min(distributorBalanceAvailable, paidNow)
+
   const allLinesValid = lines.every(
     (line) =>
       validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
@@ -319,6 +337,10 @@ export function ServiceSalesPage({
 
       if (transactionSource === 'sales' && selectedSalesRep) {
         payload.sales_user_id = selectedSalesRep.id
+      }
+
+      if (distributorBalanceAmount > 0) {
+        payload.distributor_balance_amount = distributorBalanceAmount
       }
 
       const { data } = await api.post<SalesInvoice>('/sales-invoices/service-checkout', payload)
@@ -521,6 +543,28 @@ export function ServiceSalesPage({
                     {balanceDue.toLocaleString('ar-EG')} ج.م
                   </dd>
                 </div>
+                {distributorBalanceAvailable > 0 && paidNow > 0 && (
+                  <div className="rounded-lg border border-primary/25 bg-primary/5 p-sm">
+                    <p className="mb-xs text-xs text-on-surface-variant">
+                      رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG')} ج.م
+                    </p>
+                    <label className="mb-xs block text-xs text-on-surface-variant">
+                      استخدام من الرصيد
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={maxDistributorBalanceUse}
+                      value={distributorBalanceAmount}
+                      onChange={(e) =>
+                        setDistributorBalanceAmount(
+                          Math.min(Number(e.target.value), maxDistributorBalanceUse),
+                        )
+                      }
+                      className="w-full rounded border border-outline-variant px-sm py-1.5 text-sm tabular-nums"
+                    />
+                  </div>
+                )}
               </dl>
             </div>
 

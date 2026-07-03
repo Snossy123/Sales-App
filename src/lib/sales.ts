@@ -1,5 +1,6 @@
 import type { Customer, Distributor, DistributorType, InstallmentItem, SalesInvoice } from '../api/types'
 import { formatDate as formatAccountingDate } from './accounting'
+import { customerAllPhoneNumbers } from './customerForm'
 
 export { formatDate } from './accounting'
 
@@ -128,7 +129,7 @@ type InstallmentLike = InstallmentItem & {
     id?: number
     invoice_number?: string
     branch_id?: number
-    customer?: { name?: string; phone?: string }
+    customer?: { id?: number; name?: string; phone?: string }
   }
 }
 
@@ -147,13 +148,10 @@ export function normalizeInstallmentItem(item: InstallmentLike): InstallmentItem
       item.installment_number ?? item.sequence ?? 0,
     customer_name:
       item.customer_name ?? item.sales_invoice?.customer?.name,
+    customer_id: item.customer_id ?? item.sales_invoice?.customer?.id,
     customer_phone:
       item.customer_phone ?? item.sales_invoice?.customer?.phone,
-    customer_phones: item.customer_phones ?? [
-      item.sales_invoice?.customer?.phone,
-      (item.sales_invoice?.customer as Customer | undefined)?.phone_2,
-      (item.sales_invoice?.customer as Customer | undefined)?.phone_3,
-    ].filter(Boolean) as string[],
+    customer_phones: item.customer_phones ?? customerAllPhoneNumbers(item.sales_invoice?.customer ?? {}),
     display_tier: item.display_tier,
     late_fee_accrued: item.late_fee_accrued,
     total_due: item.total_due ?? remaining,
@@ -217,6 +215,16 @@ export function contractPrintPath(
   if (options?.lineId) params.set('line', String(options.lineId))
   const qs = params.toString()
   return `/invoices/${invoiceId}/contract-print${qs ? `?${qs}` : ''}`
+}
+
+export function ownershipTransferContractPrintPath(
+  invoiceId: number,
+  options?: { autoPrint?: boolean },
+): string {
+  const params = new URLSearchParams()
+  if (options?.autoPrint) params.set('print', '1')
+  const qs = params.toString()
+  return `/invoices/${invoiceId}/ownership-transfer-contract${qs ? `?${qs}` : ''}`
 }
 
 export function serviceContractPrintPath(

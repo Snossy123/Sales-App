@@ -15,6 +15,7 @@ import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
+import { CONTRACT_KINDS, REVIEW_CONTRACT_KIND_OPTIONS } from '../lib/contractKinds'
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoiceReviewPage() {
@@ -24,17 +25,21 @@ export function InvoiceReviewPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
+  const [contractKindFilter, setContractKindFilter] = useState('')
+
   const query = useQuery({
-    queryKey: ['sales-invoices', 'review', listScopeKey, dateFrom, dateTo],
+    queryKey: ['sales-invoices', 'review', listScopeKey, dateFrom, dateTo, contractKindFilter],
     queryFn: async () => {
-      const { data } = await api.get<{ data: SalesInvoice[] }>('/sales-invoices', {
-        params: mergeScopedListParams(user, {
-          per_page: 50,
-          include: 'customer,distributor,branch,lines',
-          'filter[review_status]': 'pending',
-          ...contractDateFilterParams(dateFrom, dateTo),
-        }),
+      const params = mergeScopedListParams(user, {
+        per_page: 50,
+        include: 'customer,distributor,branch,lines',
+        'filter[review_status]': 'pending',
+        ...contractDateFilterParams(dateFrom, dateTo),
       })
+      if (contractKindFilter) {
+        params['filter[contract_kind]'] = contractKindFilter
+      }
+      const { data } = await api.get<{ data: SalesInvoice[] }>('/sales-invoices', { params })
       return data.data
     },
     enabled: Boolean(user),
@@ -45,12 +50,13 @@ export function InvoiceReviewPage() {
     [query.data, invoiceSearch],
   )
 
-  const hasFilters = Boolean(invoiceSearch || dateFrom || dateTo)
+  const hasFilters = Boolean(invoiceSearch || dateFrom || dateTo || contractKindFilter)
 
   const clearFilters = () => {
     setInvoiceSearch('')
     setDateFrom('')
     setDateTo('')
+    setContractKindFilter('')
   }
 
   const columns = useMemo(
@@ -64,7 +70,7 @@ export function InvoiceReviewPage() {
   return (
     <SalesPageShell
       title="مراجعة التعاقدات"
-      subtitle="اختر تعاقداً لمراجعة بياناته واعتماده أو رفضه"
+      subtitle={`${CONTRACT_KINDS.map((item) => item.label).join(' · ')} — اختر تعاقداً للمراجعة`}
       filters={
         <FilterBar
           search={invoiceSearch}
@@ -76,6 +82,15 @@ export function InvoiceReviewPage() {
           onDateToChange={setDateTo}
           dateFromLabel="من تاريخ التعاقد"
           dateToLabel="إلى تاريخ التعاقد"
+          selects={[
+            {
+              id: 'contract-kind',
+              label: 'نوع الخدمة',
+              value: contractKindFilter,
+              options: REVIEW_CONTRACT_KIND_OPTIONS,
+              onChange: setContractKindFilter,
+            },
+          ]}
           showClear={hasFilters}
           onClear={clearFilters}
         />

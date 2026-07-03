@@ -129,6 +129,17 @@ export interface DemoState {
   branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
   paymentTransactions: MockPaymentTransaction[]
+  distributorCommissionLedger?: Array<{
+    id: number
+    distributor_id: number
+    type: 'credit' | 'debit'
+    amount: number
+    balance_after: number
+    sales_invoice_id?: number
+    payment_transaction_id?: number
+    notes?: string
+    created_at: string
+  }>
   priceCatalogItems: PriceCatalogItem[]
   promotions: Promotion[]
   chatConversations: Array<{
@@ -161,6 +172,7 @@ export interface DemoState {
     dailyBranchReport: number
     installmentItem: number
     payment: number
+    commissionLedger?: number
     accountingMapping?: number
     accountingLine?: number
     accountingAccount?: number
@@ -320,6 +332,10 @@ export function createSeedState(): DemoState {
     sell_price: 3500,
     cash_price: 3500,
     installment_price: 3800,
+    external_cash_annual_price: 900,
+    external_cash_permanent_price: 1500,
+    external_installment_annual_price: 1000,
+    external_installment_permanent_price: 1700,
     cost_price: 2200,
   }
 
@@ -346,6 +362,7 @@ export function createSeedState(): DemoState {
       type: 'center',
       status: 'active',
       agreed_amount: 500,
+      commission_balance: 1500,
     },
     {
       id: 2,
@@ -358,6 +375,7 @@ export function createSeedState(): DemoState {
       type: 'free',
       status: 'active',
       agreed_amount: 350,
+      commission_balance: 0,
     },
     {
       id: 3,
@@ -370,6 +388,7 @@ export function createSeedState(): DemoState {
       type: 'center',
       status: 'active',
       agreed_amount: 600,
+      commission_balance: 0,
     },
   ]
 
@@ -1505,6 +1524,7 @@ export function createSeedState(): DemoState {
     customers,
     invoices,
     paymentTransactions: [],
+    distributorCommissionLedger: [],
     priceCatalogItems: [
       {
         id: 1,
@@ -1553,6 +1573,7 @@ export function createSeedState(): DemoState {
       dailyBranchReport: 2,
       installmentItem: 10,
       payment: 1,
+      commissionLedger: 1,
       accountingMapping: 4,
       accountingLine: 7,
       accountingAccount: 8,

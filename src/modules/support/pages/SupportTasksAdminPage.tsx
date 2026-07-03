@@ -6,6 +6,7 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { formatDate } from '../../../lib/accounting'
 import {
   SUPPORT_STATUS_LABELS,
   SUPPORT_STATUS_TRANSITIONS,
@@ -13,6 +14,7 @@ import {
   listSupportTasks,
   updateSupportTaskStatus,
 } from '../api'
+import { CompleteTaskModal } from '../components/CompleteTaskModal'
 
 const STATUS_OPTIONS = Object.entries(SUPPORT_STATUS_LABELS) as [SupportTaskStatus, string][]
 
@@ -20,6 +22,7 @@ export function SupportTasksAdminPage() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<SupportTaskStatus | ''>('')
   const [employeeFilter, setEmployeeFilter] = useState<number | ''>('')
+  const [completeTaskId, setCompleteTaskId] = useState<number | null>(null)
 
   const queryKey = ['support-tasks', 'admin', statusFilter, employeeFilter] as const
 
@@ -47,10 +50,28 @@ export function SupportTasksAdminPage() {
   })
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: SupportTaskStatus }) =>
-      updateSupportTaskStatus(id, status),
-    onSuccess: invalidate,
+    mutationFn: ({
+      id,
+      status,
+      executedAt,
+    }: {
+      id: number
+      status: SupportTaskStatus
+      executedAt?: string
+    }) => updateSupportTaskStatus(id, status, executedAt),
+    onSuccess: () => {
+      invalidate()
+      setCompleteTaskId(null)
+    },
   })
+
+  const handleStatusClick = (taskId: number, status: SupportTaskStatus) => {
+    if (status === 'completed') {
+      setCompleteTaskId(taskId)
+      return
+    }
+    statusMutation.mutate({ id: taskId, status })
+  }
 
   const employees = employeesQuery.data ?? []
   const rows = query.data?.data ?? []
@@ -100,6 +121,11 @@ export function SupportTasksAdminPage() {
             { key: 'serial_number', header: 'السيريال', render: (row) => row.serial_number ?? '—' },
             { key: 'vehicle_info', header: 'المركبة', render: (row) => row.vehicle_info ?? row.vehicle_type ?? '—' },
             {
+              key: 'executed_at',
+              header: 'تاريخ التنفيذ',
+              render: (row) => (row.executed_at ? formatDate(row.executed_at) : '—'),
+            },
+            {
               key: 'status',
               header: 'الحالة',
               render: (row) => <StatusBadge status={row.status} label={SUPPORT_STATUS_LABELS[row.status]} />,
@@ -137,7 +163,7 @@ export function SupportTasksAdminPage() {
                       <button
                         key={status}
                         type="button"
-                        onClick={() => statusMutation.mutate({ id: row.id, status })}
+                        onClick={() => handleStatusClick(row.id, status)}
                         disabled={statusMutation.isPending}
                         className="rounded-lg border border-outline-variant px-sm py-1.5 text-sm hover:bg-surface-container"
                       >
@@ -151,6 +177,16 @@ export function SupportTasksAdminPage() {
           ]}
         />
       </AsyncState>
+
+      <CompleteTaskModal
+        open={completeTaskId !== null}
+        onClose={() => setCompleteTaskId(null)}
+        isPending={statusMutation.isPending}
+        onConfirm={(executedAt) => {
+          if (completeTaskId === null) return
+          statusMutation.mutate({ id: completeTaskId, status: 'completed', executedAt })
+        }}
+      />
     </div>
   )
 }

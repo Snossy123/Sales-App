@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { InstallmentItem, SalesInvoice } from '../../api/types'
+import { contractKindLabel } from '../../lib/contractKinds'
 import {
   buildContractSummary,
   buildContractSummaryLine,
@@ -78,9 +79,17 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                 key={invoice.id}
                 title={summaryLine}
                 summary={
-                  showInvoiceStatusBadge(statusFilter) && invoice.status
-                    ? invoiceStatusLabel(String(invoice.status))
-                    : undefined
+                  [
+                    showInvoiceStatusBadge(statusFilter) && invoice.status
+                      ? invoiceStatusLabel(String(invoice.status))
+                      : null,
+                    invoice.ownership_transferred_at ? 'مستلم بنقل ملكية' : null,
+                    invoice.contract_kind === 'ownership_transfer'
+                      ? contractKindLabel(invoice.contract_kind)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || undefined
                 }
                 defaultOpen={false}
               >

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Customer, Distributor, SalesInvoice } from '../api/types'
+import type { Customer, Distributor, DistributorCommissionLedgerEntry, SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
@@ -97,6 +97,18 @@ export function DistributorDetailPage() {
         params: { include: 'customer,customers,salesInvoices' },
       })
       return data
+    },
+    enabled: Boolean(id),
+  })
+
+  const ledgerQuery = useQuery({
+    queryKey: ['distributor', id, 'commission-ledger'],
+    queryFn: async () => {
+      const { data } = await api.get<ApiPaginated<DistributorCommissionLedgerEntry>>(
+        `/distributors/${id}/commission-ledger`,
+        { params: { per_page: 50 } },
+      )
+      return data.data ?? []
     },
     enabled: Boolean(id),
   })
@@ -285,8 +297,13 @@ export function DistributorDetailPage() {
                 />
                 <ProfileDetailItem
                   icon="payments"
-                  label="القيمة المتفق عليها"
+                  label="عمولة ثابتة لكل عقد"
                   value={formatDistributorAgreedAmount(distributor.agreed_amount)}
+                />
+                <ProfileDetailItem
+                  icon="account_balance_wallet"
+                  label="رصيد العمولة"
+                  value={formatDistributorAgreedAmount(distributor.commission_balance)}
                 />
                 <ProfileDetailItem
                   icon="verified"
@@ -412,7 +429,7 @@ export function DistributorDetailPage() {
                   </label>
 
                   <label className="col-span-12 block text-sm sm:col-span-6">
-                    <span className="mb-xs block text-on-surface-variant">القيمة المتفق عليها</span>
+                    <span className="mb-xs block text-on-surface-variant">عمولة ثابتة لكل عقد (ج.م)</span>
                     <input
                       type="number"
                       min={0}
@@ -449,6 +466,43 @@ export function DistributorDetailPage() {
                 </button>
               </form>
             )}
+
+            <section className="mb-md">
+              <h2 className="mb-sm text-lg font-semibold">حركات رصيد العمولة</h2>
+              <DataTable
+                data={(ledgerQuery.data ?? []) as unknown as Record<string, unknown>[]}
+                keyExtractor={(row) => row.id as number}
+                pageSize={10}
+                emptyMessage="لا توجد حركات على الرصيد بعد"
+                columns={[
+                  {
+                    key: 'created_at',
+                    header: 'التاريخ',
+                    render: (row) => formatInvoiceDate(String(row.created_at ?? '')),
+                  },
+                  {
+                    key: 'type',
+                    header: 'النوع',
+                    render: (row) => (row.type === 'credit' ? 'إضافة' : 'خصم'),
+                  },
+                  {
+                    key: 'amount',
+                    header: 'المبلغ',
+                    render: (row) => `${Number(row.amount).toLocaleString('ar-EG')} ج.م`,
+                  },
+                  {
+                    key: 'balance_after',
+                    header: 'الرصيد بعد',
+                    render: (row) => `${Number(row.balance_after).toLocaleString('ar-EG')} ج.م`,
+                  },
+                  {
+                    key: 'notes',
+                    header: 'ملاحظات',
+                    render: (row) => String(row.notes ?? '—'),
+                  },
+                ]}
+              />
+            </section>
 
             <section className="mb-md">
               <h2 className="mb-sm text-lg font-semibold">عملاء الموزع</h2>

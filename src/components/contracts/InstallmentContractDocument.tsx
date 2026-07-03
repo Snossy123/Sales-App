@@ -6,6 +6,7 @@ import {
   fmtContractMoney,
   lineFinancialSummary,
   resolveInvoiceLine,
+  resolveLinePaymentTerm,
   resolveLinePlan,
   resolveSerial,
   resolveSim,
@@ -21,39 +22,8 @@ interface InstallmentContractDocumentProps {
   lineId?: number
 }
 
-export function InstallmentContractDocument({ invoice, lineId }: InstallmentContractDocumentProps) {
-  const customer = invoice.customer
-  const line = resolveInvoiceLine(invoice, lineId)
-  const plan = resolveLinePlan(line, invoice)
-  const installmentRows = buildInstallmentRows(line, invoice)
-  const renewalType = line?.renewal_type ?? invoice.renewal_type
-  const renewalDate = line?.subscription_renewal_date ?? invoice.subscription_renewal_date
-  const { paid: paidForDevice, balance: balanceForDevice } = line
-    ? lineFinancialSummary(line, invoice)
-    : { paid: 0, balance: 0 }
-
-  let paidDisplay = Number(invoice.paid_amount ?? paidForDevice)
-  let balanceDisplay = Number(invoice.balance_due ?? balanceForDevice)
-  if (plan?.items?.length && line) {
-    const installmentsPaid = plan.items.reduce(
-      (sum, item) => sum + Number(item.paid_amount ?? 0),
-      0,
-    )
-    paidDisplay = Number(plan.down_payment ?? 0) + installmentsPaid
-    balanceDisplay = Math.max(0, Number(line.line_total ?? 0) - paidDisplay)
-  }
-
-  const deviceSuffix =
-    invoice.lines && invoice.lines.length > 1 && line
-      ? ` — جهاز ${invoice.lines.indexOf(line) + 1}`
-      : ''
-
-  const renewalDisplay =
-    renewalType === 'permanent'
-      ? renewalTypeLabels.permanent
-      : fmtContractDate(renewalDate ?? undefined)
-
-  const renderTableCol = (start: number, end: number) => (
+function renderTableCol(installmentRows: string[], start: number, end: number) {
+  return (
     <div className="ic-tcol">
       {Array.from({ length: end - start + 1 }, (_, i) => {
         const num = start + i
@@ -67,6 +37,45 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
       })}
     </div>
   )
+}
+
+export function InstallmentContractDocument({ invoice, lineId }: InstallmentContractDocumentProps) {
+  const customer = invoice.customer
+  const line = resolveInvoiceLine(invoice, lineId)
+  const isInstallment = resolveLinePaymentTerm(line, invoice) === 'installment'
+  const plan = resolveLinePlan(line, invoice)
+  const installmentRows = buildInstallmentRows(line, invoice)
+  const renewalType = line?.renewal_type ?? invoice.renewal_type
+  const renewalDate = line?.subscription_renewal_date ?? invoice.subscription_renewal_date
+  const { paid: paidForDevice, balance: balanceForDevice } = line
+    ? lineFinancialSummary(line, invoice)
+    : { paid: 0, balance: 0 }
+
+  let paidDisplay = Number(invoice.paid_amount ?? paidForDevice)
+  let balanceDisplay = Number(invoice.balance_due ?? balanceForDevice)
+  if (isInstallment && plan?.items?.length && line) {
+    const installmentsPaid = plan.items.reduce(
+      (sum, item) => sum + Number(item.paid_amount ?? 0),
+      0,
+    )
+    paidDisplay = Number(plan.down_payment ?? 0) + installmentsPaid
+    balanceDisplay = Math.max(0, Number(line.line_total ?? 0) - paidDisplay)
+  } else if (!isInstallment && line) {
+    paidDisplay = Number(line.line_total ?? paidForDevice)
+    balanceDisplay = 0
+  }
+
+  const deviceSuffix =
+    invoice.lines && invoice.lines.length > 1 && line
+      ? ` — جهاز ${invoice.lines.indexOf(line) + 1}`
+      : ''
+
+  const renewalDisplay =
+    renewalType === 'permanent'
+      ? renewalTypeLabels.permanent
+      : fmtContractDate(renewalDate ?? undefined)
+
+  const contractTitle = isInstallment ? `عقد تقسيط${deviceSuffix}` : `عقد كاش${deviceSuffix}`
 
   return (
     <article className="installment-contract">
@@ -83,7 +92,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               <span>Trading</span>
             </div>
             <img className="ic-logo-img" src="/contract/logo.png" alt="Eleraqy Trading" />
-            <div className="ic-title-badge">عقد تقسيط{deviceSuffix}</div>
+            <div className="ic-title-badge">{contractTitle}</div>
           </div>
           <div className="ic-head-en">
             <div className="ic-head-en-top">Company</div>
@@ -92,7 +101,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           </div>
         </header>
 
-        <div className="ic-main">
+        <div className={`ic-main${isInstallment ? '' : ' ic-main--cash'}`}>
           <div className="ic-fields">
             <div className="ic-field-row">
               <span className="ic-field-diamond">◆</span>
@@ -141,19 +150,27 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
             </div>
           </div>
 
-          <div className="ic-table-wrap">
-            <div className="ic-table-title">بيان تقسيط</div>
-            <div className="ic-table-grid">
-              {renderTableCol(1, 15)}
-              {renderTableCol(16, 30)}
+          {isInstallment ? (
+            <div className="ic-table-wrap">
+              <div className="ic-table-title">بيان تقسيط</div>
+              <div className="ic-table-grid">
+                {renderTableCol(installmentRows, 1, 15)}
+                {renderTableCol(installmentRows, 16, 30)}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <div className="ic-summary">
           <div className="ic-srow">
             <span className="ic-pill-label">تم التعاقد يوم</span>
             <span className="ic-pill">{fmtContractDate(invoice.invoice_date)}</span>
+            {!isInstallment ? (
+              <>
+                <span className="ic-pill-label">قيمة الجهاز</span>
+                <span className="ic-pill">{fmtContractMoney(line?.line_total, false)}</span>
+              </>
+            ) : null}
             <span className="ic-pill-label">تم دفع مبلغ</span>
             <span className="ic-pill">{fmtContractMoney(paidDisplay, false)}</span>
             <span className="ic-pill-label">متبقى مبلغ</span>
@@ -182,14 +199,23 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           </div>
         </div>
 
-        <div className="ic-terms">
-          الرجاء الالتزام بسداد الأقساط المستحقة دفعها في الموعد المحدد لتجنب فرض غرامة{' '}
-          <b>10 جنيهات</b> لكل يوم تأخير، وفي حالة تأخير دفع القسط <b>ثلاثة أيام</b> فسوف يتم فقد
-          إشارة الجهاز أو تعطيل المركبة. وفي حالة استرجاع الجهاز للشركة يلتزم العميل بدفع{' '}
-          <b>25%</b> من قيمة الجهاز كاش ويتم دفع <b>350</b> سوفت وير ويتم دفع <b>150</b> جنية رسوم
-          فك ويطبق نسبة الفوائد <b>200</b> جنية لكل شهر مع دفع حق أي اجزاء تالفة للجهاز، ولا يحق
-          للعميل استرجاع الجهاز بعد مرور <b>29 يوم</b>
-        </div>
+        {isInstallment ? (
+          <div className="ic-terms">
+            الرجاء الالتزام بسداد الأقساط المستحقة دفعها في الموعد المحدد لتجنب فرض غرامة{' '}
+            <b>10 جنيهات</b> لكل يوم تأخير، وفي حالة تأخير دفع القسط <b>ثلاثة أيام</b> فسوف يتم فقد
+            إشارة الجهاز أو تعطيل المركبة. وفي حالة استرجاع الجهاز للشركة يلتزم العميل بدفع{' '}
+            <b>25%</b> من قيمة الجهاز كاش ويتم دفع <b>350</b> سوفت وير ويتم دفع <b>150</b> جنية رسوم
+            فك ويطبق نسبة الفوائد <b>200</b> جنية لكل شهر مع دفع حق أي اجزاء تالفة للجهاز، ولا يحق
+            للعميل استرجاع الجهاز بعد مرور <b>29 يوم</b>
+          </div>
+        ) : (
+          <div className="ic-terms">
+            أقر أنا الموقع أدناه بأنني اطلعت على بنود هذا العقد ووافقت عليها. في حالة رغبة العميل في
+            فك الجهاز أو إرجاعه يتحمل <b>25%</b> من قيمة الجهاز كاش وقت التركيب + <b>350</b> ج.م
+            رسوم سوفت وير + <b>150</b> ج.م رسوم فك. لا يحق للعميل الإرجاع بعد مرور <b>29 يوم</b> من
+            تاريخ التعاقد.
+          </div>
+        )}
 
         <div className="ic-warning">
           برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد

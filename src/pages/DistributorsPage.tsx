@@ -25,7 +25,7 @@ import {
   paginatedMeta,
 } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
-import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
+import { getAdministrationScopeQueryKey, mergeAdministrationListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 function truncateAddress(value?: string | null, max = 40): string {
@@ -35,7 +35,7 @@ function truncateAddress(value?: string | null, max = 40): string {
 
 export function DistributorsPage() {
   const user = useAuthStore((s) => s.user)
-  const listScopeKey = getListScopeQueryKey(user)
+  const listScopeKey = getAdministrationScopeQueryKey(user)
   const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [codeSearch, setCodeSearch] = useState('')
@@ -48,7 +48,7 @@ export function DistributorsPage() {
   const query = useQuery({
     queryKey: ['distributors', debouncedSearch, debouncedCode, statusFilter, listScopeKey, page],
     queryFn: async () => {
-      const params = mergeScopedListParams(user, {
+      const params = mergeAdministrationListParams(user, {
         per_page: 25,
         page,
         include: 'customer',

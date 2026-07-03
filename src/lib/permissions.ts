@@ -123,6 +123,9 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/review/evaluation-queue', icon: 'rate_review', label: 'تقييم العملاء', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/review/subscription-renewals', icon: 'autorenew', label: 'تجديد الاشتراكات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/review/evaluation-questions', icon: 'quiz', label: 'أسئلة التقييم', roles: ['super_admin', 'admin', 'reviewer'] },
       ],
     },
   },
@@ -265,6 +268,9 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/contract-templates': ['super_admin', 'admin'],
   '/invoices': ['super_admin', 'admin', 'reviewer'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
+  '/review/evaluation-queue': ['super_admin', 'admin', 'reviewer'],
+  '/review/subscription-renewals': ['super_admin', 'admin', 'reviewer'],
+  '/review/evaluation-questions': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
   '/payments': ['super_admin', 'admin', 'collector'],
   '/help/faq': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
@@ -346,6 +352,15 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     }
     if (item.to === '/invoices') {
       return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+    }
+    if (item.to === '/review/evaluation-queue') {
+      return userHasPermission(user, 'review.view_evaluation_queue') || userHasReviewAccess(user)
+    }
+    if (item.to === '/review/subscription-renewals') {
+      return userHasPermission(user, 'review.view_subscription_renewals') || userHasReviewAccess(user)
+    }
+    if (item.to === '/review/evaluation-questions') {
+      return userHasPermission(user, 'review.manage_evaluation_questions') || userHasReviewAccess(user)
     }
     if (item.to === '/support/my-tasks') {
       return userHasPermission(user, 'support.view_assigned_tasks')
@@ -448,6 +463,26 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   if (normalized === '/invoices') {
     if (routeRoles['/invoices']?.includes(role)) return true
     return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+  }
+
+  if (normalized === '/review/evaluation-queue') {
+    if (routeRoles['/review/evaluation-queue']?.includes(role)) return true
+    return userHasPermission(user, 'review.view_evaluation_queue') || userHasReviewAccess(user)
+  }
+
+  if (normalized === '/review/subscription-renewals') {
+    if (routeRoles['/review/subscription-renewals']?.includes(role)) return true
+    return userHasPermission(user, 'review.view_subscription_renewals') || userHasReviewAccess(user)
+  }
+
+  if (normalized.match(/^\/review\/evaluation-queue\/\d+$/)) {
+    if (routeRoles['/review/evaluation-queue']?.includes(role)) return true
+    return userHasPermission(user, 'review.view_evaluation_queue') || userHasReviewAccess(user)
+  }
+
+  if (normalized === '/review/evaluation-questions') {
+    if (routeRoles['/review/evaluation-questions']?.includes(role)) return true
+    return userHasPermission(user, 'review.manage_evaluation_questions') || userHasReviewAccess(user)
   }
 
   const branchDetailMatch = normalized.match(/^\/branches\/(\d+)$/)

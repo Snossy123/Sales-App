@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getErrorMessage } from '../../../api/client'
 import type { SupportTask, SupportTaskStatus } from '../../../api/types'
@@ -5,12 +6,14 @@ import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { formatDate } from '../../../lib/accounting'
 import {
   SUPPORT_STATUS_LABELS,
   SUPPORT_STATUS_TRANSITIONS,
   listSupportTasks,
   updateSupportTaskStatus,
 } from '../api'
+import { CompleteTaskModal } from '../components/CompleteTaskModal'
 
 const QUERY_KEY = ['support-tasks', 'mine']
 
@@ -21,6 +24,7 @@ function forwardStatuses(status: SupportTaskStatus): SupportTaskStatus[] {
 
 export function MyTasksPage() {
   const queryClient = useQueryClient()
+  const [completeTaskId, setCompleteTaskId] = useState<number | null>(null)
 
   const query = useQuery({
     queryKey: QUERY_KEY,
@@ -28,10 +32,28 @@ export function MyTasksPage() {
   })
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: SupportTaskStatus }) =>
-      updateSupportTaskStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    mutationFn: ({
+      id,
+      status,
+      executedAt,
+    }: {
+      id: number
+      status: SupportTaskStatus
+      executedAt?: string
+    }) => updateSupportTaskStatus(id, status, executedAt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY })
+      setCompleteTaskId(null)
+    },
   })
+
+  const handleStatusClick = (taskId: number, status: SupportTaskStatus) => {
+    if (status === 'completed') {
+      setCompleteTaskId(taskId)
+      return
+    }
+    statusMutation.mutate({ id: taskId, status })
+  }
 
   const rows = query.data?.data ?? []
 
@@ -55,6 +77,11 @@ export function MyTasksPage() {
             { key: 'serial_number', header: 'السيريال', render: (row) => row.serial_number ?? '—' },
             { key: 'vehicle_info', header: 'المركبة', render: (row) => row.vehicle_info ?? row.vehicle_type ?? '—' },
             {
+              key: 'executed_at',
+              header: 'تاريخ التنفيذ',
+              render: (row) => (row.executed_at ? formatDate(row.executed_at) : '—'),
+            },
+            {
               key: 'status',
               header: 'الحالة',
               render: (row) => <StatusBadge status={row.status} label={SUPPORT_STATUS_LABELS[row.status]} />,
@@ -71,7 +98,7 @@ export function MyTasksPage() {
                       <button
                         key={status}
                         type="button"
-                        onClick={() => statusMutation.mutate({ id: row.id, status })}
+                        onClick={() => handleStatusClick(row.id, status)}
                         disabled={statusMutation.isPending}
                         className="rounded-lg bg-primary px-md py-1.5 text-sm font-bold text-on-primary"
                       >
@@ -85,6 +112,16 @@ export function MyTasksPage() {
           ]}
         />
       </AsyncState>
+
+      <CompleteTaskModal
+        open={completeTaskId !== null}
+        onClose={() => setCompleteTaskId(null)}
+        isPending={statusMutation.isPending}
+        onConfirm={(executedAt) => {
+          if (completeTaskId === null) return
+          statusMutation.mutate({ id: completeTaskId, status: 'completed', executedAt })
+        }}
+      />
     </div>
   )
 }

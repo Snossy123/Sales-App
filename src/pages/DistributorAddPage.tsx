@@ -12,6 +12,7 @@ import {
   distributorTypeOptions,
   type ApiPaginated,
 } from '../lib/sales'
+import { getResolvedAdministrationId } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 const emptyForm = {
@@ -31,20 +32,22 @@ const labelTextClass = 'mb-xs block text-on-surface-variant'
 
 export function DistributorAddPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
   const branchId = useAuthStore((s) => s.branchId)
+  const administrationId = getResolvedAdministrationId(user)
   const [form, setForm] = useState(emptyForm)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
 
   const customersQuery = useQuery({
-    queryKey: ['customers', 'distributor-add', branchId, debouncedCustomerSearch],
+    queryKey: ['customers', 'distributor-add', administrationId, debouncedCustomerSearch],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 25,
         'filter[status]': 'active',
       }
-      if (branchId) params['filter[branch_id]'] = branchId
+      if (administrationId) params['filter[administration_id]'] = administrationId
       const q = debouncedCustomerSearch.trim()
       if (q) {
         if (/^01\d{8,9}$/.test(q.replace(/\s/g, ''))) {
@@ -56,7 +59,7 @@ export function DistributorAddPage() {
       const { data } = await api.get<ApiPaginated<Customer>>('/customers', { params })
       return data.data
     },
-    enabled: Boolean(branchId),
+    enabled: Boolean(administrationId),
   })
 
   const createMutation = useMutation({

@@ -4,15 +4,17 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Customer } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
+import { CustomerPhoneFields } from '../components/customers/CustomerPhoneFields'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
-  customerToForm,
-  emptyCustomerForm,
+  customerToPhoneEntries,
   emptyGuarantorForm,
   guarantorToForm,
   hasGuarantorData,
+  phoneEntriesToPayload,
+  type CustomerPhoneEntry,
 } from '../lib/customerForm'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
@@ -20,7 +22,8 @@ const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 export function CustomerEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [form, setForm] = useState(emptyCustomerForm)
+  const [form, setForm] = useState({ name: '', national_id: '', address: '', distinctive_mark: '' })
+  const [phones, setPhones] = useState<CustomerPhoneEntry[]>([])
   const [withGuarantor, setWithGuarantor] = useState(false)
   const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
 
@@ -38,7 +41,13 @@ export function CustomerEditPage() {
   useEffect(() => {
     const customer = customerQuery.data
     if (!customer) return
-    setForm(customerToForm(customer))
+    setForm({
+      name: customer.name ?? '',
+      national_id: customer.national_id ?? '',
+      address: customer.address ?? '',
+      distinctive_mark: customer.distinctive_mark ?? '',
+    })
+    setPhones(customerToPhoneEntries(customer))
     const existingGuarantor = customer.guarantors?.[0]
     setWithGuarantor(Boolean(existingGuarantor))
     setGuarantor(guarantorToForm(existingGuarantor))
@@ -53,7 +62,10 @@ export function CustomerEditPage() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = { ...form }
+      const payload: Record<string, unknown> = {
+        ...form,
+        ...phoneEntriesToPayload(phones),
+      }
 
       if (withGuarantor && hasGuarantorData(guarantor)) {
         payload.guarantors = [guarantor]
@@ -126,34 +138,7 @@ export function CustomerEditPage() {
                     className={inputClass}
                   />
                 </label>
-                <label className="col-span-12 block text-sm sm:col-span-4">
-                  <span className="mb-xs block text-on-surface-variant">رقم الهاتف 1 *</span>
-                  <input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    required
-                    dir="ltr"
-                    className={inputClass}
-                  />
-                </label>
-                <label className="col-span-12 block text-sm sm:col-span-4">
-                  <span className="mb-xs block text-on-surface-variant">رقم الهاتف 2</span>
-                  <input
-                    value={form.phone_2}
-                    onChange={(e) => setForm({ ...form, phone_2: e.target.value })}
-                    dir="ltr"
-                    className={inputClass}
-                  />
-                </label>
-                <label className="col-span-12 block text-sm sm:col-span-4">
-                  <span className="mb-xs block text-on-surface-variant">رقم الهاتف 3</span>
-                  <input
-                    value={form.phone_3}
-                    onChange={(e) => setForm({ ...form, phone_3: e.target.value })}
-                    dir="ltr"
-                    className={inputClass}
-                  />
-                </label>
+                <CustomerPhoneFields phones={phones} onChange={setPhones} />
                 <label className="col-span-12 block text-sm">
                   <span className="mb-xs block text-on-surface-variant">علامة مميزة بالتفصيل</span>
                   <textarea

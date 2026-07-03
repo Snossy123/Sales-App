@@ -22,6 +22,9 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/contract-templates': 'settings.manage',
   '/invoices/review': ['review.view_queue', 'review.view_detail'],
   '/invoices': 'review.view_contracts',
+  '/review/evaluation-queue': 'review.view_evaluation_queue',
+  '/review/subscription-renewals': 'review.view_subscription_renewals',
+  '/review/evaluation-questions': 'review.manage_evaluation_questions',
   '/installments': 'installments.view',
   '/payments': 'payments.view',
   '/call-center/collections': 'external_collections.collect',
@@ -72,6 +75,9 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.match(/^\/branches\/\d+$/)) return ['branches.manage']
   if (normalized.match(/^\/invoices\/review\/\d+$/)) {
     return ['review.view_queue', 'review.view_detail']
+  }
+  if (normalized.match(/^\/review\/evaluation-queue\/\d+$/)) {
+    return ['review.view_evaluation_queue', 'review.record_evaluation']
   }
   if (normalized.match(/^\/invoices\/\d+/)) {
     return ['review.view_contracts', 'sales.invoices.view', 'review.view_detail']

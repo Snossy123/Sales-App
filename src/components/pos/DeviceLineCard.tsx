@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import type { Employee } from '../../api/types'
+import type { ContractKind, Employee, GpsProduct } from '../../api/types'
+import { resolveGpsUnitPrice } from '../../lib/gpsProductPricing'
 import {
   type DiscountMode,
 } from '../../lib/discount'
@@ -213,6 +214,8 @@ interface DeviceLineCardProps {
   index: number
   line: DeviceLineDraft
   contractDate: string
+  contractKind: ContractKind
+  product?: GpsProduct
   cashPrice: number
   installmentPrice: number
   onChange: (line: DeviceLineDraft) => void
@@ -221,12 +224,29 @@ interface DeviceLineCardProps {
   employees: Employee[]
   employeesLoading: boolean
   showErrors?: boolean
+  hidePaymentSection?: boolean
+}
+
+function priceForLine(
+  product: GpsProduct | undefined,
+  contractKind: ContractKind,
+  paymentTerm: LinePaymentTerm,
+  renewalType: RenewalType,
+  cashPrice: number,
+  installmentPrice: number,
+): number {
+  if (!product) {
+    return paymentTerm === 'cash' ? cashPrice : installmentPrice
+  }
+  return resolveGpsUnitPrice(product, { contractKind, paymentTerm, renewalType })
 }
 
 export function DeviceLineCard({
   index,
   line,
   contractDate,
+  contractKind,
+  product,
   cashPrice,
   installmentPrice,
   onChange,
@@ -235,6 +255,7 @@ export function DeviceLineCard({
   employees,
   employeesLoading,
   showErrors = false,
+  hidePaymentSection = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -293,7 +314,14 @@ export function DeviceLineCard({
       : !cashValidation.valid)
 
   const switchToInstallment = () => {
-    const price = installmentPrice
+    const price = priceForLine(
+      product,
+      contractKind,
+      'installment',
+      line.renewalType,
+      cashPrice,
+      installmentPrice,
+    )
     const minDown = computeMinDownPayment(price, minDownPercent)
     patch({
       paymentTerm: 'installment',
@@ -307,14 +335,39 @@ export function DeviceLineCard({
   }
 
   const switchToCash = () => {
+    const price = priceForLine(
+      product,
+      contractKind,
+      'cash',
+      line.renewalType,
+      cashPrice,
+      installmentPrice,
+    )
     patch({
       paymentTerm: 'cash',
-      unitPrice: cashPrice,
+      unitPrice: price,
       discountAmount: 0,
       discountPercent: 0,
       cashSchedule: 'immediate',
       downPayment: 0,
     })
+  }
+
+  const handleRenewalTypeChange = (renewalType: RenewalType) => {
+    const price = priceForLine(
+      product,
+      contractKind,
+      line.paymentTerm,
+      renewalType,
+      cashPrice,
+      installmentPrice,
+    )
+    const partial: Partial<DeviceLineDraft> = { renewalType, unitPrice: price }
+    if (line.paymentTerm === 'installment') {
+      partial.downPayment = computeMinDownPayment(price, minDownPercent)
+      partial.installmentAmount = suggestInstallmentAmount(price, 6, minDownPercent)
+    }
+    patch(partial)
   }
 
   const handleDiscountChange = (next: {
@@ -522,17 +575,17 @@ export function DeviceLineCard({
               )}
             </div>
             <div>
-              <label className={posLabelClass}>التجديد</label>
+              <label className={posLabelClass}>الاشتراك</label>
               <select
                 value={line.renewalType}
-                onChange={(e) => patch({ renewalType: e.target.value as RenewalType })}
+                onChange={(e) => handleRenewalTypeChange(e.target.value as RenewalType)}
                 className={posSelectClass}
               >
                 <option value="annual">{renewalTypeLabels.annual}</option>
                 <option value="permanent">{renewalTypeLabels.permanent}</option>
               </select>
               {line.renewalType === 'annual' && renewalDate && (
-                <p className="mt-xs text-xs text-on-surface-variant">تاريخ التجديد: {renewalDate}</p>
+                <p className="mt-xs text-xs text-on-surface-variant">تاريخ تجديد الاشتراك: {renewalDate}</p>
               )}
             </div>
           </div>
@@ -551,6 +604,13 @@ export function DeviceLineCard({
             className={`${colBox} ${hasPaymentErrors ? 'border-error/25 bg-error/[0.06]' : ''}`}
             data-tour={index === 0 ? 'pos-payment' : undefined}
           >
+            {hidePaymentSection ? (
+              <p className="text-sm text-on-surface-variant">
+                لا يُنشأ تعاقد دفع جديد — الأقساط المتبقية تنتقل من التعاقد الأصلي للمالك
+                الجديد.
+              </p>
+            ) : (
+              <>
             <div className="mb-sm flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <h4 className={posSectionTitleClass}>طريقة الدفع — الجهاز</h4>
               <div className="flex w-full flex-col gap-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -707,6 +767,8 @@ export function DeviceLineCard({
                     </p>
                   ))}
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

@@ -16,15 +16,10 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, customerStatusOptions, paginatedMeta } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
-import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
+import { getAdministrationScopeQueryKey, mergeAdministrationListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
-function customerPhones(customer: Customer): string[] {
-  return [customer.phone, customer.phone_2, customer.phone_3].filter(
-    (phone): phone is string => Boolean(phone?.trim()),
-  )
-}
-
+import { customerAllPhoneNumbers } from '../lib/customerForm'
 function customerGuarantorLabel(customer: Customer): string {
   const guarantor = customer.guarantors?.[0]
   if (!guarantor?.name?.trim()) return 'بدون ضامن'
@@ -33,7 +28,7 @@ function customerGuarantorLabel(customer: Customer): string {
 
 export function CustomersPage() {
   const user = useAuthStore((s) => s.user)
-  const listScopeKey = getListScopeQueryKey(user)
+  const listScopeKey = getAdministrationScopeQueryKey(user)
   const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -44,7 +39,7 @@ export function CustomersPage() {
   const query = useQuery({
     queryKey: ['customers', debouncedSearch, statusFilter, listScopeKey, page],
     queryFn: async () => {
-      const params = mergeScopedListParams(user, {
+      const params = mergeAdministrationListParams(user, {
         per_page: 25,
         page,
         include: 'guarantors',
@@ -146,7 +141,7 @@ export function CustomersPage() {
               key: 'phones',
               header: 'للتواصل',
               render: (row) => {
-                const phones = customerPhones(row)
+                const phones = customerAllPhoneNumbers(row)
                 if (phones.length === 0) return '—'
                 return (
                   <div className="flex flex-col gap-0.5 text-xs tabular-nums" dir="ltr">

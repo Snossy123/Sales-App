@@ -168,6 +168,9 @@
   position: relative;
   z-index: 1;
 }
+.ic-main--cash {
+  grid-template-columns: 1fr;
+}
 
 /* Fields panel */
 .ic-fields {

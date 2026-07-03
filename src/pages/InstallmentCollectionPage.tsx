@@ -3,14 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { AdminUser, Branch, CollectionPaymentAccount, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
-import { DataTable } from '../components/DataTable'
+import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { SalesPageShell } from '../components/SalesPageShell'
-import { StatusBadge } from '../components/StatusBadge'
 import {
-  formatInvoiceDate,
   installmentStatusOptions,
   normalizeInstallmentItem,
 } from '../lib/sales'
@@ -19,10 +17,11 @@ import { useAuthStore } from '../stores/authStore'
 
 type InstallmentRow = InstallmentItem & Record<string, unknown>
 
-function tierRowClass(tier?: string): string {
-  if (tier === 'overdue') return 'bg-red-50 hover:bg-red-100/80'
-  if (tier === 'grace') return 'bg-orange-50 hover:bg-orange-100/80'
-  return 'bg-white hover:bg-surface-container-low'
+interface BranchStats {
+  branch: Branch
+  count: number
+  overdueCount: number
+  totalRemaining: number
 }
 
 const paymentMethodOptions = [
@@ -33,13 +32,6 @@ const paymentMethodOptions = [
 ]
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
-
-interface BranchStats {
-  branch: Branch
-  count: number
-  overdueCount: number
-  totalRemaining: number
-}
 
 function BranchInstallmentCard({
   stats,
@@ -116,7 +108,28 @@ export function InstallmentCollectionPage() {
   const [reconcileNotes, setReconcileNotes] = useState('')
   const [adjustNextDueDate, setAdjustNextDueDate] = useState(false)
   const [dueDateShiftDays, setDueDateShiftDays] = useState(0)
+  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
   const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
+
+  const selectedCustomerId = selected?.customer_id as number | undefined
+
+  const distributorProfileQuery = useQuery({
+    queryKey: ['customer', selectedCustomerId, 'distributor-profile'],
+    queryFn: async () => {
+      const { data } = await api.get<{ distributor_profile?: import('../api/types').Distributor }>(
+        `/customers/${selectedCustomerId}`,
+        { params: { include: 'distributorProfile' } },
+      )
+      return data.distributor_profile ?? null
+    },
+    enabled: Boolean(selectedCustomerId),
+  })
+
+  const distributorProfile = distributorProfileQuery.data
+  const maxDistributorBalance = Math.min(
+    Number(distributorProfile?.commission_balance ?? 0),
+    amount,
+  )
 
   interface PaymentRow {
     id: number
@@ -275,6 +288,9 @@ export function InstallmentCollectionPage() {
         payload.adjust_next_due_date = true
         if (dueDateShiftDays > 0) payload.due_date_shift_days = dueDateShiftDays
       }
+      if (distributorBalanceAmount > 0) {
+        payload.distributor_balance_amount = distributorBalanceAmount
+      }
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
@@ -290,6 +306,7 @@ export function InstallmentCollectionPage() {
       setPaymentMethod('cash')
       setAccountId('')
       setSenderNumber('')
+      setDistributorBalanceAmount(0)
       setAdjustNextDueDate(false)
       setDueDateShiftDays(0)
     },
@@ -336,6 +353,7 @@ export function InstallmentCollectionPage() {
       ? Math.max(1, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
       : 1
     setDueDateShiftDays(daysLate)
+    setDistributorBalanceAmount(0)
   }
 
   const toggleBranch = (branchId: number) => {
@@ -353,7 +371,7 @@ export function InstallmentCollectionPage() {
   return (
     <SalesPageShell
       title="تحصيل الأقساط"
-      subtitle="اختر فرعاً لعرض الأقساط المستحقة والمتأخرة"
+      subtitle="اختر فرعاً لعرض الأقساط مجمّعة حسب العميل ثم التعاقد"
       filters={
         <FilterBar
           selects={[
@@ -402,7 +420,8 @@ export function InstallmentCollectionPage() {
                 أقساط فرع {selectedBranch.name_ar || selectedBranch.name}
               </h2>
               <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
-                {filteredRows.length} قسط
+                {filteredRows.length} قسط ·{' '}
+                {new Set(filteredRows.map((r) => r.customer_id ?? r.customer_name)).size} عميل
               </span>
             </div>
 
@@ -416,108 +435,21 @@ export function InstallmentCollectionPage() {
 
             <div className="grid gap-md lg:grid-cols-[minmax(0,1fr)_min(22rem,38%)]">
               <div className="min-w-0">
-              <DataTable<InstallmentRow>
-                data={filteredRows}
-                keyExtractor={(row) => row.id}
-                pageSize={10}
-                pageKey={`${selectedBranchId}-${customerSearch}-${statusFilter}`}
-                emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
-                rowClassName={(row) => tierRowClass(String(row.display_tier ?? row.status))}
-                columns={[
-                  { key: 'invoice_number', header: 'فاتورة' },
-                  { key: 'customer_name', header: 'العميل', render: (row) => row.customer_name ?? '—' },
-                  {
-                    key: 'phones',
-                    header: 'للتواصل',
-                    render: (row) => (
-                      <div className="flex flex-col gap-0.5 text-xs" dir="ltr">
-                        {(row.customer_phones ?? [row.customer_phone]).filter(Boolean).map((phone) => (
-                          <a key={String(phone)} href={`tel:${phone}`} className="text-primary hover:underline">
-                            {phone}
-                          </a>
-                        ))}
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'installment_number',
-                    header: 'قسط #',
-                    render: (row) => row.installment_number ?? '—',
-                  },
-                  {
-                    key: 'remaining_installments',
-                    header: 'الأقساط المتبقية',
-                    render: (row) => row.remaining_installments ?? '—',
-                  },
-                  {
-                    key: 'amount',
-                    header: 'مبلغ القسط',
-                    render: (row) => Number(row.amount).toLocaleString('ar-EG'),
-                  },
-                  {
-                    key: 'due_date',
-                    header: 'الاستحقاق',
-                    render: (row) => formatInvoiceDate(String(row.due_date)),
-                  },
-                  {
-                    key: 'reconciliation',
-                    header: 'تصالح',
-                    render: (row) =>
-                      row.has_open_reconciliation ? (
-                        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
-                          مفتوح
-                        </span>
-                      ) : (
-                        '—'
-                      ),
-                  },
-                  {
-                    key: 'status',
-                    header: 'الحالة',
-                    render: (row) => (
-                      <StatusBadge status={String(row.display_tier ?? row.status)} />
-                    ),
-                  },
-                  {
-                    key: 'actions',
-                    header: '',
-                    render: (row) => (
-                      <div className="flex flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => selectRow(row)}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          تحصيل
-                        </button>
-                        {row.display_tier === 'overdue' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              selectRow(row)
-                              setShowReconcile(true)
-                            }}
-                            className="text-xs text-on-surface-variant hover:underline"
-                          >
-                            تصالح
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm('نقل القسط إلى سلة المهملات؟')) {
-                              deleteMutation.mutate(row.id as number)
-                            }
-                          }}
-                          className="text-xs text-error hover:underline"
-                        >
-                          حذف
-                        </button>
-                      </div>
-                    ),
-                  },
-                ]}
-              />
+                <InstallmentCollectionGroupedList
+                  rows={filteredRows}
+                  selectedId={selected?.id as number | undefined}
+                  onSelect={selectRow}
+                  onReconcile={(row) => {
+                    selectRow(row)
+                    setShowReconcile(true)
+                  }}
+                  onDelete={(row) => {
+                    if (window.confirm('نقل القسط إلى سلة المهملات؟')) {
+                      deleteMutation.mutate(row.id as number)
+                    }
+                  }}
+                  emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
+                />
               </div>
 
               {selected ? (
@@ -607,6 +539,30 @@ export function InstallmentCollectionPage() {
                       onChange={(e) => setAmount(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
                     />
+
+                    {distributorProfile && Number(distributorProfile.commission_balance ?? 0) > 0 && (
+                      <div className="mt-sm space-y-xs rounded-lg border border-primary/25 bg-primary/5 p-sm">
+                        <p className="text-xs text-on-surface-variant">
+                          رصيد عمولة متاح:{' '}
+                          {Number(distributorProfile.commission_balance).toLocaleString('ar-EG')} ج.م
+                        </p>
+                        <label className="mb-xs block text-sm text-on-surface-variant">
+                          خصم من رصيد العمولة
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={maxDistributorBalance}
+                          value={distributorBalanceAmount}
+                          onChange={(e) =>
+                            setDistributorBalanceAmount(
+                              Math.min(Number(e.target.value), maxDistributorBalance),
+                            )
+                          }
+                          className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
+                        />
+                      </div>
+                    )}
                     {Number(selected.late_fee_accrued ?? 0) > 0 && (
                       <div className="mt-sm space-y-sm rounded-lg border border-outline-variant bg-surface-container-high p-sm">
                         <label className="flex items-center gap-xs text-sm">
@@ -744,7 +700,7 @@ export function InstallmentCollectionPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-md text-sm text-on-surface-variant">
-                  اختر قسطاً من الجدول لبدء التحصيل
+                  اختر قسطاً من القائمة لبدء التحصيل
                 </div>
               )}
             </div>
@@ -752,7 +708,7 @@ export function InstallmentCollectionPage() {
         ) : (
           branchStats.length > 0 && (
             <p className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low p-md text-center text-sm text-on-surface-variant">
-              اضغط على كارت الفرع لعرض جدول الأقساط
+              اضغط على كارت الفرع لعرض الأقساط
             </p>
           )
         )}

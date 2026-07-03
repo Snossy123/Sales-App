@@ -11,6 +11,7 @@ import {
   fmtContractMoney,
   invoiceContractSummary,
 } from '../../lib/contractFields'
+import { contractKindLabel } from '../../lib/contractKinds'
 import {
   contractPrintPath,
   distributorLabel,
@@ -45,6 +46,11 @@ export function buildContractListColumns(
           )}
         </div>
       ),
+    },
+    {
+      key: 'contract_kind',
+      header: 'نوع الخدمة',
+      render: (row) => contractKindLabel(row.contract_kind),
     },
     {
       key: 'source',

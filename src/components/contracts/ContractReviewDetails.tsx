@@ -13,6 +13,7 @@ import {
   resolveUsername,
   resolveVehicleDistinctiveDetail,
 } from '../../lib/contractFields'
+import { contractKindLabel } from '../../lib/contractKinds'
 import { isServiceInvoiceLine, paymentTermLabel } from '../../lib/sales'
 import { CustomerAttachmentsSection } from '../customers/CustomerAttachmentsSection'
 import { DataTable } from '../DataTable'
@@ -219,7 +220,7 @@ function DeviceDetailCard({
   if (technician) cells.push({ label: 'الفني', value: technician })
 
   const renewal = resolveRenewalLabel(line, invoice)
-  if (renewal) cells.push({ label: 'تاريخ التجديد', value: renewal })
+  if (renewal) cells.push({ label: 'تاريخ الاشتراك', value: renewal })
 
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(paymentTerm) })
 
@@ -230,7 +231,7 @@ function DeviceDetailCard({
 
   const renewalType = resolveRenewalTypeLabel(line, invoice)
   if (renewalType && renewalType !== '—') {
-    cells.push({ label: 'نوع التجديد', value: renewalType })
+    cells.push({ label: 'نوع الاشتراك', value: renewalType })
   }
 
   return (
@@ -307,6 +308,68 @@ interface ContractReviewDetailsProps {
   invoice: SalesInvoice
 }
 
+function ContractKindReviewNotice({ invoice }: { invoice: SalesInvoice }) {
+  const kind = invoice.contract_kind
+
+  if (kind === 'ownership_transfer') {
+    const sourceInvoice =
+      invoice.source_invoice ??
+      (invoice as SalesInvoice & { sourceInvoice?: SalesInvoice }).sourceInvoice
+    const previousOwner = sourceInvoice?.customer
+
+    return (
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-md">
+        <p className="font-semibold text-on-surface">{contractKindLabel(kind)}</p>
+        <p className="mt-xs text-sm text-on-surface-variant">
+          بعد الاعتماد يُنقل التعاقد الأصلي والأقساط المتبقية إلى المالك الجديد.
+        </p>
+        {sourceInvoice ? (
+          <dl className="mt-md grid gap-sm text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-on-surface-variant">التعاقد الأصلي</dt>
+              <dd className="font-medium tabular-nums">
+                {sourceInvoice.invoice_number ?? `#${sourceInvoice.id}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-on-surface-variant">المالك السابق</dt>
+              <dd className="font-medium">
+                {previousOwner?.name ?? '—'}
+                {previousOwner?.phone ? ` — ${previousOwner.phone}` : ''}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-on-surface-variant">حالة السداد (الأصلي)</dt>
+              <dd className="font-medium">{paymentTermLabel(sourceInvoice.payment_term)}</dd>
+            </div>
+            <div>
+              <dt className="text-on-surface-variant">المتبقي على التعاقد الأصلي</dt>
+              <dd className="font-medium tabular-nums">
+                {fmtContractMoney(sourceInvoice.balance_due)}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-sm text-sm text-error">لم يُربط تعاقد أصلي — تحقق من بيانات نقطة البيع.</p>
+        )}
+      </div>
+    )
+  }
+
+  if (kind === 'external_device') {
+    return (
+      <div className="rounded-xl border border-secondary/30 bg-secondary/5 p-md">
+        <p className="font-semibold text-on-surface">{contractKindLabel(kind)}</p>
+        <p className="mt-xs text-sm text-on-surface-variant">
+          جهاز لم يُبَع من مخزون الشركة — يُسجَّل في النظام بدون خصم من المخزون.
+        </p>
+      </div>
+    )
+  }
+
+  return null
+}
+
 export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
   const customer = invoice.customer
   const allLines = invoice.lines ?? []
@@ -357,12 +420,23 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
 
   return (
     <div className="space-y-md">
+      <ContractKindReviewNotice invoice={invoice} />
+
       <PosSectionCard
         number={sectionNumber++}
         title="بيانات التعاقد"
-        subtitle="الأجهزة والخدمات والإجماليات المالية"
+        subtitle={[contractKindLabel(invoice.contract_kind), `${deviceLines.length + serviceLines.length} بند`]
+          .filter(Boolean)
+          .join(' · ')}
         contentClassName="space-y-md p-sm sm:p-md"
       >
+        <div className="flex flex-wrap gap-xs">
+          <StatusBadge
+            status="active"
+            label={contractKindLabel(invoice.contract_kind)}
+          />
+        </div>
+
         {deviceLines.length > 0 ? (
           <div>
             <h4 className="mb-sm text-xs font-bold text-on-surface-variant">جدول الأجهزة</h4>
@@ -407,7 +481,7 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
 
       <PosSectionCard
         number={sectionNumber++}
-        title="بيانات العميل"
+        title={invoice.contract_kind === 'ownership_transfer' ? 'بيانات المالك الجديد' : 'بيانات العميل'}
         subtitle={customer?.name ?? undefined}
         contentClassName="p-sm sm:p-md"
       >

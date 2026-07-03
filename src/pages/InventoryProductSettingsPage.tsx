@@ -16,6 +16,10 @@ const emptyForm = {
   brand: '',
   cash_price: '',
   installment_price: '',
+  external_cash_annual_price: '',
+  external_cash_permanent_price: '',
+  external_installment_annual_price: '',
+  external_installment_permanent_price: '',
 }
 
 type GpsProductForm = typeof emptyForm
@@ -26,6 +30,18 @@ function toForm(product: GpsProduct): GpsProductForm {
     brand: product.brand ?? '',
     cash_price: String(product.cash_price ?? product.sell_price),
     installment_price: String(product.installment_price ?? product.sell_price),
+    external_cash_annual_price: String(
+      product.external_cash_annual_price ?? product.cash_price ?? product.sell_price,
+    ),
+    external_cash_permanent_price: String(
+      product.external_cash_permanent_price ?? product.cash_price ?? product.sell_price,
+    ),
+    external_installment_annual_price: String(
+      product.external_installment_annual_price ?? product.installment_price ?? product.sell_price,
+    ),
+    external_installment_permanent_price: String(
+      product.external_installment_permanent_price ?? product.installment_price ?? product.sell_price,
+    ),
   }
 }
 
@@ -37,7 +53,44 @@ function toPayload(form: GpsProductForm) {
     brand: form.brand.trim() || null,
     cash_price: Number(form.cash_price),
     installment_price: Number(form.installment_price),
+    external_cash_annual_price: Number(form.external_cash_annual_price),
+    external_cash_permanent_price: Number(form.external_cash_permanent_price),
+    external_installment_annual_price: Number(form.external_installment_annual_price),
+    external_installment_permanent_price: Number(form.external_installment_permanent_price),
   }
+}
+
+function PriceField({
+  id,
+  label,
+  value,
+  onChange,
+  required = true,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  required?: boolean
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-on-surface-variant">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={0.01}
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        dir="ltr"
+        className={`${inputClass} tabular-nums`}
+      />
+    </div>
+  )
 }
 
 export function InventoryProductSettingsPage() {
@@ -131,7 +184,7 @@ export function InventoryProductSettingsPage() {
       >
         <form
           onSubmit={handleSubmit}
-          className="mx-auto max-w-lg space-y-md rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
+          className="mx-auto max-w-2xl space-y-md rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
         >
           <div>
             <label htmlFor="gps-product-name-ar" className="mb-1 block text-sm font-medium text-on-surface-variant">
@@ -158,40 +211,63 @@ export function InventoryProductSettingsPage() {
             />
           </div>
 
-          <div className="grid gap-md sm:grid-cols-2">
-            <div>
-              <label htmlFor="gps-product-cash" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                سعر البيع كاش (ج.م)
-              </label>
-              <input
+          <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
+            <h3 className="text-sm font-bold text-on-surface">داخل الشركة — تعاقد جديد</h3>
+            <p className="text-xs text-on-surface-variant">
+              الأسعار الافتراضية لبيع جهاز من مخزون الشركة (كاش / تقسيط).
+            </p>
+            <div className="grid gap-md sm:grid-cols-2">
+              <PriceField
                 id="gps-product-cash"
-                type="number"
-                min={0.01}
-                step="0.01"
+                label="سعر الكاش (ج.م)"
                 value={form.cash_price}
-                onChange={(e) => setForm({ ...form, cash_price: e.target.value })}
-                required
-                dir="ltr"
-                className={`${inputClass} tabular-nums`}
+                onChange={(value) => setForm({ ...form, cash_price: value })}
               />
-            </div>
-            <div>
-              <label htmlFor="gps-product-installment" className="mb-1 block text-sm font-medium text-on-surface-variant">
-                سعر البيع قسط (ج.م)
-              </label>
-              <input
+              <PriceField
                 id="gps-product-installment"
-                type="number"
-                min={0.01}
-                step="0.01"
+                label="سعر التقسيط (ج.م)"
                 value={form.installment_price}
-                onChange={(e) => setForm({ ...form, installment_price: e.target.value })}
-                required
-                dir="ltr"
-                className={`${inputClass} tabular-nums`}
+                onChange={(value) => setForm({ ...form, installment_price: value })}
               />
             </div>
-          </div>
+          </section>
+
+          <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
+            <h3 className="text-sm font-bold text-on-surface">خارج الشركة — جهاز خارجي</h3>
+            <p className="text-xs text-on-surface-variant">
+              سعر منفصل حسب طريقة الدفع ونوع الاشتراك (سنوي / مدى الحياة).
+            </p>
+            <div className="grid gap-md sm:grid-cols-2">
+              <PriceField
+                id="gps-external-cash-annual"
+                label="كاش — اشتراك سنوي (ج.م)"
+                value={form.external_cash_annual_price}
+                onChange={(value) => setForm({ ...form, external_cash_annual_price: value })}
+              />
+              <PriceField
+                id="gps-external-cash-permanent"
+                label="كاش — مدى الحياة (ج.م)"
+                value={form.external_cash_permanent_price}
+                onChange={(value) => setForm({ ...form, external_cash_permanent_price: value })}
+              />
+              <PriceField
+                id="gps-external-installment-annual"
+                label="تقسيط — اشتراك سنوي (ج.م)"
+                value={form.external_installment_annual_price}
+                onChange={(value) => setForm({ ...form, external_installment_annual_price: value })}
+              />
+              <PriceField
+                id="gps-external-installment-permanent"
+                label="تقسيط — مدى الحياة (ج.م)"
+                value={form.external_installment_permanent_price}
+                onChange={(value) => setForm({ ...form, external_installment_permanent_price: value })}
+              />
+            </div>
+          </section>
+
+          <p className="text-xs text-on-surface-variant">
+            تجديد الاشتراك لجهاز داخل الشركة يُحسب تلقائياً بنسبة 25% من سعر الكاش الداخلي.
+          </p>
 
           {saveMutation.isError && (
             <p className="text-sm text-error">{getErrorMessage(saveMutation.error)}</p>

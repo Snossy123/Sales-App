@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { Icon } from '../components/Icon'
@@ -12,7 +13,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
-import { contractPrintPath, reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
+import { contractKindLabel, reviewApproveLabel } from '../lib/contractKinds'
+import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
 export function InvoiceReviewDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,7 +33,7 @@ export function InvoiceReviewDetailPage() {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
         params: {
           include:
-            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan',
+            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan,sourceInvoice.customer',
         },
       })
       return data
@@ -85,6 +87,7 @@ export function InvoiceReviewDetailPage() {
         invoice
           ? [
               invoice.invoice_number,
+              contractKindLabel(invoice.contract_kind),
               contractSourceLabel(invoice),
               fmtInvoiceContractDateTime(invoice),
             ]
@@ -146,21 +149,11 @@ export function InvoiceReviewDetailPage() {
                       className="flex w-full items-center justify-center gap-xs rounded-lg bg-secondary px-md py-3 text-sm font-bold text-on-secondary disabled:opacity-60"
                     >
                       <Icon name="check_circle" size={20} />
-                      تأكيد وإرسال الأقساط
+                      {reviewApproveLabel(invoice.contract_kind)}
                     </button>
                   ) : null}
 
-                  {canPrint ? (
-                    <Link
-                      to={contractPrintPath(invoice.id, { autoPrint: true })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-3 text-sm font-bold text-on-surface hover:bg-surface-container-low"
-                    >
-                      <Icon name="print" size={20} />
-                      طباعة العقد
-                    </Link>
-                  ) : null}
+                  {canPrint ? <ContractPrintActions invoice={invoice} autoPrint /> : null}
 
                   {canReject ? (
                     <button

@@ -118,6 +118,43 @@ export function getDataScopeLabel(user: AuthUser | null): string | null {
   return user?.data_scope_label ?? null
 }
 
+/** Resolve administration id for customer/distributor list queries. */
+export function getResolvedAdministrationId(user: AuthUser | null): number | null {
+  const scoped = getScopedDepartmentId(user)
+  if (scoped != null) return scoped
+
+  const fromStore = useAuthStore.getState().departmentId
+  if (fromStore != null) return fromStore
+
+  const branch = user?.branch
+  if (branch) {
+    return branch.administration_id ?? branch.department_id ?? null
+  }
+
+  return user?.administration_id ?? user?.department_id ?? null
+}
+
+export function getListAdministrationFilter(user: AuthUser | null): Record<string, number> {
+  const administrationId = getResolvedAdministrationId(user)
+  if (administrationId != null) {
+    return { 'filter[administration_id]': administrationId }
+  }
+  return {}
+}
+
+/** Merge list query params scoped to the active administration (customers/distributors). */
+export function mergeAdministrationListParams<T extends Record<string, unknown>>(
+  user: AuthUser | null,
+  params: T,
+): T & Record<string, string | number> {
+  return { ...params, ...getListAdministrationFilter(user) }
+}
+
+/** Stable react-query key segment for administration-scoped list endpoints. */
+export function getAdministrationScopeQueryKey(user: AuthUser | null): number | 'all' {
+  return getResolvedAdministrationId(user) ?? 'all'
+}
+
 /** Locked branch filter for list queries. */
 export function getListBranchFilter(
   user: AuthUser | null,

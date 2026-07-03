@@ -161,6 +161,7 @@ export interface SupportTask {
   status: SupportTaskStatus
   scheduled_at?: string | null
   completed_at?: string | null
+  executed_at?: string | null
   notes?: string | null
   created_at?: string | null
   employee_name?: string | null
@@ -170,6 +171,70 @@ export interface SupportTask {
   serial_number?: string | null
   vehicle_info?: string | null
   vehicle_type?: string | null
+}
+
+export type ServiceEvaluationAnswerType = 'text' | 'rating' | 'yes_no'
+
+export type ServiceEvaluationRequestStatus = 'pending' | 'completed' | 'unreachable'
+
+export interface ServiceEvaluationQuestion {
+  id: number
+  question_ar: string
+  answer_type: ServiceEvaluationAnswerType
+  sort_order?: number
+  is_active?: boolean
+}
+
+export interface ServiceEvaluationAnswer {
+  id?: number
+  service_evaluation_question_id: number
+  answer_text?: string | null
+  answer_rating?: number | null
+  question_ar?: string | null
+  answer_type?: ServiceEvaluationAnswerType
+}
+
+export interface ServiceEvaluationRequest {
+  id: number
+  support_task_id: number
+  sales_invoice_id: number
+  sales_invoice_line_id?: number | null
+  customer_id: number
+  executed_at?: string | null
+  status: ServiceEvaluationRequestStatus
+  overall_rating?: number | null
+  notes?: string | null
+  completed_at?: string | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  invoice_number?: string | null
+  vehicle_info?: string | null
+  serial_number?: string | null
+  technician_name?: string | null
+  recorded_by_name?: string | null
+  answers?: ServiceEvaluationAnswer[]
+}
+
+export type SubscriptionRenewalStatus = 'overdue' | 'due_soon' | 'upcoming'
+
+export interface SubscriptionRenewalQueueItem {
+  id: number
+  sales_invoice_id: number
+  customer_id?: number | null
+  invoice_number?: string | null
+  subscription_renewal_date?: string | null
+  days_until_renewal?: number | null
+  renewal_status?: SubscriptionRenewalStatus | null
+  renewal_type?: string | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  customer_phone_2?: string | null
+  serial_number?: string | null
+  sim_number?: string | null
+  username?: string | null
+  vehicle_info?: string | null
+  branch_name?: string | null
+  confirmed_at?: string | null
 }
 
 export interface AuthUser {
@@ -265,6 +330,10 @@ export interface GpsProduct {
   sell_price: number
   cash_price: number
   installment_price: number
+  external_cash_annual_price?: number
+  external_cash_permanent_price?: number
+  external_installment_annual_price?: number
+  external_installment_permanent_price?: number
   cost_price?: number | null
 }
 
@@ -308,8 +377,12 @@ export interface Customer {
   sales_user_id?: number | null
   name: string
   phone: string
+  phone_label?: string | null
   phone_2?: string | null
+  phone_2_label?: string | null
   phone_3?: string | null
+  phone_3_label?: string | null
+  extra_phones?: { number: string; label?: string | null }[] | null
   sim_number?: string | null
   username?: string | null
   device_serial?: string | null
@@ -328,6 +401,37 @@ export interface Customer {
   guarantors?: Guarantor[]
   media?: MediaFile[]
   sales_invoices?: SalesInvoice[]
+  ownership_transfers_from?: OwnershipTransfer[]
+  ownership_transfers_to?: OwnershipTransfer[]
+}
+
+export interface OwnershipTransferPaidInstallment {
+  sequence: number
+  due_date?: string | null
+  amount: number
+  paid_amount: number
+  paid_at?: string | null
+  status: string
+}
+
+export interface OwnershipTransfer {
+  id: number
+  source_sales_invoice_id: number
+  transfer_sales_invoice_id?: number | null
+  from_customer_id: number
+  to_customer_id: number
+  transferred_at?: string | null
+  paid_total_at_transfer?: string | number
+  remaining_balance_at_transfer?: string | number
+  paid_installments_snapshot?: OwnershipTransferPaidInstallment[]
+  notes?: string | null
+  from_customer?: Pick<Customer, 'id' | 'name' | 'phone'>
+  to_customer?: Pick<Customer, 'id' | 'name' | 'phone'>
+  source_invoice?: Pick<
+    SalesInvoice,
+    'id' | 'invoice_number' | 'payment_term' | 'total' | 'paid_amount' | 'balance_due' | 'lines'
+  >
+  transfer_invoice?: Pick<SalesInvoice, 'id' | 'invoice_number'>
 }
 
 export interface Distributor {
@@ -342,6 +446,7 @@ export interface Distributor {
   customer_id?: number | null
   status: string
   agreed_amount?: string | number | null
+  commission_balance?: string | number | null
   commission_percent?: string | number | null
   commission_tier_threshold?: number | null
   commission_tier_increment?: string | number | null
@@ -355,6 +460,21 @@ export interface Distributor {
   sales_invoices_count?: number
   customers?: Customer[]
   sales_invoices?: SalesInvoice[]
+}
+
+export interface DistributorCommissionLedgerEntry {
+  id: number
+  distributor_id: number
+  type: 'credit' | 'debit'
+  amount: string | number
+  balance_after: string | number
+  sales_invoice_id?: number | null
+  payment_transaction_id?: number | null
+  notes?: string | null
+  created_at?: string
+  sales_invoice?: { id: number; invoice_number?: string }
+  payment_transaction?: { id: number; transaction_number?: string }
+  user?: { id: number; name: string }
 }
 
 export type DistributorType = 'center' | 'free'
@@ -472,6 +592,12 @@ export interface InstallmentPlan {
 
 export type InvoiceStatus = 'pending_review' | 'confirmed' | 'rejected'
 
+export type ContractKind =
+  | 'new_contract'
+  | 'subscription_renewal'
+  | 'external_device'
+  | 'ownership_transfer'
+
 export interface SalesInvoice {
   id: number
   invoice_number?: string
@@ -488,6 +614,10 @@ export interface SalesInvoice {
   status?: InvoiceStatus | string
   review_status?: 'pending' | 'approved' | 'rejected'
   sale_category?: 'accessories' | 'maintenance' | string
+  contract_kind?: ContractKind | string
+  source_sales_invoice_id?: number | null
+  ownership_transferred_at?: string | null
+  source_invoice?: SalesInvoice | null
   customer_id: number
   distributor_id?: number | null
   sales_user_id?: number | null
@@ -743,11 +873,14 @@ export interface CheckoutPayload {
   promotion_id?: number
   warehouse_id?: number
   branch_id?: number
+  contract_kind?: ContractKind
+  source_sales_invoice_id?: number
   payment_term?: 'cash' | 'credit' | 'installment' | 'mixed'
   discount_amount?: number
   installation_fee?: number
   invoice_date?: string
   notes?: string
+  distributor_balance_amount?: number
   lines: {
     line_type?: 'device' | 'service'
     product_unit_id?: number
@@ -799,6 +932,7 @@ export interface ServiceCheckoutPayload {
   sale_category: 'accessories' | 'maintenance'
   invoice_date?: string
   notes?: string
+  distributor_balance_amount?: number
   items: {
     service_id?: number
     description: string

@@ -28,6 +28,7 @@ import { DistributorDetailPage } from '../pages/DistributorDetailPage'
 import { DailyBranchReportPage } from '../pages/DailyBranchReportPage'
 import { DailyBranchReportPrintPage } from '../pages/DailyBranchReportPrintPage'
 import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintPage'
+import { OwnershipTransferContractPrintPage } from '../pages/OwnershipTransferContractPrintPage'
 import { ServiceContractPrintPage } from '../pages/ServiceContractPrintPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
 import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
@@ -93,6 +94,10 @@ import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
 import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
 import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
+import { EvaluationQuestionsPage } from '../modules/review/pages/EvaluationQuestionsPage'
+import { EvaluationQueuePage } from '../modules/review/pages/EvaluationQueuePage'
+import { SubscriptionRenewalQueuePage } from '../modules/review/pages/SubscriptionRenewalQueuePage'
+import { EvaluationRecordPage } from '../modules/review/pages/EvaluationRecordPage'
 import { PortalLoginPage } from '../modules/crm/portal/PortalLoginPage'
 import { PortalLayout } from '../modules/crm/portal/PortalLayout'
 import { PortalDashboardPage } from '../modules/crm/portal/PortalDashboardPage'
@@ -193,7 +198,12 @@ export function AppRoutes() {
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
             <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />
+            <Route path="review/evaluation-queue" element={<EvaluationQueuePage />} />
+            <Route path="review/evaluation-queue/:id" element={<EvaluationRecordPage />} />
+            <Route path="review/subscription-renewals" element={<SubscriptionRenewalQueuePage />} />
+            <Route path="review/evaluation-questions" element={<EvaluationQuestionsPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
+            <Route path="invoices/:id/ownership-transfer-contract" element={<OwnershipTransferContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />
             <Route path="invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="invoices" element={<InvoicesPage />} />

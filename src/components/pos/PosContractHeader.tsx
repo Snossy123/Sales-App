@@ -32,6 +32,8 @@ export interface PosContractHeaderProps {
   customersLoading: boolean
   contractDate: string
   onContractDateChange: (date: string) => void
+  customerLabel?: string
+  sectionNumber?: number
   submitAttempted?: boolean
 }
 
@@ -60,6 +62,8 @@ export function PosContractHeader({
   customersLoading,
   contractDate,
   onContractDateChange,
+  customerLabel = 'العميل',
+  sectionNumber = 1,
   submitAttempted = false,
 }: PosContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
@@ -82,7 +86,7 @@ export function PosContractHeader({
 
   return (
     <PosSectionCard
-      number={1}
+      number={sectionNumber}
       title="بيانات التعاقد"
       subtitle="اختر مصدر التعاقد والعميل وتاريخ التسجيل"
       contentClassName="p-sm sm:p-md"
@@ -92,7 +96,7 @@ export function PosContractHeader({
         <div className={posRequiredWrap(customerError)}>
           <SearchableSelect
             data-tour="pos-customer"
-            label="العميل"
+            label={customerLabel}
             options={customers}
             value={selectedCustomer}
             onChange={onCustomerChange}
@@ -104,7 +108,11 @@ export function PosContractHeader({
             emptyMessage="لا يوجد عميل مطابق"
             hasError={customerError}
           />
-          {customerError && <p className="mt-xs text-xs text-error">يجب اختيار العميل</p>}
+          {customerError && (
+            <p className="mt-xs text-xs text-error">
+              {customerLabel === 'العميل' ? 'يجب اختيار العميل' : `يجب اختيار ${customerLabel}`}
+            </p>
+          )}
           {selectedCustomer?.sales_user && (
             <p className="mt-xs text-[13px] leading-snug text-secondary">
               تابع لموظف مبيعات: {selectedCustomer.sales_user.name}

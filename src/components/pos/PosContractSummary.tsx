@@ -23,6 +23,9 @@ interface PosContractSummaryProps {
   submitDisabled: boolean
   submitPending: boolean
   submitInvalid?: boolean
+  distributorBalanceAvailable?: number
+  distributorBalanceAmount?: number
+  onDistributorBalanceAmountChange?: (value: number) => void
 }
 
 export function PosContractSummary({
@@ -46,6 +49,9 @@ export function PosContractSummary({
   submitDisabled,
   submitPending,
   submitInvalid = false,
+  distributorBalanceAvailable = 0,
+  distributorBalanceAmount = 0,
+  onDistributorBalanceAmountChange,
 }: PosContractSummaryProps) {
   const submitLabel = submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'
 
@@ -122,6 +128,32 @@ export function PosContractSummary({
                   {paidAtCheckout.toLocaleString('ar-EG')} ج.م
                 </span>
               </div>
+              {distributorBalanceAvailable > 0 && onDistributorBalanceAmountChange ? (
+                <div className="mt-sm border-t border-primary/15 pt-sm">
+                  <p className="mb-xs text-xs text-on-surface-variant">
+                    رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG')} ج.م
+                  </p>
+                  <label className="mb-xs block text-xs text-on-surface-variant">
+                    استخدام من الرصيد
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={Math.min(distributorBalanceAvailable, paidAtCheckout)}
+                    value={distributorBalanceAmount}
+                    onChange={(e) =>
+                      onDistributorBalanceAmountChange(
+                        Math.min(
+                          Number(e.target.value),
+                          distributorBalanceAvailable,
+                          paidAtCheckout,
+                        ),
+                      )
+                    }
+                    className="w-full rounded-lg border border-outline-variant px-sm py-1.5 text-sm tabular-nums"
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 

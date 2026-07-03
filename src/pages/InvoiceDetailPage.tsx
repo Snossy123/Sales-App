@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { Icon } from '../components/Icon'
@@ -11,7 +12,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
-import { contractPrintPath, reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
+import { contractKindLabel } from '../lib/contractKinds'
+import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
 const CONTRACT_DETAIL_INCLUDES =
   'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan'
@@ -46,6 +48,7 @@ export function InvoiceDetailPage() {
         invoice
           ? [
               invoice.invoice_number,
+              contractKindLabel(invoice.contract_kind),
               contractSourceLabel(invoice),
               fmtInvoiceContractDateTime(invoice),
             ]
@@ -80,17 +83,7 @@ export function InvoiceDetailPage() {
             <ContractReviewDetails invoice={invoice} />
 
             <ContractReviewDecisionPanel invoice={invoice}>
-              {canPrint ? (
-                <Link
-                  to={contractPrintPath(invoice.id, { autoPrint: true })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-3 text-sm font-bold text-on-surface hover:bg-surface-container-low"
-                >
-                  <Icon name="print" size={20} />
-                  طباعة العقد
-                </Link>
-              ) : null}
+              {canPrint ? <ContractPrintActions invoice={invoice} autoPrint /> : null}
             </ContractReviewDecisionPanel>
           </div>
         )}

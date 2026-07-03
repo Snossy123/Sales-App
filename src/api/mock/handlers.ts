@@ -36,6 +36,7 @@ import type {
 import { loadState, mutateState, resetState, saveState } from './store'
 import type { AuthUser } from '../types'
 import { getScopedBranchIds as resolveUserBranchIds, getScopedDepartmentId } from '../../lib/dataScope'
+import { customerAllPhoneNumbers } from '../../lib/customerForm'
 import { isSuperAdmin } from '../../lib/access'
 import { CONTRACT_TEMPLATES, mockContractPreviewHtml } from '../../lib/contractTemplates'
 import type { DemoState, DemoUser } from './seed'
@@ -73,6 +74,71 @@ function isBranchInScope(state: DemoState, ctx: MockContext, branchId?: number |
   if (branchIds == null) return true
   if (branchId == null) return false
   return branchIds.includes(branchId)
+}
+
+function matchesBranchAdministration(
+  state: DemoState,
+  branchId: number | null | undefined,
+  administrationId: number,
+): boolean {
+  if (branchId == null) return false
+  const branch = state.branches.find((b) => b.id === branchId)
+  const adminId = branch?.administration_id ?? branch?.department_id
+  return adminId === administrationId
+}
+
+function mockAccrueDistributorCommission(
+  state: DemoState,
+  invoice: { id: number; distributor_id?: number | null },
+): void {
+  if (!invoice.distributor_id) return
+  const distributor = state.distributors.find((d) => d.id === invoice.distributor_id)
+  if (!distributor) return
+  const amount = Number(distributor.agreed_amount ?? 0)
+  if (amount <= 0) return
+  const ledger = state.distributorCommissionLedger ?? []
+  if (ledger.some((e) => e.sales_invoice_id === invoice.id && e.type === 'credit')) return
+  distributor.commission_balance = Number(distributor.commission_balance ?? 0) + amount
+  if (!state.distributorCommissionLedger) state.distributorCommissionLedger = []
+  state.distributorCommissionLedger.push({
+    id: state.counters.commissionLedger++,
+    distributor_id: distributor.id,
+    type: 'credit',
+    amount,
+    balance_after: Number(distributor.commission_balance),
+    sales_invoice_id: invoice.id,
+    notes: 'عمولة عقد',
+    created_at: new Date().toISOString(),
+  })
+}
+
+function mockDebitDistributorBalance(
+  state: DemoState,
+  customerId: number,
+  amount: number,
+  salesInvoiceId?: number,
+  paymentTransactionId?: number,
+): void {
+  const distributor = state.distributors.find((d) => d.customer_id === customerId)
+  if (!distributor) throw mockError(422, 'العميل غير مربوط بموزع')
+  const debit = Math.round(amount * 100) / 100
+  if (debit <= 0) return
+  if (debit > Number(distributor.commission_balance ?? 0) + 0.009) {
+    throw mockError(422, 'رصيد عمولة الموزع غير كافٍ')
+  }
+  distributor.commission_balance = Number(distributor.commission_balance ?? 0) - debit
+  if (!state.distributorCommissionLedger) state.distributorCommissionLedger = []
+  state.distributorCommissionLedger.push({
+    id: state.counters.commissionLedger++,
+    distributor_id: distributor.id,
+    type: 'debit',
+    amount: debit,
+    balance_after: Number(distributor.commission_balance),
+    sales_invoice_id: salesInvoiceId,
+    payment_transaction_id: paymentTransactionId,
+    notes: 'خصم من رصيد العمولة',
+    created_at: new Date().toISOString(),
+  })
 }
 
 function resolveMockInvoiceLineType(line: SalesInvoiceLine): 'device' | 'service' {
@@ -1332,6 +1398,10 @@ export function handleMockRequest(
       sell_price?: number
       cash_price?: number
       installment_price?: number
+      external_cash_annual_price?: number
+      external_cash_permanent_price?: number
+      external_installment_annual_price?: number
+      external_installment_permanent_price?: number
     }
     let updated = state.gpsProduct
     mutateState((s) => {
@@ -1357,6 +1427,12 @@ export function handleMockRequest(
           sell_price: cashPrice,
           cash_price: cashPrice,
           installment_price: installmentPrice ?? cashPrice,
+          external_cash_annual_price: body.external_cash_annual_price ?? cashPrice,
+          external_cash_permanent_price: body.external_cash_permanent_price ?? cashPrice,
+          external_installment_annual_price:
+            body.external_installment_annual_price ?? installmentPrice ?? cashPrice,
+          external_installment_permanent_price:
+            body.external_installment_permanent_price ?? installmentPrice ?? cashPrice,
         }
         updated = { ...s.gpsProduct }
         return
@@ -1374,6 +1450,20 @@ export function handleMockRequest(
         sell_price: cashPrice,
         cash_price: cashPrice,
         installment_price: installmentPrice ?? s.gpsProduct.installment_price ?? cashPrice,
+        external_cash_annual_price:
+          body.external_cash_annual_price ?? s.gpsProduct.external_cash_annual_price ?? cashPrice,
+        external_cash_permanent_price:
+          body.external_cash_permanent_price ?? s.gpsProduct.external_cash_permanent_price ?? cashPrice,
+        external_installment_annual_price:
+          body.external_installment_annual_price
+          ?? s.gpsProduct.external_installment_annual_price
+          ?? installmentPrice
+          ?? cashPrice,
+        external_installment_permanent_price:
+          body.external_installment_permanent_price
+          ?? s.gpsProduct.external_installment_permanent_price
+          ?? installmentPrice
+          ?? cashPrice,
       }
       updated = { ...s.gpsProduct }
     })
@@ -1402,8 +1492,14 @@ export function handleMockRequest(
     if (scopedBranchIds) {
       items = items.filter((c) => c.branch_id != null && scopedBranchIds.includes(c.branch_id))
     }
+    const administrationFilter = params['filter[administration_id]']
     const branchFilter = params['filter[branch_id]']
-    if (branchFilter) items = items.filter((c) => c.branch_id === Number(branchFilter))
+    if (administrationFilter) {
+      const adminId = Number(administrationFilter)
+      items = items.filter((c) => matchesBranchAdministration(state, c.branch_id, adminId))
+    } else if (branchFilter) {
+      items = items.filter((c) => c.branch_id === Number(branchFilter))
+    }
     const distributorFilter = params['filter[distributor_id]']
     if (distributorFilter) {
       items = items.filter((c) => c.distributor_id === Number(distributorFilter))
@@ -1419,7 +1515,7 @@ export function handleMockRequest(
     if (phoneFilter) {
       const q = phoneFilter.replace(/\s/g, '')
       items = items.filter((c) =>
-        [c.phone, c.phone_2, c.phone_3].some((phone) => phone?.replace(/\s/g, '').includes(q)),
+        customerAllPhoneNumbers(c).some((phone) => phone.replace(/\s/g, '').includes(q)),
       )
     }
     return paginate(
@@ -1451,8 +1547,12 @@ export function handleMockRequest(
         distributor_id: null,
         name: body.name ?? '',
         phone: body.phone ?? '',
+        phone_label: body.phone_label ?? null,
         phone_2: body.phone_2 ?? null,
+        phone_2_label: body.phone_2_label ?? null,
         phone_3: body.phone_3 ?? null,
+        phone_3_label: body.phone_3_label ?? null,
+        extra_phones: body.extra_phones ?? null,
         sim_number: body.sim_number ?? null,
         username: body.username ?? null,
         device_serial: body.device_serial ?? null,
@@ -1586,8 +1686,12 @@ export function handleMockRequest(
       }
       if (body.name !== undefined) customer.name = body.name
       if (body.phone !== undefined) customer.phone = body.phone
+      if (body.phone_label !== undefined) customer.phone_label = body.phone_label ?? null
       if (body.phone_2 !== undefined) customer.phone_2 = body.phone_2 ?? null
+      if (body.phone_2_label !== undefined) customer.phone_2_label = body.phone_2_label ?? null
       if (body.phone_3 !== undefined) customer.phone_3 = body.phone_3 ?? null
+      if (body.phone_3_label !== undefined) customer.phone_3_label = body.phone_3_label ?? null
+      if (body.extra_phones !== undefined) customer.extra_phones = body.extra_phones ?? null
       if (body.national_id !== undefined) customer.national_id = body.national_id ?? null
       if (body.address !== undefined) customer.address = body.address ?? null
       if (body.distinctive_mark !== undefined) customer.distinctive_mark = body.distinctive_mark ?? null
@@ -1710,8 +1814,14 @@ export function handleMockRequest(
     if (scopedBranchIds) {
       items = items.filter((d) => scopedBranchIds.includes(d.branch_id))
     }
+    const administrationFilter = params['filter[administration_id]']
     const branchFilter = params['filter[branch_id]']
-    if (branchFilter) items = items.filter((d) => d.branch_id === Number(branchFilter))
+    if (administrationFilter) {
+      const adminId = Number(administrationFilter)
+      items = items.filter((d) => matchesBranchAdministration(state, d.branch_id, adminId))
+    } else if (branchFilter) {
+      items = items.filter((d) => d.branch_id === Number(branchFilter))
+    }
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((d) => d.status === statusFilter)
     const typeFilter = params['filter[type]']
@@ -1807,6 +1917,14 @@ export function handleMockRequest(
       s.distributors[index] = updated
     })
     return enrichDistributor(state, updated!)
+  }
+
+  if (m === 'GET' && path.match(/^distributors\/\d+\/commission-ledger$/)) {
+    const id = Number(path.split('/')[1])
+    const distributor = state.distributors.find((d) => d.id === id)
+    if (!distributor) throw mockError(404, 'الموزع غير موجود')
+    const items = (state.distributorCommissionLedger ?? []).filter((e) => e.distributor_id === id)
+    return paginate(items, params)
   }
 
   if (m === 'GET' && path.match(/^distributors\/\d+$/)) {
@@ -1934,6 +2052,10 @@ export function handleMockRequest(
     if (reviewStatusFilter) {
       items = items.filter((i) => (i.review_status ?? 'pending') === reviewStatusFilter)
     }
+    const contractKindFilter = params['filter[contract_kind]']
+    if (contractKindFilter) {
+      items = items.filter((i) => (i.contract_kind ?? 'new_contract') === contractKindFilter)
+    }
     const dateFrom = params['filter[invoice_date_from]']
     if (dateFrom) items = items.filter((i) => String(i.invoice_date) >= String(dateFrom))
     const dateTo = params['filter[invoice_date_to]']
@@ -1969,6 +2091,16 @@ export function handleMockRequest(
       ...invoice,
       lines,
       customer,
+      source_invoice: invoice.source_sales_invoice_id
+        ? (() => {
+            const source = state.invoices.find((i) => i.id === invoice.source_sales_invoice_id)
+            if (!source) return undefined
+            return {
+              ...source,
+              customer: state.customers.find((c) => c.id === source.customer_id),
+            }
+          })()
+        : undefined,
       distributor: state.distributors.find((d) => d.id === invoice.distributor_id),
       installment_plan: invoicePlan,
       installment_plans: installmentPlans.length > 0 ? installmentPlans : invoicePlan ? [invoicePlan] : [],
@@ -1982,6 +2114,10 @@ export function handleMockRequest(
           status: p.status,
         })),
     }
+  }
+
+  if (m === 'GET' && path.match(/^sales-invoices\/\d+\/ownership-transfer-contract$/)) {
+    return mockContractPreviewHtml('ownership_transfer')
   }
 
   if (m === 'GET' && path.match(/^sales-invoices\/\d+\/lines\/\d+\/contract$/)) {
@@ -2093,14 +2229,16 @@ export function handleMockRequest(
       if (body.distributor_id && !distributor) throw mockError(422, 'الموزع غير موجود')
 
       const warehouseId = body.warehouse_id ?? ctx.warehouseId
+      const contractKind = body.contract_kind ?? 'new_contract'
+      const manualDeviceKind = contractKind !== 'new_contract'
       const hasDeviceLines = body.lines.some(
         (line) =>
           line.line_type === 'device' ||
-          (line.line_type !== 'service' && line.product_unit_id != null),
+          (line.line_type !== 'service' && (line.product_unit_id != null || manualDeviceKind)),
       )
 
       let stock: ReturnType<typeof getStock>
-      if (hasDeviceLines) {
+      if (hasDeviceLines && !manualDeviceKind) {
         if (warehouseId == null) throw mockError(422, 'المخزن مطلوب')
         stock = getStock(s, warehouseId)
         if (!stock) throw mockError(422, 'المخزن غير موجود')
@@ -2115,7 +2253,8 @@ export function handleMockRequest(
         }
       })
 
-      const installationFeeGross = Number(body.installation_fee ?? 0)
+      const installationFeeGross =
+        contractKind === 'new_contract' ? Number(body.installation_fee ?? 0) : 0
       const feeDiscount = Number(body.discount_amount ?? 0)
       const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
       const deviceLineCount = body.lines.filter(
@@ -2170,7 +2309,7 @@ export function handleMockRequest(
         }
       })
 
-      if (hasDeviceLines && stock) {
+      if (hasDeviceLines && stock && !manualDeviceKind) {
         const available = stock.quantity - stock.reserved
         if (deviceLineCount > available) {
           throw mockError(422, `الكمية المتاحة ${available} قطعة فقط`)
@@ -2219,6 +2358,8 @@ export function handleMockRequest(
         distributor_id: body.distributor_id ?? null,
         status: 'confirmed',
         review_status: 'pending',
+        contract_kind: contractKind,
+        source_sales_invoice_id: body.source_sales_invoice_id ?? null,
         payment_term: paymentTerm,
         payment_status: paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
         total,
@@ -2291,6 +2432,11 @@ export function handleMockRequest(
       })
 
       s.invoices.push(invoice)
+      mockAccrueDistributorCommission(s, invoice)
+      const balanceUse = Number((body as { distributor_balance_amount?: number }).distributor_balance_amount ?? 0)
+      if (balanceUse > 0 && body.customer_id) {
+        mockDebitDistributorBalance(s, body.customer_id, balanceUse, invoice.id)
+      }
       created = {
         ...invoice,
         lines: invoiceLines.map((line) => enrichMockInvoiceLine(s, line)),
@@ -2440,6 +2586,11 @@ export function handleMockRequest(
         customer,
       }
       s.invoices.push(invoice)
+      mockAccrueDistributorCommission(s, invoice)
+      const balanceUse = Number(body.distributor_balance_amount ?? 0)
+      if (balanceUse > 0) {
+        mockDebitDistributorBalance(s, body.customer_id, balanceUse, invoice.id)
+      }
     })
     return created
   }
@@ -2531,7 +2682,12 @@ export function handleMockRequest(
 
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {
     const id = Number(path.split('/')[2])
-    const body = data as { installment_item_id: number; amount: number; payment_method?: string }
+    const body = data as {
+      installment_item_id: number
+      amount: number
+      payment_method?: string
+      distributor_balance_amount?: number
+    }
     let result: { invoice: SalesInvoice; item: unknown } | undefined
     mutateState((s) => {
       const invoice = s.invoices.find((i) => i.id === id)
@@ -2547,6 +2703,11 @@ export function handleMockRequest(
         throw mockError(422, `المبلغ المتبقي ${remaining} ج.م`)
       }
 
+      const balanceAmount = Number(body.distributor_balance_amount ?? 0)
+      if (balanceAmount > body.amount + 0.009) {
+        throw mockError(422, 'مبلغ رصيد العمولة يتجاوز مبلغ التحصيل')
+      }
+
       item.paid_amount = Number(item.paid_amount) + body.amount
       if (item.paid_amount >= Number(item.amount)) {
         item.status = 'paid'
@@ -2557,19 +2718,39 @@ export function handleMockRequest(
 
       refreshInvoicePayment(invoice)
 
-      const paymentId = s.counters.payment++
-      s.paymentTransactions.push({
-        id: paymentId,
-        transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
-        sales_invoice_id: invoice.id,
-        customer_id: invoice.customer_id ?? 0,
-        installment_item_id: item.id,
-        amount: body.amount,
-        status: 'active',
-        payment_source: 'installment',
-        payment_method: body.payment_method ?? 'cash',
-        paid_at: new Date().toISOString(),
-      })
+      if (balanceAmount > 0 && invoice.customer_id) {
+        const paymentId = s.counters.payment++
+        mockDebitDistributorBalance(s, invoice.customer_id, balanceAmount, invoice.id, paymentId)
+        s.paymentTransactions.push({
+          id: paymentId,
+          transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+          sales_invoice_id: invoice.id,
+          customer_id: invoice.customer_id,
+          installment_item_id: item.id,
+          amount: balanceAmount,
+          status: 'active',
+          payment_source: 'distributor_balance',
+          payment_method: 'distributor_balance',
+          paid_at: new Date().toISOString(),
+        })
+      }
+
+      const cashAmount = body.amount - balanceAmount
+      if (cashAmount > 0) {
+        const paymentId = s.counters.payment++
+        s.paymentTransactions.push({
+          id: paymentId,
+          transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+          sales_invoice_id: invoice.id,
+          customer_id: invoice.customer_id ?? 0,
+          installment_item_id: item.id,
+          amount: cashAmount,
+          status: 'active',
+          payment_source: 'installment',
+          payment_method: body.payment_method ?? 'cash',
+          paid_at: new Date().toISOString(),
+        })
+      }
 
       result = { invoice, item }
     })
