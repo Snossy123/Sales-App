@@ -35,7 +35,7 @@ export function CustomerPhoneFields({ phones, onChange }: CustomerPhoneFieldsPro
               {index === 0 ? 'تبع مين *' : 'تبع مين'}
             </span>
             <input
-              value={entry.label}
+              value={entry.label ?? ''}
               onChange={(e) => updatePhone(index, { label: e.target.value })}
               placeholder="مثل: شخصي، زوجة، ابن..."
               className={inputClass}

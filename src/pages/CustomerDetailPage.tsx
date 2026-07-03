@@ -235,7 +235,7 @@ export function CustomerDetailPage() {
                     <ProfileDetailItem
                       key={`${entry.number}-${index}`}
                       icon="call"
-                      label={entry.label.trim() || `رقم الهاتف ${index + 1}`}
+                      label={(entry.label ?? '').trim() || `رقم الهاتف ${index + 1}`}
                       value={entry.number}
                     />
                   ))}
