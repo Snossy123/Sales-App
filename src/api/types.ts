@@ -1218,6 +1218,14 @@ export interface HrmDashboard {
   employees_by_department: Record<string, number>
   payroll_due_total: number
   organization_id?: number
+  /** Leave requests grouped by status (e.g. pending/approved/rejected). */
+  leaves_by_status?: Record<string, number>
+  /** Present-employee count per day for the last 7 days, keyed by ISO date. */
+  attendance_trend?: Record<string, number>
+  /** Total headcount (all statuses). */
+  total_employees?: number
+  /** Active headcount. */
+  active_employees?: number
 }
 
 export interface HrmLeaveType {

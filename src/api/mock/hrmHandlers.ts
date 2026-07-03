@@ -148,6 +148,33 @@ function buildDashboard(state: DemoState): HrmDashboard {
     .filter((r) => r.payment_status === 'due')
     .reduce((sum, r) => sum + Number(r.final_total), 0)
 
+  const totalEmployees = state.employees.length
+  const activeEmployees = state.employees.filter((e) => e.status === 'active').length
+
+  const leavesByStatus: Record<string, number> = {}
+  for (const leave of state.hrmLeaves) {
+    leavesByStatus[leave.status] = (leavesByStatus[leave.status] ?? 0) + 1
+  }
+
+  // Present-count per day for the last 7 days. Falls back to a deterministic
+  // plausible baseline so the demo trend chart is never empty.
+  const attendanceTrend: Record<string, number> = {}
+  const baseline = Math.max(activeEmployees, presentToday, 1)
+  for (let offset = 6; offset >= 0; offset--) {
+    const day = new Date()
+    day.setDate(day.getDate() - offset)
+    const key = day.toISOString().split('T')[0]
+    const real = state.hrmAttendance.filter(
+      (a) => a.date === key && (a.status === 'present' || a.clock_in_time),
+    ).length
+    const weekday = day.getDay()
+    const isWeekend = weekday === 5 || weekday === 6 // Fri/Sat
+    const synthesized = isWeekend
+      ? Math.round(baseline * 0.25)
+      : Math.round(baseline * (0.72 + ((offset * 7) % 5) / 20))
+    attendanceTrend[key] = real || synthesized
+  }
+
   return {
     present_today: presentToday,
     clocked_in_now: clockedInNow,
@@ -156,6 +183,10 @@ function buildDashboard(state: DemoState): HrmDashboard {
     employees_by_department: employeesByDepartment,
     payroll_due_total: payrollDueTotal,
     organization_id: 1,
+    leaves_by_status: leavesByStatus,
+    attendance_trend: attendanceTrend,
+    total_employees: totalEmployees,
+    active_employees: activeEmployees,
   }
 }
 

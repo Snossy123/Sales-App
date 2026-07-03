@@ -1204,6 +1204,72 @@ export function handleMockRequest(
     return result
   }
 
+  if (m === 'POST' && path === 'department-stock/return') {
+    const body = data as { department_id: number; branch_id: number; quantity: number }
+    let result: GpsStock & { transfer?: unknown; branch_available?: number; central_pending?: number } | undefined
+    mutateState((s) => {
+      const branch = s.branches.find((b) => b.id === body.branch_id)
+      if (!branch || branch.department_id !== body.department_id) {
+        throw mockError(422, 'الفرع غير تابع لهذه الإدارة')
+      }
+      const stock = getStockByBranch(s, body.branch_id)
+      const available = stock ? stock.quantity - stock.reserved : 0
+      if (body.quantity <= 0 || body.quantity > available) {
+        throw mockError(422, `المخزون المتاح في الفرع ${available} قطعة فقط`)
+      }
+
+      const ds = getDeptStock(s, body.department_id)
+      ds.pending += body.quantity
+      if (stock) {
+        stock.quantity -= body.quantity
+      }
+      ds.distributed = calcDistributed(s, body.department_id)
+
+      const transferId = s.counters.stockTransfer = (s.counters.stockTransfer ?? 0) + 1
+      const dept = s.departments.find((d) => d.id === body.department_id)
+      const transfer = {
+        id: transferId,
+        transfer_number: `TRF-${String(transferId).padStart(6, '0')}`,
+        transfer_kind: 'return',
+        completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        from_warehouse: {
+          branch: branch ? { id: branch.id, name: branch.name, name_ar: branch.name_ar } : undefined,
+        },
+        to_warehouse: {
+          administration: dept ? { id: dept.id, name: dept.name, name_ar: dept.name_ar } : undefined,
+        },
+        requester: ctx.user ? { id: ctx.user.id, name: ctx.user.name } : undefined,
+        lines: Array.from({ length: body.quantity }, (_, index) => ({ id: index + 1, product_unit_id: index + 1 })),
+      }
+      if (!s.stockTransfers) s.stockTransfers = []
+      s.stockTransfers.unshift(transfer)
+
+      const branchAvailable = stock ? stock.quantity - stock.reserved : 0
+      result = {
+        ...(stock ?? {
+          id: 0,
+          warehouse_id: 0,
+          branch_id: body.branch_id,
+          quantity: 0,
+          reserved: 0,
+          sold: 0,
+        }),
+        available: branchAvailable,
+        branch_available: branchAvailable,
+        central_pending: ds.pending,
+        transfer: {
+          id: transfer.id,
+          transfer_number: transfer.transfer_number,
+          completed_at: transfer.completed_at,
+          quantity: body.quantity,
+          transfer_kind: 'return',
+        },
+      }
+    })
+    return result
+  }
+
   if (m === 'GET' && path === 'inventory/overview') {
     const scope = getApiDepartmentScope(ctx)
     const deptFilter = scope ?? (params['filter[department_id]']

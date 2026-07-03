@@ -9,6 +9,7 @@ import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
 import { DataTable } from '../components/DataTable'
 import { DistributeStockModal } from '../components/DistributeStockModal'
+import { ReturnStockModal } from '../components/ReturnStockModal'
 import { FilterBar } from '../components/FilterBar'
 import { GpsProductCard } from '../components/GpsProductCard'
 import { Icon } from '../components/Icon'
@@ -44,6 +45,9 @@ export function InventoryPage() {
   const [page, setPage] = useState(1)
   const [distributeOpen, setDistributeOpen] = useState(false)
   const [distributeDeptId, setDistributeDeptId] = useState<number | undefined>()
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnDeptId, setReturnDeptId] = useState<number | undefined>()
+  const [returnBranchId, setReturnBranchId] = useState<number | undefined>()
   const [successToast, setSuccessToast] = useState('')
 
   useEffect(() => {
@@ -124,6 +128,18 @@ export function InventoryPage() {
     setDistributeDeptId(undefined)
   }
 
+  const openReturn = (departmentId: number, branchId: number) => {
+    setReturnDeptId(departmentId)
+    setReturnBranchId(branchId)
+    setReturnOpen(true)
+  }
+
+  const closeReturn = () => {
+    setReturnOpen(false)
+    setReturnDeptId(undefined)
+    setReturnBranchId(undefined)
+  }
+
   return (
     <div>
       <PageHeader
@@ -145,6 +161,13 @@ export function InventoryPage() {
               >
                 <Icon name="local_shipping" size={18} />
                 سجل التوزيع
+              </Link>
+              <Link
+                to="/inventory/returns"
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+              >
+                <Icon name="undo" size={18} />
+                استرجاع مخزون
               </Link>
               <Link
                 to="/inventory/add"
@@ -339,13 +362,26 @@ export function InventoryPage() {
                 }
                 if (row.row_type === 'branch') {
                   const deptId = row.department_id as number
+                  const branchId = row.branch_id as number
+                  const available = (row.quantity as number) - (row.reserved as number)
                   return (
-                    <Link
-                      to={`/branches?department=${deptId}`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      عرض الفروع
-                    </Link>
+                    <div className="flex flex-wrap gap-sm">
+                      {isAdmin && available > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openReturn(deptId, branchId)}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          استرجاع
+                        </button>
+                      )}
+                      <Link
+                        to={`/branches?department=${deptId}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        عرض الفروع
+                      </Link>
+                    </div>
                   )
                 }
                 return '—'
@@ -367,6 +403,15 @@ export function InventoryPage() {
         departments={departmentsQuery.data ?? []}
         initialDepartmentId={distributeDeptId}
         onSuccess={() => setSuccessToast('تم التوزيع على الفرع')}
+      />
+
+      <ReturnStockModal
+        open={returnOpen}
+        onClose={closeReturn}
+        departments={departmentsQuery.data ?? []}
+        initialDepartmentId={returnDeptId}
+        initialBranchId={returnBranchId}
+        onSuccess={() => setSuccessToast('تم استرجاع المخزون إلى الإدارة')}
       />
     </div>
   )

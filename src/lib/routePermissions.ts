@@ -10,6 +10,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/inventory': 'inventory.manage',
   '/inventory/add': 'inventory.manage',
   '/inventory/transfers': 'stock.transfer',
+  '/inventory/returns': 'stock.transfer',
   '/inventory/warehouses': 'warehouses.manage',
   '/inventory/settings': 'inventory.manage',
   '/customers': 'customers.manage',
