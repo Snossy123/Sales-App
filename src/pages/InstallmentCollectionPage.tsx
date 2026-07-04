@@ -10,7 +10,6 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   collectionStatusOptions,
-  computeContractStats,
   filterRowsByContractTier,
   type ContractTierFilter,
   type InstallmentCollectionRow,
@@ -41,6 +40,37 @@ const paymentMethodOptions = [
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 
+function BranchSummaryStats({
+  count,
+  overdueCount,
+  totalRemaining,
+}: {
+  count: number
+  overdueCount: number
+  totalRemaining: number
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-xs text-center">
+      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+        <p className="tabular-nums text-lg font-bold text-on-surface">{count}</p>
+        <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
+      </div>
+      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+        <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
+          {overdueCount}
+        </p>
+        <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
+      </div>
+      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+        <p className="tabular-nums text-sm font-bold text-on-surface">
+          {totalRemaining.toLocaleString('ar-EG')}
+        </p>
+        <p className="text-[11px] text-on-surface-variant">متبقي ج.م</p>
+      </div>
+    </div>
+  )
+}
+
 function BranchInstallmentCard({
   stats,
   selected,
@@ -50,7 +80,7 @@ function BranchInstallmentCard({
   selected: boolean
   onSelect: () => void
 }) {
-  const { branch, count, overdueCount, totalRemaining } = stats
+  const { branch } = stats
 
   return (
     <button
@@ -62,7 +92,7 @@ function BranchInstallmentCard({
           : 'border-outline-variant bg-surface-container-lowest hover:border-primary/40 hover:bg-surface-container-low'
       }`}
     >
-      <div className="mb-sm flex items-start justify-between gap-sm">
+      <div className="flex items-start justify-between gap-sm">
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-on-surface">
             {branch.name_ar || branch.name}
@@ -75,25 +105,6 @@ function BranchInstallmentCard({
           }`}
         >
           <Icon name="store" size={20} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-xs text-center">
-        <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-          <p className="tabular-nums text-lg font-bold text-on-surface">{count}</p>
-          <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
-        </div>
-        <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-          <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
-            {overdueCount}
-          </p>
-          <p className="text-[11px] text-on-surface-variant">متأخر</p>
-        </div>
-        <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-          <p className="tabular-nums text-sm font-bold text-on-surface">
-            {totalRemaining.toLocaleString('ar-EG')}
-          </p>
-          <p className="text-[11px] text-on-surface-variant">متبقي ج.م</p>
         </div>
       </div>
     </button>
@@ -253,7 +264,6 @@ export function InstallmentCollectionPage() {
     })
   }, [branchRows, contractTierFilter, customerSearch])
 
-  const contractStats = useMemo(() => computeContractStats(branchRows), [branchRows])
   const selectedBranchSummary = branchStats.find((s) => s.branch.id === selectedBranchId)
 
   const selectedContractRows = useMemo(() => {
@@ -566,30 +576,15 @@ export function InstallmentCollectionPage() {
               </span>
             </div>
 
-            <div className="mb-md grid grid-cols-3 gap-xs text-center">
-              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-                <p className="tabular-nums text-lg font-bold text-on-surface">
-                  {contractStats.total_contracts}
-                </p>
-                <p className="text-[11px] text-on-surface-variant">التعاقدات</p>
+            {selectedBranchSummary ? (
+              <div className="mb-md">
+                <BranchSummaryStats
+                  count={selectedBranchSummary.count}
+                  overdueCount={selectedBranchSummary.overdueCount}
+                  totalRemaining={selectedBranchSummary.totalRemaining}
+                />
               </div>
-              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-                <p
-                  className={`tabular-nums text-lg font-bold ${
-                    (selectedBranchSummary?.overdueCount ?? 0) > 0 ? 'text-error' : 'text-on-surface'
-                  }`}
-                >
-                  {selectedBranchSummary?.overdueCount ?? 0}
-                </p>
-                <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
-              </div>
-              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-                <p className="tabular-nums text-lg font-bold text-on-surface">
-                  {selectedBranchSummary?.count ?? 0}
-                </p>
-                <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
-              </div>
-            </div>
+            ) : null}
 
             <FilterBar
               search={customerSearch}
