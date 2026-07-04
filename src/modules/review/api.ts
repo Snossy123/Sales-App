@@ -1,5 +1,6 @@
 import { api } from '../../api/client'
 import type {
+  CrmCallLog,
   PaginatedResponse,
   ServiceEvaluationAnswer,
   ServiceEvaluationQuestion,
@@ -61,6 +62,21 @@ export async function getEvaluationRequest(id: number) {
     active_questions: ServiceEvaluationQuestion[]
   }>(`/review/evaluation-requests/${id}`)
   return data
+}
+
+export async function linkEvaluationCall(id: number, crmCallLogId: number) {
+  const { data } = await api.post<ServiceEvaluationRequest>(
+    `/review/evaluation-requests/${id}/link-call`,
+    { crm_call_log_id: crmCallLogId },
+  )
+  return data
+}
+
+export async function listLinkableCalls(evaluationId: number) {
+  const { data } = await api.get<{ data: CrmCallLog[] }>(
+    `/review/evaluation-requests/${evaluationId}/linkable-calls`,
+  )
+  return data.data ?? []
 }
 
 export async function recordEvaluation(

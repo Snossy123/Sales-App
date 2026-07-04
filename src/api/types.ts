@@ -213,6 +213,14 @@ export interface ServiceEvaluationRequest {
   technician_name?: string | null
   recorded_by_name?: string | null
   answers?: ServiceEvaluationAnswer[]
+  call_log?: {
+    id: number
+    mobile_number?: string | null
+    mobile_name?: string | null
+    duration?: number | null
+    start_time?: string | null
+    audio_url?: string | null
+  } | null
 }
 
 export type SubscriptionRenewalStatus = 'overdue' | 'due_soon' | 'upcoming'
@@ -1080,6 +1088,11 @@ export interface CrmCallLog {
   mobile_name?: string | null
   call_type?: string | null
   duration?: number | null
+  start_time?: string | null
+  customer_id?: number | null
+  service_evaluation_request_id?: number | null
+  audio_url?: string | null
+  service_evaluation_request?: { id: number; status?: string; executed_at?: string | null }
   lead?: Lead
   user?: { id: number; name: string }
 }

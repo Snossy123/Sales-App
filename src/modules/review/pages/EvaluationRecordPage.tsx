@@ -11,6 +11,8 @@ import {
   EVALUATION_STATUS_LABELS,
   formatEvaluationAnswer,
   getEvaluationRequest,
+  linkEvaluationCall,
+  listLinkableCalls,
   recordEvaluation,
 } from '../api'
 
@@ -25,6 +27,7 @@ export function EvaluationRecordPage() {
   const [overallRating, setOverallRating] = useState<number | ''>('')
   const [notes, setNotes] = useState('')
   const [answers, setAnswers] = useState<AnswerState>({})
+  const [selectedCallId, setSelectedCallId] = useState<number | ''>('')
 
   const query = useQuery({
     queryKey: ['review', 'evaluation-request', requestId],
@@ -35,6 +38,18 @@ export function EvaluationRecordPage() {
   const request = query.data?.data
   const activeQuestions = query.data?.active_questions ?? []
   const isPending = request?.status === 'pending'
+
+  const linkableCallsQuery = useQuery({
+    queryKey: ['review', 'linkable-calls', requestId],
+    queryFn: () => listLinkableCalls(requestId),
+    enabled: Number.isFinite(requestId) && isPending,
+  })
+
+  useEffect(() => {
+    if (request?.call_log?.id) {
+      setSelectedCallId(request.call_log.id)
+    }
+  }, [request?.call_log?.id])
 
   useEffect(() => {
     if (!request) return
@@ -71,6 +86,13 @@ export function EvaluationRecordPage() {
         })
       }
       navigate('/review/evaluation-queue')
+    },
+  })
+
+  const linkCallMutation = useMutation({
+    mutationFn: () => linkEvaluationCall(requestId, Number(selectedCallId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['review', 'evaluation-request', requestId] })
     },
   })
 
@@ -188,6 +210,51 @@ export function EvaluationRecordPage() {
             </div>
 
             <div className="space-y-md lg:col-span-2">
+              <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+                <h2 className="mb-md text-sm font-semibold">ربط المكالمة</h2>
+                {request.call_log ? (
+                  <div className="mb-md space-y-1 text-sm">
+                    <p>
+                      مرتبطة بمكالمة: {request.call_log.mobile_name ?? request.call_log.mobile_number ?? `#${request.call_log.id}`}
+                      {request.call_log.duration != null ? ` · ${request.call_log.duration} ث` : ''}
+                    </p>
+                    {request.call_log.audio_url && (
+                      <audio controls src={request.call_log.audio_url} className="w-full max-w-md" />
+                    )}
+                  </div>
+                ) : (
+                  <p className="mb-md text-sm text-on-surface-variant">لم تُربط مكالمة بعد.</p>
+                )}
+                {isPending && (
+                  <div className="flex flex-wrap items-end gap-sm">
+                    <div className="min-w-[200px] flex-1">
+                      <label className="mb-1 block text-xs text-on-surface-variant">اختر من سجل المكالمات</label>
+                      <select
+                        value={selectedCallId}
+                        onChange={(e) => setSelectedCallId(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                      >
+                        <option value="">—</option>
+                        {(linkableCallsQuery.data ?? []).map((call) => (
+                          <option key={call.id} value={call.id}>
+                            {call.mobile_name ?? call.mobile_number ?? `#${call.id}`}
+                            {call.start_time ? ` · ${call.start_time.slice(0, 10)}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!selectedCallId || linkCallMutation.isPending}
+                      onClick={() => linkCallMutation.mutate()}
+                      className="rounded-lg border border-outline-variant px-md py-2 text-sm hover:bg-surface-container disabled:opacity-50"
+                    >
+                      ربط المكالمة
+                    </button>
+                  </div>
+                )}
+              </section>
+
               <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
                 <h2 className="mb-md text-sm font-semibold">أسئلة التقييم</h2>
 
