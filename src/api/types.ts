@@ -338,6 +338,7 @@ export interface GpsProduct {
   external_cash_permanent_price?: number
   external_installment_annual_price?: number
   external_installment_permanent_price?: number
+  device_debt_price?: number
   cost_price?: number | null
 }
 
@@ -367,6 +368,9 @@ export interface ProductUnit {
   imei: string
   serial_number?: string | null
   state: string
+  inventory_bucket?: string | null
+  custody_employee_id?: number | null
+  custody_employee?: { id: number; name: string } | null
   cost_price?: string | number | null
   sell_price?: string | number | null
   notes?: string | null
@@ -543,7 +547,7 @@ export interface InstallmentItem {
   paid_amount: string | number
   paid_at?: string | null
   status: string
-  display_tier?: 'upcoming' | 'grace' | 'overdue' | 'paid'
+  display_tier?: 'upcoming' | 'grace' | 'overdue' | 'paid' | 'suspended'
   late_fee_accrued?: string | number
   late_fee_waived_at?: string | null
   total_due?: number
@@ -557,6 +561,12 @@ export interface InstallmentItem {
   has_open_reconciliation?: boolean
   open_reconciliation_id?: number | null
   branch_id?: number
+  unpaid_reason?: string | null
+  suspended_at?: string | null
+  is_suspended?: boolean
+  collection_status?: string | null
+  collection_reminder_at?: string | null
+  collection_notes?: string | null
 }
 
 export interface CollectionPaymentAccount {
@@ -651,6 +661,8 @@ export interface SalesInvoice {
   reviewed_at?: string
   confirmed_at?: string
   rejection_reason?: string
+  contract_status?: 'active' | 'in_problem' | 'returned' | 'exchanged' | 'cancelled' | string
+  problem_reason?: string | null
   payment_transactions?: PaymentTransaction[]
 }
 

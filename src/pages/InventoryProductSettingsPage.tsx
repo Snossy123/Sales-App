@@ -22,6 +22,7 @@ const emptyForm = {
   external_cash_permanent_price: '',
   external_installment_annual_price: '',
   external_installment_permanent_price: '',
+  device_debt_price: '',
 }
 
 type GpsProductForm = typeof emptyForm
@@ -51,6 +52,7 @@ function toForm(product: GpsProduct): GpsProductForm {
     external_installment_permanent_price: String(
       product.external_installment_permanent_price ?? installmentAnnual,
     ),
+    device_debt_price: String(product.device_debt_price ?? 0),
   }
 }
 
@@ -73,6 +75,7 @@ function toPayload(form: GpsProductForm) {
     external_cash_permanent_price: Number(form.external_cash_permanent_price),
     external_installment_annual_price: Number(form.external_installment_annual_price),
     external_installment_permanent_price: Number(form.external_installment_permanent_price),
+    device_debt_price: Number(form.device_debt_price || 0),
   }
 }
 
@@ -291,6 +294,19 @@ export function InventoryProductSettingsPage() {
                 onChange={(value) => setForm({ ...form, external_installment_permanent_price: value })}
               />
             </div>
+          </section>
+
+          <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
+            <h3 className="text-sm font-bold text-on-surface">مديونية الجهاز</h3>
+            <p className="text-xs text-on-surface-variant">
+              تُستخدم عند حساب استرجاع العقد — الفرق بين المدفوع ومديونية الجهاز يُصرف كأمر دفع للعميل.
+            </p>
+            <PriceField
+              id="gps-device-debt"
+              label="مديونية الجهاز (ج.م)"
+              value={form.device_debt_price}
+              onChange={(value) => setForm({ ...form, device_debt_price: value })}
+            />
           </section>
 
           <p className="text-xs text-on-surface-variant">

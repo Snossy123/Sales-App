@@ -8,6 +8,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/sales/accessories': 'sales.pos',
   '/sales/maintenance': 'sales.pos',
   '/inventory': 'inventory.manage',
+  '/inventory/branch': 'inventory.manage',
   '/inventory/add': 'inventory.manage',
   '/inventory/transfers': 'stock.transfer',
   '/inventory/returns': 'stock.transfer',
@@ -21,6 +22,9 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/services/add': 'settings.manage',
   '/contract-templates': 'settings.manage',
   '/invoices/review': ['review.view_queue', 'review.view_detail'],
+  '/review/collections': 'review.view_collections',
+  '/review/expenses': 'review.view_expenses',
+  '/expenses/new': 'expenses.submit',
   '/invoices': 'review.view_contracts',
   '/review/evaluation-queue': 'review.view_evaluation_queue',
   '/review/subscription-renewals': 'review.view_subscription_renewals',
@@ -73,11 +77,20 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.startsWith('/contract-templates/')) return ['settings.manage']
   if (normalized.match(/^\/departments\/\d+$/)) return ['branches.manage']
   if (normalized.match(/^\/branches\/\d+$/)) return ['branches.manage']
+  if (normalized.match(/^\/review\/expenses\/\d+$/)) {
+    return ['review.view_expenses', 'review.approve_expenses']
+  }
+  if (normalized.match(/^\/review\/collections\/\d+$/)) {
+    return ['review.view_collections', 'review.confirm_collections']
+  }
   if (normalized.match(/^\/invoices\/review\/\d+$/)) {
     return ['review.view_queue', 'review.view_detail']
   }
   if (normalized.match(/^\/review\/evaluation-queue\/\d+$/)) {
     return ['review.view_evaluation_queue', 'review.record_evaluation']
+  }
+  if (normalized.match(/^\/contracts\/\d+/)) {
+    return ['contract_cases.manage', 'sales.invoices.view', 'customers.manage', 'installments.view']
   }
   if (normalized.match(/^\/invoices\/\d+/)) {
     return ['review.view_contracts', 'sales.invoices.view', 'review.view_detail']

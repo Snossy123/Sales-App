@@ -5,7 +5,6 @@ import type { PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
-import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 
@@ -27,26 +26,42 @@ const sourceLabels: Record<string, string> = {
   external: 'تحصيل خارجي',
   down_payment: 'مقدم',
   pos_cash: 'كاش POS',
+  contract_disbursement: 'أمر دفع',
 }
+
+type SourceFilter = '' | 'all_payments' | 'contract_disbursement'
 
 export function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('active')
-  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all_payments')
 
   const paymentsQuery = useQuery({
-    queryKey: ['payment-transactions', statusFilter],
+    queryKey: ['payment-transactions', statusFilter, sourceFilter],
     queryFn: async () => {
       const params: Record<string, string | number> = { per_page: 100 }
       if (statusFilter) params.status = statusFilter
+      if (sourceFilter === 'contract_disbursement') {
+        params.payment_source = 'contract_disbursement'
+      }
       const { data } = await api.get<PaginatedResponse<PaymentTransactionRow>>('/payment-transactions', { params })
       return data.data ?? []
     },
   })
 
   return (
-    <SalesPageShell title="سجل المدفوعات" subtitle="عرض واسترداد عمليات التحصيل">
+    <SalesPageShell title="سجل المدفوعات" subtitle="عرض عمليات التحصيل وأوامر الدفع">
       <FilterBar
         selects={[
+          {
+            id: 'source',
+            label: 'النوع',
+            value: sourceFilter,
+            onChange: (v) => setSourceFilter(v as SourceFilter),
+            options: [
+              { value: 'all_payments', label: 'كل المدفوعات' },
+              { value: 'contract_disbursement', label: 'أوامر الدفع' },
+            ],
+          },
           {
             id: 'status',
             label: 'الحالة',
@@ -59,8 +74,11 @@ export function PaymentsPage() {
             ],
           },
         ]}
-        showClear={Boolean(statusFilter)}
-        onClear={() => setStatusFilter('')}
+        showClear={Boolean(statusFilter) || sourceFilter !== 'all_payments'}
+        onClear={() => {
+          setStatusFilter('')
+          setSourceFilter('all_payments')
+        }}
       />
 
       <AsyncState isLoading={paymentsQuery.isLoading} isError={paymentsQuery.isError} error={paymentsQuery.error}>
@@ -88,23 +106,14 @@ export function PaymentsPage() {
               key: 'actions',
               header: '',
               render: (r) =>
-                r.status === 'active' && Number(r.amount) > 0 ? (
-                  <div className="flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openPaymentReceiptPrint(r.id)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      طباعة
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRefundTarget(r)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      استرداد
-                    </button>
-                  </div>
+                r.status === 'active' && Number(r.amount) !== 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => openPaymentReceiptPrint(r.id)}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    طباعة
+                  </button>
                 ) : (
                   '—'
                 ),
@@ -112,13 +121,6 @@ export function PaymentsPage() {
           ]}
         />
       </AsyncState>
-
-      <RefundPaymentModal
-        payment={refundTarget}
-        open={Boolean(refundTarget)}
-        onClose={() => setRefundTarget(null)}
-        invalidateKeys={[['payment-transactions']]}
-      />
     </SalesPageShell>
   )
 }

@@ -31,8 +31,15 @@ import { InstallmentContractPrintPage } from '../pages/InstallmentContractPrintP
 import { OwnershipTransferContractPrintPage } from '../pages/OwnershipTransferContractPrintPage'
 import { ServiceContractPrintPage } from '../pages/ServiceContractPrintPage'
 import { InvoiceReviewPage } from '../pages/InvoiceReviewPage'
+import { ReviewCollectionsPage } from '../pages/ReviewCollectionsPage'
+import { ReviewCollectionDetailPage } from '../pages/ReviewCollectionDetailPage'
+import { ReviewExpensesPage } from '../pages/ReviewExpensesPage'
+import { ReviewExpenseDetailPage } from '../pages/ReviewExpenseDetailPage'
+import { ExpenseNewPage } from '../pages/ExpenseNewPage'
+import { BranchInventoryPage } from '../pages/BranchInventoryPage'
 import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
 import { InvoiceDetailPage } from '../pages/InvoiceDetailPage'
+import { ContractDetailPage } from '../pages/ContractDetailPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { PaymentReceiptPrintPage } from '../pages/PaymentReceiptPrintPage'
@@ -171,6 +178,7 @@ export function AppRoutes() {
             <Route path="sections" element={<SectionsPage />} />
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory/branch" element={<BranchInventoryPage />} />
             <Route path="inventory/add" element={<InventoryAddStockPage />} />
             <Route path="inventory/transfers" element={<InventoryTransfersPage />} />
             <Route path="inventory/returns" element={<InventoryReturnsPage />} />
@@ -198,6 +206,11 @@ export function AppRoutes() {
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="invoices/review" element={<InvoiceReviewPage />} />
             <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />
+            <Route path="review/collections" element={<ReviewCollectionsPage />} />
+            <Route path="review/collections/:id" element={<ReviewCollectionDetailPage />} />
+            <Route path="review/expenses" element={<ReviewExpensesPage />} />
+            <Route path="review/expenses/:id" element={<ReviewExpenseDetailPage />} />
+            <Route path="expenses/new" element={<ExpenseNewPage />} />
             <Route path="review/evaluation-queue" element={<EvaluationQueuePage />} />
             <Route path="review/evaluation-queue/:id" element={<EvaluationRecordPage />} />
             <Route path="review/subscription-renewals" element={<SubscriptionRenewalQueuePage />} />
@@ -206,6 +219,7 @@ export function AppRoutes() {
             <Route path="invoices/:id/ownership-transfer-contract" element={<OwnershipTransferContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />
             <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="contracts/:id" element={<ContractDetailPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="payments" element={<PaymentsPage />} />

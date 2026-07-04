@@ -340,6 +340,7 @@ export function createSeedState(): DemoState {
     external_cash_permanent_price: 1500,
     external_installment_annual_price: 1000,
     external_installment_permanent_price: 1700,
+    device_debt_price: 800,
     cost_price: 2200,
   }
 

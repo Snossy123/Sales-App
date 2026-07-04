@@ -30,7 +30,16 @@ import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
 import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
-type TabId = 'attendance' | 'leaves' | 'allowances' | 'payroll' | 'sales-targets'
+type TabId = 'attendance' | 'leaves' | 'allowances' | 'payroll' | 'sales-targets' | 'debts'
+
+interface EmployeeDebtRow {
+  id: number
+  amount: number
+  remaining_balance: number
+  status: string
+  reason?: string | null
+  created_at?: string
+}
 
 interface EmployeeAllowancesResponse {
   allowances: HrmAllowance[]
@@ -42,6 +51,7 @@ const tabs: { id: TabId; label: string }[] = [
   { id: 'leaves', label: 'الإجازات' },
   { id: 'allowances', label: 'البدلات' },
   { id: 'payroll', label: 'الرواتب' },
+  { id: 'debts', label: 'المديونيات' },
   { id: 'sales-targets', label: 'أهداف المبيعات' },
 ]
 
@@ -137,6 +147,17 @@ export function HrmEmployeeDetailPage() {
       return data.data
     },
     enabled: activeTab === 'payroll' && Boolean(id),
+  })
+
+  const debtsQuery = useQuery({
+    queryKey: ['hrm', 'employee-debts', id],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<EmployeeDebtRow>>(`/hrm/employees/${id}/debts`, {
+        params: { per_page: 50 },
+      })
+      return data.data ?? []
+    },
+    enabled: activeTab === 'debts' && Boolean(id),
   })
 
   const salesTargetsQuery = useQuery({
@@ -601,6 +622,46 @@ export function HrmEmployeeDetailPage() {
                         />
                       ),
                     },
+                  ]}
+                />
+              </AsyncState>
+            )}
+
+            {activeTab === 'debts' && (
+              <AsyncState
+                isLoading={debtsQuery.isLoading}
+                isError={debtsQuery.isError}
+                error={debtsQuery.error}
+              >
+                <DataTable<EmployeeDebtRow & Record<string, unknown>>
+                  data={(debtsQuery.data ?? []) as (EmployeeDebtRow & Record<string, unknown>)[]}
+                  keyExtractor={(row) => row.id}
+                  pageSize={10}
+                  emptyMessage="لا مديونيات مسجلة"
+                  columns={[
+                    {
+                      key: 'amount',
+                      header: 'المبلغ',
+                      className: 'tabular-nums',
+                      render: (row) => Number(row.amount).toLocaleString('ar-EG'),
+                    },
+                    {
+                      key: 'remaining_balance',
+                      header: 'المتبقي',
+                      className: 'tabular-nums',
+                      render: (row) => Number(row.remaining_balance).toLocaleString('ar-EG'),
+                    },
+                    {
+                      key: 'status',
+                      header: 'الحالة',
+                      render: (row) => (
+                        <StatusBadge
+                          status={row.status === 'settled' ? 'success' : 'warning'}
+                          label={row.status === 'settled' ? 'مسددة' : 'نشطة'}
+                        />
+                      ),
+                    },
+                    { key: 'reason', header: 'السبب', render: (row) => row.reason ?? '—' },
                   ]}
                 />
               </AsyncState>

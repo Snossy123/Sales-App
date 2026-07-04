@@ -5,12 +5,12 @@ import { api } from '../api/client'
 import type { Customer, Distributor, SalesInvoice } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
 import { CustomerContractsSection } from '../components/customers/CustomerContractsSection'
+import { CustomerDeviceHistorySection } from '../components/customers/CustomerDeviceHistorySection'
 import { CustomerOwnershipTransfersSection } from '../components/customers/CustomerOwnershipTransfersSection'
 import { CustomerEvaluationsSection } from '../components/customers/CustomerEvaluationsSection'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
-import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { ProfilePhotoUploader } from '../components/ProfilePhotoUploader'
 import { StatusBadge } from '../components/StatusBadge'
 import { DeleteConfirmDialog } from '../components/crud/DeleteConfirmDialog'
@@ -49,6 +49,7 @@ const sourceLabels: Record<string, string> = {
   external: 'تحصيل خارجي',
   down_payment: 'مقدم',
   pos_cash: 'كاش POS',
+  contract_disbursement: 'أمر دفع',
 }
 
 function ProfileDetailItem({
@@ -82,8 +83,6 @@ export function CustomerDetailPage() {
   const crudConfig = getEntityCrudConfig('customers')
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const canDelete = ['super_admin', 'admin'].includes(getUserRole(user))
-  const canRefund = ['super_admin', 'admin', 'collector'].includes(getUserRole(user))
-  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -99,7 +98,7 @@ export function CustomerDetailPage() {
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
         params: {
-          include: 'guarantors,distributorProfile,salesInvoices.lines.installmentPlan.items,ownershipTransfersFrom,ownershipTransfersTo',
+          include: 'guarantors,distributorProfile,salesInvoices.lines.productUnit,salesInvoices.lines.installmentPlan.items,ownershipTransfersFrom,ownershipTransfersTo',
           sales_invoice_status: 'all',
         },
       })
@@ -313,22 +312,6 @@ export function CustomerDetailPage() {
                     render: (r) => Number(r.amount).toLocaleString('ar-EG'),
                   },
                   { key: 'status', header: 'الحالة' },
-                  {
-                    key: 'actions',
-                    header: '',
-                    render: (r) =>
-                      canRefund && r.status === 'active' && Number(r.amount) > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setRefundTarget(r)}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          استرداد
-                        </button>
-                      ) : (
-                        '—'
-                      ),
-                  },
                 ]}
               />
             </section>
@@ -346,19 +329,16 @@ export function CustomerDetailPage() {
               transfersTo={ownershipTransfersTo}
             />
 
+            {customer && (
+              <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
+            )}
+
             <CustomerContractsSection invoices={invoices} />
 
             {customer && <CustomerEvaluationsSection customerId={customer.id} />}
           </>
         )}
       </AsyncState>
-
-      <RefundPaymentModal
-        payment={refundTarget}
-        open={Boolean(refundTarget)}
-        onClose={() => setRefundTarget(null)}
-        invalidateKeys={id ? [['payment-transactions', 'customer', id]] : undefined}
-      />
 
       {customer && (
         <DeleteConfirmDialog

@@ -6,8 +6,14 @@ import { AsyncState } from '../components/AsyncState'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
-import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { SalesPageShell } from '../components/SalesPageShell'
+import {
+  collectionStatusOptions,
+  computeContractStats,
+  filterRowsByContractTier,
+  type ContractTierFilter,
+  type InstallmentCollectionRow,
+} from '../lib/collectionHelpers'
 import {
   installmentStatusOptions,
   normalizeInstallmentItem,
@@ -15,7 +21,7 @@ import {
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 import { useAuthStore } from '../stores/authStore'
 
-type InstallmentRow = InstallmentItem & Record<string, unknown>
+type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
 interface BranchStats {
   branch: Branch
@@ -102,14 +108,22 @@ export function InstallmentCollectionPage() {
   const [accountId, setAccountId] = useState<number | ''>('')
   const [senderNumber, setSenderNumber] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [contractTierFilter, setContractTierFilter] = useState<ContractTierFilter>('all')
+  const [collectionStatusFilter, setCollectionStatusFilter] = useState('')
+  const [sortByReminder, setSortByReminder] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [collectionStatus, setCollectionStatus] = useState('')
+  const [collectionReminderAt, setCollectionReminderAt] = useState('')
+  const [collectionNotes, setCollectionNotes] = useState('')
+  const [deferDate, setDeferDate] = useState('')
+  const [showEditDueDates, setShowEditDueDates] = useState(false)
+  const [dueDateEdits, setDueDateEdits] = useState<Record<number, string>>({})
   const [showReconcile, setShowReconcile] = useState(false)
   const [responsibleUserId, setResponsibleUserId] = useState<number | ''>('')
   const [reconcileNotes, setReconcileNotes] = useState('')
   const [adjustNextDueDate, setAdjustNextDueDate] = useState(false)
   const [dueDateShiftDays, setDueDateShiftDays] = useState(0)
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
-  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
 
   const selectedCustomerId = selected?.customer_id as number | undefined
 
@@ -159,17 +173,19 @@ export function InstallmentCollectionPage() {
   })
 
   const installmentsQuery = useQuery({
-    queryKey: ['installments', 'by-branch', statusFilter],
+    queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, sortByReminder],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 500,
         include: 'salesInvoice.customer',
       }
       if (statusFilter) params['filter[status]'] = statusFilter
+      if (collectionStatusFilter) params['filter[collection_status]'] = collectionStatusFilter
+      if (sortByReminder) params.sort = 'reminder'
 
       const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', { params })
       return data.data
-        .map((item) => normalizeInstallmentItem(item))
+        .map((item) => normalizeInstallmentItem(item) as InstallmentRow)
         .filter((item) => item.status !== 'paid')
     },
   })
@@ -224,14 +240,27 @@ export function InstallmentCollectionPage() {
   }, [installmentsByBranch, selectedBranchId])
 
   const filteredRows = useMemo(() => {
+    let rows = branchRows
+    rows = filterRowsByContractTier(rows, contractTierFilter)
     const q = customerSearch.trim().toLowerCase()
-    if (!q) return branchRows
-    return branchRows.filter((row) => {
+    if (!q) return rows
+    return rows.filter((row) => {
       const name = String(row.customer_name ?? '').toLowerCase()
       const invoice = String(row.invoice_number ?? '').toLowerCase()
       return name.includes(q) || invoice.includes(q)
     })
-  }, [branchRows, customerSearch])
+  }, [branchRows, contractTierFilter, customerSearch])
+
+  const contractStats = useMemo(() => computeContractStats(branchRows), [branchRows])
+
+  const selectedContractRows = useMemo(() => {
+    if (!selected?.sales_invoice_id) return []
+    return branchRows.filter((r) => r.sales_invoice_id === selected.sales_invoice_id)
+  }, [branchRows, selected?.sales_invoice_id])
+
+  const selectedIsOverdueContract = useMemo(() => {
+    return selectedContractRows.some((r) => r.display_tier === 'overdue' || r.status === 'overdue')
+  }, [selectedContractRows])
 
   const selectedBranch = branchStats.find((s) => s.branch.id === selectedBranchId)?.branch
 
@@ -340,6 +369,59 @@ export function InstallmentCollectionPage() {
     },
   })
 
+  const metadataMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
+      const { data } = await api.patch(`/sales-invoices/${selected.sales_invoice_id}/collection-metadata`, {
+        collection_status: collectionStatus || null,
+        collection_reminder_at: collectionReminderAt || null,
+        collection_notes: collectionNotes.trim() || null,
+      })
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+  })
+
+  const deferMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected?.sales_invoice_id || !deferDate) throw new Error('حدد تاريخ البداية')
+      const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/defer`, {
+        new_first_due_date: deferDate,
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      setDeferDate('')
+      setSelected(null)
+    },
+  })
+
+  const dueDatesMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
+      const items = Object.entries(dueDateEdits).map(([id, due_date]) => ({
+        installment_item_id: Number(id),
+        due_date,
+      }))
+      const { data } = await api.put(`/sales-invoices/${selected.sales_invoice_id}/installment-due-dates`, {
+        items,
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      setShowEditDueDates(false)
+    },
+  })
+
+  const unpaidReasonMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      await api.patch(`/installments/${id}`, { unpaid_reason: reason || null })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+  })
+
   const selectRow = (row: InstallmentRow) => {
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
@@ -348,6 +430,17 @@ export function InstallmentCollectionPage() {
     setSenderNumber('')
     setShowReconcile(false)
     setAdjustNextDueDate(false)
+    setCollectionStatus(String(row.collection_status ?? ''))
+    setCollectionReminderAt(row.collection_reminder_at ? row.collection_reminder_at.slice(0, 16) : '')
+    setCollectionNotes(String(row.collection_notes ?? ''))
+    setShowEditDueDates(false)
+    const edits: Record<number, string> = {}
+    branchRows
+      .filter((r) => r.sales_invoice_id === row.sales_invoice_id && r.status !== 'paid')
+      .forEach((r) => {
+        edits[r.id] = String(r.due_date).slice(0, 10)
+      })
+    setDueDateEdits(edits)
     const dueDate = row.due_date ? new Date(String(row.due_date)) : null
     const daysLate = dueDate
       ? Math.max(1, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
@@ -363,9 +456,42 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
   }
 
-  const hasFilters = Boolean(customerSearch)
+  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || contractTierFilter !== 'all')
   const clearFilters = () => {
     setCustomerSearch('')
+    setStatusFilter('')
+    setCollectionStatusFilter('')
+    setContractTierFilter('all')
+    setSortByReminder(false)
+  }
+
+  function ContractStatCard({
+    label,
+    value,
+    active,
+    onClick,
+    tone,
+  }: {
+    label: string
+    value: number
+    active: boolean
+    onClick: () => void
+    tone?: 'error' | 'warning' | 'default'
+  }) {
+    const toneClass =
+      tone === 'error' ? 'border-error/40 bg-error/5' : tone === 'warning' ? 'border-orange-400/40 bg-orange-50' : ''
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded-xl border p-md text-right transition-all ${toneClass} ${
+          active ? 'border-primary ring-1 ring-primary/30' : 'border-outline-variant hover:border-primary/40'
+        }`}
+      >
+        <p className="tabular-nums text-2xl font-bold">{value}</p>
+        <p className="text-xs text-on-surface-variant">{label}</p>
+      </button>
+    )
   }
 
   return (
@@ -376,8 +502,32 @@ export function InstallmentCollectionPage() {
         <FilterBar
           selects={[
             {
+              id: 'contract-tier',
+              label: 'فلتر العقود',
+              value: contractTierFilter,
+              onChange: (v) => {
+                setContractTierFilter(v as ContractTierFilter)
+                setSelected(null)
+              },
+              options: [
+                { value: 'all', label: 'كل العقود' },
+                { value: 'overdue', label: 'متأخرة' },
+                { value: 'due_soon', label: 'مستحقة / فترة سماح' },
+              ],
+            },
+            {
+              id: 'collection-status',
+              label: 'حالة التحصيل',
+              value: collectionStatusFilter,
+              onChange: (v) => {
+                setCollectionStatusFilter(v)
+                setSelected(null)
+              },
+              options: collectionStatusOptions,
+            },
+            {
               id: 'status',
-              label: 'الحالة',
+              label: 'حالة القسط',
               value: statusFilter,
               onChange: (value) => {
                 setStatusFilter(value)
@@ -385,9 +535,19 @@ export function InstallmentCollectionPage() {
               },
               options: installmentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
             },
+            {
+              id: 'sort',
+              label: 'الترتيب',
+              value: sortByReminder ? 'reminder' : 'default',
+              onChange: (v) => setSortByReminder(v === 'reminder'),
+              options: [
+                { value: 'default', label: 'حسب الأولوية' },
+                { value: 'reminder', label: 'ميعاد التذكير' },
+              ],
+            },
           ]}
-          showClear={Boolean(statusFilter)}
-          onClear={() => setStatusFilter('')}
+          showClear={hasFilters || sortByReminder}
+          onClear={clearFilters}
         />
       }
     >
@@ -421,8 +581,31 @@ export function InstallmentCollectionPage() {
               </h2>
               <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
                 {filteredRows.length} قسط ·{' '}
-                {new Set(filteredRows.map((r) => r.customer_id ?? r.customer_name)).size} عميل
+                {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
               </span>
+            </div>
+
+            <div className="mb-md grid grid-cols-1 gap-sm sm:grid-cols-3">
+              <ContractStatCard
+                label="عدد العقود"
+                value={contractStats.total_contracts}
+                active={contractTierFilter === 'all'}
+                onClick={() => setContractTierFilter('all')}
+              />
+              <ContractStatCard
+                label="عقود متأخرة"
+                value={contractStats.overdue_contracts}
+                active={contractTierFilter === 'overdue'}
+                onClick={() => setContractTierFilter('overdue')}
+                tone="error"
+              />
+              <ContractStatCard
+                label="مستحقة اليوم / فترة السماح"
+                value={contractStats.due_soon_contracts}
+                active={contractTierFilter === 'due_soon'}
+                onClick={() => setContractTierFilter('due_soon')}
+                tone="warning"
+              />
             </div>
 
             <FilterBar
@@ -448,6 +631,9 @@ export function InstallmentCollectionPage() {
                       deleteMutation.mutate(row.id as number)
                     }
                   }}
+                  onUpdateUnpaidReason={(row, reason) => {
+                    unpaidReasonMutation.mutate({ id: row.id, reason })
+                  }}
                   emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
                 />
               </div>
@@ -455,6 +641,11 @@ export function InstallmentCollectionPage() {
               {selected ? (
                 <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md">
                   <h3 className="mb-md text-lg font-semibold">تحصيل قسط</h3>
+                  {selected.is_suspended && (
+                    <p className="mb-sm rounded-lg bg-orange-50 px-sm py-2 text-sm text-orange-800">
+                      الأقساط معلّقة — الجهاز قيد المراجعة في الفرع
+                    </p>
+                  )}
                   <dl className="mb-md space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className="text-on-surface-variant">العميل</dt>
@@ -462,7 +653,19 @@ export function InstallmentCollectionPage() {
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-on-surface-variant">فاتورة</dt>
-                      <dd>{selected.invoice_number as string}</dd>
+                      <dd className="flex items-center gap-2">
+                        <span>{selected.invoice_number as string}</span>
+                        {selected.sales_invoice_id ? (
+                          <a
+                            href={`/contracts/${selected.sales_invoice_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            عرض تفاصيل العقد
+                          </a>
+                        ) : null}
+                      </dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-on-surface-variant">قسط رقم</dt>
@@ -486,6 +689,104 @@ export function InstallmentCollectionPage() {
                       </dd>
                     </div>
                   </dl>
+
+                  <div className="mb-md space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-high p-sm">
+                    <h4 className="text-sm font-semibold">متابعة التحصيل</h4>
+                    <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
+                    <select
+                      value={collectionStatus}
+                      onChange={(e) => setCollectionStatus(e.target.value)}
+                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                    >
+                      <option value="">—</option>
+                      {collectionStatusOptions.filter((o) => o.value).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
+                    <input
+                      type="datetime-local"
+                      value={collectionReminderAt}
+                      onChange={(e) => setCollectionReminderAt(e.target.value)}
+                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                    />
+                    <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
+                    <textarea
+                      value={collectionNotes}
+                      onChange={(e) => setCollectionNotes(e.target.value)}
+                      rows={2}
+                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => metadataMutation.mutate()}
+                      disabled={metadataMutation.isPending}
+                      className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
+                    >
+                      {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
+                    </button>
+                  </div>
+
+                  {selectedIsOverdueContract && (
+                    <div className="mb-md space-y-sm rounded-lg border border-orange-300/50 bg-orange-50/50 p-sm">
+                      <h4 className="text-sm font-semibold">ترحيل الأقساط (متأخرين فقط)</h4>
+                      <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية جديد</label>
+                      <input
+                        type="date"
+                        value={deferDate}
+                        onChange={(e) => setDeferDate(e.target.value)}
+                        className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => deferMutation.mutate()}
+                        disabled={deferMutation.isPending || !deferDate}
+                        className="w-full rounded-lg border border-orange-600 py-2 text-sm font-medium text-orange-800"
+                      >
+                        {deferMutation.isPending ? 'جاري الترحيل…' : 'ترحيل جدول الأقساط'}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="mb-md space-y-sm rounded-lg border border-outline-variant/70 p-sm">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">تعديل تواريخ الأقساط</h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditDueDates((v) => !v)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        {showEditDueDates ? 'إخفاء' : 'عرض'}
+                      </button>
+                    </div>
+                    {showEditDueDates && (
+                      <>
+                        {Object.entries(dueDateEdits).map(([id, date]) => (
+                          <div key={id} className="flex items-center gap-2 text-sm">
+                            <span className="w-16 text-on-surface-variant">#{id}</span>
+                            <input
+                              type="date"
+                              value={date}
+                              onChange={(e) =>
+                                setDueDateEdits((prev) => ({ ...prev, [Number(id)]: e.target.value }))
+                              }
+                              className="flex-1 rounded border border-outline-variant px-sm py-1 text-sm"
+                            />
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => dueDatesMutation.mutate()}
+                          disabled={dueDatesMutation.isPending}
+                          className="w-full rounded-lg border border-outline-variant py-2 text-sm"
+                        >
+                          {dueDatesMutation.isPending ? 'جاري الحفظ…' : 'حفظ التواريخ'}
+                        </button>
+                      </>
+                    )}
+                  </div>
 
                   <div className="mb-md">
                     <label className="mb-xs block text-sm text-on-surface-variant">طريقة التحصيل</label>
@@ -535,10 +836,18 @@ export function InstallmentCollectionPage() {
                     <input
                       type="number"
                       min={1}
+                      max={Number(
+                        selected.total_due ??
+                          selected.remaining ??
+                          Number(selected.amount) - Number(selected.paid_amount),
+                      )}
                       value={amount}
                       onChange={(e) => setAmount(Number(e.target.value))}
                       className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
                     />
+                    <p className="mt-xs text-xs text-on-surface-variant">
+                      يمكن دفع جزء من القسط — المتبقي يُسجّل تلقائياً
+                    </p>
 
                     {distributorProfile && Number(distributorProfile.commission_balance ?? 0) > 0 && (
                       <div className="mt-sm space-y-xs rounded-lg border border-primary/25 bg-primary/5 p-sm">
@@ -614,15 +923,6 @@ export function InstallmentCollectionPage() {
                               {Number(p.amount).toLocaleString('ar-EG')} ج.م
                               {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG')}` : ''}
                             </span>
-                            {p.status === 'active' && Number(p.amount) > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setRefundTarget(p)}
-                                className="text-xs text-primary hover:underline"
-                              >
-                                استرداد
-                              </button>
-                            )}
                           </li>
                         ))}
                       </ul>
@@ -635,6 +935,7 @@ export function InstallmentCollectionPage() {
                     disabled={
                       collectMutation.isPending ||
                       amount <= 0 ||
+                      Boolean(selected.is_suspended) ||
                       Boolean(selected.has_open_reconciliation) ||
                       (transferMethods.includes(paymentMethod) && (!accountId || !senderNumber.trim()))
                     }
@@ -713,14 +1014,6 @@ export function InstallmentCollectionPage() {
           )
         )}
       </AsyncState>
-
-      <RefundPaymentModal
-        payment={refundTarget}
-        open={Boolean(refundTarget)}
-        onClose={() => setRefundTarget(null)}
-        invalidateKeys={[['payment-transactions'], ['installments']]}
-        onSuccess={() => installmentPaymentsQuery.refetch()}
-      />
     </SalesPageShell>
   )
 }

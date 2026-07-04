@@ -1408,6 +1408,7 @@ export function handleMockRequest(
       external_cash_permanent_price?: number
       external_installment_annual_price?: number
       external_installment_permanent_price?: number
+      device_debt_price?: number
     }
     let updated = state.gpsProduct
     mutateState((s) => {
@@ -1447,6 +1448,7 @@ export function handleMockRequest(
             body.external_installment_annual_price ?? installmentPrice ?? cashPrice,
           external_installment_permanent_price:
             body.external_installment_permanent_price ?? installmentPrice ?? cashPrice,
+          device_debt_price: body.device_debt_price ?? 0,
         }
         updated = { ...s.gpsProduct }
         return
@@ -1487,6 +1489,8 @@ export function handleMockRequest(
           ?? s.gpsProduct.external_installment_permanent_price
           ?? installmentPrice
           ?? cashPrice,
+        device_debt_price:
+          body.device_debt_price ?? s.gpsProduct.device_debt_price ?? 0,
       }
       updated = { ...s.gpsProduct }
     })

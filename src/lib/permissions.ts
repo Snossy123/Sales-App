@@ -122,6 +122,9 @@ export const navEntries: NavEntry[] = [
       icon: 'fact_check',
       items: [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/review/collections', icon: 'payments', label: 'مراجعة التحصيلات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/review/expenses', icon: 'receipt', label: 'مراجعة المصروفات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/expenses/new', icon: 'add_card', label: 'طلب مصروف', roles: ['super_admin', 'admin'] },
         { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/evaluation-queue', icon: 'rate_review', label: 'تقييم العملاء', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/subscription-renewals', icon: 'autorenew', label: 'تجديد الاشتراكات', roles: ['super_admin', 'admin', 'reviewer'] },
@@ -137,6 +140,7 @@ export const navEntries: NavEntry[] = [
       icon: 'inventory_2',
       items: [
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', end: true, roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/inventory/branch', icon: 'inventory', label: 'مخزون الفرع', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/inventory/add', icon: 'add_box', label: 'تسجيل مخزون', roles: ['super_admin', 'admin'] },
         { to: '/inventory/transfers', icon: 'local_shipping', label: 'توزيع المخزون', roles: ['super_admin', 'admin'] },
         { to: '/inventory/returns', icon: 'undo', label: 'استرجاع مخزون', roles: ['super_admin', 'admin'] },
