@@ -5,6 +5,8 @@ import {
   getCurrentInstallment,
   rowRemaining,
 } from '../../lib/collectionHelpers'
+import { formatDatetime12hDisplay } from '../../lib/datetime12h'
+import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/customerForm'
 import { formatInvoiceDate } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { StatusBadge } from '../StatusBadge'
@@ -25,7 +27,7 @@ export interface CustomerInstallmentGroup {
   customerKey: string
   customerId?: number
   customerName: string
-  customerPhones: string[]
+  customerPhones: CustomerPhoneEntry[]
   totalRemaining: number
   installmentCount: number
   overdueCount: number
@@ -45,11 +47,15 @@ export function groupInstallmentsByCustomerAndContract(
     const customerKey = String(row.customer_id ?? row.customer_name ?? 'unknown')
     let customerGroup = customerMap.get(customerKey)
     if (!customerGroup) {
+      const customerRecord =
+        (row as InstallmentCollectionRow & { sales_invoice?: { customer?: Parameters<typeof customerToPhoneEntries>[0] } })
+          .sales_invoice?.customer ?? { phone: row.customer_phone ?? '' }
+
       customerGroup = {
         customerKey,
         customerId: row.customer_id,
         customerName: String(row.customer_name ?? '—'),
-        customerPhones: (row.customer_phones ?? [row.customer_phone]).filter(Boolean) as string[],
+        customerPhones: customerToPhoneEntries(customerRecord).filter((entry) => entry.number.trim()),
         totalRemaining: 0,
         installmentCount: 0,
         overdueCount: 0,
@@ -122,44 +128,93 @@ interface InstallmentCollectionGroupedListProps {
   emptyMessage?: string
 }
 
+function InstallmentMetricCell({
+  label,
+  children,
+  dir,
+}: {
+  label: string
+  children: React.ReactNode
+  dir?: 'ltr' | 'rtl'
+}) {
+  return (
+    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-sm py-2.5 text-center">
+      <p className="text-[11px] font-medium text-on-surface-variant">{label}</p>
+      <div className="mt-1 flex min-h-[1.75rem] items-center justify-center text-sm font-bold text-on-surface" dir={dir}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function CurrentInstallmentCard({
   row,
+  invoiceNumber,
   selected,
   onSelect,
   onReconcile,
 }: {
   row: InstallmentCollectionRow
+  invoiceNumber: string
   selected: boolean
   onSelect: () => void
   onReconcile: () => void
 }) {
+  const remaining = rowRemaining(row)
+  const installmentNo = row.installment_number ?? row.sequence ?? '—'
+  const tier = String(row.display_tier ?? row.status)
+
   return (
     <div
-      className={`rounded-lg border border-outline-variant/60 p-sm ${tierRowClass(String(row.display_tier ?? row.status), selected)}`}
+      className={`rounded-xl border p-md ${tierRowClass(tier, selected)} ${
+        selected ? 'border-primary/40 shadow-sm' : 'border-outline-variant/60'
+      }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">
-            قسط #{row.installment_number ?? row.sequence} —{' '}
-            <span className="tabular-nums">{rowRemaining(row).toLocaleString('ar-EG')} ج.م</span>
-          </p>
-          <p className="text-xs text-on-surface-variant">
-            الاستحقاق: {formatInvoiceDate(row.due_date)}
-            {row.is_suspended ? ' · معلّق' : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge status={String(row.display_tier ?? row.status)} />
-          {!row.is_suspended && (
-            <button type="button" onClick={onSelect} className="text-sm text-primary hover:underline">
-              تحصيل
-            </button>
-          )}
-          {row.display_tier === 'overdue' && !row.is_suspended && (
-            <button type="button" onClick={onReconcile} className="text-xs text-on-surface-variant hover:underline">
-              تصالح
-            </button>
-          )}
+      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-6">
+        <InstallmentMetricCell label="رقم التعاقد" dir="ltr">
+          <span className="font-semibold">{invoiceNumber}</span>
+        </InstallmentMetricCell>
+
+        <InstallmentMetricCell label="رقم القسط">
+          <span className="tabular-nums">#{installmentNo}</span>
+        </InstallmentMetricCell>
+
+        <InstallmentMetricCell label="المبلغ المستحق">
+          <span className="tabular-nums">{remaining.toLocaleString('ar-EG')} ج.م</span>
+        </InstallmentMetricCell>
+
+        <InstallmentMetricCell label="تاريخ الاستحقاق" dir="ltr">
+          <span className="tabular-nums font-semibold">{formatInvoiceDate(row.due_date)}</span>
+        </InstallmentMetricCell>
+
+        <InstallmentMetricCell label="الحالة">
+          <StatusBadge status={tier} />
+        </InstallmentMetricCell>
+
+        <div className="col-span-2 rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-sm py-2.5 text-center sm:col-span-3 xl:col-span-1">
+          <p className="text-[11px] font-medium text-on-surface-variant">الإجراء</p>
+          <div className="mt-1 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-2">
+            {!row.is_suspended ? (
+              <button
+                type="button"
+                onClick={onSelect}
+                className="rounded-lg bg-primary px-md py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90"
+              >
+                تحصيل
+              </button>
+            ) : (
+              <span className="text-xs text-on-surface-variant">معلّق</span>
+            )}
+            {tier === 'overdue' && !row.is_suspended && (
+              <button
+                type="button"
+                onClick={onReconcile}
+                className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary"
+              >
+                تصالح
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -295,17 +350,27 @@ export function InstallmentCollectionGroupedList({
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG')} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
           defaultOpen={groups.length === 1}
         >
-          <div className="mb-sm flex flex-wrap items-center gap-sm text-xs text-on-surface-variant">
-            {customer.customerPhones.length > 0 && (
-              <div className="flex flex-wrap gap-sm" dir="ltr">
-                {customer.customerPhones.map((phone) => (
-                  <a key={phone} href={`tel:${phone}`} className="text-primary hover:underline">
-                    {phone}
+          {customer.customerPhones.length > 0 && (
+            <div className="mb-sm grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-4">
+              {customer.customerPhones.map((entry, index) => (
+                <div
+                  key={`${entry.number}-${index}`}
+                  className="rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-sm py-2 text-center"
+                >
+                  <p className="text-[11px] font-medium text-on-surface-variant">
+                    {(entry.label ?? '').trim() || `رقم ${index + 1}`}
+                  </p>
+                  <a
+                    href={`tel:${entry.number}`}
+                    dir="ltr"
+                    className="mt-1 block text-sm font-bold tabular-nums text-primary hover:underline"
+                  >
+                    {entry.number}
                   </a>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-sm">
             {customer.contracts.map((contract) => {
@@ -327,7 +392,7 @@ export function InstallmentCollectionGroupedList({
                           <> · {collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus}</>
                         )}
                         {contract.collectionReminderAt && (
-                          <> · تذكير {formatInvoiceDate(contract.collectionReminderAt)}</>
+                          <> · تذكير {formatDatetime12hDisplay(contract.collectionReminderAt)}</>
                         )}
                       </p>
                     </div>
@@ -343,6 +408,7 @@ export function InstallmentCollectionGroupedList({
                   {current ? (
                     <CurrentInstallmentCard
                       row={current}
+                      invoiceNumber={contract.invoiceNumber}
                       selected={selectedId === current.id}
                       onSelect={() => onSelect(current)}
                       onReconcile={() => onReconcile(current)}

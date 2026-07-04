@@ -24,7 +24,27 @@ export function CrmCallLogsPage() {
     duration: '',
     service_evaluation_request_id: '' as number | '',
   })
-  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [createAudioFile, setCreateAudioFile] = useState<File | null>(null)
+
+  const uploadCallAudio = async (callId: number, file: File) => {
+    const body = new FormData()
+    body.append('audio', file)
+    await api.post(`/crm/call-logs/${callId}/audio`, body, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  }
+
+  const resetCreateForm = () => {
+    setForm({
+      mobile_number: '',
+      mobile_name: '',
+      customer_id: '',
+      call_type: 'outbound',
+      duration: '',
+      service_evaluation_request_id: '',
+    })
+    setCreateAudioFile(null)
+  }
 
   const query = useQuery({
     queryKey: ['crm', 'call-logs'],
@@ -47,6 +67,8 @@ export function CrmCallLogsPage() {
     enabled: Boolean(editCall?.customer_id),
   })
 
+  const [editAudioFile, setEditAudioFile] = useState<File | null>(null)
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data } = await api.post<CrmCallLog>('/crm/call-logs', {
@@ -60,11 +82,15 @@ export function CrmCallLogsPage() {
           : undefined,
         start_time: new Date().toISOString(),
       })
+      if (createAudioFile) {
+        await uploadCallAudio(data.id, createAudioFile)
+      }
       return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm', 'call-logs'] })
       setPanelOpen(false)
+      resetCreateForm()
       setToast('تم تسجيل المكالمة')
     },
     onError: (err) => setToast(getErrorMessage(err)),
@@ -81,16 +107,12 @@ export function CrmCallLogsPage() {
       return data
     },
     onSuccess: async () => {
-      if (audioFile && editCall) {
-        const body = new FormData()
-        body.append('audio', audioFile)
-        await api.post(`/crm/call-logs/${editCall.id}/audio`, body, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+      if (editAudioFile && editCall) {
+        await uploadCallAudio(editCall.id, editAudioFile)
       }
       queryClient.invalidateQueries({ queryKey: ['crm', 'call-logs'] })
       setEditCall(null)
-      setAudioFile(null)
+      setEditAudioFile(null)
       setToast('تم تحديث المكالمة')
     },
     onError: (err) => setToast(getErrorMessage(err)),
@@ -106,7 +128,12 @@ export function CrmCallLogsPage() {
       duration: call.duration != null ? String(call.duration) : '',
       service_evaluation_request_id: call.service_evaluation_request_id ?? call.service_evaluation_request?.id ?? '',
     })
-    setAudioFile(null)
+    setEditAudioFile(null)
+  }
+
+  const openCreate = () => {
+    resetCreateForm()
+    setPanelOpen(true)
   }
 
   return (
@@ -117,7 +144,7 @@ export function CrmCallLogsPage() {
         actions={
           <button
             type="button"
-            onClick={() => setPanelOpen(true)}
+            onClick={openCreate}
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >
             <Icon name="add" size={18} /> تسجيل مكالمة
@@ -164,7 +191,14 @@ export function CrmCallLogsPage() {
         />
       </AsyncState>
 
-      <Modal open={panelOpen} onClose={() => setPanelOpen(false)} title="تسجيل مكالمة">
+      <Modal
+        open={panelOpen}
+        onClose={() => {
+          setPanelOpen(false)
+          resetCreateForm()
+        }}
+        title="تسجيل مكالمة"
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -194,12 +228,24 @@ export function CrmCallLogsPage() {
             className={inputClass}
             dir="ltr"
           />
+          <div>
+            <label className="mb-1 block text-sm font-medium">إرفاق ملف صوتي للمكالمة</label>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => setCreateAudioFile(e.target.files?.[0] ?? null)}
+              className="w-full text-sm"
+            />
+            {createAudioFile && (
+              <p className="mt-1 text-xs text-on-surface-variant">{createAudioFile.name}</p>
+            )}
+          </div>
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary"
+            className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary disabled:opacity-50"
           >
-            حفظ
+            {createMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
           </button>
         </form>
       </Modal>
@@ -243,9 +289,12 @@ export function CrmCallLogsPage() {
               <input
                 type="file"
                 accept="audio/*"
-                onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => setEditAudioFile(e.target.files?.[0] ?? null)}
                 className="w-full text-sm"
               />
+              {editAudioFile && (
+                <p className="mt-1 text-xs text-on-surface-variant">{editAudioFile.name}</p>
+              )}
             </div>
             <button
               type="button"

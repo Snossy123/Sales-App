@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { AdminUser, Branch, CollectionPaymentAccount, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { DateTimeInput12h } from '../components/DateTimeInput12h'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
@@ -14,6 +15,7 @@ import {
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
+import { formatDatetimeLocal, parseDatetimeLocal } from '../lib/datetime12h'
 import {
   installmentStatusOptions,
   normalizeInstallmentItem,
@@ -252,6 +254,7 @@ export function InstallmentCollectionPage() {
   }, [branchRows, contractTierFilter, customerSearch])
 
   const contractStats = useMemo(() => computeContractStats(branchRows), [branchRows])
+  const selectedBranchSummary = branchStats.find((s) => s.branch.id === selectedBranchId)
 
   const selectedContractRows = useMemo(() => {
     if (!selected?.sales_invoice_id) return []
@@ -431,7 +434,14 @@ export function InstallmentCollectionPage() {
     setShowReconcile(false)
     setAdjustNextDueDate(false)
     setCollectionStatus(String(row.collection_status ?? ''))
-    setCollectionReminderAt(row.collection_reminder_at ? row.collection_reminder_at.slice(0, 16) : '')
+    setCollectionReminderAt(
+      row.collection_reminder_at
+        ? (() => {
+            const parts = parseDatetimeLocal(String(row.collection_reminder_at))
+            return parts ? formatDatetimeLocal(parts) : ''
+          })()
+        : '',
+    )
     setCollectionNotes(String(row.collection_notes ?? ''))
     setShowEditDueDates(false)
     const edits: Record<number, string> = {}
@@ -463,35 +473,6 @@ export function InstallmentCollectionPage() {
     setCollectionStatusFilter('')
     setContractTierFilter('all')
     setSortByReminder(false)
-  }
-
-  function ContractStatCard({
-    label,
-    value,
-    active,
-    onClick,
-    tone,
-  }: {
-    label: string
-    value: number
-    active: boolean
-    onClick: () => void
-    tone?: 'error' | 'warning' | 'default'
-  }) {
-    const toneClass =
-      tone === 'error' ? 'border-error/40 bg-error/5' : tone === 'warning' ? 'border-orange-400/40 bg-orange-50' : ''
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`rounded-xl border p-md text-right transition-all ${toneClass} ${
-          active ? 'border-primary ring-1 ring-primary/30' : 'border-outline-variant hover:border-primary/40'
-        }`}
-      >
-        <p className="tabular-nums text-2xl font-bold">{value}</p>
-        <p className="text-xs text-on-surface-variant">{label}</p>
-      </button>
-    )
   }
 
   return (
@@ -585,27 +566,29 @@ export function InstallmentCollectionPage() {
               </span>
             </div>
 
-            <div className="mb-md grid grid-cols-1 gap-sm sm:grid-cols-3">
-              <ContractStatCard
-                label="عدد العقود"
-                value={contractStats.total_contracts}
-                active={contractTierFilter === 'all'}
-                onClick={() => setContractTierFilter('all')}
-              />
-              <ContractStatCard
-                label="عقود متأخرة"
-                value={contractStats.overdue_contracts}
-                active={contractTierFilter === 'overdue'}
-                onClick={() => setContractTierFilter('overdue')}
-                tone="error"
-              />
-              <ContractStatCard
-                label="مستحقة اليوم / فترة السماح"
-                value={contractStats.due_soon_contracts}
-                active={contractTierFilter === 'due_soon'}
-                onClick={() => setContractTierFilter('due_soon')}
-                tone="warning"
-              />
+            <div className="mb-md grid grid-cols-3 gap-xs text-center">
+              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+                <p className="tabular-nums text-lg font-bold text-on-surface">
+                  {contractStats.total_contracts}
+                </p>
+                <p className="text-[11px] text-on-surface-variant">التعاقدات</p>
+              </div>
+              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+                <p
+                  className={`tabular-nums text-lg font-bold ${
+                    (selectedBranchSummary?.overdueCount ?? 0) > 0 ? 'text-error' : 'text-on-surface'
+                  }`}
+                >
+                  {selectedBranchSummary?.overdueCount ?? 0}
+                </p>
+                <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
+              </div>
+              <div className="rounded-lg bg-surface-container-low px-xs py-sm">
+                <p className="tabular-nums text-lg font-bold text-on-surface">
+                  {selectedBranchSummary?.count ?? 0}
+                </p>
+                <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
+              </div>
             </div>
 
             <FilterBar
@@ -706,11 +689,10 @@ export function InstallmentCollectionPage() {
                       ))}
                     </select>
                     <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
-                    <input
-                      type="datetime-local"
+                    <DateTimeInput12h
                       value={collectionReminderAt}
-                      onChange={(e) => setCollectionReminderAt(e.target.value)}
-                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                      onChange={setCollectionReminderAt}
+                      className="mb-sm"
                     />
                     <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
                     <textarea
