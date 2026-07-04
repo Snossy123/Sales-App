@@ -43,6 +43,16 @@ import type { DemoState, DemoUser } from './seed'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
+
+type MockCollectionActionLog = {
+  customer_id: number
+  sales_invoice_id?: number
+  action_type: string
+  notes?: string | null
+  created_at: string
+}
+
+const mockCollectionActionLogs: MockCollectionActionLog[] = []
 import {
   cashDueDate,
   cashRemainder,
@@ -1687,6 +1697,106 @@ export function handleMockRequest(
       customer.profile_photo_url = null
     })
     return { profile_photo_url: null }
+  }
+
+  if (m === 'GET' && path.match(/^customers\/\d+\/collection-actions\/summary$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    const logs = mockCollectionActionLogs.filter((entry) => entry.customer_id === customerId)
+    const deviceNote = [...logs].reverse().find((entry) => entry.action_type === 'device_disable_note')
+    const whatsappWarnings: Record<number, { logged_at: string; sales_invoice_id: number }> = {}
+    for (const entry of logs.filter((e) => e.action_type === 'whatsapp_warning' && e.sales_invoice_id)) {
+      const invoiceId = entry.sales_invoice_id!
+      if (!whatsappWarnings[invoiceId]) {
+        whatsappWarnings[invoiceId] = {
+          logged_at: entry.created_at,
+          sales_invoice_id: invoiceId,
+        }
+      }
+    }
+    return {
+      customer_status: customer.status ?? 'active',
+      portal_blocked: customer.status === 'blocked',
+      device_disable_note: deviceNote
+        ? { logged_at: deviceNote.created_at, notes: deviceNote.notes ?? null }
+        : null,
+      whatsapp_warnings: whatsappWarnings,
+    }
+  }
+
+  if (m === 'POST' && path.match(/^customers\/\d+\/collection-actions\/device-disable-note$/)) {
+    const customerId = Number(path.split('/')[1])
+    const body = (data ?? {}) as { notes?: string | null }
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    const createdAt = new Date().toISOString()
+    mockCollectionActionLogs.push({
+      customer_id: customerId,
+      action_type: 'device_disable_note',
+      notes: body.notes ?? null,
+      created_at: createdAt,
+    })
+    const summary = {
+      customer_status: customer.status ?? 'active',
+      portal_blocked: customer.status === 'blocked',
+      device_disable_note: { logged_at: createdAt, notes: body.notes ?? null },
+      whatsapp_warnings: {},
+    }
+    return { action: { customer_id: customerId, action_type: 'device_disable_note' }, summary }
+  }
+
+  if (m === 'POST' && path.match(/^customers\/\d+\/collection-actions\/portal-access$/)) {
+    const customerId = Number(path.split('/')[1])
+    const body = (data ?? {}) as { enabled?: boolean }
+    let updated: Customer | undefined
+    mutateState((s) => {
+      const customer = s.customers.find((c) => c.id === customerId)
+      if (!customer) throw mockError(404, 'العميل غير موجود')
+      customer.status = body.enabled ? 'active' : 'blocked'
+      updated = customer
+    })
+    mockCollectionActionLogs.push({
+      customer_id: customerId,
+      action_type: body.enabled ? 'portal_login_enabled' : 'portal_login_disabled',
+      created_at: new Date().toISOString(),
+    })
+    const customer = updated!
+    return {
+      customer,
+      summary: {
+        customer_status: customer.status ?? 'active',
+        portal_blocked: customer.status === 'blocked',
+        device_disable_note: null,
+        whatsapp_warnings: {},
+      },
+    }
+  }
+
+  if (m === 'POST' && path.match(/^sales-invoices\/\d+\/collection-actions\/whatsapp-warning$/)) {
+    const invoiceId = Number(path.split('/')[1])
+    const invoice = state.invoices.find((inv) => inv.id === invoiceId)
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    const customer = state.customers.find((c) => c.id === invoice.customer_id)
+    if (!customer?.phone) throw mockError(422, 'لا يوجد رقم هاتف للعميل')
+    const createdAt = new Date().toISOString()
+    mockCollectionActionLogs.push({
+      customer_id: customer.id,
+      sales_invoice_id: invoiceId,
+      action_type: 'whatsapp_warning',
+      created_at: createdAt,
+    })
+    return {
+      action: { customer_id: customer.id, sales_invoice_id: invoiceId, action_type: 'whatsapp_warning' },
+      summary: {
+        customer_status: customer.status ?? 'active',
+        portal_blocked: customer.status === 'blocked',
+        device_disable_note: null,
+        whatsapp_warnings: {
+          [invoiceId]: { logged_at: createdAt, sales_invoice_id: invoiceId },
+        },
+      },
+    }
   }
 
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {

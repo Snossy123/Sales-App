@@ -59,6 +59,7 @@ export const DEFAULT_MESSAGING: MessagingSettings = {
   send_contract_approved: true,
   send_installment_reminder: true,
   send_installment_paid: true,
+  send_collection_warning: true,
   templates: {
     contract_welcome:
       'مرحباً {customer_name}،\nتم تسجيل تعاقدكم رقم {invoice_number} بإجمالي {total} ج.م.\n{review_note}\n{org_name}',
@@ -68,6 +69,8 @@ export const DEFAULT_MESSAGING: MessagingSettings = {
       'تذكير: قسط مستحق لـ {customer_name}\nفاتورة {invoice_number}\nالمبلغ: {installment_amount} ج.م\nتاريخ الاستحقاق: {due_date}',
     installment_paid:
       'شكراً {customer_name}،\nتم استلام {paid_amount} ج.م لفاتورة {invoice_number}.\n{next_installment_note}',
+    collection_warning:
+      'تنبيه: {customer_name} — تعاقد {invoice_number}.\nقسط مستحق {installment_amount} ج.م بتاريخ {due_date}.\nيرجى السداد لتجنب إيقاف الخدمة.\n{org_name}',
   },
 }
 

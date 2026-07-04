@@ -80,6 +80,7 @@ const MESSAGE_TYPE_LABELS: Record<string, string> = {
   contract_approved: 'اعتماد التعاقد',
   installment_reminder: 'تذكير قسط',
   installment_paid: 'تأكيد سداد',
+  collection_warning: 'تحذير تحصيل',
 }
 
 const MESSAGE_STATUS_LABELS: Record<string, string> = {
@@ -718,6 +719,7 @@ export function AdminSystemSettingsPage() {
                         ['send_contract_approved', 'رسالة بعد اعتماد المراجعة'],
                         ['send_installment_reminder', 'تذكير قبل موعد القسط'],
                         ['send_installment_paid', 'تأكيد بعد سداد القسط'],
+                        ['send_collection_warning', 'تحذير تحصيل من صفحة التحصيل'],
                       ] as const
                     ).map(([key, label]) => (
                       <label
@@ -746,6 +748,7 @@ export function AdminSystemSettingsPage() {
                         ['contract_approved', 'قالب اعتماد التعاقد'],
                         ['installment_reminder', 'قالب تذكير القسط'],
                         ['installment_paid', 'قالب تأكيد السداد'],
+                        ['collection_warning', 'قالب تحذير التحصيل'],
                       ] as const
                     ).map(([key, label]) => (
                       <SettingsField key={key} label={label}>

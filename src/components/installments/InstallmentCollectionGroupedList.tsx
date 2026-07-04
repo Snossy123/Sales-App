@@ -10,6 +10,10 @@ import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/custo
 import { formatInvoiceDate } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { StatusBadge } from '../StatusBadge'
+import {
+  ContractWhatsappWarningButton,
+  CustomerCollectionActions,
+} from './CustomerCollectionActions'
 
 interface ContractGroup {
   invoiceId: number
@@ -372,6 +376,8 @@ export function InstallmentCollectionGroupedList({
             </div>
           )}
 
+          <CustomerCollectionActions customerId={customer.customerId} />
+
           <div className="space-y-sm">
             {customer.contracts.map((contract) => {
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
@@ -403,6 +409,14 @@ export function InstallmentCollectionGroupedList({
                     >
                       {showDetails ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
                     </button>
+                  </div>
+
+                  <div className="mb-sm">
+                    <ContractWhatsappWarningButton
+                      customerId={customer.customerId}
+                      invoiceId={contract.invoiceId}
+                      hasPhone={customer.customerPhones.length > 0}
+                    />
                   </div>
 
                   {current ? (

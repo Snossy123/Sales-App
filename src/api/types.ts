@@ -1626,11 +1626,28 @@ export interface SecuritySettings {
   log_ip_addresses?: boolean
 }
 
+export interface CollectionActionsSummary {
+  customer_status: string
+  portal_blocked: boolean
+  device_disable_note?: {
+    logged_at: string
+    notes?: string | null
+  } | null
+  whatsapp_warnings?: Record<
+    number,
+    {
+      logged_at?: string
+      sales_invoice_id: number
+    }
+  >
+}
+
 export interface MessagingTemplateSettings {
   contract_welcome?: string
   contract_approved?: string
   installment_reminder?: string
   installment_paid?: string
+  collection_warning?: string
 }
 
 export interface MessagingSettings {
@@ -1640,6 +1657,7 @@ export interface MessagingSettings {
   send_contract_approved?: boolean
   send_installment_reminder?: boolean
   send_installment_paid?: boolean
+  send_collection_warning?: boolean
   templates?: MessagingTemplateSettings
 }
 
