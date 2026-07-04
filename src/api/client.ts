@@ -20,6 +20,10 @@ axiosApi.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
   const { branchId, warehouseId, departmentId } = useAuthStore.getState()
   if (branchId) {
     config.headers['X-Branch-Id'] = String(branchId)

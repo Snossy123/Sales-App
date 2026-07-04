@@ -52,7 +52,6 @@ export function ProfilePhotoUploader({
       const { data } = await api.post<{ profile_photo_url: string }>(
         `${endpointBase}/profile-photo`,
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       return data.profile_photo_url
     },

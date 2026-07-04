@@ -60,9 +60,7 @@ export function CustomerAttachmentsSection({
       if (payload.description) {
         formData.append('description', payload.description)
       }
-      const { data } = await api.post<MediaFile>(`/customers/${customerId}/media`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const { data } = await api.post<MediaFile>(`/customers/${customerId}/media`, formData)
       return data
     },
     onSuccess: () => {
@@ -335,8 +333,6 @@ export async function uploadCustomerAttachments(
     if (item.description.trim()) {
       formData.append('description', item.description.trim())
     }
-    await api.post(`/customers/${customerId}/media`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    await api.post(`/customers/${customerId}/media`, formData)
   }
 }

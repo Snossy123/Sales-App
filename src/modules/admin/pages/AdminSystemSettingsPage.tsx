@@ -171,7 +171,6 @@ export function AdminSystemSettingsPage() {
       const { data } = await api.post<OrganizationSettings & { logo_url?: string }>(
         '/admin/settings/logo',
         body,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       return data
     },
