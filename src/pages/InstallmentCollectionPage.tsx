@@ -945,7 +945,7 @@ export function InstallmentCollectionPage() {
                     {collectMutation.isPending ? 'جاري التحصيل...' : 'تأكيد التحصيل'}
                   </button>
 
-                  {selected.has_open_reconciliation && selected.open_reconciliation_id && (
+                  {selected.has_open_reconciliation && selected.open_reconciliation_id != null ? (
                     <button
                       type="button"
                       onClick={() => closeReconcileMutation.mutate(selected.open_reconciliation_id!)}
@@ -954,7 +954,7 @@ export function InstallmentCollectionPage() {
                     >
                       {closeReconcileMutation.isPending ? 'جاري الإغلاق...' : 'إغلاق التصالح وإعفاء الغرامة'}
                     </button>
-                  )}
+                  ) : null}
 
                   {showReconcile && selected.display_tier === 'overdue' && !selected.has_open_reconciliation && (
                     <div className="mt-md rounded-lg border border-outline-variant bg-surface-container-high p-sm">

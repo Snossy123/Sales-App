@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
+import { api } from '../api/client'
 import type { ProductUnit } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
@@ -40,7 +40,6 @@ export function BranchInventoryPage() {
     enabled: Boolean(user),
   })
 
-  const units = query.data?.units ?? []
   const byBucket = query.data?.grouped?.by_bucket ?? {}
 
   return (

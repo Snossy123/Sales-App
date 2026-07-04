@@ -19,7 +19,7 @@ export const contractTierFilterOptions = [
   { value: 'due_soon', label: 'مستحقة اليوم / فترة السماح' },
 ] as const
 
-export interface InstallmentCollectionRow {
+export type InstallmentCollectionRow = {
   id: number
   sales_invoice_id?: number
   installment_number?: number
@@ -45,9 +45,10 @@ export interface InstallmentCollectionRow {
   collection_reminder_at?: string | null
   collection_notes?: string | null
   has_open_reconciliation?: boolean
+  open_reconciliation_id?: number | null
   remaining_installments?: number
   late_fee_accrued?: string | number
-}
+} & Record<string, unknown>
 
 export function rowRemaining(row: InstallmentCollectionRow): number {
   return Number(

@@ -80,7 +80,7 @@ export function CrmCallLogsPage() {
       })
       return data
     },
-    onSuccess: async (updated) => {
+    onSuccess: async () => {
       if (audioFile && editCall) {
         const body = new FormData()
         body.append('audio', audioFile)

@@ -671,6 +671,8 @@ export interface SalesInvoice {
   rejection_reason?: string
   contract_status?: 'active' | 'in_problem' | 'returned' | 'exchanged' | 'cancelled' | string
   problem_reason?: string | null
+  collection_review_status?: 'pending' | 'reviewed' | string | null
+  installment_items?: InstallmentItem[]
   payment_transactions?: PaymentTransaction[]
 }
 
@@ -696,6 +698,7 @@ export interface PaymentTransaction {
   }
   installment_item?: { id?: number; sequence?: number; installment_number?: number }
   user?: { id?: number; name?: string }
+  notes?: string | null
   collection_payment_account?: { id?: number; phone?: string; beneficiary_name?: string }
 }
 
