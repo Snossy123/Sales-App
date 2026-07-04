@@ -14,8 +14,8 @@ import {
 } from '../api'
 
 const DUE_STATUS_OPTIONS = [
-  { value: '', label: 'المستحق والمتأخر (30 يوم)' },
-  { value: 'overdue', label: 'متأخر فقط' },
+  { value: '', label: 'المنتهي' },
+  { value: 'overdue', label: 'المنتهي' },
   { value: 'upcoming', label: 'قادم (خلال 30 يوم)' },
   { value: 'all', label: 'كل الاشتراكات السنوية' },
 ]
