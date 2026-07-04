@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   collectionStatusOptions,
+  computeContractStats,
   filterRowsByContractTier,
   type ContractTierFilter,
   type InstallmentCollectionRow,
@@ -26,9 +27,9 @@ type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
 interface BranchStats {
   branch: Branch
-  count: number
+  contractsCount: number
   overdueCount: number
-  totalRemaining: number
+  dueSoonCount: number
 }
 
 const paymentMethodOptions = [
@@ -53,7 +54,7 @@ function BranchInstallmentCard({
   onSelectBranch: () => void
   onFilter: (tier: ContractTierFilter) => void
 }) {
-  const { branch, count, overdueCount, totalRemaining } = stats
+  const { branch, contractsCount, overdueCount, dueSoonCount } = stats
 
   const statButtonClass = (tier: ContractTierFilter, overdueTone = false) => {
     const isActive = selected && activeFilter === tier
@@ -101,8 +102,8 @@ function BranchInstallmentCard({
           onClick={() => onFilter('all')}
           className={statButtonClass('all')}
         >
-          <p className="tabular-nums text-lg font-bold text-on-surface">{count}</p>
-          <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
+          <p className="tabular-nums text-lg font-bold text-on-surface">{contractsCount}</p>
+          <p className="text-[11px] text-on-surface-variant">التعاقدات</p>
         </button>
         <button
           type="button"
@@ -119,10 +120,8 @@ function BranchInstallmentCard({
           onClick={() => onFilter('due_soon')}
           className={statButtonClass('due_soon')}
         >
-          <p className="tabular-nums text-sm font-bold text-on-surface">
-            {totalRemaining.toLocaleString('ar-EG')}
-          </p>
-          <p className="text-[11px] text-on-surface-variant">متبقي ج.م</p>
+          <p className="tabular-nums text-lg font-bold text-on-surface">{dueSoonCount}</p>
+          <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
         </button>
       </div>
     </div>
@@ -238,20 +237,23 @@ export function InstallmentCollectionPage() {
     return branches
       .map((branch) => {
         const rows = installmentsByBranch.get(branch.id) ?? []
-        const overdueCount = rows.filter((r) => r.status === 'overdue').length
-        const totalRemaining = rows.reduce(
-          (sum, r) => sum + Number(r.remaining ?? Number(r.amount) - Number(r.paid_amount)),
-          0,
-        )
+        const { total_contracts: contractsCount } = computeContractStats(rows)
+        const overdueCount = filterRowsByContractTier(rows, 'overdue').length
+        const dueSoonCount = filterRowsByContractTier(rows, 'due_soon').length
         return {
           branch,
-          count: rows.length,
+          contractsCount,
           overdueCount,
-          totalRemaining,
+          dueSoonCount,
         }
       })
-      .filter((s) => s.count > 0 || branches.length <= 6)
-      .sort((a, b) => b.count - a.count || b.overdueCount - a.overdueCount)
+      .filter((s) => s.contractsCount > 0 || s.overdueCount > 0 || s.dueSoonCount > 0 || branches.length <= 6)
+      .sort(
+        (a, b) =>
+          b.contractsCount - a.contractsCount ||
+          b.overdueCount - a.overdueCount ||
+          b.dueSoonCount - a.dueSoonCount,
+      )
   }, [branchesQuery.data, installmentsByBranch])
 
   useEffect(() => {
