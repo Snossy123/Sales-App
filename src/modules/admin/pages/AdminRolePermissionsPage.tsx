@@ -3,7 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { AdminRole, PermissionGroups } from '../../../api/types'
-import { formatRoleLabel } from '../../../lib/roleCatalog'
+import { formatRoleLabel, isProtectedRoleSlug } from '../../../lib/roleCatalog'
+import { isSuperAdmin } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { ToastBanner } from '../../../components/ToastBanner'
@@ -17,7 +19,9 @@ export function AdminRolePermissionsPage() {
   const { roleId } = useParams<{ roleId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const authUser = useAuthStore((s) => s.user)
   const isNew = roleId === 'new'
+  const orgWide = isSuperAdmin(authUser)
 
   const [roleNameAr, setRoleNameAr] = useState('')
   const [roleSlug, setRoleSlug] = useState<string | undefined>()
@@ -67,6 +71,7 @@ export function AdminRolePermissionsPage() {
   })
 
   const apiKeys = permissionsQuery.data ? flattenPermissionGroups(permissionsQuery.data) : undefined
+  const canEdit = isNew || orgWide || (roleSlug ? !isProtectedRoleSlug(roleSlug) : false)
   const isLoading = (!isNew && roleQuery.isLoading) || permissionsQuery.isLoading
   const isError = roleQuery.isError || permissionsQuery.isError
   const error = roleQuery.error ?? permissionsQuery.error
@@ -85,24 +90,28 @@ export function AdminRolePermissionsPage() {
           <h1 className="text-2xl font-bold text-on-surface">
             {isNew ? 'دور جديد' : `صلاحيات: ${roleNameAr || '...'}`}
           </h1>
-          <p className="text-sm text-on-surface-variant">تحديد الصلاحيات الممنوحة لهذا الدور</p>
+          <p className="text-sm text-on-surface-variant">
+            {canEdit ? 'تحديد الصلاحيات الممنوحة لهذا الدور' : 'عرض صلاحيات دور نظامي — لا يمكن تعديله من مدير الإدارة'}
+          </p>
         </div>
         <div className="flex items-center gap-sm">
           <Link
             to="/admin/roles"
             className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface-variant hover:bg-surface-container-high"
           >
-            إلغاء
+            {canEdit ? 'إلغاء' : 'رجوع'}
           </Link>
-          <button
-            type="button"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !roleNameAr.trim()}
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-60"
-          >
-            <Icon name="save" size={18} />
-            {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !roleNameAr.trim()}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-60"
+            >
+              <Icon name="save" size={18} />
+              {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -117,6 +126,7 @@ export function AdminRolePermissionsPage() {
           onChange={setPermissions}
           onRoleNameArChange={setRoleNameAr}
           isNew={isNew}
+          readOnly={!canEdit}
         />
       </AsyncState>
     </div>

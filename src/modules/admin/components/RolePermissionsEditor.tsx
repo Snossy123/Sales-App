@@ -21,6 +21,7 @@ interface RolePermissionsEditorProps {
   onChange: (permissions: string[]) => void
   onRoleNameArChange?: (nameAr: string) => void
   isNew?: boolean
+  readOnly?: boolean
 }
 
 export function RolePermissionsEditor({
@@ -31,6 +32,7 @@ export function RolePermissionsEditor({
   onChange,
   onRoleNameArChange,
   isNew,
+  readOnly = false,
 }: RolePermissionsEditorProps) {
   const [search, setSearch] = useState('')
   const [activeModule, setActiveModule] = useState('dashboard')
@@ -74,12 +76,14 @@ export function RolePermissionsEditor({
   }, [modules, activeModule])
 
   const togglePermission = (key: string) => {
+    if (readOnly) return
     onChange(
       selected.includes(key) ? selected.filter((p) => p !== key) : [...selected, key],
     )
   }
 
   const toggleKeys = (keys: string[], select: boolean) => {
+    if (readOnly) return
     if (select) {
       onChange([...new Set([...selected, ...keys])])
       return
@@ -128,7 +132,8 @@ export function RolePermissionsEditor({
               onChange={(e) => onRoleNameArChange(e.target.value)}
               placeholder="مثال: المراجعة"
               required
-              className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+              disabled={readOnly}
+              className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm disabled:opacity-60"
             />
             {!isNew && roleSlug && (
               <p className="text-xs text-on-surface-variant">

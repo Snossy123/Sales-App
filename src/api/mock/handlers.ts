@@ -3595,11 +3595,13 @@ export function handleMockRequest(
     return loadState().hrmSettings
   }
 
-  if (m === 'GET' && path === 'admin/users') {
+    if (m === 'GET' && path === 'admin/users') {
     let staff = state.users.map(({ password: _, ...u }) => enrichAdminUser(state, u))
     const scope = getApiDepartmentScope(ctx)
     if (scope != null) {
-      staff = staff.filter((u) => u.administration_id === scope)
+      staff = staff.filter(
+        (u) => u.administration_id === scope && !u.permissions?.includes('scope.organization'),
+      )
     }
     const nameFilter = params['filter[name]']
     if (nameFilter) {
@@ -3721,6 +3723,11 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'admin/roles') {
+    const scope = getApiDepartmentScope(ctx)
+    const excluded = new Set(['Admin', 'AdministrationManager', 'Super Admin'])
+    if (scope != null) {
+      return state.adminRoles.filter((role) => !excluded.has(role.name))
+    }
     return state.adminRoles
   }
 
@@ -3753,10 +3760,18 @@ export function handleMockRequest(
   if (m === 'PUT' && path.match(/^admin\/roles\/\d+$/)) {
     const id = Number(path.split('/')[2])
     const body = data as { name?: string; name_ar?: string; permissions?: string[] }
+    const scope = getApiDepartmentScope(ctx)
+    const protectedSlugs = new Set([
+      'Admin', 'AdministrationManager', 'BranchManager', 'Reviewer', 'Sales', 'Collector',
+      'CallCenter', 'Accountant', 'HrManager', 'CrmSpecialist', 'SupportEmployee', 'Super Admin',
+    ])
     let updated: (typeof state.adminRoles)[0] | undefined
     mutateState((s) => {
       const role = s.adminRoles.find((r) => r.id === id)
       if (!role) throw mockError(404, 'الدور غير موجود')
+      if (scope != null && protectedSlugs.has(role.name)) {
+        throw mockError(403, 'غير مسموح')
+      }
       if (body.name_ar) role.name_ar = body.name_ar
       if (body.name) role.name = body.name
       if (body.permissions) {

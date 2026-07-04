@@ -17,6 +17,8 @@ export const SYSTEM_ROLE_LABELS: Record<string, string> = {
 
 export const PROTECTED_ROLE_SLUGS = new Set(Object.keys(SYSTEM_ROLE_LABELS))
 
+export const ROLE_ASSIGNMENT_EXCLUDED = new Set(['Admin', 'AdministrationManager', 'Super Admin'])
+
 export function formatRoleLabel(role: Pick<Role, 'name'> & { name_ar?: string | null }): string {
   if (role.name_ar?.trim()) return role.name_ar.trim()
   return SYSTEM_ROLE_LABELS[role.name] ?? role.name

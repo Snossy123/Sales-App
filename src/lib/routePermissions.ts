@@ -35,7 +35,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/sections': 'branches.manage',
   '/gps/management': 'branches.manage',
   '/admin/users': 'users.manage',
-  '/admin/roles': 'roles.manage',
+  '/admin/roles': 'users.manage',
   '/admin/activity-log': 'audit.view',
   '/admin/trash': 'trash.view',
   '/admin/faq': 'faq.manage',

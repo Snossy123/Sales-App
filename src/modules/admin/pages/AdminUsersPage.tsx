@@ -190,12 +190,20 @@ export function AdminUsersPage() {
   const hasFilters = Boolean(search || adminFilter || branchFilter || sectionFilter)
 
   const availableRoles = useMemo(
-    () => (rolesQuery.data ?? []).filter((role) => {
-      if (isOrgWide) return true
-      return !['Admin', 'AdministrationManager', 'Super Admin'].includes(role.name)
-    }),
-    [rolesQuery.data, isOrgWide],
+    () => rolesQuery.data ?? [],
+    [rolesQuery.data],
   )
+
+  const selectedPermissions = useMemo(() => {
+    const keys = new Set<string>()
+    for (const roleName of form.role_names) {
+      const role = availableRoles.find((item) => item.name === roleName)
+      for (const permission of role?.permissions ?? []) {
+        keys.add(permission.name)
+      }
+    }
+    return [...keys].sort()
+  }, [availableRoles, form.role_names])
 
   const adminOptions = useMemo(
     () => (administrationsQuery.data ?? []).map((a) => ({ value: String(a.id), label: a.name_ar ?? a.name })),
@@ -303,6 +311,11 @@ export function AdminUsersPage() {
             </label>
           ))}
         </div>
+        {selectedPermissions.length > 0 && (
+          <p className="mt-xs text-[11px] leading-relaxed text-on-surface-variant">
+            الصلاحيات الناتجة: {selectedPermissions.join(' · ')}
+          </p>
+        )}
       </div>
     </>
   )

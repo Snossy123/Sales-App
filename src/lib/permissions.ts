@@ -62,7 +62,7 @@ export const navEntries: NavEntry[] = [
       icon: 'admin_panel_settings',
       items: [
         { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin', 'admin'] },
-        { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin'] },
+        { to: '/admin/roles', icon: 'admin_panel_settings', label: 'الأدوار', roles: ['super_admin', 'admin'] },
         { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin', 'admin'] },
         { to: '/admin/trash', icon: 'delete', label: 'سلة المهملات', roles: ['super_admin', 'admin'] },
         { to: '/admin/faq', icon: 'quiz', label: 'إدارة الأسئلة', roles: ['super_admin', 'admin'] },
@@ -307,7 +307,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/hrm/holidays': ['super_admin', 'admin', 'hr_manager'],
   '/hrm/settings': ['super_admin', 'admin', 'hr_manager'],
   '/admin/users': ['super_admin', 'admin'],
-  '/admin/roles': ['super_admin'],
+  '/admin/roles': ['super_admin', 'admin'],
   '/admin/activity-log': ['super_admin', 'admin'],
   '/admin/settings': ['super_admin'],
   '/crm': ['super_admin', 'admin', 'crm'],
@@ -327,7 +327,7 @@ const routeRoles: Record<string, DemoRole[]> = {
 function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
   if (!user) return false
 
-  if (item.to === '/admin/roles' || item.to === '/admin/settings') {
+  if (item.to === '/admin/settings') {
     return isSuperAdmin(user)
   }
 
@@ -393,7 +393,7 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   const role = getUserRole(user)
   const normalized = path.replace(/\/$/, '') || '/'
 
-  if (normalized === '/admin/roles' || normalized === '/admin/settings') {
+  if (normalized === '/admin/settings') {
     return isSuperAdmin(user)
   }
 
@@ -506,7 +506,7 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized.startsWith('/admin')) {
     const adminRoute = normalized === '/admin/users' ? '/admin/users' : (normalized.match(/^\/admin\/[^/]+/)?.[0] ?? '/admin/users')
-    if ((adminRoute === '/admin/roles' || adminRoute === '/admin/settings') && role !== 'super_admin') {
+    if (adminRoute === '/admin/settings' && role !== 'super_admin') {
       return false
     }
     const allowed = routeRoles[adminRoute] ?? routeRoles['/admin/users']
