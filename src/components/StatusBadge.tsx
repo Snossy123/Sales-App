@@ -1,9 +1,10 @@
-type BadgeVariant = 'paid' | 'pending' | 'overdue' | 'active' | 'blocked' | 'default'
+type BadgeVariant = 'paid' | 'pending' | 'overdue' | 'grace' | 'active' | 'blocked' | 'default'
 
 const variantStyles: Record<BadgeVariant, string> = {
   paid: 'bg-secondary/10 text-secondary',
   pending: 'bg-[#ef9900]/10 text-[#653e00]',
-  overdue: 'bg-error/10 text-error',
+  overdue: 'bg-red-100 text-red-800',
+  grace: 'bg-yellow-100 text-yellow-900',
   active: 'bg-secondary/10 text-secondary',
   blocked: 'bg-error/10 text-error',
   default: 'bg-surface-container text-on-surface-variant',
@@ -43,7 +44,7 @@ const statusMap: Record<string, BadgeVariant> = {
   new: 'pending',
   contacted: 'pending',
   overdue: 'overdue',
-  grace: 'pending',
+  grace: 'grace',
   upcoming: 'default',
   due_soon: 'pending',
   rejected: 'overdue',

@@ -2783,6 +2783,7 @@ export function handleMockRequest(
       if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') continue
       if (branchFilter && inv.branch_id !== branchFilter) continue
       const customer = state.customers.find((c) => c.id === inv.customer_id)
+      const deviceLine = inv.lines?.find((line) => line.serial_number || line.username) ?? inv.lines?.[0]
       for (const item of inv.installment_plan?.items ?? []) {
         if (item.status === 'paid') continue
         const due = new Date(item.due_date)
@@ -2798,6 +2799,13 @@ export function handleMockRequest(
           customer_id: inv.customer_id,
           customer_name: customer?.name,
           customer_phone: customer?.phone,
+          customer_phones: customer
+            ? [customer.phone, customer.phone_2, customer.phone_3, ...(customer.extra_phones ?? []).map((p) => p.number)].filter(
+                (phone): phone is string => Boolean(phone?.trim()),
+              )
+            : [],
+          username: deviceLine?.username ?? customer?.username ?? null,
+          serial_number: deviceLine?.serial_number ?? customer?.device_serial ?? null,
           remaining: Number(item.amount) - Number(item.paid_amount),
           remaining_installments: Math.max(
             0,
@@ -2808,7 +2816,15 @@ export function handleMockRequest(
             id: inv.id,
             invoice_number: inv.invoice_number,
             branch_id: inv.branch_id,
-            customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : undefined,
+            customer: customer
+              ? {
+                  id: customer.id,
+                  name: customer.name,
+                  phone: customer.phone,
+                  username: customer.username,
+                  device_serial: customer.device_serial,
+                }
+              : undefined,
           },
         })
       }

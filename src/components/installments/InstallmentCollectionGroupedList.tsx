@@ -115,11 +115,19 @@ export function groupInstallmentsByCustomerAndContract(
 }
 
 function tierRowClass(tier?: string, selected?: boolean): string {
-  if (selected) return 'bg-primary/10 ring-1 ring-primary/30'
-  if (tier === 'overdue') return 'bg-red-50 hover:bg-red-100/80'
-  if (tier === 'grace') return 'bg-orange-50 hover:bg-orange-100/80'
-  if (tier === 'suspended') return 'bg-surface-container-high opacity-75'
-  return 'bg-white hover:bg-surface-container-low'
+  if (selected) {
+    return 'bg-primary/10 ring-1 ring-primary/30 border-primary/40 shadow-sm'
+  }
+  if (tier === 'overdue') {
+    return 'bg-red-50 hover:bg-red-100/80 border-red-300/70'
+  }
+  if (tier === 'grace') {
+    return 'bg-yellow-50 hover:bg-yellow-100/80 border-yellow-300/70'
+  }
+  if (tier === 'suspended') {
+    return 'bg-surface-container-high opacity-75 border-outline-variant/60'
+  }
+  return 'bg-white hover:bg-surface-container-low border-outline-variant/60'
 }
 
 interface InstallmentCollectionGroupedListProps {
@@ -169,11 +177,7 @@ function CurrentInstallmentCard({
   const tier = String(row.display_tier ?? row.status)
 
   return (
-    <div
-      className={`rounded-xl border p-md ${tierRowClass(tier, selected)} ${
-        selected ? 'border-primary/40 shadow-sm' : 'border-outline-variant/60'
-      }`}
-    >
+    <div className={`rounded-xl border p-md ${tierRowClass(tier, selected)}`}>
       <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-6">
         <InstallmentMetricCell label="رقم التعاقد" dir="ltr">
           <span className="font-semibold">{invoiceNumber}</span>

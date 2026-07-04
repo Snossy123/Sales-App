@@ -563,6 +563,8 @@ export interface InstallmentItem {
   customer_name?: string
   customer_phone?: string
   customer_phones?: string[]
+  username?: string | null
+  serial_number?: string | null
   invoice_number?: string
   remaining?: number
   remaining_installments?: number

@@ -36,6 +36,8 @@ export type InstallmentCollectionRow = {
   customer_name?: string
   customer_phone?: string
   customer_phones?: string[]
+  username?: string
+  serial_number?: string
   invoice_number?: string
   branch_id?: number
   unpaid_reason?: string | null
@@ -110,6 +112,48 @@ export function filterRowsByContractTier(
   }
 
   return rows.filter((r) => matchingInvoiceIds.has(Number(r.sales_invoice_id ?? 0)))
+}
+
+function normalizePhoneSearch(value: string): string {
+  return value.replace(/[\s-]/g, '')
+}
+
+function installmentRowSearchHaystack(row: InstallmentCollectionRow): string[] {
+  const phones = row.customer_phones?.length
+    ? row.customer_phones
+    : row.customer_phone
+      ? [row.customer_phone]
+      : []
+
+  return [
+    String(row.customer_name ?? ''),
+    String(row.invoice_number ?? ''),
+    String(row.username ?? ''),
+    String(row.serial_number ?? ''),
+    ...phones,
+  ]
+}
+
+export function filterInstallmentCollectionRows(
+  rows: InstallmentCollectionRow[],
+  search: string,
+): InstallmentCollectionRow[] {
+  const q = search.trim().toLowerCase()
+  if (!q) return rows
+
+  const normalizedPhoneQuery = normalizePhoneSearch(q)
+
+  return rows.filter((row) => {
+    const haystack = installmentRowSearchHaystack(row)
+
+    if (haystack.some((value) => value.toLowerCase().includes(q))) {
+      return true
+    }
+
+    if (!normalizedPhoneQuery) return false
+
+    return haystack.some((value) => normalizePhoneSearch(value).includes(normalizedPhoneQuery))
+  })
 }
 
 export interface ContractCollectionStats {

@@ -12,6 +12,7 @@ import {
   collectionStatusOptions,
   computeContractStats,
   filterRowsByContractTier,
+  filterInstallmentCollectionRows,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
@@ -275,13 +276,7 @@ export function InstallmentCollectionPage() {
   const filteredRows = useMemo(() => {
     let rows = branchRows
     rows = filterRowsByContractTier(rows, contractTierFilter)
-    const q = customerSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => {
-      const name = String(row.customer_name ?? '').toLowerCase()
-      const invoice = String(row.invoice_number ?? '').toLowerCase()
-      return name.includes(q) || invoice.includes(q)
-    })
+    return filterInstallmentCollectionRows(rows, customerSearch)
   }, [branchRows, contractTierFilter, customerSearch])
 
   const selectedContractRows = useMemo(() => {
@@ -608,7 +603,7 @@ export function InstallmentCollectionPage() {
             <FilterBar
               search={customerSearch}
               onSearchChange={setCustomerSearch}
-              searchPlaceholder="بحث بالعميل أو رقم الفاتورة..."
+              searchPlaceholder="بحث بالاسم أو الهاتف أو اسم المستخدم أو السريال..."
               showClear={hasFilters}
               onClear={clearFilters}
             />
