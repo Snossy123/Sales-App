@@ -32,6 +32,7 @@ export function ContractCollectionActions({
   hasPhone: boolean
 }) {
   const queryClient = useQueryClient()
+  const [actionsModalOpen, setActionsModalOpen] = useState(false)
   const [deviceModalOpen, setDeviceModalOpen] = useState(false)
   const [deviceNotes, setDeviceNotes] = useState('')
   const [error, setError] = useState('')
@@ -54,6 +55,7 @@ export function ContractCollectionActions({
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
       setError('')
+      setActionsModalOpen(false)
     },
     onError: (err) => setError(getErrorMessage(err)),
   })
@@ -92,15 +94,21 @@ export function ContractCollectionActions({
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
       setError('')
+      setActionsModalOpen(false)
     },
     onError: (err) => setError(getErrorMessage(err)),
   })
+
+  const closeActionsModal = () => {
+    setActionsModalOpen(false)
+    setError('')
+  }
 
   if (!customerId) return null
 
   return (
     <>
-      {error && (
+      {error && !actionsModalOpen && (
         <p className="mb-sm rounded border border-error/30 bg-error/5 px-sm py-xs text-xs text-error">
           {error}
         </p>
@@ -110,43 +118,12 @@ export function ContractCollectionActions({
         <button
           type="button"
           onClick={() => {
-            if (window.confirm('إرسال رسالة تحذيرية لهذا التعاقد؟')) {
-              whatsappMutation.mutate()
-            }
-          }}
-          disabled={!hasPhone || whatsappMutation.isPending}
-          title={!hasPhone ? 'لا يوجد رقم هاتف للعميل' : undefined}
-          className="rounded-lg border border-outline-variant px-sm py-1 text-xs font-medium text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {whatsappMutation.isPending ? 'جاري الإرسال…' : 'رسالة تحذيرية'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
             setError('')
-            portalMutation.mutate(!portalBlocked)
+            setActionsModalOpen(true)
           }}
-          disabled={portalMutation.isPending}
-          className={`rounded-lg border px-sm py-1 text-xs font-medium ${
-            portalBlocked
-              ? 'border-secondary/40 text-secondary hover:bg-secondary/10'
-              : 'border-error/40 text-error hover:bg-error/5'
-          }`}
+          className="rounded-lg border border-primary/40 bg-primary/5 px-sm py-1 text-xs font-medium text-primary hover:bg-primary/10"
         >
-          {portalBlocked ? 'إلغاء رسيت متأخر' : 'رسيت متأخر'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setError('')
-            setDeviceModalOpen(true)
-          }}
-          disabled={deviceMutation.isPending}
-          className="rounded-lg border border-outline-variant px-sm py-1 text-xs font-medium hover:border-primary/40 hover:text-primary"
-        >
-          فقد اشارة الجهاز
+          إضافة إجراء
         </button>
       </div>
 
@@ -165,6 +142,62 @@ export function ContractCollectionActions({
           </span>
         )}
       </div>
+
+      <Modal open={actionsModalOpen} onClose={closeActionsModal} title="إجراءات التحصيل" size="sm">
+        {error && (
+          <p className="mb-sm rounded border border-error/30 bg-error/5 px-sm py-xs text-xs text-error">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('إرسال رسالة تحذيرية لهذا التعاقد؟')) {
+                whatsappMutation.mutate()
+              }
+            }}
+            disabled={!hasPhone || whatsappMutation.isPending}
+            title={!hasPhone ? 'لا يوجد رقم هاتف للعميل' : undefined}
+            className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm font-medium text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {whatsappMutation.isPending ? 'جاري الإرسال…' : 'رسالة تحذيرية'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError('')
+              const actionLabel = portalBlocked ? 'إلغاء رسيت متأخر' : 'تفعيل رسيت متأخر'
+              if (window.confirm(`${actionLabel} لهذا العميل؟`)) {
+                portalMutation.mutate(portalBlocked)
+              }
+            }}
+            disabled={portalMutation.isPending}
+            className={`w-full rounded-lg border px-sm py-2 text-sm font-medium ${
+              portalBlocked
+                ? 'border-secondary/40 text-secondary hover:bg-secondary/10'
+                : 'border-error/40 text-error hover:bg-error/5'
+            }`}
+          >
+            {portalBlocked ? 'إلغاء رسيت متأخر' : 'رسيت متأخر'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError('')
+              setActionsModalOpen(false)
+              setDeviceModalOpen(true)
+            }}
+            disabled={deviceMutation.isPending}
+            className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm font-medium hover:border-primary/40 hover:text-primary"
+          >
+            فقد اشارة الجهاز
+          </button>
+        </div>
+      </Modal>
 
       <Modal
         open={deviceModalOpen}
