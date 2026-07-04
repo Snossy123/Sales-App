@@ -40,59 +40,46 @@ const paymentMethodOptions = [
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 
-function BranchSummaryStats({
-  count,
-  overdueCount,
-  totalRemaining,
-}: {
-  count: number
-  overdueCount: number
-  totalRemaining: number
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-xs text-center">
-      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-        <p className="tabular-nums text-lg font-bold text-on-surface">{count}</p>
-        <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
-      </div>
-      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-        <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
-          {overdueCount}
-        </p>
-        <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
-      </div>
-      <div className="rounded-lg bg-surface-container-low px-xs py-sm">
-        <p className="tabular-nums text-sm font-bold text-on-surface">
-          {totalRemaining.toLocaleString('ar-EG')}
-        </p>
-        <p className="text-[11px] text-on-surface-variant">متبقي ج.م</p>
-      </div>
-    </div>
-  )
-}
-
 function BranchInstallmentCard({
   stats,
   selected,
-  onSelect,
+  activeFilter,
+  onSelectBranch,
+  onFilter,
 }: {
   stats: BranchStats
   selected: boolean
-  onSelect: () => void
+  activeFilter: ContractTierFilter
+  onSelectBranch: () => void
+  onFilter: (tier: ContractTierFilter) => void
 }) {
-  const { branch } = stats
+  const { branch, count, overdueCount, totalRemaining } = stats
+
+  const statButtonClass = (tier: ContractTierFilter, overdueTone = false) => {
+    const isActive = selected && activeFilter === tier
+    return [
+      'rounded-lg bg-surface-container-low px-xs py-sm text-center transition-all',
+      'hover:ring-1 hover:ring-primary/40',
+      isActive ? 'bg-primary/10 ring-1 ring-primary/40' : '',
+      overdueTone && overdueCount > 0 ? 'text-error' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={`rounded-xl border p-md text-right transition-all ${
         selected
           ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
-          : 'border-outline-variant bg-surface-container-lowest hover:border-primary/40 hover:bg-surface-container-low'
+          : 'border-outline-variant bg-surface-container-lowest'
       }`}
     >
-      <div className="flex items-start justify-between gap-sm">
+      <button
+        type="button"
+        onClick={onSelectBranch}
+        className="mb-sm flex w-full items-start justify-between gap-sm text-right"
+      >
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-on-surface">
             {branch.name_ar || branch.name}
@@ -106,8 +93,39 @@ function BranchInstallmentCard({
         >
           <Icon name="store" size={20} />
         </div>
+      </button>
+
+      <div className="grid grid-cols-3 gap-xs text-center">
+        <button
+          type="button"
+          onClick={() => onFilter('all')}
+          className={statButtonClass('all')}
+        >
+          <p className="tabular-nums text-lg font-bold text-on-surface">{count}</p>
+          <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onFilter('overdue')}
+          className={statButtonClass('overdue', true)}
+        >
+          <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
+            {overdueCount}
+          </p>
+          <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onFilter('due_soon')}
+          className={statButtonClass('due_soon')}
+        >
+          <p className="tabular-nums text-sm font-bold text-on-surface">
+            {totalRemaining.toLocaleString('ar-EG')}
+          </p>
+          <p className="text-[11px] text-on-surface-variant">متبقي ج.م</p>
+        </button>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -263,8 +281,6 @@ export function InstallmentCollectionPage() {
       return name.includes(q) || invoice.includes(q)
     })
   }, [branchRows, contractTierFilter, customerSearch])
-
-  const selectedBranchSummary = branchStats.find((s) => s.branch.id === selectedBranchId)
 
   const selectedContractRows = useMemo(() => {
     if (!selected?.sales_invoice_id) return []
@@ -469,10 +485,19 @@ export function InstallmentCollectionPage() {
     setDistributorBalanceAmount(0)
   }
 
-  const toggleBranch = (branchId: number) => {
-    setSelectedBranchId((current) => (current === branchId ? null : branchId))
+  const selectBranch = (branchId: number) => {
+    if (selectedBranchId !== branchId) {
+      setContractTierFilter('all')
+    }
+    setSelectedBranchId(branchId)
     setSelected(null)
-    setAmount(0)
+    setCustomerSearch('')
+  }
+
+  const applyBranchStatFilter = (branchId: number, tier: ContractTierFilter) => {
+    setSelectedBranchId(branchId)
+    setContractTierFilter(tier)
+    setSelected(null)
     setCustomerSearch('')
   }
 
@@ -558,7 +583,9 @@ export function InstallmentCollectionPage() {
                 key={stats.branch.id}
                 stats={stats}
                 selected={selectedBranchId === stats.branch.id}
-                onSelect={() => toggleBranch(stats.branch.id)}
+                activeFilter={contractTierFilter}
+                onSelectBranch={() => selectBranch(stats.branch.id)}
+                onFilter={(tier) => applyBranchStatFilter(stats.branch.id, tier)}
               />
             ))}
           </div>
@@ -575,16 +602,6 @@ export function InstallmentCollectionPage() {
                 {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
               </span>
             </div>
-
-            {selectedBranchSummary ? (
-              <div className="mb-md">
-                <BranchSummaryStats
-                  count={selectedBranchSummary.count}
-                  overdueCount={selectedBranchSummary.overdueCount}
-                  totalRemaining={selectedBranchSummary.totalRemaining}
-                />
-              </div>
-            ) : null}
 
             <FilterBar
               search={customerSearch}
