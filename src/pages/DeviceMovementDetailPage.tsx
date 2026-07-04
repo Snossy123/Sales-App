@@ -115,7 +115,7 @@ export function DeviceMovementDetailPage() {
         </Link>
       }
     >
-      {toast && <ToastBanner message={toast} onClose={() => setToast('')} className="mb-md" />}
+      {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error ?? actionError}>
         {movement && (
