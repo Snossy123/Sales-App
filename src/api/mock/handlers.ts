@@ -1568,7 +1568,7 @@ export function handleMockRequest(
         customerAllPhoneNumbers(c).some((phone) => phone.replace(/\s/g, '').includes(q)),
       )
     }
-    if (params['filter[has_distributor_profile]'] === '1' || params['filter[has_distributor_profile]'] === 1) {
+    if (String(params['filter[has_distributor_profile]'] ?? '') === '1') {
       items = items.filter((c) => state.distributors.some((d) => d.customer_id === c.id))
     }
     return paginate(
