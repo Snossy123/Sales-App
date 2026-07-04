@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { DashboardInstallmentSummary, DashboardStats, InventoryOverviewRow, PaginatedResponse } from '../api/types'
+import type { DashboardInstallmentSummary, DashboardStats, InventoryOverviewRow, PaginatedResponse, Branch } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -28,6 +28,7 @@ import {
   computeDashboardStockBarFromOverview,
 } from '../lib/pageStats'
 import { getUserRole } from '../lib/permissions'
+import { canPickBranch, getScopedBranchIds } from '../lib/dataScope'
 import { formatMoney } from '../lib/theme'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { useAuthStore } from '../stores/authStore'
@@ -67,18 +68,42 @@ export function DashboardPage() {
   const locale = general?.default_locale === 'en' ? 'en-US' : 'ar-EG'
   const role = getUserRole(user)
   const showReviews = role === 'super_admin' || role === 'admin' || role === 'reviewer'
+  const userCanPickBranch = canPickBranch(user)
   const fmtMoney = (value: number) => formatMoney(value, currency, locale)
   const fmtDate = (value: string) => formatDate(value, locale)
   const visibleActions = quickActions.filter((a) => a.roles.includes(role))
 
   const [period, setPeriod] = useState<DashboardPeriod>('day')
+  const [branchFilter, setBranchFilter] = useState<number | ''>('')
   const [overdueOpen, setOverdueOpen] = useState(true)
   const showInventoryCharts = role === 'super_admin' || role === 'admin'
 
-  const query = useQuery({
-    queryKey: ['dashboard', period],
+  const branchesQuery = useQuery({
+    queryKey: ['branches', 'dashboard-filter', user?.id],
     queryFn: async () => {
-      const { data } = await api.get<DashboardStats>('/dashboard', { params: { period } })
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+    enabled: Boolean(user),
+  })
+
+  const branchOptions = useMemo(() => {
+    const branches = branchesQuery.data ?? []
+    const scopedIds = getScopedBranchIds(user, branches)
+    if (!scopedIds) return branches
+    return branches.filter((branch) => scopedIds.includes(branch.id))
+  }, [branchesQuery.data, user])
+
+  const showBranchFilter = branchOptions.length > 1 || userCanPickBranch
+
+  const query = useQuery({
+    queryKey: ['dashboard', period, branchFilter],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { period }
+      if (branchFilter !== '') params.branch_id = branchFilter
+      const { data } = await api.get<DashboardStats>('/dashboard', { params })
       return data
     },
   })
@@ -201,7 +226,14 @@ export function DashboardPage() {
         </div>
       )}
 
-      <DashboardPeriodFilter value={period} onChange={setPeriod} />
+      <DashboardPeriodFilter
+        value={period}
+        onChange={setPeriod}
+        branchValue={branchFilter}
+        onBranchChange={setBranchFilter}
+        branches={branchOptions}
+        showBranchFilter={showBranchFilter && branchOptions.length > 0}
+      />
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {query.data && (

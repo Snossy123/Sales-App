@@ -613,6 +613,7 @@ export function handleMockRequest(
     const scopedBranchIds = getScopedBranchIds(state, ctx)
     const warehouseId = ctx.warehouseId
     const period = String(params.period ?? 'day')
+    const branchFilter = params.branch_id ? Number(params.branch_id) : null
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
 
@@ -639,6 +640,7 @@ export function handleMockRequest(
     }
 
     const branchInvoices = state.invoices.filter((i) => {
+      if (branchFilter) return i.branch_id === branchFilter
       if (scopedBranchIds) return i.branch_id != null && scopedBranchIds.includes(i.branch_id)
       return true
     })
@@ -700,12 +702,14 @@ export function handleMockRequest(
 
     const stats: DashboardStats = {
       period,
+      branch_id: branchFilter ?? undefined,
       sales_today: periodInvoices
         .filter((i) => i.status === 'confirmed')
         .reduce((s, i) => s + Number(i.total), 0),
       invoices_today: periodInvoices.length,
       customers_count: state.customers.filter((c) => {
         if (!c.branch_id) return false
+        if (branchFilter) return c.branch_id === branchFilter
         if (scopedBranchIds) return scopedBranchIds.includes(c.branch_id)
         return true
       }).length,
@@ -4068,6 +4072,65 @@ export function handleMockRequest(
     return {
       data: state.users.map((u) => ({ id: u.id, name: u.name })),
     }
+  }
+
+  if (m === 'GET' && path === 'device-movements') {
+    return paginate([], params)
+  }
+
+  if (m === 'POST' && path === 'device-movements') {
+    const body = data as {
+      from_warehouse_id: number
+      to_warehouse_id: number
+      recipient_user_id: number
+      product_unit_ids: number[]
+      notes?: string
+    }
+    const sender = state.users.find((u) => u.id === ctx.user?.id)
+    const recipient = state.users.find((u) => u.id === body.recipient_user_id)
+    const fromWarehouse = state.warehouses.find((w) => w.id === body.from_warehouse_id)
+    const toWarehouse = state.warehouses.find((w) => w.id === body.to_warehouse_id)
+    return {
+      id: Date.now(),
+      movement_number: `DM-${String(Date.now()).slice(-6)}`,
+      status: 'pending',
+      from_warehouse_id: body.from_warehouse_id,
+      to_warehouse_id: body.to_warehouse_id,
+      sender_user_id: ctx.user?.id ?? 1,
+      recipient_user_id: body.recipient_user_id,
+      notes: body.notes ?? null,
+      lines_count: body.product_unit_ids?.length ?? 0,
+      sender: sender ? { id: sender.id, name: sender.name } : undefined,
+      recipient: recipient ? { id: recipient.id, name: recipient.name } : undefined,
+      from_warehouse: fromWarehouse,
+      to_warehouse: toWarehouse,
+      lines: (body.product_unit_ids ?? []).map((unitId, index) => ({
+        id: index + 1,
+        product_unit_id: unitId,
+        product_unit: state.stocks.find((u) => u.id === unitId),
+      })),
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  if (m === 'GET' && path.match(/^device-movements\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    return {
+      id,
+      movement_number: `DM-${String(id).padStart(6, '0')}`,
+      status: 'pending',
+      lines: [],
+    }
+  }
+
+  if (m === 'POST' && path.match(/^device-movements\/\d+\/confirm$/)) {
+    const id = Number(path.split('/')[1])
+    return { id, movement_number: `DM-${String(id).padStart(6, '0')}`, status: 'confirmed' }
+  }
+
+  if (m === 'POST' && path.match(/^device-movements\/\d+\/(reject|cancel)$/)) {
+    const id = Number(path.split('/')[1])
+    return { id, movement_number: `DM-${String(id).padStart(6, '0')}`, status: path.endsWith('reject') ? 'rejected' : 'cancelled' }
   }
 
   if (m === 'GET' && path === 'notifications') {

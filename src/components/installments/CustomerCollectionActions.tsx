@@ -35,12 +35,6 @@ export function CustomerCollectionActions({
   const summaryQuery = useCollectionActionsSummary(customerId)
   const summary = summaryQuery.data
 
-  const invalidate = () => {
-    if (customerId) {
-      queryClient.invalidateQueries({ queryKey: summaryQueryKey(customerId) })
-    }
-  }
-
   const deviceMutation = useMutation({
     mutationFn: async () => {
       if (!customerId) throw new Error('عميل غير محدد')

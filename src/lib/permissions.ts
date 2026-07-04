@@ -141,6 +141,7 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/inventory', icon: 'inventory_2', label: 'مخزون GPS', end: true, roles: ['super_admin', 'admin', 'sales'] },
         { to: '/inventory/branch', icon: 'inventory', label: 'مخزون الفرع', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/inventory/movements', icon: 'swap_horiz', label: 'حركات الأجهزة', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/inventory/add', icon: 'add_box', label: 'تسجيل مخزون', roles: ['super_admin', 'admin'] },
         { to: '/inventory/transfers', icon: 'local_shipping', label: 'توزيع المخزون', roles: ['super_admin', 'admin'] },
         { to: '/inventory/returns', icon: 'undo', label: 'استرجاع مخزون', roles: ['super_admin', 'admin'] },
@@ -256,6 +257,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/sections': ['super_admin', 'admin'],
   '/gps/management': ['admin'],
   '/inventory': ['super_admin', 'admin', 'sales'],
+  '/inventory/movements': ['super_admin', 'admin', 'sales'],
   '/inventory/add': ['super_admin', 'admin'],
   '/inventory/transfers': ['super_admin', 'admin'],
   '/inventory/returns': ['super_admin', 'admin'],
@@ -371,6 +373,9 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     }
     if (item.to === '/support/tasks') {
       return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
+    }
+    if (item.to === '/inventory/movements') {
+      return userHasPermission(user, 'device_movements.manage') || userHasPermission(user, 'inventory.manage')
     }
     return false
   }

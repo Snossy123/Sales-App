@@ -84,6 +84,35 @@ export interface StockTransfer {
   lines?: Array<{ id: number; product_unit_id: number }>
 }
 
+export interface DeviceMovementLine {
+  id: number
+  product_unit_id: number
+  previous_state?: string | null
+  product_unit?: ProductUnit
+}
+
+export interface DeviceMovement {
+  id: number
+  movement_number: string
+  from_warehouse_id: number
+  to_warehouse_id: number
+  sender_user_id: number
+  recipient_user_id: number
+  status: 'pending' | 'confirmed' | 'rejected' | 'cancelled' | string
+  notes?: string | null
+  rejection_reason?: string | null
+  confirmed_at?: string | null
+  rejected_at?: string | null
+  created_at?: string
+  lines_count?: number
+  from_warehouse?: Warehouse & { branch?: Branch }
+  to_warehouse?: Warehouse & { branch?: Branch }
+  sender?: { id: number; name: string }
+  recipient?: { id: number; name: string }
+  confirmer?: { id: number; name: string }
+  lines?: DeviceMovementLine[]
+}
+
 export interface InventoryOverviewRow {
   row_type: 'department_pending' | 'branch'
   department_id: number
@@ -284,6 +313,7 @@ export interface LoginResponse {
 
 export interface DashboardStats {
   period?: string
+  branch_id?: number | null
   sales_today: number
   invoices_today: number
   customers_count: number

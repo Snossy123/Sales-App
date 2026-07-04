@@ -64,6 +64,20 @@ export function AppShell() {
 
   const unreadCount = notificationsQuery.data?.unread_count ?? 0
 
+  const notificationHref = (notification: AppNotification): string | null => {
+    const type = notification.data?.type ?? notification.type
+    const movementId = notification.data?.device_movement_id
+    if (
+      (type === 'device_movement_pending' ||
+        type === 'device_movement_confirmed' ||
+        type === 'device_movement_rejected') &&
+      movementId
+    ) {
+      return `/inventory/movements/${movementId}`
+    }
+    return null
+  }
+
   const orgName = organization?.name_ar || organization?.name || 'العراقي'
   const logoUrl = resolvePublicStorageUrl(general?.logo_url)
 
@@ -200,17 +214,36 @@ export function AppShell() {
                           لا توجد إشعارات
                         </p>
                       ) : (
-                        notificationsQuery.data?.data.map((n) => (
-                          <div
-                            key={n.id}
-                            className={`border-b border-outline-variant/50 px-sm py-xs text-right last:border-0 ${
-                              n.read_at ? 'opacity-60' : 'bg-primary/5'
-                            }`}
-                          >
-                            <p className="text-xs font-bold">{n.title}</p>
-                            <p className="text-xs text-on-surface-variant">{n.message}</p>
-                          </div>
-                        ))
+                        notificationsQuery.data?.data.map((n) => {
+                          const href = notificationHref(n)
+                          const content = (
+                            <>
+                              <p className="text-xs font-bold">{n.title}</p>
+                              <p className="text-xs text-on-surface-variant">{n.message}</p>
+                            </>
+                          )
+                          return href ? (
+                            <Link
+                              key={n.id}
+                              to={href}
+                              onClick={() => setShowNotifications(false)}
+                              className={`block border-b border-outline-variant/50 px-sm py-xs text-right last:border-0 hover:bg-surface-container-low ${
+                                n.read_at ? 'opacity-60' : 'bg-primary/5'
+                              }`}
+                            >
+                              {content}
+                            </Link>
+                          ) : (
+                            <div
+                              key={n.id}
+                              className={`border-b border-outline-variant/50 px-sm py-xs text-right last:border-0 ${
+                                n.read_at ? 'opacity-60' : 'bg-primary/5'
+                              }`}
+                            >
+                              {content}
+                            </div>
+                          )
+                        })
                       )}
                     </div>
                   </div>

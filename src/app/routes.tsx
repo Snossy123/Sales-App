@@ -37,6 +37,9 @@ import { ReviewExpensesPage } from '../pages/ReviewExpensesPage'
 import { ReviewExpenseDetailPage } from '../pages/ReviewExpenseDetailPage'
 import { ExpenseNewPage } from '../pages/ExpenseNewPage'
 import { BranchInventoryPage } from '../pages/BranchInventoryPage'
+import { DeviceMovementsPage } from '../pages/DeviceMovementsPage'
+import { DeviceMovementDetailPage } from '../pages/DeviceMovementDetailPage'
+import { DeviceMovementNewPage } from '../pages/DeviceMovementNewPage'
 import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
 import { InvoiceDetailPage } from '../pages/InvoiceDetailPage'
 import { ContractDetailPage } from '../pages/ContractDetailPage'
@@ -179,6 +182,9 @@ export function AppRoutes() {
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/branch" element={<BranchInventoryPage />} />
+            <Route path="inventory/movements" element={<DeviceMovementsPage />} />
+            <Route path="inventory/movements/new" element={<DeviceMovementNewPage />} />
+            <Route path="inventory/movements/:id" element={<DeviceMovementDetailPage />} />
             <Route path="inventory/add" element={<InventoryAddStockPage />} />
             <Route path="inventory/transfers" element={<InventoryTransfersPage />} />
             <Route path="inventory/returns" element={<InventoryReturnsPage />} />

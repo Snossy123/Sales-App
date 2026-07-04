@@ -153,8 +153,8 @@ export function normalizeInstallmentItem(item: InstallmentLike): InstallmentItem
     customer_phone:
       item.customer_phone ?? item.sales_invoice?.customer?.phone,
     customer_phones: item.customer_phones ?? customerAllPhoneNumbers(item.sales_invoice?.customer ?? {}),
-    username: item.username ?? item.sales_invoice?.customer?.username ?? null,
-    serial_number: item.serial_number ?? item.sales_invoice?.customer?.device_serial ?? null,
+    username: item.username ?? null,
+    serial_number: item.serial_number ?? null,
     display_tier: item.display_tier,
     late_fee_accrued: item.late_fee_accrued,
     total_due: item.total_due ?? remaining,
