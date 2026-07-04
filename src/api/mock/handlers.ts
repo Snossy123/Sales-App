@@ -293,6 +293,15 @@ function enrichCustomer(
     distributor_profile: distributorProfile
       ? enrichDistributor(state, distributorProfile)
       : undefined,
+    sales_user: customer.sales_user_id
+      ? state.users.find((u) => u.id === customer.sales_user_id)
+        ? {
+            id: customer.sales_user_id,
+            name: state.users.find((u) => u.id === customer.sales_user_id)!.name,
+            branch_id: state.users.find((u) => u.id === customer.sales_user_id)!.branch_id,
+          }
+        : undefined
+      : undefined,
     sales_invoices: salesInvoices,
   }
 }
@@ -1559,15 +1568,22 @@ export function handleMockRequest(
         customerAllPhoneNumbers(c).some((phone) => phone.replace(/\s/g, '').includes(q)),
       )
     }
+    if (params['filter[has_distributor_profile]'] === '1' || params['filter[has_distributor_profile]'] === 1) {
+      items = items.filter((c) => state.distributors.some((d) => d.customer_id === c.id))
+    }
     return paginate(
       items.map((customer) => {
         const distributor = state.distributors.find((d) => d.id === customer.distributor_id)
         const branch = state.branches.find((b) => b.id === customer.branch_id)
+        const distributorProfile = state.distributors.find((d) => d.customer_id === customer.id)
         return {
           ...customer,
           branch: branch ?? undefined,
           distributor: distributor
             ? { ...distributor, branch: state.branches.find((b) => b.id === distributor.branch_id) }
+            : undefined,
+          distributor_profile: distributorProfile
+            ? enrichDistributor(state, distributorProfile)
             : undefined,
         }
       }),
@@ -1575,17 +1591,53 @@ export function handleMockRequest(
   }
 
   if (m === 'POST' && path === 'customers') {
-    const body = data as Partial<Customer> & { guarantors?: Omit<Guarantor, 'id'>[] }
+    const body = data as Partial<Customer> & {
+      guarantors?: Omit<Guarantor, 'id'>[]
+      acquisition_source?: 'customer_referral' | 'social'
+      referred_by_customer_id?: number
+      sales_user_id?: number
+    }
     const branchId = body.branch_id ?? null
     if (branchId != null && !isBranchInScope(state, ctx, branchId)) {
       throw mockError(403, 'لا يمكنك إضافة عميل خارج إدارتك')
     }
+
+    let distributorId: number | null = null
+    let referredByCustomerId: number | null = null
+
+    if (body.acquisition_source === 'customer_referral') {
+      if (!body.referred_by_customer_id) {
+        throw mockError(422, 'يجب اختيار العميل المُحيل')
+      }
+      if (!body.sales_user_id) {
+        throw mockError(422, 'يجب اختيار الموظف المسؤول')
+      }
+      const referrer = state.customers.find((c) => c.id === body.referred_by_customer_id)
+      const referrerProfile = state.distributors.find((d) => d.customer_id === referrer?.id)
+      if (!referrer || !referrerProfile) {
+        throw mockError(422, 'العميل المُحيل يجب أن يكون موزّعاً')
+      }
+      distributorId = referrerProfile.id
+      referredByCustomerId = referrer.id
+    } else if (body.acquisition_source === 'social') {
+      if (!body.sales_user_id) {
+        throw mockError(422, 'يجب اختيار الموظف المسؤول')
+      }
+      distributorId = null
+      referredByCustomerId = null
+    }
+
     let created: Customer | undefined
     mutateState((s) => {
       const customer: Customer = {
         id: s.counters.customer++,
-        branch_id: branchId,
-        distributor_id: null,
+        branch_id: branchId ?? (referredByCustomerId
+          ? s.customers.find((c) => c.id === referredByCustomerId)?.branch_id ?? null
+          : null),
+        distributor_id: distributorId,
+        sales_user_id: body.sales_user_id ?? null,
+        acquisition_source: body.acquisition_source ?? null,
+        referred_by_customer_id: referredByCustomerId,
         name: body.name ?? '',
         phone: body.phone ?? '',
         phone_label: body.phone_label ?? null,
@@ -1603,6 +1655,7 @@ export function handleMockRequest(
         city: body.city ?? null,
         status: 'active',
         credit_score: 70,
+        notes: body.notes ?? null,
         guarantors: (body.guarantors ?? []).map((g, index) => ({
           id: index + 1,
           name: g.name,

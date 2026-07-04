@@ -67,6 +67,10 @@ export function PosContractHeader({
   submitAttempted = false,
 }: PosContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
+  const customerLinkedToDistributor = Boolean(
+    selectedCustomer?.distributor_id && selectedCustomer?.distributor,
+  )
+  const dualAttribution = customerLinkedToSalesRep && customerLinkedToDistributor
   const sourceToggleOptions = customerLinkedToSalesRep
     ? []
     : [
@@ -116,6 +120,11 @@ export function PosContractHeader({
           {selectedCustomer?.sales_user && (
             <p className="mt-xs text-[13px] leading-snug text-secondary">
               تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
+            </p>
+          )}
+          {dualAttribution && selectedCustomer?.distributor && (
+            <p className="mt-xs text-[13px] leading-snug text-secondary">
+              موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)} (يُحتسب مع الموظف)
             </p>
           )}
           {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (

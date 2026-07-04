@@ -25,6 +25,14 @@ export function resolveCustomerTransactionSource(
     salesRepSearch: '',
   }
 
+  const distributorFromCustomer =
+    customer.distributor_id && customer.distributor
+      ? {
+          distributor: customer.distributor,
+          distributorSearch: distributorLabel(customer.distributor),
+        }
+      : null
+
   if (customer.sales_user_id && customer.sales_user) {
     const salesRep: SalesRep = {
       id: customer.sales_user.id,
@@ -36,6 +44,8 @@ export function resolveCustomerTransactionSource(
       source: 'sales',
       salesRep,
       salesRepSearch: salesRep.name,
+      distributor: distributorFromCustomer?.distributor ?? null,
+      distributorSearch: distributorFromCustomer?.distributorSearch ?? '',
     }
   }
 
@@ -45,9 +55,9 @@ export function resolveCustomerTransactionSource(
     source: 'distributor',
   }
 
-  if (customer.distributor_id && customer.distributor) {
-    suggested.distributor = customer.distributor
-    suggested.distributorSearch = distributorLabel(customer.distributor)
+  if (distributorFromCustomer) {
+    suggested.distributor = distributorFromCustomer.distributor
+    suggested.distributorSearch = distributorFromCustomer.distributorSearch
   }
 
   return suggested

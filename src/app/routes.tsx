@@ -102,6 +102,7 @@ import { CrmCampaignsPage } from '../modules/crm/pages/CrmCampaignsPage'
 import { CrmProposalsPage } from '../modules/crm/pages/CrmProposalsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
 import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
+import { CrmCustomerAddPage } from '../modules/crm/pages/CrmCustomerAddPage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
 import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
 import { EvaluationQuestionsPage } from '../modules/review/pages/EvaluationQuestionsPage'
@@ -266,6 +267,7 @@ export function AppRoutes() {
             <Route path="admin/trash" element={<TrashPage />} />
             <Route path="admin/faq" element={<AdminFaqPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
+            <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
             <Route path="crm" element={<CrmPipelinePage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
             <Route path="crm/activities" element={<CrmActivitiesPage />} />

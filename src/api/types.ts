@@ -421,6 +421,8 @@ export interface Customer {
   branch_id?: number | null
   distributor_id?: number | null
   sales_user_id?: number | null
+  acquisition_source?: 'customer_referral' | 'social' | null
+  referred_by_customer_id?: number | null
   name: string
   phone: string
   phone_label?: string | null
@@ -444,6 +446,7 @@ export interface Customer {
   distributor?: Distributor
   distributor_profile?: Distributor | null
   sales_user?: { id: number; name: string; branch_id?: number | null }
+  referred_by_customer?: Pick<Customer, 'id' | 'name' | 'phone'> | null
   guarantors?: Guarantor[]
   media?: MediaFile[]
   sales_invoices?: SalesInvoice[]

@@ -224,6 +224,7 @@ export const navEntries: NavEntry[] = [
       icon: 'hub',
       items: [
         { to: '/crm', icon: 'hub', label: 'العملاء المحتملين', end: true, roles: ['super_admin', 'admin', 'crm'] },
+        { to: '/crm/customers/add', icon: 'person_add', label: 'إضافة عميل', roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/activities', icon: 'task', label: 'الأنشطة', roles: ['super_admin', 'admin', 'crm'] },
         { to: '/crm/call-logs', icon: 'call', label: 'سجل المكالمات', roles: ['super_admin', 'admin', 'crm'] },
@@ -317,6 +318,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/activity-log': ['super_admin', 'admin'],
   '/admin/settings': ['super_admin'],
   '/crm': ['super_admin', 'admin', 'crm'],
+  '/crm/customers/add': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/activities': ['super_admin', 'admin', 'crm'],
   '/crm/call-logs': ['super_admin', 'admin', 'crm'],

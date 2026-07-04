@@ -622,6 +622,9 @@ export function PosPage() {
     if (transactionSource === 'sales' && selectedSalesRep) {
       payload.sales_user_id = selectedSalesRep.id
       if (resolvedBranchId) payload.branch_id = resolvedBranchId
+      if (selectedDistributor) {
+        payload.distributor_id = selectedDistributor.id
+      }
     }
 
     if (selectedPromotionId) {
