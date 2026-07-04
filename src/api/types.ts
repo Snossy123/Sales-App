@@ -330,6 +330,10 @@ export interface GpsProduct {
   sell_price: number
   cash_price: number
   installment_price: number
+  cash_annual_price?: number
+  cash_permanent_price?: number
+  installment_annual_price?: number
+  installment_permanent_price?: number
   external_cash_annual_price?: number
   external_cash_permanent_price?: number
   external_installment_annual_price?: number

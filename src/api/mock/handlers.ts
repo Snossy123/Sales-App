@@ -1400,6 +1400,10 @@ export function handleMockRequest(
       sell_price?: number
       cash_price?: number
       installment_price?: number
+      cash_annual_price?: number
+      cash_permanent_price?: number
+      installment_annual_price?: number
+      installment_permanent_price?: number
       external_cash_annual_price?: number
       external_cash_permanent_price?: number
       external_installment_annual_price?: number
@@ -1408,8 +1412,12 @@ export function handleMockRequest(
     let updated = state.gpsProduct
     mutateState((s) => {
       const hasProduct = Boolean(s.gpsProduct?.id)
-      const cashPrice = body.cash_price ?? body.sell_price
-      const installmentPrice = body.installment_price ?? cashPrice
+      const cashAnnual = body.cash_annual_price ?? body.cash_price ?? body.sell_price
+      const cashPermanent = body.cash_permanent_price ?? cashAnnual
+      const installmentAnnual = body.installment_annual_price ?? body.installment_price ?? cashAnnual
+      const installmentPermanent = body.installment_permanent_price ?? installmentAnnual
+      const cashPrice = cashAnnual
+      const installmentPrice = installmentAnnual
 
       if (!hasProduct) {
         if (!body.name_ar?.trim()) {
@@ -1429,6 +1437,10 @@ export function handleMockRequest(
           sell_price: cashPrice,
           cash_price: cashPrice,
           installment_price: installmentPrice ?? cashPrice,
+          cash_annual_price: cashAnnual,
+          cash_permanent_price: cashPermanent ?? cashPrice,
+          installment_annual_price: installmentAnnual ?? cashPrice,
+          installment_permanent_price: installmentPermanent ?? installmentPrice ?? cashPrice,
           external_cash_annual_price: body.external_cash_annual_price ?? cashPrice,
           external_cash_permanent_price: body.external_cash_permanent_price ?? cashPrice,
           external_installment_annual_price:
@@ -1452,6 +1464,15 @@ export function handleMockRequest(
         sell_price: cashPrice,
         cash_price: cashPrice,
         installment_price: installmentPrice ?? s.gpsProduct.installment_price ?? cashPrice,
+        cash_annual_price: cashAnnual ?? s.gpsProduct.cash_annual_price ?? cashPrice,
+        cash_permanent_price: cashPermanent ?? s.gpsProduct.cash_permanent_price ?? cashPrice,
+        installment_annual_price:
+          installmentAnnual ?? s.gpsProduct.installment_annual_price ?? installmentPrice ?? cashPrice,
+        installment_permanent_price:
+          installmentPermanent
+          ?? s.gpsProduct.installment_permanent_price
+          ?? installmentPrice
+          ?? cashPrice,
         external_cash_annual_price:
           body.external_cash_annual_price ?? s.gpsProduct.external_cash_annual_price ?? cashPrice,
         external_cash_permanent_price:
