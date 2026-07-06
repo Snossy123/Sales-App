@@ -68,6 +68,10 @@ function migrateState(state: DemoState): DemoState {
     state.customers = seed.customers
     state.invoices = seed.invoices
   }
+  if (!state.expenseRequests?.length) state.expenseRequests = seed.expenseRequests
+  if (!state.paymentTransactions?.length && seed.paymentTransactions?.length) {
+    state.paymentTransactions = seed.paymentTransactions
+  }
   if (!state.dailyBranchReports?.length) {
     state.dailyBranchReports = seed.dailyBranchReports
   }

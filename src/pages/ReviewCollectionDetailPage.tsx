@@ -163,6 +163,32 @@ export function ReviewCollectionDetailPage() {
                 </button>
               </section>
             )}
+
+            {!isPending && (
+              <section className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+                <h2 className="mb-3 text-base font-semibold">نتيجة المراجعة</h2>
+                <dl className="space-y-2 text-sm">
+                  {invoice.collection_reviewed_at && (
+                    <div className="flex justify-between gap-sm">
+                      <dt className="text-on-surface-variant">تاريخ التأكيد</dt>
+                      <dd dir="ltr">{invoice.collection_reviewed_at.slice(0, 10)}</dd>
+                    </div>
+                  )}
+                  {invoice.collection_reviewer?.name && (
+                    <div className="flex justify-between gap-sm">
+                      <dt className="text-on-surface-variant">المراجع</dt>
+                      <dd>{invoice.collection_reviewer.name}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="mb-1 text-on-surface-variant">ملاحظات المراجعة</dt>
+                    <dd className="rounded-lg bg-surface-container-lowest px-3 py-2 text-on-surface">
+                      {invoice.collection_review_notes?.trim() || '—'}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            )}
           </div>
         )}
       </AsyncState>

@@ -45,6 +45,11 @@ export function ContractDetailPage() {
     invoice?.review_status === 'approved' &&
     (!invoice.contract_status || invoice.contract_status === 'active')
 
+  const showProblemsPermissionHint =
+    !canManageCases &&
+    invoice?.review_status === 'approved' &&
+    (!invoice.contract_status || invoice.contract_status === 'active')
+
   const handleWizardComplete = () => {
     setWizardOpen(false)
     queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'contract-detail', id] })
@@ -92,6 +97,15 @@ export function ContractDetailPage() {
               <Icon name="report_problem" size={18} />
               تحويل للمشاكل
             </button>
+          )}
+          {showProblemsPermissionHint && (
+            <span
+              className="inline-flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-low px-md py-sm text-xs text-on-surface-variant"
+              title="يتطلب صلاحية: إدارة مشاكل العقد"
+            >
+              <Icon name="lock" size={16} />
+              تحويل للمشاكل غير متاح لحسابك
+            </span>
           )}
           {invoice && canPrint && <ContractPrintActions invoice={invoice} />}
           <Link

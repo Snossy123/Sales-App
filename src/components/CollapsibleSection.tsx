@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 interface CollapsibleSectionProps {
   title: string
   summary?: string
+  icon?: string
   defaultOpen?: boolean
   isLoading?: boolean
   className?: string
@@ -13,6 +14,7 @@ interface CollapsibleSectionProps {
 export function CollapsibleSection({
   title,
   summary,
+  icon = 'analytics',
   defaultOpen = false,
   isLoading = false,
   className = '',
@@ -31,7 +33,7 @@ export function CollapsibleSection({
         className="flex w-full items-center justify-between gap-sm px-md py-sm text-right transition-colors hover:bg-surface-container-low"
       >
         <div className="flex items-center gap-sm">
-          <Icon name="analytics" size={20} className="text-primary" />
+          <Icon name={icon} size={20} className="text-primary" />
           <span className="text-sm font-bold text-on-surface">{title}</span>
           {!open && summary && (
             <span className="text-xs text-on-surface-variant">· {summary}</span>

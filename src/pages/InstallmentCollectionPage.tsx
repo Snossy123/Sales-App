@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
-import type { AdminUser, Branch, CollectionPaymentAccount, InstallmentItem, PaginatedResponse } from '../api/types'
+import { api } from '../api/client'
+import type { AdminUser, Branch, CollectionPaymentAccount, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
-import { DateTimeInput12h } from '../components/DateTimeInput12h'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
+import {
+  InstallmentCollectionPanel,
+} from '../components/installments/InstallmentCollectionPanel'
 import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -32,13 +34,6 @@ interface BranchStats {
   overdueCount: number
   dueSoonCount: number
 }
-
-const paymentMethodOptions = [
-  { value: 'cash', label: 'كاش' },
-  { value: 'wallet', label: 'محفظة' },
-  { value: 'instapay', label: 'انستا' },
-  { value: 'bank_transfer', label: 'تحويل بنكي' },
-]
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 
@@ -147,7 +142,6 @@ export function InstallmentCollectionPage() {
   const [collectionReminderAt, setCollectionReminderAt] = useState('')
   const [collectionNotes, setCollectionNotes] = useState('')
   const [deferDate, setDeferDate] = useState('')
-  const [showEditDueDates, setShowEditDueDates] = useState(false)
   const [dueDateEdits, setDueDateEdits] = useState<Record<number, string>>({})
   const [showReconcile, setShowReconcile] = useState(false)
   const [responsibleUserId, setResponsibleUserId] = useState<number | ''>('')
@@ -203,6 +197,17 @@ export function InstallmentCollectionPage() {
     },
   })
 
+  const branchEmployeesQuery = useQuery({
+    queryKey: ['employees', 'collection-suspend', selectedBranchId],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
+        params: { per_page: 100, 'filter[branch_id]': selectedBranchId },
+      })
+      return data.data ?? []
+    },
+    enabled: Boolean(selectedBranchId),
+  })
+
   const installmentsQuery = useQuery({
     queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, sortByReminder],
     queryFn: async () => {
@@ -238,9 +243,11 @@ export function InstallmentCollectionPage() {
     return branches
       .map((branch) => {
         const rows = installmentsByBranch.get(branch.id) ?? []
-        const { total_contracts: contractsCount } = computeContractStats(rows)
-        const overdueCount = filterRowsByContractTier(rows, 'overdue').length
-        const dueSoonCount = filterRowsByContractTier(rows, 'due_soon').length
+        const {
+          total_contracts: contractsCount,
+          overdue_contracts: overdueCount,
+          due_soon_contracts: dueSoonCount,
+        } = computeContractStats(rows)
         return {
           branch,
           contractsCount,
@@ -251,9 +258,9 @@ export function InstallmentCollectionPage() {
       .filter((s) => s.contractsCount > 0 || s.overdueCount > 0 || s.dueSoonCount > 0 || branches.length <= 6)
       .sort(
         (a, b) =>
-          b.contractsCount - a.contractsCount ||
           b.overdueCount - a.overdueCount ||
-          b.dueSoonCount - a.dueSoonCount,
+          b.dueSoonCount - a.dueSoonCount ||
+          b.contractsCount - a.contractsCount,
       )
   }, [branchesQuery.data, installmentsByBranch])
 
@@ -437,13 +444,45 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setShowEditDueDates(false)
     },
   })
 
   const unpaidReasonMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
       await api.patch(`/installments/${id}`, { unpaid_reason: reason || null })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+  })
+
+  const suspendMutation = useMutation({
+    mutationFn: async (payload: {
+      device_received: boolean
+      serial_code?: string
+      employee_id?: number
+      reason?: string
+      notes?: string
+    }) => {
+      if (!selected?.sales_invoice_id || !selectedBranchId) throw new Error('عقد أو فرع غير محدد')
+      const { data } = await api.post(
+        `/sales-invoices/${selected.sales_invoice_id}/installments/suspend`,
+        {
+          branch_id: selectedBranchId,
+          ...payload,
+        },
+      )
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected?.sales_invoice_id) throw new Error('عقد غير محدد')
+      const { data } = await api.post(
+        `/sales-invoices/${selected.sales_invoice_id}/installments/resume`,
+        {},
+      )
+      return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
   })
@@ -466,7 +505,6 @@ export function InstallmentCollectionPage() {
         : '',
     )
     setCollectionNotes(String(row.collection_notes ?? ''))
-    setShowEditDueDates(false)
     const edits: Record<number, string> = {}
     branchRows
       .filter((r) => r.sales_invoice_id === row.sales_invoice_id && r.status !== 'paid')
@@ -612,6 +650,7 @@ export function InstallmentCollectionPage() {
               <div className="min-w-0">
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
+                  sortMode={sortByReminder ? 'reminder' : 'priority'}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
@@ -630,371 +669,54 @@ export function InstallmentCollectionPage() {
                 />
               </div>
 
-              {selected ? (
-                <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md">
-                  <h3 className="mb-md text-lg font-semibold">تحصيل قسط</h3>
-                  {selected.is_suspended && (
-                    <p className="mb-sm rounded-lg bg-orange-50 px-sm py-2 text-sm text-orange-800">
-                      الأقساط معلّقة — الجهاز قيد المراجعة في الفرع
-                    </p>
-                  )}
-                  <dl className="mb-md space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-on-surface-variant">العميل</dt>
-                      <dd>{selected.customer_name as string}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-on-surface-variant">فاتورة</dt>
-                      <dd className="flex items-center gap-2">
-                        <span>{selected.invoice_number as string}</span>
-                        {selected.sales_invoice_id ? (
-                          <a
-                            href={`/contracts/${selected.sales_invoice_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
-                          >
-                            عرض تفاصيل العقد
-                          </a>
-                        ) : null}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-on-surface-variant">قسط رقم</dt>
-                      <dd>{selected.installment_number as number}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-on-surface-variant">غرامة التأخير</dt>
-                      <dd className="tabular-nums text-error">
-                        {Number(selected.late_fee_accrued ?? 0).toLocaleString('ar-EG')} ج.م
-                      </dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-on-surface-variant">الإجمالي المستحق</dt>
-                      <dd className="font-bold tabular-nums">
-                        {Number(
-                          selected.total_due ??
-                            selected.remaining ??
-                            Number(selected.amount) - Number(selected.paid_amount),
-                        ).toLocaleString('ar-EG')}{' '}
-                        ج.م
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <div className="mb-md space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-high p-sm">
-                    <h4 className="text-sm font-semibold">متابعة التحصيل</h4>
-                    <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
-                    <select
-                      value={collectionStatus}
-                      onChange={(e) => setCollectionStatus(e.target.value)}
-                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                    >
-                      <option value="">—</option>
-                      {collectionStatusOptions.filter((o) => o.value).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
-                    <DateTimeInput12h
-                      value={collectionReminderAt}
-                      onChange={setCollectionReminderAt}
-                      className="mb-sm"
-                    />
-                    <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
-                    <textarea
-                      value={collectionNotes}
-                      onChange={(e) => setCollectionNotes(e.target.value)}
-                      rows={2}
-                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => metadataMutation.mutate()}
-                      disabled={metadataMutation.isPending}
-                      className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
-                    >
-                      {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
-                    </button>
-                  </div>
-
-                  {selectedIsOverdueContract && (
-                    <div className="mb-md space-y-sm rounded-lg border border-orange-300/50 bg-orange-50/50 p-sm">
-                      <h4 className="text-sm font-semibold">ترحيل الأقساط (متأخرين فقط)</h4>
-                      <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية جديد</label>
-                      <input
-                        type="date"
-                        value={deferDate}
-                        onChange={(e) => setDeferDate(e.target.value)}
-                        className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => deferMutation.mutate()}
-                        disabled={deferMutation.isPending || !deferDate}
-                        className="w-full rounded-lg border border-orange-600 py-2 text-sm font-medium text-orange-800"
-                      >
-                        {deferMutation.isPending ? 'جاري الترحيل…' : 'ترحيل جدول الأقساط'}
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="mb-md space-y-sm rounded-lg border border-outline-variant/70 p-sm">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold">تعديل تواريخ الأقساط</h4>
-                      <button
-                        type="button"
-                        onClick={() => setShowEditDueDates((v) => !v)}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        {showEditDueDates ? 'إخفاء' : 'عرض'}
-                      </button>
-                    </div>
-                    {showEditDueDates && (
-                      <>
-                        {Object.entries(dueDateEdits).map(([id, date]) => (
-                          <div key={id} className="flex items-center gap-2 text-sm">
-                            <span className="w-16 text-on-surface-variant">#{id}</span>
-                            <input
-                              type="date"
-                              value={date}
-                              onChange={(e) =>
-                                setDueDateEdits((prev) => ({ ...prev, [Number(id)]: e.target.value }))
-                              }
-                              className="flex-1 rounded border border-outline-variant px-sm py-1 text-sm"
-                            />
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => dueDatesMutation.mutate()}
-                          disabled={dueDatesMutation.isPending}
-                          className="w-full rounded-lg border border-outline-variant py-2 text-sm"
-                        >
-                          {dueDatesMutation.isPending ? 'جاري الحفظ…' : 'حفظ التواريخ'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="mb-md">
-                    <label className="mb-xs block text-sm text-on-surface-variant">طريقة التحصيل</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2"
-                    >
-                      {paymentMethodOptions.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    {transferMethods.includes(paymentMethod) && (
-                      <>
-                        <label className="mb-xs block text-sm text-on-surface-variant">
-                          {paymentMethod === 'bank_transfer' ? 'حساب البنك المفعل' : 'رقم المحفظة / انستا المفعل'}
-                        </label>
-                        <select
-                          value={accountId}
-                          onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
-                          className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                        >
-                          <option value="">اختر الحساب</option>
-                          {(accountsQuery.data ?? []).map((acc) => (
-                            <option key={acc.id} value={acc.id}>
-                              {acc.beneficiary_name} — {acc.account_number || acc.phone}
-                              {acc.bank_name ? ` (${acc.bank_name})` : ''}
-                            </option>
-                          ))}
-                        </select>
-
-                        <label className="mb-xs block text-sm text-on-surface-variant">رقم التحويل من العميل</label>
-                        <input
-                          value={senderNumber}
-                          onChange={(e) => setSenderNumber(e.target.value)}
-                          className="mb-sm w-full rounded border border-outline-variant px-sm py-2"
-                          dir="ltr"
-                          placeholder="01xxxxxxxxx"
-                        />
-                      </>
-                    )}
-
-                    <label className="mb-xs block text-sm text-on-surface-variant">مبلغ التحصيل</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={Number(
-                        selected.total_due ??
-                          selected.remaining ??
-                          Number(selected.amount) - Number(selected.paid_amount),
-                      )}
-                      value={amount}
-                      onChange={(e) => setAmount(Number(e.target.value))}
-                      className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-                    />
-                    <p className="mt-xs text-xs text-on-surface-variant">
-                      يمكن دفع جزء من القسط — المتبقي يُسجّل تلقائياً
-                    </p>
-
-                    {distributorProfile && Number(distributorProfile.commission_balance ?? 0) > 0 && (
-                      <div className="mt-sm space-y-xs rounded-lg border border-primary/25 bg-primary/5 p-sm">
-                        <p className="text-xs text-on-surface-variant">
-                          رصيد عمولة متاح:{' '}
-                          {Number(distributorProfile.commission_balance).toLocaleString('ar-EG')} ج.م
-                        </p>
-                        <label className="mb-xs block text-sm text-on-surface-variant">
-                          خصم من رصيد العمولة
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={maxDistributorBalance}
-                          value={distributorBalanceAmount}
-                          onChange={(e) =>
-                            setDistributorBalanceAmount(
-                              Math.min(Number(e.target.value), maxDistributorBalance),
-                            )
-                          }
-                          className="w-full rounded border border-outline-variant px-sm py-2 tabular-nums"
-                        />
-                      </div>
-                    )}
-                    {Number(selected.late_fee_accrued ?? 0) > 0 && (
-                      <div className="mt-sm space-y-sm rounded-lg border border-outline-variant bg-surface-container-high p-sm">
-                        <label className="flex items-center gap-xs text-sm">
-                          <input
-                            type="checkbox"
-                            checked={adjustNextDueDate}
-                            onChange={(e) => setAdjustNextDueDate(e.target.checked)}
-                          />
-                          تأجيل تاريخ استحقاق القسط التالي
-                        </label>
-                        {adjustNextDueDate && (
-                          <div>
-                            <label className="mb-xs block text-xs text-on-surface-variant">
-                              عدد أيام التأجيل
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={dueDateShiftDays}
-                              onChange={(e) => setDueDateShiftDays(Number(e.target.value))}
-                              className="w-full rounded border border-outline-variant px-sm py-2 text-sm tabular-nums"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {selected.has_open_reconciliation && (
-                    <p className="mb-sm rounded-lg bg-orange-50 px-sm py-2 text-sm text-orange-800">
-                      يوجد تصالح مفتوح — يجب إغلاقه قبل التحصيل
-                    </p>
-                  )}
-
-                  {collectMutation.isError && (
-                    <p className="mb-sm text-sm text-error">{getErrorMessage(collectMutation.error)}</p>
-                  )}
-                  {collectMutation.isSuccess && (
-                    <p className="mb-sm text-sm text-secondary">تم التحصيل بنجاح</p>
-                  )}
-
-                  {(installmentPaymentsQuery.data ?? []).length > 0 && (
-                    <div className="mb-md rounded-lg border border-outline-variant bg-surface-container-high p-sm">
-                      <h4 className="mb-sm text-sm font-semibold">آخر مدفوعات هذا القسط</h4>
-                      <ul className="space-y-1 text-sm">
-                        {(installmentPaymentsQuery.data ?? []).map((p) => (
-                          <li key={p.id} className="flex items-center justify-between gap-2">
-                            <span className="tabular-nums">
-                              {Number(p.amount).toLocaleString('ar-EG')} ج.م
-                              {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG')}` : ''}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => collectMutation.mutate()}
-                    disabled={
-                      collectMutation.isPending ||
-                      amount <= 0 ||
-                      Boolean(selected.is_suspended) ||
-                      Boolean(selected.has_open_reconciliation) ||
-                      (transferMethods.includes(paymentMethod) && (!accountId || !senderNumber.trim()))
-                    }
-                    className="mb-sm flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-3 font-bold text-on-primary disabled:opacity-60"
-                  >
-                    <Icon name="payments" />
-                    {collectMutation.isPending ? 'جاري التحصيل...' : 'تأكيد التحصيل'}
-                  </button>
-
-                  {selected.has_open_reconciliation && selected.open_reconciliation_id != null ? (
-                    <button
-                      type="button"
-                      onClick={() => closeReconcileMutation.mutate(selected.open_reconciliation_id!)}
-                      disabled={closeReconcileMutation.isPending}
-                      className="mb-sm w-full rounded-lg border border-secondary py-2 text-sm font-bold text-secondary"
-                    >
-                      {closeReconcileMutation.isPending ? 'جاري الإغلاق...' : 'إغلاق التصالح وإعفاء الغرامة'}
-                    </button>
-                  ) : null}
-
-                  {showReconcile && selected.display_tier === 'overdue' && !selected.has_open_reconciliation && (
-                    <div className="mt-md rounded-lg border border-outline-variant bg-surface-container-high p-sm">
-                      <h4 className="mb-sm font-semibold">تصالح — تسجيل حالة مفتوحة</h4>
-                      <label className="mb-xs block text-xs text-on-surface-variant">
-                        المسؤول الذي تحدث معه العميل *
-                      </label>
-                      <select
-                        value={responsibleUserId}
-                        onChange={(e) =>
-                          setResponsibleUserId(e.target.value ? Number(e.target.value) : '')
-                        }
-                        className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                      >
-                        <option value="">اختر الموظف</option>
-                        {(usersQuery.data ?? []).map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                      </select>
-                      <textarea
-                        value={reconcileNotes}
-                        onChange={(e) => setReconcileNotes(e.target.value)}
-                        placeholder="ملاحظات التصالح..."
-                        rows={2}
-                        className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                      />
-                      {reconcileMutation.isError && (
-                        <p className="mb-sm text-xs text-error">
-                          {getErrorMessage(reconcileMutation.error)}
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => reconcileMutation.mutate()}
-                        disabled={reconcileMutation.isPending || !responsibleUserId}
-                        className="w-full rounded-lg border border-primary py-2 text-sm font-bold text-primary"
-                      >
-                        {reconcileMutation.isPending ? 'جاري التسجيل...' : 'تسجيل التصالح'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-md text-sm text-on-surface-variant">
-                  اختر قسطاً من القائمة لبدء التحصيل
-                </div>
-              )}
+              <InstallmentCollectionPanel
+                selected={selected}
+                selectedIsOverdueContract={selectedIsOverdueContract}
+                amount={amount}
+                onAmountChange={setAmount}
+                paymentMethod={paymentMethod}
+                onPaymentMethodChange={setPaymentMethod}
+                accountId={accountId}
+                onAccountIdChange={setAccountId}
+                senderNumber={senderNumber}
+                onSenderNumberChange={setSenderNumber}
+                distributorBalanceAmount={distributorBalanceAmount}
+                onDistributorBalanceAmountChange={setDistributorBalanceAmount}
+                maxDistributorBalance={maxDistributorBalance}
+                adjustNextDueDate={adjustNextDueDate}
+                onAdjustNextDueDateChange={setAdjustNextDueDate}
+                dueDateShiftDays={dueDateShiftDays}
+                onDueDateShiftDaysChange={setDueDateShiftDays}
+                collectionStatus={collectionStatus}
+                onCollectionStatusChange={setCollectionStatus}
+                collectionReminderAt={collectionReminderAt}
+                onCollectionReminderAtChange={setCollectionReminderAt}
+                collectionNotes={collectionNotes}
+                onCollectionNotesChange={setCollectionNotes}
+                deferDate={deferDate}
+                onDeferDateChange={setDeferDate}
+                dueDateEdits={dueDateEdits}
+                onDueDateEditsChange={setDueDateEdits}
+                showReconcile={showReconcile}
+                responsibleUserId={responsibleUserId}
+                onResponsibleUserIdChange={setResponsibleUserId}
+                reconcileNotes={reconcileNotes}
+                onReconcileNotesChange={setReconcileNotes}
+                accountsQuery={accountsQuery}
+                usersQuery={usersQuery}
+                installmentPaymentsQuery={installmentPaymentsQuery}
+                distributorProfile={distributorProfile}
+                collectMutation={collectMutation}
+                closeReconcileMutation={closeReconcileMutation}
+                reconcileMutation={reconcileMutation}
+                metadataMutation={metadataMutation}
+                deferMutation={deferMutation}
+                dueDatesMutation={dueDatesMutation}
+                branchId={selectedBranchId}
+                branchEmployees={branchEmployeesQuery.data ?? []}
+                suspendMutation={suspendMutation}
+                resumeMutation={resumeMutation}
+              />
             </div>
           </section>
         ) : (

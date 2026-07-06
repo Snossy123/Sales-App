@@ -79,6 +79,24 @@ export interface MockPaymentTransaction {
   refunded_amount?: number
 }
 
+export interface MockExpenseRequest {
+  id: number
+  reference_number: string
+  expense_type: 'operating' | 'petty_cash' | 'distributor_payout' | 'employee_debt'
+  amount: number
+  status: 'pending' | 'approved' | 'rejected' | 'paid'
+  branch_id: number
+  notes?: string | null
+  distributor_id?: number | null
+  employee_id?: number | null
+  created_by?: number
+  creator?: { id: number; name: string }
+  branch?: { id: number; name?: string; name_ar?: string | null }
+  employee?: { id: number; name: string }
+  distributor?: { id: number; name: string }
+  rejection_notes?: string | null
+}
+
 export interface DemoState {
   users: DemoUser[]
   portalUsers: DemoPortalUser[]
@@ -129,6 +147,7 @@ export interface DemoState {
   branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
   paymentTransactions: MockPaymentTransaction[]
+  expenseRequests: MockExpenseRequest[]
   distributorCommissionLedger?: Array<{
     id: number
     distributor_id: number
@@ -526,6 +545,8 @@ export function createSeedState(): DemoState {
       confirmed_at: '2026-04-11T09:30:00',
       reviewed_by: 3,
       reviewed_at: '2026-04-11T09:30:00',
+      review_status: 'approved',
+      collection_review_status: 'pending',
       created_by: 2,
     },
     {
@@ -630,7 +651,25 @@ export function createSeedState(): DemoState {
       roles: [{ id: 5, name: 'AdministrationManager' }],
       data_scope: 'administration',
       data_scope_label: 'إدارة الدلتا',
-      permissions: ['scope.administration', 'users.manage', 'dashboard.view', 'crm.leads.manage'],
+      permissions: [
+        'scope.administration',
+        'users.manage',
+        'dashboard.view',
+        'customers.manage',
+        'sales.invoices.view',
+        'review.view_queue',
+        'review.view_contracts',
+        'review.view_detail',
+        'review.approve',
+        'review.reject',
+        'review.print',
+        'installments.collect',
+        'installments.view',
+        'inventory.manage',
+        'contract_cases.manage',
+        'contract_cases.disburse',
+        'crm.leads.manage',
+      ],
     },
     {
       id: 2,
@@ -672,7 +711,19 @@ export function createSeedState(): DemoState {
       roles: [{ id: 3, name: 'Reviewer' }],
       data_scope: 'branch',
       data_scope_label: 'فرع مدينة نصر',
-      permissions: ['scope.branch', 'review.view_queue', 'review.approve', 'review.reject'],
+      permissions: [
+        'scope.branch',
+        'review.view_queue',
+        'review.approve',
+        'review.reject',
+        'review.print',
+        'review.view_collections',
+        'review.confirm_collections',
+        'review.view_expenses',
+        'review.approve_expenses',
+        'sales.invoices.view',
+        'contract_cases.manage',
+      ],
     },
     {
       id: 4,
@@ -693,7 +744,14 @@ export function createSeedState(): DemoState {
       roles: [{ id: 4, name: 'Collector' }],
       data_scope: 'branch',
       data_scope_label: 'فرع مدينة نصر',
-      permissions: ['scope.branch', 'installments.collect', 'installments.view'],
+      permissions: [
+        'scope.branch',
+        'installments.collect',
+        'installments.view',
+        'sales.invoices.view',
+        'contract_cases.manage',
+        'contract_cases.disburse',
+      ],
     },
     {
       id: 6,
@@ -1233,6 +1291,10 @@ export function createSeedState(): DemoState {
         { id: 307, name: 'review.reject' },
         { id: 308, name: 'review.print' },
         { id: 309, name: 'scope.branch' },
+        { id: 310, name: 'review.view_collections' },
+        { id: 311, name: 'review.confirm_collections' },
+        { id: 312, name: 'review.view_expenses' },
+        { id: 313, name: 'review.approve_expenses' },
       ],
     },
     {
@@ -1244,10 +1306,18 @@ export function createSeedState(): DemoState {
         { id: 1, name: 'users.manage' },
         { id: 4, name: 'audit.view' },
         { id: 5, name: 'dashboard.view' },
+        { id: 6, name: 'customers.manage' },
+        { id: 7, name: 'sales.invoices.view' },
         { id: 8, name: 'crm.leads.manage' },
         { id: 9, name: 'hr.employees.manage' },
         { id: 10, name: 'accounting.access_accounting_module' },
         { id: 11, name: 'scope.administration' },
+        { id: 12, name: 'review.print' },
+        { id: 13, name: 'review.approve' },
+        { id: 14, name: 'contract_cases.manage' },
+        { id: 15, name: 'contract_cases.disburse' },
+        { id: 16, name: 'installments.collect' },
+        { id: 17, name: 'inventory.manage' },
       ],
     },
   ]
@@ -1528,7 +1598,43 @@ export function createSeedState(): DemoState {
     services,
     customers,
     invoices,
-    paymentTransactions: [],
+    paymentTransactions: [
+      {
+        id: 1,
+        transaction_number: 'PT-000001',
+        sales_invoice_id: 2,
+        customer_id: 2,
+        installment_item_id: 1,
+        amount: 2000,
+        status: 'active',
+        payment_source: 'internal',
+        payment_method: 'cash',
+        paid_at: '2026-05-01T10:00:00Z',
+      },
+    ],
+    expenseRequests: [
+      {
+        id: 1,
+        reference_number: 'EXP-000001',
+        expense_type: 'petty_cash',
+        amount: 500,
+        status: 'pending',
+        branch_id: 1,
+        notes: 'مصروفات نثرية أسبوع التحصيل',
+        created_by: 1,
+      },
+      {
+        id: 2,
+        reference_number: 'EXP-000002',
+        expense_type: 'operating',
+        amount: 1200,
+        status: 'pending',
+        branch_id: 1,
+        distributor_id: 1,
+        notes: 'صرف عمولة موزع — رصيد متاح',
+        created_by: 1,
+      },
+    ],
     distributorCommissionLedger: [],
     priceCatalogItems: [
       {

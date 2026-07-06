@@ -78,8 +78,8 @@ export interface StockTransfer {
   completed_at?: string | null
   notes?: string | null
   created_at?: string
-  from_warehouse?: Warehouse & { administration?: Administration }
-  to_warehouse?: Warehouse & { branch?: Branch }
+  from_warehouse?: Warehouse
+  to_warehouse?: Warehouse
   requester?: { id: number; name: string }
   lines?: Array<{ id: number; product_unit_id: number }>
 }
@@ -607,6 +607,7 @@ export interface InstallmentItem {
   unpaid_reason?: string | null
   suspended_at?: string | null
   is_suspended?: boolean
+  device_in_custody?: boolean
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
@@ -707,6 +708,10 @@ export interface SalesInvoice {
   contract_status?: 'active' | 'in_problem' | 'returned' | 'exchanged' | 'cancelled' | string
   problem_reason?: string | null
   collection_review_status?: 'pending' | 'reviewed' | string | null
+  collection_reviewed_at?: string | null
+  collection_reviewed_by?: number | null
+  collection_review_notes?: string | null
+  collection_reviewer?: { id?: number; name?: string } | null
   installment_items?: InstallmentItem[]
   payment_transactions?: PaymentTransaction[]
 }

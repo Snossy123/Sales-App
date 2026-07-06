@@ -4,16 +4,12 @@ import { api } from '../api/client'
 import type { ProductUnit } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
+import { InventoryUnitTags } from '../components/inventory/InventoryUnitTags'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { INVENTORY_BUCKET_SECTION_LABELS, productUnitDisplayCode } from '../lib/inventoryBuckets'
 import { useAuthStore } from '../stores/authStore'
 
-const BUCKET_LABELS: Record<string, string> = {
-  new: 'جديدة',
-  custody_customer: 'عهدة — أجهزة عملاء',
-  custody_software: 'عهدة — سوفت',
-  custody_maintenance: 'عهدة — صيانة',
-  custody_branch_tracking: 'عهدة — متابعة فرع',
-}
+const BUCKET_LABELS: Record<string, string> = INVENTORY_BUCKET_SECTION_LABELS
 
 interface BranchInventoryResponse {
   units: ProductUnit[]
@@ -81,10 +77,13 @@ export function BranchInventoryPage() {
               <h2 className="mb-3 font-semibold">{BUCKET_LABELS[bucket] ?? bucket}</h2>
               <ul className="space-y-2 text-sm">
                 {bucketUnits.map((unit) => (
-                  <li key={unit.id} className="flex justify-between border-b border-outline-variant/40 py-1">
-                    <span>{unit.serial_number ?? unit.imei ?? `#${unit.id}`}</span>
+                  <li key={unit.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="font-mono text-sm">{productUnitDisplayCode(unit)}</span>
+                      <InventoryUnitTags state={unit.state} inventoryBucket={unit.inventory_bucket} />
+                    </div>
                     <span className="text-on-surface-variant">
-                      {unit.custody_employee?.name ?? unit.state}
+                      {unit.custody_employee?.name ?? '—'}
                     </span>
                   </li>
                 ))}

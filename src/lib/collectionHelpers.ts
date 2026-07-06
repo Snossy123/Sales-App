@@ -1,5 +1,7 @@
 export type ContractTierFilter = 'all' | 'overdue' | 'due_soon'
 
+export type CollectionSortMode = 'priority' | 'reminder'
+
 export const collectionStatusLabels: Record<string, string> = {
   responded: 'تم الرد',
   postponed: 'تأجيلات',
@@ -43,6 +45,7 @@ export type InstallmentCollectionRow = {
   unpaid_reason?: string | null
   suspended_at?: string | null
   is_suspended?: boolean
+  device_in_custody?: boolean
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
@@ -184,4 +187,60 @@ export function computeContractStats(rows: InstallmentCollectionRow[]): Contract
     overdue_contracts: overdue,
     due_soon_contracts: dueSoon,
   }
+}
+
+/** Mirrors InstallmentDisplayService::tierSortOrder */
+export function tierSortOrder(tier?: string): number {
+  switch (tier) {
+    case 'overdue':
+      return 0
+    case 'grace':
+      return 1
+    case 'upcoming':
+      return 2
+    case 'suspended':
+      return 4
+    default:
+      return 3
+  }
+}
+
+export function contractCollectionSortKey(
+  rows: InstallmentCollectionRow[],
+  mode: CollectionSortMode = 'priority',
+): number[] {
+  const current = getCurrentInstallment(rows)
+  const tier = current ? String(current.display_tier ?? current.status) : 'other'
+  const tierOrder = tierSortOrder(tier)
+  const dueDate = current ? new Date(current.due_date).getTime() : Number.MAX_SAFE_INTEGER
+  const totalDue = current ? -rowRemaining(current) : 0
+
+  if (mode === 'reminder') {
+    const reminderAt = rows.find((row) => row.collection_reminder_at)?.collection_reminder_at
+    const reminderKey = reminderAt ? new Date(reminderAt).getTime() : Number.MAX_SAFE_INTEGER
+
+    return [reminderKey, tierOrder, dueDate, totalDue]
+  }
+
+  return [tierOrder, dueDate, totalDue]
+}
+
+export function compareCollectionSortKeys(a: number[], b: number[]): number {
+  const length = Math.max(a.length, b.length)
+  for (let index = 0; index < length; index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
+export function compareContractCollection(
+  rowsA: InstallmentCollectionRow[],
+  rowsB: InstallmentCollectionRow[],
+  mode: CollectionSortMode = 'priority',
+): number {
+  return compareCollectionSortKeys(
+    contractCollectionSortKey(rowsA, mode),
+    contractCollectionSortKey(rowsB, mode),
+  )
 }

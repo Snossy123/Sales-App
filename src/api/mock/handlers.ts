@@ -3970,12 +3970,183 @@ export function handleMockRequest(
     return updated
   }
 
+  if (m === 'GET' && path === 'review/collections') {
+    const statusFilter = String(params.collection_review_status ?? 'pending')
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    let invoices = state.invoices.filter((inv) => {
+      if ((inv.review_status ?? 'pending') !== 'approved') return false
+      const hasPayment = state.paymentTransactions.some(
+        (p) => p.sales_invoice_id === inv.id && p.status === 'active',
+      )
+      if (!hasPayment) return false
+      if (scopedBranchIds != null && inv.branch_id != null && !scopedBranchIds.includes(inv.branch_id)) {
+        return false
+      }
+      const reviewStatus = inv.collection_review_status ?? 'pending'
+      if (statusFilter && reviewStatus !== statusFilter) return false
+      return true
+    })
+
+    const rows = invoices.map((inv) => {
+      const totalCollected = state.paymentTransactions
+        .filter((p) => p.sales_invoice_id === inv.id && p.status === 'active')
+        .reduce((sum, p) => sum + Number(p.amount), 0)
+      return {
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        customer: state.customers.find((c) => c.id === inv.customer_id),
+        branch: state.branches.find((b) => b.id === inv.branch_id),
+        collection_review_status: inv.collection_review_status ?? 'pending',
+        collection_reviewed_at: inv.collection_reviewed_at ?? null,
+        total_collected: totalCollected,
+        payment_term: inv.payment_term,
+      }
+    })
+
+    return paginate(rows, params)
+  }
+
+  if (m === 'GET' && path.match(/^review\/collections\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const invoice = state.invoices.find((i) => i.id === id)
+    if (!invoice) throw mockError(404, 'العقد غير موجود')
+    const customer = state.customers.find((c) => c.id === invoice.customer_id)
+    const branch = state.branches.find((b) => b.id === invoice.branch_id)
+    const reviewer = invoice.collection_reviewed_by
+      ? state.users.find((u) => u.id === invoice.collection_reviewed_by)
+      : undefined
+    const installmentItems =
+      invoice.installment_plan?.items ??
+      invoice.installment_plans?.flatMap((p) => p.items ?? []) ??
+      []
+    const payments = state.paymentTransactions
+      .filter((p) => p.sales_invoice_id === invoice.id)
+      .map((p) => ({
+        ...p,
+        user: state.users.find((u) => u.id === 4) ?? { id: 4, name: 'كريم — تحصيل' },
+        notes: p.notes ?? null,
+      }))
+
+    return {
+      ...invoice,
+      customer,
+      branch,
+      collection_reviewer: reviewer ? { id: reviewer.id, name: reviewer.name } : null,
+      installment_items: installmentItems,
+      payment_transactions: payments,
+    }
+  }
+
+  if (m === 'POST' && path.match(/^review\/collections\/\d+\/confirm$/)) {
+    const id = Number(path.split('/')[2])
+    const body = (data ?? {}) as { notes?: string }
+    let updated: SalesInvoice | undefined
+    mutateState((s) => {
+      const invoice = s.invoices.find((i) => i.id === id)
+      if (!invoice) throw mockError(404, 'العقد غير موجود')
+      if ((invoice.collection_review_status ?? 'pending') !== 'pending') {
+        throw mockError(422, 'المراجعة ليست معلقة')
+      }
+      invoice.collection_review_status = 'reviewed'
+      invoice.collection_reviewed_at = new Date().toISOString()
+      invoice.collection_reviewed_by = ctx.user?.id ?? 3
+      invoice.collection_review_notes = body.notes?.trim() || null
+      updated = invoice
+    })
+    const customer = state.customers.find((c) => c.id === updated!.customer_id)
+    const branch = state.branches.find((b) => b.id === updated!.branch_id)
+    const reviewer = state.users.find((u) => u.id === updated!.collection_reviewed_by)
+    return {
+      ...updated,
+      customer,
+      branch,
+      collection_reviewer: reviewer ? { id: reviewer.id, name: reviewer.name } : null,
+    }
+  }
+
+  if (m === 'GET' && path === 'review/expenses') {
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    let items = [...(state.expenseRequests ?? [])]
+    if (scopedBranchIds != null) {
+      items = items.filter((e) => scopedBranchIds.includes(e.branch_id))
+    }
+    const typeFilter = params.expense_type
+    if (typeFilter) items = items.filter((e) => e.expense_type === typeFilter)
+    const statusFilter = params.status
+    if (statusFilter) items = items.filter((e) => e.status === statusFilter)
+    else items = items.filter((e) => e.status === 'pending')
+
+    const rows = items.map((exp) => ({
+      ...exp,
+      branch: state.branches.find((b) => b.id === exp.branch_id),
+      employee: exp.employee_id
+        ? state.employees.find((e) => e.id === exp.employee_id)
+        : undefined,
+      distributor: exp.distributor_id
+        ? state.distributors.find((d) => d.id === exp.distributor_id)
+        : undefined,
+      creator: exp.created_by
+        ? state.users.find((u) => u.id === exp.created_by)
+        : undefined,
+    }))
+    return paginate(rows, params)
+  }
+
+  if (m === 'GET' && path.match(/^review\/expenses\/\d+$/)) {
+    const id = Number(path.split('/')[2])
+    const expense = (state.expenseRequests ?? []).find((e) => e.id === id)
+    if (!expense) throw mockError(404, 'طلب المصروف غير موجود')
+    return {
+      ...expense,
+      branch: state.branches.find((b) => b.id === expense.branch_id),
+      employee: expense.employee_id
+        ? state.employees.find((e) => e.id === expense.employee_id)
+        : undefined,
+      distributor: expense.distributor_id
+        ? state.distributors.find((d) => d.id === expense.distributor_id)
+        : undefined,
+      creator: expense.created_by
+        ? state.users.find((u) => u.id === expense.created_by)
+        : undefined,
+    }
+  }
+
+  if (m === 'POST' && path.match(/^review\/expenses\/\d+\/approve$/)) {
+    const id = Number(path.split('/')[2])
+    let updated: (typeof state.expenseRequests)[number] | undefined
+    mutateState((s) => {
+      const expense = (s.expenseRequests ?? []).find((e) => e.id === id)
+      if (!expense) throw mockError(404, 'طلب المصروف غير موجود')
+      if (expense.status !== 'pending') throw mockError(422, 'الطلب ليس معلقاً')
+      expense.status = expense.expense_type === 'petty_cash' ? 'paid' : 'approved'
+      updated = expense
+    })
+    return updated
+  }
+
+  if (m === 'POST' && path.match(/^review\/expenses\/\d+\/reject$/)) {
+    const id = Number(path.split('/')[2])
+    const body = (data ?? {}) as { notes?: string }
+    let updated: (typeof state.expenseRequests)[number] | undefined
+    mutateState((s) => {
+      const expense = (s.expenseRequests ?? []).find((e) => e.id === id)
+      if (!expense) throw mockError(404, 'طلب المصروف غير موجود')
+      if (expense.status !== 'pending') throw mockError(422, 'الطلب ليس معلقاً')
+      expense.status = 'rejected'
+      expense.rejection_notes = body.notes?.trim() || null
+      updated = expense
+    })
+    return updated
+  }
+
   if (m === 'GET' && path === 'admin/permissions') {
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage', 'stock.transfer',
       'customers.manage', 'sales.pos', 'sales.invoices.view',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.approve', 'review.reject', 'review.print',
+      'review.view_collections', 'review.confirm_collections',
+      'review.view_expenses', 'review.approve_expenses', 'expenses.submit',
       'installments.collect', 'installments.view',
       'installments.reconcile', 'external_collections.collect', 'collection_accounts.manage',
       'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'reports.financial',

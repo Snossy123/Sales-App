@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
-import type { InstallmentCollectionRow } from '../../lib/collectionHelpers'
+import type { CollectionSortMode, InstallmentCollectionRow } from '../../lib/collectionHelpers'
 import {
   collectionStatusLabels,
+  compareCollectionSortKeys,
+  compareContractCollection,
+  contractCollectionSortKey,
   getCurrentInstallment,
   rowRemaining,
 } from '../../lib/collectionHelpers'
@@ -41,6 +44,7 @@ function isOverdueRow(row: InstallmentCollectionRow): boolean {
 
 export function groupInstallmentsByCustomerAndContract(
   rows: InstallmentCollectionRow[],
+  sortMode: CollectionSortMode = 'priority',
 ): CustomerInstallmentGroup[] {
   const customerMap = new Map<string, CustomerInstallmentGroup>()
 
@@ -92,23 +96,33 @@ export function groupInstallmentsByCustomerAndContract(
     if (isOverdueRow(row)) customerGroup.overdueCount += 1
   }
 
-  return Array.from(customerMap.values())
-    .sort((a, b) => a.customerName.localeCompare(b.customerName, 'ar'))
-    .map((customer) => ({
-      ...customer,
-      contracts: customer.contracts
-        .sort((a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber, 'ar'))
-        .map((contract) => {
-          const sortedRows = contract.rows.sort(
-            (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime(),
-          )
-          return {
-            ...contract,
-            rows: sortedRows,
-            current: getCurrentInstallment(sortedRows),
-          }
-        }),
-    }))
+  const finalized = Array.from(customerMap.values()).map((customer) => ({
+    ...customer,
+    contracts: customer.contracts
+      .map((contract) => {
+        const sortedRows = contract.rows.sort(
+          (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime(),
+        )
+        return {
+          ...contract,
+          rows: sortedRows,
+          current: getCurrentInstallment(sortedRows),
+        }
+      })
+      .sort((a, b) => compareContractCollection(a.rows, b.rows, sortMode)),
+  }))
+
+  return finalized.sort((a, b) => {
+    const keyA = contractCollectionSortKey(
+      a.contracts[0]?.rows ?? [],
+      sortMode,
+    )
+    const keyB = contractCollectionSortKey(
+      b.contracts[0]?.rows ?? [],
+      sortMode,
+    )
+    return compareCollectionSortKeys(keyA, keyB)
+  })
 }
 
 function tierRowClass(tier?: string, selected?: boolean): string {
@@ -129,6 +143,7 @@ function tierRowClass(tier?: string, selected?: boolean): string {
 
 interface InstallmentCollectionGroupedListProps {
   rows: InstallmentCollectionRow[]
+  sortMode?: CollectionSortMode
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
@@ -319,6 +334,7 @@ function InstallmentDetailsTable({
 
 export function InstallmentCollectionGroupedList({
   rows,
+  sortMode = 'priority',
   selectedId,
   onSelect,
   onReconcile,
@@ -326,7 +342,7 @@ export function InstallmentCollectionGroupedList({
   onUpdateUnpaidReason,
   emptyMessage = 'لا توجد أقساط مستحقة',
 }: InstallmentCollectionGroupedListProps) {
-  const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows), [rows])
+  const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set())
 
   const toggleDetails = (key: string) => {
@@ -348,12 +364,12 @@ export function InstallmentCollectionGroupedList({
 
   return (
     <div className="space-y-sm">
-      {groups.map((customer) => (
+      {groups.map((customer, index) => (
         <CollapsibleSection
           key={customer.customerKey}
           title={customer.customerName}
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG')} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
-          defaultOpen={groups.length === 1}
+          defaultOpen={index === 0}
         >
           {customer.customerPhones.length > 0 && (
             <div className="mb-sm grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-4">
