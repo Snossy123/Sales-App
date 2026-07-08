@@ -77,6 +77,7 @@ export interface MockPaymentTransaction {
   payment_method?: string
   paid_at: string
   refunded_amount?: number
+  notes?: string | null
 }
 
 export interface MockExpenseRequest {

@@ -23,6 +23,9 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { isSuperAdmin, userHasPermission } from '../../../lib/access'
+import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { formatRoleLabel } from '../../../lib/roleCatalog'
+import { useAuthStore } from '../../../stores/authStore'
 import {
   EmployeeAccountModeField,
   inferEmployeeAccountMode,
