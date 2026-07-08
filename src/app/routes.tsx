@@ -103,6 +103,9 @@ import { CrmProposalsPage } from '../modules/crm/pages/CrmProposalsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
 import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
 import { CrmCustomerAddPage } from '../modules/crm/pages/CrmCustomerAddPage'
+import { CrmReferralAddPage } from '../modules/crm/pages/CrmReferralAddPage'
+import { CrmReferralsFollowUpsPage } from '../modules/crm/pages/CrmReferralsFollowUpsPage'
+import { CrmReferralsPipelinePage } from '../modules/crm/pages/CrmReferralsPipelinePage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
 import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
 import { EvaluationQuestionsPage } from '../modules/review/pages/EvaluationQuestionsPage'
@@ -268,6 +271,9 @@ export function AppRoutes() {
             <Route path="admin/faq" element={<AdminFaqPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
+            <Route path="crm/referrals" element={<CrmReferralsPipelinePage />} />
+            <Route path="crm/referrals/add" element={<CrmReferralAddPage />} />
+            <Route path="crm/referrals/follow-ups" element={<CrmReferralsFollowUpsPage />} />
             <Route path="crm" element={<CrmPipelinePage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
             <Route path="crm/activities" element={<CrmActivitiesPage />} />

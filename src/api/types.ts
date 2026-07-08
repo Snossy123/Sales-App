@@ -1160,6 +1160,74 @@ export interface CrmLeadConversionReport {
   conversions: Lead[]
 }
 
+export type ReferralLeadStatus =
+  | 'no_answer'
+  | 'not_interested'
+  | 'installation_scheduled'
+  | 'installed'
+
+export interface ReferralLead {
+  id: number
+  organization_id?: number
+  branch_id?: number | null
+  phone: string
+  name?: string | null
+  status: ReferralLeadStatus
+  referred_by_customer_id?: number | null
+  referred_by_referral_lead_id?: number | null
+  follow_up_at?: string | null
+  installation_scheduled_at?: string | null
+  installed_at?: string | null
+  created_by?: number | null
+  assigned_to?: number | null
+  converted_customer_id?: number | null
+  notes?: string | null
+  created_at?: string
+  referred_by_customer?: Customer
+  referred_by_referral_lead?: ReferralLead
+  child_referrals?: ReferralLead[]
+  converted_customer?: Customer
+  creator?: { id: number; name: string }
+  assignee?: { id: number; name: string }
+  status_logs?: ReferralLeadStatusLog[]
+}
+
+export interface ReferralLeadStatusLog {
+  id: number
+  referral_lead_id: number
+  status: ReferralLeadStatus
+  notes?: string | null
+  user_id?: number | null
+  created_at?: string
+  user?: { id: number; name: string }
+}
+
+export interface ReferralLeadReportSummary {
+  total: number
+  no_answer: number
+  not_interested: number
+  installation_scheduled: number
+  installed: number
+  conversion_rate: number
+}
+
+export interface ReferralLeadReportByUser {
+  user_id: number
+  user_name: string
+  total: number
+  no_answer: number
+  not_interested: number
+  installation_scheduled: number
+  installed: number
+}
+
+export interface ReferralLeadReport {
+  from: string
+  to: string
+  summary: ReferralLeadReportSummary
+  by_user: ReferralLeadReportByUser[]
+}
+
 export interface PortalUser {
   id: number
   name: string

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../api/client'
-import type { CrmLeadConversionReport, CrmReportRow } from '../../../api/types'
+import type { CrmLeadConversionReport, CrmReportRow, ReferralLeadReport } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 
-type ReportTab = 'by-user' | 'by-contact' | 'conversions'
+type ReportTab = 'by-user' | 'by-contact' | 'conversions' | 'referrals'
 
 export function CrmReportsPage() {
   const [tab, setTab] = useState<ReportTab>('by-user')
@@ -45,8 +45,25 @@ export function CrmReportsPage() {
     enabled: tab === 'conversions',
   })
 
+  const referralsQuery = useQuery({
+    queryKey: ['crm-report-referrals', dateRange.from, dateRange.to],
+    queryFn: async () => {
+      const { data } = await api.get<ReferralLeadReport>('/crm/reports/referrals', {
+        params: { from: dateRange.from, to: dateRange.to },
+      })
+      return data
+    },
+    enabled: tab === 'referrals',
+  })
+
   const activeQuery =
-    tab === 'by-user' ? byUserQuery : tab === 'by-contact' ? byContactQuery : conversionsQuery
+    tab === 'by-user'
+      ? byUserQuery
+      : tab === 'by-contact'
+        ? byContactQuery
+        : tab === 'referrals'
+          ? referralsQuery
+          : conversionsQuery
 
   return (
     <div>
@@ -61,6 +78,7 @@ export function CrmReportsPage() {
             { key: 'by-user', label: 'المتابعات حسب المستخدم' },
             { key: 'by-contact', label: 'المتابعات حسب جهة الاتصال' },
             { key: 'conversions', label: 'تحويل العملاء المحتملين' },
+            { key: 'referrals', label: 'تقارير الترشيحات' },
           ] as const
         ).map((item) => (
           <button
@@ -78,7 +96,7 @@ export function CrmReportsPage() {
         ))}
       </div>
 
-      {tab === 'conversions' && (
+      {(tab === 'conversions' || tab === 'referrals') && (
         <div className="mb-md flex flex-wrap gap-sm">
           <input
             type="date"
@@ -164,6 +182,60 @@ export function CrmReportsPage() {
                       ? new Date(String(row.converted_on)).toLocaleDateString('ar-EG')
                       : '—',
                 },
+              ]}
+            />
+          </>
+        )}
+
+        {tab === 'referrals' && referralsQuery.data && (
+          <>
+            <div className="mb-md grid grid-cols-2 gap-md lg:grid-cols-3">
+              <KpiCard
+                label="إجمالي الترشيحات"
+                value={referralsQuery.data.summary.total}
+                icon="groups"
+              />
+              <KpiCard
+                label="لم يردوا"
+                value={referralsQuery.data.summary.no_answer}
+                icon="phone_missed"
+              />
+              <KpiCard
+                label="غير مهتمين"
+                value={referralsQuery.data.summary.not_interested}
+                icon="thumb_down"
+              />
+              <KpiCard
+                label="مواعيد مجدولة"
+                value={referralsQuery.data.summary.installation_scheduled}
+                icon="schedule"
+              />
+              <KpiCard
+                label="تم التركيب"
+                value={referralsQuery.data.summary.installed}
+                icon="check_circle"
+              />
+              <KpiCard
+                label="معدل التحويل"
+                value={`${referralsQuery.data.summary.conversion_rate}%`}
+                icon="trending_up"
+              />
+            </div>
+            <DataTable
+              data={referralsQuery.data.by_user as unknown as Record<string, unknown>[]}
+              keyExtractor={(row) => row.user_id as number}
+              pageSize={10}
+              columns={[
+                { key: 'user_name', header: 'الموظف' },
+                { key: 'total', header: 'الترشيحات', className: 'tabular-nums' },
+                { key: 'no_answer', header: 'لم يرد', className: 'tabular-nums' },
+                { key: 'not_interested', header: 'غير مهتم', className: 'tabular-nums' },
+                {
+                  key: 'installation_scheduled',
+                  header: 'مواعيد',
+                  className: 'tabular-nums',
+                },
+                { key: 'installed', header: 'تم التركيب', className: 'tabular-nums' },
               ]}
             />
           </>
