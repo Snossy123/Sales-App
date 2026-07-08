@@ -166,7 +166,9 @@ export function crmNavDefToNavItem(def: CrmNavItemDef): {
   }
 }
 
-export function buildActiveCrmNavItems(): NavItem[] {
+export type CrmNavItem = ReturnType<typeof crmNavDefToNavItem>
+
+export function buildActiveCrmNavItems(): CrmNavItem[] {
   return getActiveCrmNavItems().map(crmNavDefToNavItem)
 }
 
