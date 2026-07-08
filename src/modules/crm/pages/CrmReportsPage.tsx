@@ -10,7 +10,7 @@ import { PageHeader } from '../../../components/PageHeader'
 type ReportTab = 'by-user' | 'by-contact' | 'conversions' | 'referrals'
 
 export function CrmReportsPage() {
-  const [tab, setTab] = useState<ReportTab>('by-user')
+  const [tab, setTab] = useState<ReportTab>('referrals')
   const [dateRange, setDateRange] = useState({
     from: new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
@@ -75,10 +75,10 @@ export function CrmReportsPage() {
       <div className="mb-md flex flex-wrap gap-xs border-b border-outline-variant">
         {(
           [
+            { key: 'referrals', label: 'تقارير الترشيحات' },
             { key: 'by-user', label: 'المتابعات حسب المستخدم' },
             { key: 'by-contact', label: 'المتابعات حسب جهة الاتصال' },
             { key: 'conversions', label: 'تحويل العملاء المحتملين' },
-            { key: 'referrals', label: 'تقارير الترشيحات' },
           ] as const
         ).map((item) => (
           <button

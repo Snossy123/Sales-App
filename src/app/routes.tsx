@@ -92,7 +92,6 @@ import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPag
 import { AdminFaqPage } from '../modules/admin/pages/AdminFaqPage'
 import { TrashPage } from '../modules/admin/pages/TrashPage'
 import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
-import { CrmPipelinePage } from '../modules/crm/pages/CrmPipelinePage'
 import { CrmFollowUpsPage } from '../modules/crm/pages/CrmFollowUpsPage'
 import { CrmActivitiesPage } from '../modules/crm/pages/CrmActivitiesPage'
 import { CrmCallLogsPage } from '../modules/crm/pages/CrmCallLogsPage'
@@ -270,11 +269,11 @@ export function AppRoutes() {
             <Route path="admin/trash" element={<TrashPage />} />
             <Route path="admin/faq" element={<AdminFaqPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
+            <Route path="crm" element={<Navigate to="/crm/referrals" replace />} />
             <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
             <Route path="crm/referrals" element={<CrmReferralsPipelinePage />} />
             <Route path="crm/referrals/add" element={<CrmReferralAddPage />} />
             <Route path="crm/referrals/follow-ups" element={<CrmReferralsFollowUpsPage />} />
-            <Route path="crm" element={<CrmPipelinePage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
             <Route path="crm/activities" element={<CrmActivitiesPage />} />
             <Route path="crm/call-logs" element={<CrmCallLogsPage />} />

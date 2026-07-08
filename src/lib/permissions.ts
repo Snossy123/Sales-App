@@ -1,5 +1,6 @@
 import type { AuthUser, DemoRole } from '../api/types'
 import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
+import { buildActiveCrmNavItems, CRM_DEFAULT_ROUTE, isSuspendedCrmRoute } from '../modules/crm/lib/crmNavCatalog'
 import { userHasReviewAccess } from './permissionChecks'
 import { resolveRoutePermissions, userCanAccessByPermissions } from './routePermissions'
 import { formatUserRolesLabel } from './roleCatalog'
@@ -222,21 +223,7 @@ export const navEntries: NavEntry[] = [
       id: 'crm',
       label: 'قسم المبيعات',
       icon: 'hub',
-      items: [
-        { to: '/crm', icon: 'hub', label: 'العملاء المحتملين', end: true, roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/referrals', icon: 'share', label: 'الترشيحات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/referrals/follow-ups', icon: 'event_available', label: 'متابعات الترشيحات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/customers/add', icon: 'person_add', label: 'إضافة عميل', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/follow-ups', icon: 'event', label: 'المتابعات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/activities', icon: 'task', label: 'الأنشطة', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/call-logs', icon: 'call', label: 'سجل المكالمات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/campaigns', icon: 'campaign', label: 'الحملات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/proposals', icon: 'description', label: 'العروض', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/order-requests', icon: 'shopping_cart', label: 'طلبات العملاء', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/marketplace', icon: 'extension', label: 'التكاملات', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/reports', icon: 'analytics', label: 'التقارير', roles: ['super_admin', 'admin', 'crm'] },
-        { to: '/crm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'admin', 'crm'] },
-      ],
+      items: buildActiveCrmNavItems(),
     },
   },
   {
@@ -319,7 +306,8 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/roles': ['super_admin', 'admin'],
   '/admin/activity-log': ['super_admin', 'admin'],
   '/admin/settings': ['super_admin'],
-  '/crm': ['super_admin', 'admin', 'crm'],
+  '/crm/referrals': ['super_admin', 'admin', 'crm'],
+  '/crm/referrals/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/customers/add': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/activities': ['super_admin', 'admin', 'crm'],
@@ -528,6 +516,10 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   }
 
   if (normalized.startsWith('/crm')) {
+    if (isSuspendedCrmRoute(normalized) && !isSuperAdmin(user)) {
+      return false
+    }
+
     const crmRoute = normalized === '/crm' ? '/crm' : (normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm')
     const allowed = routeRoles[crmRoute] ?? routeRoles['/crm']
     return allowed?.includes(role) ?? false
@@ -579,7 +571,7 @@ export function getDefaultRoute(user: AuthUser | null): string {
   if (role === 'reviewer') return '/invoices/review'
   if (role === 'collector') return '/installments'
   if (role === 'call_center') return '/call-center/collections'
-  if (role === 'crm') return '/crm'
+  if (role === 'crm') return CRM_DEFAULT_ROUTE
   if (role === 'hr_manager') return '/hrm'
   if (role === 'accountant') return '/accounting'
   if (role === 'support') return '/support/my-tasks'
@@ -632,6 +624,10 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
 
   if (target.startsWith('/admin/')) {
     return normalized === target
+  }
+
+  if (item.to === '/crm/referrals' || target === '/crm/referrals') {
+    return normalized === '/crm/referrals' || normalized.startsWith('/crm/referrals/')
   }
 
   if (item.to === '/crm' || target === '/crm') {
