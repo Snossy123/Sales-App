@@ -42,7 +42,7 @@ export const CRM_NAV_CATALOG: CrmNavItemDef[] = [
     id: 'reports',
     to: '/crm/reports',
     icon: 'analytics',
-    label: 'التقارير',
+    label: 'تقارير الترشيحات',
     roles: ['super_admin', 'admin', 'crm'],
     availability: 'active',
   },
