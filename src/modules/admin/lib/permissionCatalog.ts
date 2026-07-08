@@ -34,7 +34,7 @@ export const MODULE_LABELS: Record<string, string> = {
   faq: 'المساعدة',
   feedback: 'الملاحظات',
   reports: 'التقارير المالية',
-  crm: 'قسم المبيعات',
+  crm: 'المبيعات',
   hrm: 'الموارد البشرية',
   accounting: 'المحاسبة',
   review: 'المراجعة',
@@ -77,15 +77,45 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
   },
   {
     id: 'collection',
-    label: 'قسم التحصيل',
+    label: 'قسم الاقساط',
     icon: 'payments',
     modules: ['installments', 'payments'],
   },
   {
+    id: 'crm',
+    label: 'المبيعات',
+    icon: 'hub',
+    modules: ['crm'],
+  },
+  {
+    id: 'customers',
+    label: 'العملاء',
+    icon: 'group',
+    modules: ['customers'],
+  },
+  {
+    id: 'distributors',
+    label: 'الموزعين',
+    icon: 'local_shipping',
+    modules: ['customers'],
+  },
+  {
     id: 'review',
-    label: 'قسم المراجعة',
+    label: 'المراجعة',
     icon: 'fact_check',
     modules: ['review'],
+  },
+  {
+    id: 'hrm',
+    label: 'الموارد البشرية',
+    icon: 'groups',
+    modules: ['hrm'],
+  },
+  {
+    id: 'accounting',
+    label: 'المحاسبة',
+    icon: 'account_balance',
+    modules: ['accounting', 'reports'],
   },
   {
     id: 'support',
@@ -100,34 +130,10 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     modules: ['inventory', 'stock', 'warehouses'],
   },
   {
-    id: 'operations',
-    label: 'العمليات',
-    icon: 'work',
-    modules: ['customers'],
-  },
-  {
     id: 'system',
-    label: 'إدارة النظام',
+    label: 'الآعدادات',
     icon: 'admin_panel_settings',
     modules: ['users', 'roles', 'audit', 'settings', 'trash', 'faq', 'feedback'],
-  },
-  {
-    id: 'accounting',
-    label: 'المحاسبة',
-    icon: 'account_balance',
-    modules: ['accounting', 'reports'],
-  },
-  {
-    id: 'hrm',
-    label: 'الموارد البشرية',
-    icon: 'groups',
-    modules: ['hrm'],
-  },
-  {
-    id: 'crm',
-    label: 'قسم المبيعات',
-    icon: 'hub',
-    modules: ['crm'],
   },
 ]
 

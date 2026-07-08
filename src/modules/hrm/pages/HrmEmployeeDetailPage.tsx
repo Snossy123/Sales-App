@@ -23,7 +23,7 @@ import { Modal } from '../../../components/Modal'
 import { ProfilePhotoUploader } from '../../../components/ProfilePhotoUploader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { EmployeeUserField } from '../components/EmployeeUserField'
+import { EmployeeAccountModeField, inferEmployeeAccountMode, type EmployeeAccountMode } from '../components/EmployeeAccountModeField'
 import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
@@ -58,7 +58,8 @@ const tabs: { id: TabId; label: string }[] = [
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 const emptyForm = {
-  user_id: '' as number | '',
+  user_account_mode: 'none' as EmployeeAccountMode,
+  linked_user_id: '' as number | '',
   zk_device_id: '' as number | '',
   zk_pin: '',
   name: '',
@@ -245,11 +246,14 @@ export function HrmEmployeeDetailPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const selectedUser = form.user_id
-        ? linkableUsersQuery.data?.find((user) => user.id === form.user_id)
+      const selectedUser = form.linked_user_id
+        ? linkableUsersQuery.data?.find((user) => user.id === form.linked_user_id)
         : undefined
       const payload = {
-        user_id: form.user_id ? Number(form.user_id) : null,
+        user_account_mode: form.user_account_mode,
+        user_id: form.user_account_mode === 'link' && form.linked_user_id
+          ? Number(form.linked_user_id)
+          : null,
         zk_pin: form.zk_pin || undefined,
         name: selectedUser?.name ?? form.name,
         phone: form.phone || undefined,
@@ -295,10 +299,18 @@ export function HrmEmployeeDetailPage() {
     }))
   }
 
-  const handleUserChange = (userId: number | '', user?: AdminUser) => {
+  const handleAccountModeChange = (mode: EmployeeAccountMode) => {
     setForm((current) => ({
       ...current,
-      user_id: userId,
+      user_account_mode: mode,
+      linked_user_id: mode === 'link' ? current.linked_user_id : '',
+    }))
+  }
+
+  const handleLinkedUserChange = (userId: number | '', user?: AdminUser) => {
+    setForm((current) => ({
+      ...current,
+      linked_user_id: userId,
       name: user?.name ?? (userId ? current.name : ''),
       branch_id: user?.branch_id ?? current.branch_id,
       department_id: user?.section_id ?? current.department_id,
@@ -308,7 +320,8 @@ export function HrmEmployeeDetailPage() {
   const openEdit = () => {
     if (!employee) return
     setForm({
-      user_id: employee.user_id ?? '',
+      user_account_mode: inferEmployeeAccountMode(employee),
+      linked_user_id: employee.user_id ?? '',
       zk_device_id: branchZkDevice(zkDevices, employee.branch_id)?.id ?? '',
       zk_pin: employee.zk_pin ?? '',
       name: employee.name,
@@ -747,13 +760,15 @@ export function HrmEmployeeDetailPage() {
           }}
           className="grid gap-sm sm:grid-cols-2"
         >
-          <EmployeeUserField
-            value={form.user_id}
-            onChange={handleUserChange}
+          <EmployeeAccountModeField
+            mode={form.user_account_mode}
+            linkedUserId={form.linked_user_id}
+            onModeChange={handleAccountModeChange}
+            onLinkedUserChange={handleLinkedUserChange}
             users={linkableUsersQuery.data ?? []}
             isLoading={linkableUsersQuery.isLoading}
           />
-          {!form.user_id && (
+          {!(form.user_account_mode === 'link' && form.linked_user_id) && (
             <input
               placeholder="الاسم"
               value={form.name}

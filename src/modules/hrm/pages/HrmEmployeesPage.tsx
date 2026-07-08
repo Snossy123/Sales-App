@@ -1,7 +1,18 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
-import type { AdminUser, Branch, Department, Employee, HrmJob, PaginatedResponse, ZkDevice } from '../../../api/types'
+import type {
+  Administration,
+  AdminRole,
+  AdminUser,
+  Branch,
+  Department,
+  Employee,
+  HrmJob,
+  PaginatedResponse,
+  Section,
+  ZkDevice,
+} from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
@@ -11,15 +22,22 @@ import { ProfileAvatar } from '../../../components/ProfileAvatar'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
-import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
-import { EmployeeUserField } from '../components/EmployeeUserField'
+import { isSuperAdmin, userHasPermission } from '../../../lib/access'
+import {
+  EmployeeAccountModeField,
+  inferEmployeeAccountMode,
+  type EmployeeAccountMode,
+} from '../components/EmployeeAccountModeField'
 import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
-const emptyForm = {
-  user_id: '' as number | '',
+type CreateEntryType = 'employee' | 'user'
+
+const emptyEmployeeForm = {
+  user_account_mode: 'none' as EmployeeAccountMode,
+  linked_user_id: '' as number | '',
   zk_device_id: '' as number | '',
   zk_pin: '',
   name: '',
@@ -31,13 +49,33 @@ const emptyForm = {
   status: 'active',
 }
 
+const emptyUserForm = {
+  name: '',
+  email: '',
+  password: '',
+  administration_id: '' as number | '',
+  branch_id: '' as number | '',
+  branch_ids: [] as number[],
+  section_id: '' as number | '',
+  role_names: [] as string[],
+}
+
 export function HrmEmployeesPage() {
   const queryClient = useQueryClient()
+  const authUser = useAuthStore((s) => s.user)
+  const canCreateUsers = userHasPermission(authUser, 'users.manage')
+  const isOrgWide = isSuperAdmin(authUser)
+
   const [panelOpen, setPanelOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [createEntryType, setCreateEntryType] = useState<CreateEntryType>('employee')
+  const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm)
+  const [userForm, setUserForm] = useState(emptyUserForm)
   const [toast, setToast] = useState('')
   const crudConfig = getEntityCrudConfig('employees')
+
+  const modalOpen = panelOpen || editId !== null
+  const isCreateMode = panelOpen && editId === null
 
   const query = useQuery({
     queryKey: ['employees'],
@@ -55,7 +93,7 @@ export function HrmEmployeesPage() {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params: { per_page: 100 } })
       return data.data
     },
-    enabled: panelOpen || editId !== null,
+    enabled: modalOpen,
   })
 
   const departmentsQuery = useQuery({
@@ -64,7 +102,7 @@ export function HrmEmployeesPage() {
       const { data } = await api.get<PaginatedResponse<Department>>('/departments', { params: { per_page: 100 } })
       return data.data
     },
-    enabled: panelOpen || editId !== null,
+    enabled: modalOpen,
   })
 
   const zkDevicesQuery = useQuery({
@@ -85,7 +123,7 @@ export function HrmEmployeesPage() {
       })
       return data.data
     },
-    enabled: panelOpen || editId !== null,
+    enabled: modalOpen,
   })
 
   const linkableUsersQuery = useQuery({
@@ -96,24 +134,67 @@ export function HrmEmployeesPage() {
       const { data } = await api.get<{ data: AdminUser[] }>('/employees/linkable-users', { params })
       return data.data
     },
-    enabled: panelOpen || editId !== null,
+    enabled: modalOpen,
   })
 
-  const saveMutation = useMutation({
+  const administrationsQuery = useQuery({
+    queryKey: ['administrations', 'hrm-employees-user-form'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Administration>>('/administrations', { params: { per_page: 100 } })
+      return data.data
+    },
+    enabled: modalOpen && isCreateMode && createEntryType === 'user',
+  })
+
+  const userFormBranchesQuery = useQuery({
+    queryKey: ['branches', 'hrm-employees-user-form', userForm.administration_id],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (userForm.administration_id) params['filter[administration_id]'] = Number(userForm.administration_id)
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params })
+      return data.data
+    },
+    enabled: modalOpen && isCreateMode && createEntryType === 'user',
+  })
+
+  const userFormSectionsQuery = useQuery({
+    queryKey: ['departments', 'hrm-employees-user-form', userForm.branch_id],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (userForm.branch_id) params['filter[branch_id]'] = Number(userForm.branch_id)
+      const { data } = await api.get<PaginatedResponse<Section>>('/departments', { params })
+      return data.data
+    },
+    enabled: modalOpen && isCreateMode && createEntryType === 'user' && Boolean(userForm.branch_id),
+  })
+
+  const rolesQuery = useQuery({
+    queryKey: ['admin', 'roles', 'hrm-employees-user-form'],
+    queryFn: async () => {
+      const { data } = await api.get<AdminRole[]>('/admin/roles')
+      return data
+    },
+    enabled: modalOpen && isCreateMode && createEntryType === 'user' && canCreateUsers,
+  })
+
+  const saveEmployeeMutation = useMutation({
     mutationFn: async () => {
-      const selectedUser = form.user_id
-        ? linkableUsersQuery.data?.find((user) => user.id === form.user_id)
+      const selectedUser = employeeForm.linked_user_id
+        ? linkableUsersQuery.data?.find((user) => user.id === employeeForm.linked_user_id)
         : undefined
       const payload = {
-        user_id: form.user_id ? Number(form.user_id) : null,
-        zk_pin: form.zk_pin || undefined,
-        name: selectedUser?.name ?? form.name,
-        phone: form.phone || undefined,
-        hrm_job_id: form.hrm_job_id ? Number(form.hrm_job_id) : null,
-        salary: form.salary ? Number(form.salary) : undefined,
-        branch_id: form.branch_id ? Number(form.branch_id) : undefined,
-        department_id: form.department_id ? Number(form.department_id) : undefined,
-        status: form.status,
+        user_account_mode: employeeForm.user_account_mode,
+        user_id: employeeForm.user_account_mode === 'link' && employeeForm.linked_user_id
+          ? Number(employeeForm.linked_user_id)
+          : null,
+        zk_pin: employeeForm.zk_pin || undefined,
+        name: selectedUser?.name ?? employeeForm.name,
+        phone: employeeForm.phone || undefined,
+        hrm_job_id: employeeForm.hrm_job_id ? Number(employeeForm.hrm_job_id) : null,
+        salary: employeeForm.salary ? Number(employeeForm.salary) : undefined,
+        branch_id: employeeForm.branch_id ? Number(employeeForm.branch_id) : undefined,
+        department_id: employeeForm.department_id ? Number(employeeForm.department_id) : undefined,
+        status: employeeForm.status,
       }
       if (editId) {
         const { data } = await api.put<Employee>(`/employees/${editId}`, payload)
@@ -124,17 +205,47 @@ export function HrmEmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
-      setPanelOpen(false)
-      setEditId(null)
-      setForm(emptyForm)
+      closeModal()
       setToast('تم حفظ الموظف')
     },
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const saveUserMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        name: userForm.name,
+        email: userForm.email,
+        password: userForm.password,
+        administration_id: userForm.administration_id ? Number(userForm.administration_id) : undefined,
+        branch_id: userForm.branch_id ? Number(userForm.branch_id) : undefined,
+        branch_ids: userForm.branch_ids,
+        section_id: userForm.section_id ? Number(userForm.section_id) : undefined,
+        role_names: userForm.role_names,
+      }
+      const { data } = await api.post<AdminUser>('/admin/users', payload)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      closeModal()
+      setToast('تم إنشاء المستخدم')
+    },
+    onError: (err) => setToast(getErrorMessage(err)),
+  })
+
+  const closeModal = () => {
+    setPanelOpen(false)
+    setEditId(null)
+    setCreateEntryType('employee')
+    setEmployeeForm(emptyEmployeeForm)
+    setUserForm(emptyUserForm)
+  }
+
   const handleDeviceChange = (deviceId: number | '') => {
     const device = zkDevices.find((d) => d.id === deviceId)
-    setForm((current) => ({
+    setEmployeeForm((current) => ({
       ...current,
       zk_device_id: deviceId,
       branch_id: device?.branch_id ?? current.branch_id,
@@ -143,17 +254,38 @@ export function HrmEmployeesPage() {
 
   const handleBranchChange = (branchId: number | '') => {
     const device = branchZkDevice(zkDevices, branchId)
-    setForm((current) => ({
+    setEmployeeForm((current) => ({
       ...current,
       branch_id: branchId,
       zk_device_id: device?.id ?? '',
     }))
   }
 
+  const handleAccountModeChange = (mode: EmployeeAccountMode) => {
+    setEmployeeForm((current) => ({
+      ...current,
+      user_account_mode: mode,
+      linked_user_id: mode === 'link' ? current.linked_user_id : '',
+      name: mode === 'link' && current.linked_user_id ? current.name : current.name,
+    }))
+  }
+
+  const handleLinkedUserChange = (userId: number | '', user?: AdminUser) => {
+    setEmployeeForm((current) => ({
+      ...current,
+      linked_user_id: userId,
+      name: user?.name ?? (userId ? current.name : ''),
+      branch_id: user?.branch_id ?? current.branch_id,
+      department_id: user?.section_id ?? current.department_id,
+    }))
+  }
+
   const openEdit = (emp: Employee) => {
     setEditId(emp.id)
-    setForm({
-      user_id: emp.user_id ?? '',
+    setCreateEntryType('employee')
+    setEmployeeForm({
+      user_account_mode: inferEmployeeAccountMode(emp),
+      linked_user_id: emp.user_id ?? '',
       zk_device_id: branchZkDevice(zkDevices, emp.branch_id)?.id ?? '',
       zk_pin: emp.zk_pin ?? '',
       name: emp.name,
@@ -166,72 +298,258 @@ export function HrmEmployeesPage() {
     })
   }
 
-  const handleUserChange = (userId: number | '', user?: AdminUser) => {
-    setForm((current) => ({
-      ...current,
-      user_id: userId,
-      name: user?.name ?? (userId ? current.name : ''),
-      branch_id: user?.branch_id ?? current.branch_id,
-      department_id: user?.section_id ?? current.department_id,
+  const toggleAllowedBranch = (branchId: number) => {
+    setUserForm((prev) => ({
+      ...prev,
+      branch_ids: prev.branch_ids.includes(branchId)
+        ? prev.branch_ids.filter((id) => id !== branchId)
+        : [...prev.branch_ids, branchId],
+    }))
+  }
+
+  const toggleRole = (name: string) => {
+    setUserForm((prev) => ({
+      ...prev,
+      role_names: prev.role_names.includes(name)
+        ? prev.role_names.filter((r) => r !== name)
+        : [...prev.role_names, name],
     }))
   }
 
   const zkDevices = zkDevicesQuery.data ?? []
   const linkableUsers = linkableUsersQuery.data ?? []
-  const usesExistingUser = Boolean(form.user_id)
+  const usesLinkedUser = employeeForm.user_account_mode === 'link' && Boolean(employeeForm.linked_user_id)
+  const availableRoles = rolesQuery.data ?? []
 
-  const formFields = (
+  const selectedPermissions = useMemo(() => {
+    const keys = new Set<string>()
+    for (const roleName of userForm.role_names) {
+      const role = availableRoles.find((item) => item.name === roleName)
+      for (const permission of role?.permissions ?? []) {
+        keys.add(permission.name)
+      }
+    }
+    return [...keys].sort()
+  }, [availableRoles, userForm.role_names])
+
+  const employeeFormFields = (
     <>
-      <EmployeeUserField
-        value={form.user_id}
-        onChange={handleUserChange}
+      <EmployeeAccountModeField
+        mode={employeeForm.user_account_mode}
+        linkedUserId={employeeForm.linked_user_id}
+        onModeChange={handleAccountModeChange}
+        onLinkedUserChange={handleLinkedUserChange}
         users={linkableUsers}
         isLoading={linkableUsersQuery.isLoading}
       />
-      {!usesExistingUser && (
-        <input placeholder="الاسم" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClass} />
+      {!usesLinkedUser && (
+        <input
+          placeholder="الاسم"
+          value={employeeForm.name}
+          onChange={(e) => setEmployeeForm({ ...employeeForm, name: e.target.value })}
+          required
+          className={inputClass}
+        />
       )}
-      <input placeholder="الهاتف" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} dir="ltr" />
-      <select value={form.hrm_job_id} onChange={(e) => setForm({ ...form, hrm_job_id: e.target.value ? Number(e.target.value) : '' })} className={inputClass}>
+      <input
+        placeholder="الهاتف"
+        value={employeeForm.phone}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })}
+        className={inputClass}
+        dir="ltr"
+      />
+      <select
+        value={employeeForm.hrm_job_id}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, hrm_job_id: e.target.value ? Number(e.target.value) : '' })}
+        className={inputClass}
+      >
         <option value="">الوظيفة</option>
         {(jobsQuery.data ?? []).map((job) => (
           <option key={job.id} value={job.id}>{job.name}</option>
         ))}
       </select>
-      <input type="number" placeholder="الراتب" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} className={inputClass} dir="ltr" />
+      <input
+        type="number"
+        placeholder="الراتب"
+        value={employeeForm.salary}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, salary: e.target.value })}
+        className={inputClass}
+        dir="ltr"
+      />
       <select
-        value={form.branch_id}
+        value={employeeForm.branch_id}
         onChange={(e) => handleBranchChange(e.target.value ? Number(e.target.value) : '')}
         className={inputClass}
       >
         <option value="">الفرع</option>
         {(branchesQuery.data ?? []).map((b) => <option key={b.id} value={b.id}>{b.name_ar ?? b.name}</option>)}
       </select>
-      <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value ? Number(e.target.value) : '' })} className={inputClass}>
+      <select
+        value={employeeForm.department_id}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, department_id: e.target.value ? Number(e.target.value) : '' })}
+        className={inputClass}
+      >
         <option value="">القسم</option>
         {(departmentsQuery.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name_ar ?? d.name}</option>)}
       </select>
       <EmployeeZkDeviceField
-        value={form.zk_device_id}
+        value={employeeForm.zk_device_id}
         onChange={handleDeviceChange}
         devices={zkDevices}
         isLoading={zkDevicesQuery.isLoading}
       />
-      <input placeholder="رقم البصمة" value={form.zk_pin} onChange={(e) => setForm({ ...form, zk_pin: e.target.value })} className={inputClass} dir="ltr" />
+      <input
+        placeholder="رقم البصمة"
+        value={employeeForm.zk_pin}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, zk_pin: e.target.value })}
+        className={inputClass}
+        dir="ltr"
+      />
       <p className="sm:col-span-2 text-[11px] text-on-surface-variant">
         للموظف المتحرك: استخدم نفس رقم البصمة على كل أجهزة الفروع المسموحة. الفرع هنا = الفرع الأساسي للرواتب.
       </p>
-      <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
+      <select
+        value={employeeForm.status}
+        onChange={(e) => setEmployeeForm({ ...employeeForm, status: e.target.value })}
+        className={inputClass}
+      >
         <option value="active">نشط</option>
         <option value="inactive">غير نشط</option>
       </select>
     </>
   )
 
+  const userFormFields = (
+    <>
+      <input
+        placeholder="الاسم"
+        value={userForm.name}
+        onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+        required
+        className={inputClass}
+      />
+      <input
+        type="email"
+        placeholder="البريد"
+        value={userForm.email}
+        onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+        required
+        className={inputClass}
+        dir="ltr"
+      />
+      <input
+        type="password"
+        placeholder="كلمة المرور"
+        value={userForm.password}
+        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+        required
+        className={inputClass}
+        dir="ltr"
+      />
+      <select
+        value={userForm.administration_id}
+        onChange={(e) => setUserForm({
+          ...userForm,
+          administration_id: e.target.value ? Number(e.target.value) : '',
+          branch_id: '',
+          branch_ids: [],
+          section_id: '',
+        })}
+        disabled={!isOrgWide}
+        className={inputClass}
+      >
+        <option value="">الإدارة</option>
+        {(administrationsQuery.data ?? []).map((a) => (
+          <option key={a.id} value={a.id}>{a.name_ar ?? a.name}</option>
+        ))}
+      </select>
+      <select
+        value={userForm.branch_id}
+        onChange={(e) => setUserForm({
+          ...userForm,
+          branch_id: e.target.value ? Number(e.target.value) : '',
+          section_id: '',
+        })}
+        disabled={!userForm.administration_id}
+        className={inputClass}
+      >
+        <option value="">الفرع الأساسي</option>
+        {(userFormBranchesQuery.data ?? []).map((b) => (
+          <option key={b.id} value={b.id}>{b.name_ar ?? b.name}</option>
+        ))}
+      </select>
+      <select
+        value={userForm.section_id}
+        onChange={(e) => setUserForm({ ...userForm, section_id: e.target.value ? Number(e.target.value) : '' })}
+        disabled={!userForm.branch_id}
+        className={inputClass}
+      >
+        <option value="">القسم</option>
+        {(userFormSectionsQuery.data ?? []).map((s) => (
+          <option key={s.id} value={s.id}>{s.name_ar ?? s.name}</option>
+        ))}
+      </select>
+      <div className="sm:col-span-2">
+        <p className="mb-xs text-xs text-on-surface-variant">الفروع المسموحة (للموظف المتحرك)</p>
+        <div className="flex flex-wrap gap-xs rounded-lg border border-outline-variant p-sm">
+          {(userFormBranchesQuery.data ?? []).length === 0 && (
+            <span className="text-xs text-on-surface-variant">اختر الإدارة أولاً</span>
+          )}
+          {(userFormBranchesQuery.data ?? []).map((branch) => (
+            <label key={branch.id} className="flex cursor-pointer items-center gap-xs rounded-lg border border-outline-variant px-sm py-1 text-sm">
+              <input
+                type="checkbox"
+                checked={userForm.branch_ids.includes(branch.id)}
+                onChange={() => toggleAllowedBranch(branch.id)}
+              />
+              {branch.name_ar ?? branch.name}
+            </label>
+          ))}
+        </div>
+        <p className="mt-xs text-[11px] text-on-surface-variant">
+          عند تحديد فرع وقسم يُنشأ سجل موظف تلقائياً ويرتبط بالحساب.
+        </p>
+      </div>
+      <div className="sm:col-span-2">
+        <p className="mb-xs text-xs text-on-surface-variant">الأدوار</p>
+        <div className="flex flex-wrap gap-xs">
+          {availableRoles.map((role) => (
+            <label key={role.id} className="flex cursor-pointer items-center gap-xs rounded-lg border border-outline-variant px-sm py-1 text-sm">
+              <input
+                type="checkbox"
+                checked={userForm.role_names.includes(role.name)}
+                onChange={() => toggleRole(role.name)}
+              />
+              {formatRoleLabel(role)}
+            </label>
+          ))}
+        </div>
+        {selectedPermissions.length > 0 && (
+          <p className="mt-xs text-[11px] leading-relaxed text-on-surface-variant">
+            الصلاحيات الناتجة: {selectedPermissions.join(' · ')}
+          </p>
+        )}
+      </div>
+    </>
+  )
+
+  const modalTitle = editId ? 'تعديل موظف' : createEntryType === 'user' ? 'مستخدم جديد' : 'موظف جديد'
+  const isSaving = saveEmployeeMutation.isPending || saveUserMutation.isPending
+
   return (
     <div>
       <PageHeader title="الموظفون" subtitle="إدارة سجل الموظفين" actions={
-        <button type="button" onClick={() => { setPanelOpen(true); setEditId(null); setForm(emptyForm) }} className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary">
+        <button
+          type="button"
+          onClick={() => {
+            setPanelOpen(true)
+            setEditId(null)
+            setCreateEntryType('employee')
+            setEmployeeForm(emptyEmployeeForm)
+            setUserForm(emptyUserForm)
+          }}
+          className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+        >
           <Icon name="person_add" size={18} /> موظف جديد
         </button>
       } />
@@ -281,10 +599,48 @@ export function HrmEmployeesPage() {
         />
       </AsyncState>
 
-      <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null) }} title={editId ? 'تعديل موظف' : 'موظف جديد'}>
-        <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }} className="grid gap-sm sm:grid-cols-2">
-          {formFields}
-          <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary sm:col-span-2">حفظ</button>
+      <Modal open={modalOpen} onClose={closeModal} title={modalTitle}>
+        {isCreateMode && canCreateUsers && (
+          <div className="mb-md flex gap-xs rounded-lg border border-outline-variant p-1">
+            {([
+              { id: 'employee' as const, label: 'موظف' },
+              { id: 'user' as const, label: 'مستخدم' },
+            ]).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setCreateEntryType(option.id)}
+                className={`flex-1 rounded-md px-sm py-2 text-sm font-semibold transition-colors ${
+                  createEntryType === option.id
+                    ? 'bg-primary text-on-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (isCreateMode && createEntryType === 'user') {
+              saveUserMutation.mutate()
+              return
+            }
+            saveEmployeeMutation.mutate()
+          }}
+          className="grid gap-sm sm:grid-cols-2"
+        >
+          {isCreateMode && createEntryType === 'user' ? userFormFields : employeeFormFields}
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary sm:col-span-2"
+          >
+            حفظ
+          </button>
         </form>
       </Modal>
     </div>

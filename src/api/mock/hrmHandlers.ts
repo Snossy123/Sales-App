@@ -222,6 +222,18 @@ function ensureEmployeeUser(state: DemoState, employee: Employee): void {
   employee.user_id = userId
 }
 
+function resolveMockAccountMode(body: Record<string, unknown>, employeeId?: number): 'none' | 'auto' | 'link' {
+  if (typeof body.user_account_mode === 'string') {
+    return body.user_account_mode as 'none' | 'auto' | 'link'
+  }
+  if (body.user_id) return 'link'
+  if (employeeId != null) {
+    const employee = loadState().employees.find((row) => row.id === employeeId)
+    return employee?.user_id ? 'link' : 'none'
+  }
+  return 'auto'
+}
+
 function enrichJob(state: DemoState, job: HrmJob): HrmJob {
   const employeesCount = state.employees.filter((e) => e.hrm_job_id === job.id).length
   return { ...job, employees_count: employeesCount }
@@ -301,6 +313,7 @@ export function tryHandleHrmRequest(
 
   if (m === 'POST' && path === 'employees') {
     const body = data as Record<string, unknown>
+    const accountMode = resolveMockAccountMode(body)
     let created: Employee | undefined
     mutateState((s) => {
       s.counters.employee = (s.counters.employee ?? 3) + 1
@@ -320,13 +333,13 @@ export function tryHandleHrmRequest(
         status: String(body.status ?? 'active'),
         branch_id: body.branch_id ? Number(body.branch_id) : null,
         department_id: body.department_id ? Number(body.department_id) : null,
-        user_id: body.user_id ? Number(body.user_id) : null,
+        user_id: accountMode === 'link' && body.user_id ? Number(body.user_id) : null,
       }
       s.employees.push(created!)
       if (created!.user_id) {
         const linked = s.users.find((user) => user.id === created!.user_id)
         if (linked) linked.name = created!.name
-      } else {
+      } else if (accountMode === 'auto') {
         ensureEmployeeUser(s, created!)
       }
     })
@@ -336,6 +349,7 @@ export function tryHandleHrmRequest(
   if (m === 'PUT' && path.match(/^employees\/\d+$/)) {
     const id = Number(path.split('/')[1])
     const body = data as Record<string, unknown>
+    const accountMode = resolveMockAccountMode(body, id)
     let updated: Employee | undefined
     mutateState((s) => {
       const emp = s.employees.find((e) => e.id === id)
@@ -353,10 +367,16 @@ export function tryHandleHrmRequest(
       if (body.salary !== undefined) emp.salary = body.salary != null ? Number(body.salary) : null
       if (body.branch_id !== undefined) emp.branch_id = body.branch_id ? Number(body.branch_id) : null
       if (body.department_id !== undefined) emp.department_id = body.department_id ? Number(body.department_id) : null
-      if (body.user_id !== undefined) {
-        emp.user_id = body.user_id ? Number(body.user_id) : null
-        if (!emp.user_id) ensureEmployeeUser(s, emp)
-      } else {
+      if (body.user_account_mode !== undefined || body.user_id !== undefined) {
+        if (accountMode === 'link' && body.user_id) {
+          emp.user_id = Number(body.user_id)
+        } else if (accountMode === 'none') {
+          emp.user_id = null
+        } else if (accountMode === 'auto') {
+          emp.user_id = null
+          ensureEmployeeUser(s, emp)
+        }
+      } else if (accountMode === 'auto' && !emp.user_id) {
         ensureEmployeeUser(s, emp)
       }
       if (body.status) emp.status = String(body.status)
