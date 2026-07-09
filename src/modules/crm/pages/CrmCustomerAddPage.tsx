@@ -21,7 +21,7 @@ const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
 export function CrmCustomerAddPage() {
   const navigate = useNavigate()
-  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries)
+  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
   const [form, setForm] = useState({ name: '', national_id: '', address: '', notes: '' })
   const [acquisitionSource, setAcquisitionSource] = useState<AcquisitionSource>('customer_referral')
   const [selectedReferrer, setSelectedReferrer] = useState<Customer | null>(null)

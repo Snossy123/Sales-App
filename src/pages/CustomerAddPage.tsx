@@ -23,7 +23,7 @@ const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
 export function CustomerAddPage() {
   const navigate = useNavigate()
-  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries)
+  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
   const [form, setForm] = useState({ name: '', national_id: '', address: '', distinctive_mark: '' })
   const [withGuarantor, setWithGuarantor] = useState(false)
   const [guarantor, setGuarantor] = useState(emptyGuarantorForm)

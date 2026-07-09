@@ -22,7 +22,7 @@ import { ProfileAvatar } from '../../../components/ProfileAvatar'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
-import { isSuperAdmin, userHasPermission } from '../../../lib/access'
+import { getScopedDepartmentId, isSuperAdmin, userHasPermission } from '../../../lib/access'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatRoleLabel } from '../../../lib/roleCatalog'
 import { useAuthStore } from '../../../stores/authStore'
@@ -66,6 +66,7 @@ const emptyUserForm = {
 export function HrmEmployeesPage() {
   const queryClient = useQueryClient()
   const authUser = useAuthStore((s) => s.user)
+  const scopedAdminId = getScopedDepartmentId(authUser)
   const canCreateUsers = userHasPermission(authUser, 'users.manage')
   const isOrgWide = isSuperAdmin(authUser)
 
@@ -238,12 +239,17 @@ export function HrmEmployeesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const resetUserForm = () => ({
+    ...emptyUserForm,
+    administration_id: scopedAdminId ?? '',
+  })
+
   const closeModal = () => {
     setPanelOpen(false)
     setEditId(null)
     setCreateEntryType('employee')
     setEmployeeForm(emptyEmployeeForm)
-    setUserForm(emptyUserForm)
+    setUserForm(resetUserForm())
   }
 
   const handleDeviceChange = (deviceId: number | '') => {
@@ -549,7 +555,7 @@ export function HrmEmployeesPage() {
             setEditId(null)
             setCreateEntryType('employee')
             setEmployeeForm(emptyEmployeeForm)
-            setUserForm(emptyUserForm)
+            setUserForm(resetUserForm())
           }}
           className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
         >
@@ -612,7 +618,15 @@ export function HrmEmployeesPage() {
               <button
                 key={option.id}
                 type="button"
-                onClick={() => setCreateEntryType(option.id)}
+                onClick={() => {
+                  setCreateEntryType(option.id)
+                  if (option.id === 'user') {
+                    setUserForm((prev) => ({
+                      ...prev,
+                      administration_id: prev.administration_id || scopedAdminId || '',
+                    }))
+                  }
+                }}
                 className={`flex-1 rounded-md px-sm py-2 text-sm font-semibold transition-colors ${
                   createEntryType === option.id
                     ? 'bg-primary text-on-primary'
