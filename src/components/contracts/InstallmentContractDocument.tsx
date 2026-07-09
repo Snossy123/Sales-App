@@ -164,7 +164,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
         <div className="ic-summary">
           <div className="ic-srow">
             <span className="ic-pill-label">تم التعاقد يوم</span>
-            <span className="ic-pill">{fmtContractDate(invoice.invoice_date)}</span>
+            <span className="ic-pill ic-pill--date">{fmtContractDate(invoice.invoice_date)}</span>
             {!isInstallment ? (
               <>
                 <span className="ic-pill-label">قيمة الجهاز</span>
@@ -176,22 +176,24 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
             <span className="ic-pill-label">متبقى مبلغ</span>
             <span className="ic-pill">{fmtContractMoney(balanceDisplay, false)}</span>
             <span className="ic-srow-left">
-              <span className="ic-pill">{resolveTechnician(line, invoice)}</span>
               <span className="ic-pill-label">الفني</span>
+              <span className="ic-pill ic-pill--sm">{resolveTechnician(line, invoice)}</span>
             </span>
           </div>
 
           <div className="ic-srow">
-            <span className="ic-srow-center">غير شامل تجديد الاشتراك</span>
+            <span className="ic-exclude-pill">غير شامل تجديد الاشتراك</span>
             <span className="ic-srow-left">
-              <span className="ic-pill">{resolveVehicle(line, invoice)}</span>
               <span className="ic-pill-label">المركبة</span>
+              <span className="ic-pill ic-pill--sm">{resolveVehicle(line, invoice)}</span>
             </span>
           </div>
 
-          <div className="ic-srow">
-            <span className="ic-pill-label is-red">تاريخ تجديد اشتراك الجهاز</span>
-            <span className="ic-pill">{renewalDisplay}</span>
+          <div className="ic-srow ic-srow--renewal">
+            <span className="ic-pill ic-pill--renewal">
+              <span className="ic-pill-label is-red">تاريخ تجديد اشتراك الجهاز</span>
+              <span className="ic-renewal-val">{renewalDisplay}</span>
+            </span>
             <span className="ic-note-pill">ملحوظة هامة</span>
             <span className="ic-note-text">
               قيمة تجديد الاشتراك السنوى هى 25% من سعر الجهاز كاش فى وقت تجديده
@@ -221,11 +223,13 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد
           إشارة الجهاز وإلزامك لعمل سوفت وير
         </div>
-        <div className="ic-warning">
-          برجاء الإلتزام بموعد تجديد الاشتراك السنوي للجهاز لتجنب عمل سوفت وير
-        </div>
-        <div className="ic-warning">
-          برجاء الحفاظ على الرقم السرى لتجنب دفع 150 جنية رسوم ريست
+        <div className="ic-warning-row">
+          <div className="ic-warning">
+            برجاء الإلتزام بموعد تجديد الاشتراك السنوي للجهاز لتجنب عمل سوفت وير
+          </div>
+          <div className="ic-warning">
+            برجاء الحفاظ على الرقم السرى لتجنب دفع 150 جنية رسوم ريست
+          </div>
         </div>
 
         <div className="ic-alert-grid">
@@ -265,10 +269,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
         </div>
 
         <div className="ic-footer">
-          <div className="ic-contact">
+          <div className="ic-contact-bar">
             <span className="ic-contact-label">خدمة العملاء :</span>
-            <span className="ic-contact-icons">☎</span>
-            <span className="ic-contact-num">01070900079-01129707002</span>
+            <span className="ic-contact-num" dir="ltr">
+              01070900079-01129707002
+            </span>
+            <span className="ic-contact-icons" aria-hidden="true">
+              <span className="ic-icon-wa">✆</span>
+              <span className="ic-icon-phone">☎</span>
+            </span>
           </div>
           <div className="ic-qr">
             <img src="/contract/qr.png" alt="QR" />
