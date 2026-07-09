@@ -239,9 +239,9 @@ export function HrmEmployeesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
-  const resetUserForm = () => ({
+  const resetUserForm = (): typeof emptyUserForm => ({
     ...emptyUserForm,
-    administration_id: scopedAdminId ?? '',
+    administration_id: scopedAdminId != null ? scopedAdminId : '',
   })
 
   const closeModal = () => {
@@ -623,7 +623,12 @@ export function HrmEmployeesPage() {
                   if (option.id === 'user') {
                     setUserForm((prev) => ({
                       ...prev,
-                      administration_id: prev.administration_id || scopedAdminId || '',
+                      administration_id:
+                        prev.administration_id !== ''
+                          ? prev.administration_id
+                          : scopedAdminId != null
+                            ? scopedAdminId
+                            : '',
                     }))
                   }
                 }}
