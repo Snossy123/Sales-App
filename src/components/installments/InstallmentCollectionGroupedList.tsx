@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { CollectionSortMode, InstallmentCollectionRow } from '../../lib/collectionHelpers'
 import {
   collectionStatusLabels,
@@ -12,6 +13,7 @@ import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/customerForm'
 import { formatInvoiceDate } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
+import { Icon } from '../Icon'
 import { StatusBadge } from '../StatusBadge'
 import { ContractCollectionActions } from './CustomerCollectionActions'
 
@@ -370,6 +372,20 @@ export function InstallmentCollectionGroupedList({
           title={customer.customerName}
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG')} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
           defaultOpen={index === 0}
+          actions={
+            customer.customerId ? (
+              <Link
+                to={`/customers/${customer.customerId}`}
+                title="فتح ملف العميل"
+                aria-label={`فتح ملف العميل ${customer.customerName}`}
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Icon name="open_in_new" size={16} />
+                الملف
+              </Link>
+            ) : null
+          }
         >
           {customer.customerPhones.length > 0 && (
             <div className="mb-sm grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-4">

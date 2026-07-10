@@ -1,5 +1,6 @@
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
 import type { AdminUser, CollectionPaymentAccount, Distributor, Employee } from '../../api/types'
 import { CollapsibleSection } from '../CollapsibleSection'
@@ -219,7 +220,18 @@ export function InstallmentCollectionPanel({
         <dl className="mb-md space-y-1.5 text-sm">
           <div className="flex justify-between gap-sm">
             <dt className="text-on-surface-variant">العميل</dt>
-            <dd className="font-medium text-on-surface">{String(selected.customer_name ?? '—')}</dd>
+            <dd className="flex items-center gap-2 font-medium text-on-surface">
+              <span>{String(selected.customer_name ?? '—')}</span>
+              {selected.customer_id ? (
+                <Link
+                  to={`/customers/${selected.customer_id}`}
+                  className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
+                >
+                  <Icon name="open_in_new" size={14} />
+                  الملف
+                </Link>
+              ) : null}
+            </dd>
           </div>
           <div className="flex justify-between gap-sm">
             <dt className="text-on-surface-variant">التعاقد</dt>

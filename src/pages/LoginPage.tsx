@@ -10,10 +10,16 @@ import { Icon } from '../components/Icon'
 const productionAccounts = [
   { email: 'admin@stitch-smart.test', label: 'مدير النظام — كل الموديولات' },
   { email: 'deptadmin@stitch-smart.test', label: 'مدير إدارة — نطاق الإدارة فقط' },
-  { email: 'accountant@stitch-smart.test', label: 'المحاسبة' },
-  { email: 'hr@stitch-smart.test', label: 'الموارد البشرية' },
-  { email: 'crm@stitch-smart.test', label: 'CRM' },
+  { email: 'branchmanager@stitch-smart.test', label: 'مدير الفرع' },
   { email: 'sales@stitch-smart.test', label: 'المبيعات' },
+  { email: 'reviewer@stitch-smart.test', label: 'المراجعة' },
+  { email: 'collector@stitch-smart.test', label: 'التحصيل' },
+  { email: 'callcenter@stitch-smart.test', label: 'كول سنتر' },
+  { email: 'crm@stitch-smart.test', label: 'CRM' },
+  { email: 'hr@stitch-smart.test', label: 'الموارد البشرية' },
+  { email: 'accountant@stitch-smart.test', label: 'المحاسبة' },
+  { email: 'support@stitch-smart.test', label: 'الدعم الفني' },
+  { email: 'portal@stitch-smart.test', label: 'بوابة العميل' },
 ]
 
 const demoAccounts = [
