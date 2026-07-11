@@ -420,15 +420,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           </div>
         )}
 
-        <FitOneLine className="ic-warning ic-warning--line" spread>
+        <FitOneLine className="ic-warning ic-warning--line">
           برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد
           إشارة الجهاز وإلزامك لعمل سوفت وير
         </FitOneLine>
         <div className="ic-warning-row">
-          <FitOneLine className="ic-warning ic-warning--line" spread>
+          <FitOneLine className="ic-warning ic-warning--line">
             برجاء الإلتزام بموعد تجديد الاشتراك السنوي للجهاز لتجنب عمل سوفت وير
           </FitOneLine>
-          <FitOneLine className="ic-warning ic-warning--line" spread>
+          <FitOneLine className="ic-warning ic-warning--line">
             برجاء الحفاظ على الرقم السرى لتجنب دفع 150 جنية رسوم ريسيت
           </FitOneLine>
         </div>
@@ -526,7 +526,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 minute: '2-digit',
               })}
             </div>
-            <div className="ic-credit">Developed by CTS — 01125833982</div>
+            {/* <div className="ic-credit">Developed by CTS — 01125833982</div> */}
           </div>
         </div>
       </div>

@@ -235,7 +235,7 @@
   grid-template-columns: 1.1fr 0.9fr;
 }
 .ic-main--table-cols-2 {
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: 0.85fr 1.15fr;
 }
 .ic-main--table-cols-3 {
   grid-template-columns: 0.8fr 1.2fr;
@@ -298,9 +298,9 @@
   text-align: center;
   font-family: 'AL Mateen', Tahoma, Arial, sans-serif;
   font-weight: 700;
-  font-size: 10pt;
+  font-size: 11pt;
   letter-spacing: 0.5px;
-  padding: 1.4mm 2mm;
+  padding: 1.8mm 2mm;
   line-height: 1.25;
   -webkit-font-smoothing: antialiased;
 }
@@ -334,12 +334,12 @@
   gap: 0;
   padding: 0;
   border-bottom: 1px solid #c7c7c7;
-  min-height: 4.4mm;
+  min-height: 5.2mm;
 }
 .ic-trow--head {
   flex: 0 0 auto;
   background: var(--ic-gray-bar);
-  min-height: 4.4mm;
+  min-height: 5.2mm;
   border-bottom: 1px solid #8a8a8a;
 }
 .ic-trow--head .ic-tnum,
@@ -394,11 +394,11 @@
    installments) is the common case and keeps the full ~9pt bump. */
 .ic-table-grid--cols-2 .ic-tcell,
 .ic-table-grid--cols-2 .ic-tnum {
-  font-size: 8pt;
+  font-size: 9pt;
 }
 .ic-table-grid--cols-2 .ic-trow--head .ic-tcell,
 .ic-table-grid--cols-2 .ic-trow--head .ic-tnum {
-  font-size: 7.5pt;
+  font-size: 8.5pt;
 }
 .ic-table-grid--cols-3 .ic-tcell,
 .ic-table-grid--cols-3 .ic-tnum {
@@ -413,20 +413,20 @@
 .ic-summary {
   display: flex;
   flex-direction: column;
-  gap: 1.4mm;
-  margin-bottom: 1.5mm;
+  gap: 1mm;
+  margin-bottom: 1mm;
 }
 .ic-srow {
   display: flex;
   align-items: center;
-  gap: 1.2mm;
+  gap: 1mm;
   flex-wrap: nowrap;
   min-width: 0;
 }
 .ic-pill-label {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 14pt;
+  font-size: 11.5pt;
   white-space: nowrap;
   flex-shrink: 0;
   -webkit-text-stroke: 0.35px currentColor;
@@ -435,17 +435,17 @@
   color: var(--ic-red);
 }
 .ic-pill {
-  border: 2.25px solid var(--ic-ink);
+  border: 2px solid var(--ic-ink);
   border-radius: 999px;
-  min-height: 7.5mm;
-  padding: 0mm 2mm;
+  min-height: 6mm;
+  padding: 0mm 1.6mm;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: Arial, Helvetica, sans-serif;
   font-weight: 500;
-  font-size: 14pt;
-  min-width: 14mm;
+  font-size: 11.5pt;
+  min-width: 12mm;
   white-space: nowrap;
   background: #fff;
   -webkit-text-stroke: 0;
@@ -455,18 +455,18 @@
   min-width: 0;
   width: max-content;
   max-width: 100%;
-  font-size: 11.5pt;
+  font-size: 10pt;
   font-weight: 500;
-  min-height: 7.5mm;
-  padding: 0.6mm 2.4mm;
+  min-height: 6mm;
+  padding: 0.4mm 2mm;
   letter-spacing: 0.01em;
   overflow: visible;
 }
 .ic-pill--num-sm {
-  font-size: 11pt;
+  font-size: 9.5pt;
   font-weight: 500;
-  min-width: 12mm;
-  padding: 0mm 1.6mm;
+  min-width: 10mm;
+  padding: 0mm 1.3mm;
 }
 .ic-pill--sm {
   min-width: 0;
@@ -477,26 +477,26 @@
 }
 .ic-pill--renewal-date {
   flex: 0 0 auto;
-  min-width: 52mm;
-  gap: 2mm;
+  min-width: 46mm;
+  gap: 1.5mm;
   font-family: Arial, Helvetica, sans-serif;
   font-weight: 900;
-  font-size: 13pt;
+  font-size: 11pt;
 }
 .ic-renewal-in-pill {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 12pt;
+  font-size: 10pt;
   color: var(--ic-red);
   white-space: nowrap;
   -webkit-text-stroke: 0.25px currentColor;
 }
 .ic-pill--schedule {
   flex: 0 0 auto;
-  min-width: 28mm;
+  min-width: 24mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 14pt;
+  font-size: 11.5pt;
   white-space: nowrap;
   -webkit-text-stroke: 0.3px currentColor;
 }
@@ -504,14 +504,14 @@
   margin-inline-start: auto;
   display: flex;
   align-items: center;
-  gap: 1.5mm;
+  gap: 1.2mm;
   min-width: 0;
   white-space: nowrap;
 }
 .ic-srow-item {
   display: flex;
   align-items: center;
-  gap: 1.2mm;
+  gap: 1mm;
   min-width: 0;
   white-space: nowrap;
 }
@@ -519,16 +519,16 @@
 /* Red text inside long stadium pill — matches PSD */
 .ic-exclude-pill {
   flex: 0 0 auto;
-  border: 2.25px solid var(--ic-ink);
+  border: 2px solid var(--ic-ink);
   border-radius: 999px;
-  min-height: 7.5mm;
-  padding: 0mm 2.5mm;
+  min-height: 6mm;
+  padding: 0mm 2mm;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 13pt;
+  font-size: 11pt;
   color: var(--ic-red);
   text-align: center;
   background: #fff;
@@ -555,7 +555,7 @@
 .ic-srow--money {
   display: flex;
   align-items: center;
-  gap: 1.2mm;
+  gap: 1mm;
   flex-wrap: nowrap;
   min-width: 0;
 }
@@ -577,7 +577,7 @@
 }
 .ic-srow--money > .ic-srow-item .ic-pill--num-sm {
   flex: 0 0 auto;
-  min-width: 12mm;
+  min-width: 10mm;
 }
 .ic-srow--money > .ic-srow-item--grow .ic-pill,
 .ic-srow--money > .ic-srow-item--grow .ic-pill--sm {
@@ -588,7 +588,7 @@
 }
 
 .ic-srow--renewal {
-  gap: 2mm;
+  gap: 1.5mm;
 }
 .ic-note-pill {
   display: inline-flex;
@@ -600,26 +600,26 @@
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
   color: var(--ic-red);
-  padding: 0.8mm 3.5mm;
+  padding: 0.5mm 2.8mm;
   white-space: nowrap;
-  font-size: 12.5pt;
+  font-size: 10.5pt;
   line-height: 1;
   flex-shrink: 0;
   -webkit-text-stroke: 0.35px currentColor;
 }
 .ic-note-text {
-  border: 2.1px solid var(--ic-ink);
+  border: 1.8px solid var(--ic-ink);
   border-radius: 999px;
   flex: 1;
   min-width: 0;
-  padding: 1mm 2.5mm;
+  padding: 0.7mm 2mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 10pt;
+  font-size: 8.5pt;
   color: var(--ic-red);
   text-align: center;
   background: #fff;
-  line-height: 1.15;
+  line-height: 1.1;
   white-space: normal;
   -webkit-text-stroke: 0.25px currentColor;
 }
@@ -627,12 +627,12 @@
 /* ===== Terms ===== */
 .ic-terms {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 10.43pt;
+  font-size: 13.94pt;
   text-align: justify;
   text-align-last: right;
-  line-height: 1.35;
+  line-height: 1.2;
   font-weight: 600;
-  margin: 0.5mm 0 0.8mm;
+  margin: 0.3mm 0 0.5mm;
   padding: 0 0.5mm;
   hyphens: none;
   -webkit-text-stroke: 0.3px currentColor;
@@ -645,28 +645,29 @@
 
 /* ===== Warning stadiums ===== */
 .ic-warning {
-  border: 3px solid var(--ic-red);
+  border: 2.5px solid var(--ic-red);
   border-radius: 999px;
-  padding: 0.8mm 5mm;
-  margin: 0 1.5mm 1mm;
+  padding: 0mm 4mm;
+  margin: 0 1.5mm 0.7mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 12.5pt;
+  font-size: 10.5pt;
   font-weight: 400;
-  text-align: start;
-  line-height: 1.15;
+  text-align: center;
+  line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   background: #fff;
-  min-height: 8mm;
+  min-height: 6.5mm;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   -webkit-text-stroke: 0.4px currentColor;
 }
 .ic-warning > span {
   display: block;
   width: 100%;
   min-width: 0;
+  text-align: center;
 }
 .ic-warning--line {
   white-space: nowrap;
@@ -674,37 +675,37 @@
 .ic-warning-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2.3mm;
-  margin: 0 1mm 1mm;
+  gap: 1.8mm;
+  margin: 0 1mm 0.7mm;
 }
 .ic-warning-row .ic-warning {
   margin: 0;
-  font-size: 10pt;
-  padding: 1.8mm 3mm;
-  min-height: 8mm;
+  font-size: 8.5pt;
+  padding: 1.2mm 2.5mm;
+  min-height: 6.5mm;
 }
 .ic-warning-row .ic-warning--line {
-  padding: 0.8mm 3mm;
+  padding: 0mm 2.5mm;
 }
 
 /* ===== Alert boxes ===== */
 .ic-alert-grid {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 2.5mm;
+  gap: 2mm;
   align-items: stretch;
   flex: 0 0 auto;
-  margin: 0.8mm 0 1mm;
+  margin: 0.5mm 0 0.7mm;
 }
 .ic-alert-box {
   border: 1.5px solid var(--ic-red);
   background: var(--ic-alert-bg);
-  padding: 0mm 2mm;
+  padding: 0mm 1.6mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 11.5pt;
+  font-size: 9.5pt;
   font-weight: 400;
   color: #000;
-  line-height: 1.2;
+  line-height: 1.15;
   text-align: justify;
   min-height: 0;
   overflow: visible;
@@ -712,7 +713,7 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 0.35mm;
+  gap: 0.25mm;
   box-sizing: border-box;
   -webkit-text-stroke: 0.3px currentColor;
 }
@@ -723,15 +724,15 @@
   text-align-last: justify;
   white-space: normal;
   overflow-wrap: anywhere;
-  line-height: 1.2;
+  line-height: 1.15;
   max-width: 100%;
 }
 .ic-alert-warn {
   display: block;
   width: 100%;
-  margin: 0.3mm 0;
+  margin: 0.2mm 0;
   font-weight: 400;
-  font-size: 12pt;
+  font-size: 10pt;
   text-align: center;
   text-align-last: center;
   white-space: nowrap;
@@ -740,8 +741,8 @@
 .ic-alert-title {
   font-weight: 400;
   color: #000;
-  margin-bottom: 1mm;
-  font-size: 12pt;
+  margin-bottom: 0.6mm;
+  font-size: 10pt;
   -webkit-text-stroke: 0.2px currentColor;
 }
 .ic-alert-box .is-red {
@@ -750,13 +751,13 @@
   -webkit-text-stroke: 0.45px currentColor;
 }
 .ic-alert-badge {
-  border: 3.5px solid var(--ic-red);
-  border-radius: 5mm;
+  border: 3px solid var(--ic-red);
+  border-radius: 4mm;
   color: var(--ic-red);
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 16pt;
-  padding: 2.5mm 3mm;
+  font-size: 13pt;
+  padding: 1.8mm 2.5mm;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -772,9 +773,9 @@
   display: grid;
   grid-template-columns: 0.8fr 1.8fr;
   gap: 4mm;
-  margin-bottom: 1.2mm;
+  margin-bottom: 0.8mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 14pt;
+  font-size: 12pt;
   font-weight: 400;
   color: #000;
   -webkit-text-stroke: 0.3px currentColor;

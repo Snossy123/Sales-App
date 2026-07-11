@@ -373,6 +373,11 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     return false
   }
 
+  // Admin / super_admin are already gated by item.roles. Their API permission
+  // lists are often incomplete (e.g. Admin only has users/roles/settings),
+  // so don't hide the rest of the sidebar behind that list.
+  if (role === 'super_admin' || role === 'admin') return true
+
   const path = item.dynamicTo && user ? item.dynamicTo(user) ?? item.to : item.to
   const requiredPerms = resolveRoutePermissions(path)
   const permAccess = userCanAccessByPermissions(user.permissions, requiredPerms)
@@ -407,7 +412,8 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   const requiredPerms = resolveRoutePermissions(normalized)
   const permAccess = userCanAccessByPermissions(user?.permissions, requiredPerms)
-  if (permAccess !== null) return permAccess
+  // Same as nav: admin roles are gated by routeRoles below, not a partial permission array.
+  if (permAccess !== null && role !== 'super_admin' && role !== 'admin') return permAccess
 
   if (normalized === '/customers/add') {
     return routeRoles['/customers/add']?.includes(role) ?? false
