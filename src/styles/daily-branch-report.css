@@ -195,18 +195,20 @@
     margin: 0;
   }
 
-  body * {
-    visibility: hidden;
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  .daily-report-page,
-  .daily-report-page * {
-    visibility: visible;
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .daily-report-page {
-    position: absolute;
-    inset: 0;
     padding: 0;
     background: #fff;
   }

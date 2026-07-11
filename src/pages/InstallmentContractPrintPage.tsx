@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -6,6 +6,7 @@ import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { InstallmentContractDocument } from '../components/contracts/InstallmentContractDocument'
 import { Icon } from '../components/Icon'
+import { printInstallmentContractElement } from '../lib/printInstallmentContract'
 import '../styles/installment-contract.css'
 
 export function InstallmentContractPrintPage() {
@@ -13,6 +14,8 @@ export function InstallmentContractPrintPage() {
   const [searchParams] = useSearchParams()
   const lineId = searchParams.get('line') ? Number(searchParams.get('line')) : undefined
   const autoPrint = searchParams.get('print') === '1'
+  const contractRef = useRef<HTMLDivElement>(null)
+  const didAutoPrint = useRef(false)
 
   const query = useQuery({
     queryKey: ['sales-invoice', 'contract-print', id],
@@ -29,12 +32,22 @@ export function InstallmentContractPrintPage() {
   })
 
   useEffect(() => {
-    if (autoPrint && query.data) {
-      const timer = window.setTimeout(() => window.print(), 400)
-      return () => window.clearTimeout(timer)
-    }
+    if (!autoPrint || !query.data || didAutoPrint.current) return
+    didAutoPrint.current = true
+    const timer = window.setTimeout(() => {
+      const el = contractRef.current?.querySelector('.installment-contract')
+      if (el instanceof HTMLElement) {
+        void printInstallmentContractElement(el)
+      }
+    }, 500)
+    return () => window.clearTimeout(timer)
   }, [autoPrint, query.data])
 
+  const handlePrint = async () => {
+    const el = contractRef.current?.querySelector('.installment-contract')
+    if (!(el instanceof HTMLElement)) return
+    await printInstallmentContractElement(el)
+  }
   return (
     <div className="installment-contract-page">
       <div className="installment-contract-toolbar no-print">
@@ -45,14 +58,18 @@ export function InstallmentContractPrintPage() {
           <Icon name="arrow_forward" size={18} />
           رجوع
         </Link>
-        <button type="button" onClick={() => window.print()}>
+        <button type="button" onClick={() => void handlePrint()} disabled={!query.data}>
           <Icon name="print" size={18} />
           طباعة العقد
         </button>
       </div>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        {query.data && <InstallmentContractDocument invoice={query.data} lineId={lineId} />}
+        {query.data && (
+          <div ref={contractRef}>
+            <InstallmentContractDocument invoice={query.data} lineId={lineId} />
+          </div>
+        )}
       </AsyncState>
     </div>
   )

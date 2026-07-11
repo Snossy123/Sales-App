@@ -93,9 +93,9 @@ export function AppShell() {
 
   return (
     <TourProvider>
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="app-shell flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible">
       <aside
-        className={`fixed right-0 z-50 flex h-full flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm transition-all duration-300 ${
+        className={`fixed right-0 z-50 flex h-full flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm transition-all duration-300 print:hidden ${
           sidebarCollapsed ? 'w-[4.5rem]' : 'w-64'
         }`}
       >
@@ -162,11 +162,11 @@ export function AppShell() {
       </aside>
 
       <main
-        className={`flex h-full flex-grow flex-col overflow-y-auto bg-background transition-all duration-300 ${
+        className={`flex h-full flex-grow flex-col overflow-y-auto bg-background transition-all duration-300 print:mr-0 print:h-auto print:overflow-visible ${
           sidebarCollapsed ? 'mr-[4.5rem]' : 'mr-64'
         }`}
       >
-        <header className="sticky top-0 z-40 flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base">
+        <header className="sticky top-0 z-40 flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base print:hidden">
           <button
             type="button"
             onClick={() => setSidebarCollapsed((value) => !value)}
@@ -272,11 +272,13 @@ export function AppShell() {
           </div>
         </header>
 
-        <div className="flex-grow p-margin pb-20 md:pb-margin">
+        <div className="flex-grow p-margin pb-20 md:pb-margin print:p-0">
           <Outlet />
         </div>
-        <ChatbotWidget />
-        <MobileBottomNav user={user} />
+        <div className="print:hidden">
+          <ChatbotWidget />
+          <MobileBottomNav user={user} />
+        </div>
       </main>
     </div>
     </TourProvider>
