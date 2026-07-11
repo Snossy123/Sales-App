@@ -63,7 +63,7 @@
   flex-direction: column;
   border: 5px solid var(--ic-red);
   border-radius: 10px;
-  padding: 4mm 4.5mm 3.5mm;
+  padding: 3mm 3.5mm 2.5mm;
   min-height: calc(297mm - 7mm);
   box-sizing: border-box;
 }
@@ -198,9 +198,9 @@
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2.5mm;
+  gap: 0mm;
   align-items: stretch;
-  margin-bottom: 2.5mm;
+  margin-bottom: 1.5mm;
   /* Absorb the vertical slack freed by the compacted alert boxes so the data
      panel + installment table rows expand to fill the page. Cash is pinned to
      natural height below so its single fields panel doesn't over-stretch. */
@@ -616,12 +616,14 @@
 /* ===== Terms ===== */
 .ic-terms {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 12.5pt;
-  text-align: right;
-  line-height: 1.15;
+  font-size: 14.7pt;
+  text-align: justify;
+  text-align-last: right;
+  line-height: 1.35;
   font-weight: 400;
   margin: 0.5mm 0 0.8mm;
   padding: 0 0.5mm;
+  hyphens: none;
   -webkit-text-stroke: 0.3px currentColor;
 }
 .ic-terms b {
@@ -634,10 +636,10 @@
 .ic-warning {
   border: 3px solid var(--ic-red);
   border-radius: 999px;
-  padding: 1.8mm 5mm;
+  padding: 0.8mm 5mm;
   margin: 0 1.5mm 1mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 13.5pt;
+  font-size: 12.5pt;
   font-weight: 400;
   text-align: start;
   line-height: 1.15;
@@ -660,18 +662,18 @@
 }
 .ic-warning-row {
   display: grid;
-  grid-template-columns: 1.25fr 1fr;
-  gap: 2.5mm;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.3mm;
   margin: 0 1mm 1mm;
 }
 .ic-warning-row .ic-warning {
   margin: 0;
-  font-size: 12pt;
+  font-size: 11.5pt;
   padding: 1.8mm 3mm;
   min-height: 8mm;
 }
 .ic-warning-row .ic-warning--line {
-  padding: 1.8mm 3mm;
+  padding: 0.8mm 3mm;
 }
 
 /* ===== Alert boxes ===== */
@@ -686,7 +688,7 @@
 .ic-alert-box {
   border: 1.5px solid var(--ic-red);
   background: var(--ic-alert-bg);
-  padding: 1.2mm 2.5mm;
+  padding: 0mm 2mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11.5pt;
   font-weight: 400;
