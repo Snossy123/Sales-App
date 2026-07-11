@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297" preserveAspectRatio="none">
+  <path fill="none" stroke="#e30613" stroke-width="1.8" d="
+    M 11.1 6.1 H 198.9
+    A 7.5 7.5 0 0 0 206.4 13.6
+    V 283.4
+    A 7.5 7.5 0 0 0 198.9 290.9
+    H 11.1
+    A 7.5 7.5 0 0 0 3.6 283.4
+    V 13.6
+    A 7.5 7.5 0 0 0 11.1 6.1 Z"/>
+  <path fill="none" stroke="#000" stroke-width="0.55" d="
+    M 13.3 8.2 H 196.7
+    A 7.5 7.5 0 0 0 204.2 15.7
+    V 281.3
+    A 7.5 7.5 0 0 0 196.7 288.8
+    H 13.3
+    A 7.5 7.5 0 0 0 5.8 281.3
+    V 15.7
+    A 7.5 7.5 0 0 0 13.3 8.2 Z"/>
+</svg>
