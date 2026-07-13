@@ -1427,6 +1427,7 @@ export function handleMockRequest(
       cash_permanent_price?: number
       installment_annual_price?: number
       installment_permanent_price?: number
+      annual_renewal_price?: number
       external_cash_annual_price?: number
       external_cash_permanent_price?: number
       external_installment_annual_price?: number
@@ -1465,6 +1466,7 @@ export function handleMockRequest(
           cash_permanent_price: cashPermanent ?? cashPrice,
           installment_annual_price: installmentAnnual ?? cashPrice,
           installment_permanent_price: installmentPermanent ?? installmentPrice ?? cashPrice,
+          annual_renewal_price: body.annual_renewal_price ?? 0,
           external_cash_annual_price: body.external_cash_annual_price ?? cashPrice,
           external_cash_permanent_price: body.external_cash_permanent_price ?? cashPrice,
           external_installment_annual_price:
@@ -1498,6 +1500,8 @@ export function handleMockRequest(
           ?? s.gpsProduct.installment_permanent_price
           ?? installmentPrice
           ?? cashPrice,
+        annual_renewal_price:
+          body.annual_renewal_price ?? s.gpsProduct.annual_renewal_price ?? 0,
         external_cash_annual_price:
           body.external_cash_annual_price ?? s.gpsProduct.external_cash_annual_price ?? cashPrice,
         external_cash_permanent_price:

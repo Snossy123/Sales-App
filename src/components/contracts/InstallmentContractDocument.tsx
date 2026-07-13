@@ -219,12 +219,22 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
       ? ` — جهاز ${invoice.lines.indexOf(line) + 1}`
       : ''
 
+  const isRenewal = invoice.contract_kind === 'subscription_renewal'
+  const isPermanentRenewal = renewalType === 'permanent'
   const renewalDisplay =
     renewalType === 'permanent'
       ? renewalTypeLabels.permanent
       : fmtDMY(renewalDate ?? undefined)
 
-  const contractTitle = isInstallment ? `عقد تقسيط${deviceSuffix}` : `عقد كاش${deviceSuffix}`
+  const contractTitle = isRenewal
+    ? 'تجديد الاشتراك'
+    : isInstallment
+      ? `عقد تقسيط${deviceSuffix}`
+      : `عقد كاش${deviceSuffix}`
+  const renewalPaymentModeLabel = isInstallment ? 'قسط' : 'كاش'
+  const renewalDateLabel = fmtDMY(
+    renewalDate ?? invoice.invoice_date ?? new Date().toISOString().slice(0, 10),
+  )
 
   const installmentAmount =
     plan?.installment_amount != null
@@ -238,10 +248,21 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
         : 0
   const scheduleCount = Number(plan?.installment_count ?? 0)
   const scheduleUnit = plan?.interval_type === 'weekly' ? 'أسبوع' : 'شهر'
+  const installmentIntervalLabel =
+    plan?.interval_type === 'weekly' ? 'قسط اسبوعي' : 'قسط شهري'
+  const installmentDurationLabel =
+    scheduleCount > 0 ? `${scheduleCount} ${scheduleUnit}` : ''
   const scheduleLabel =
     isInstallment && scheduleCount > 0
       ? `${fmtContractMoney(installmentAmount, false)} لمدة ${scheduleCount} ${scheduleUnit}`
       : ''
+  const renewalInstallmentAmounts = Array.from({ length: 4 }, (_, index) => {
+    const item = plan?.items?.[index]
+    if (item?.amount != null && item.amount !== '') return fmtAmount(item.amount)
+    if (index < scheduleCount && installmentAmount > 0) return fmtAmount(installmentAmount)
+    return ''
+  })
+  const renewalFees = Number(line?.line_total ?? invoice.subtotal ?? invoice.total ?? 0)
 
   const vehicleTypeKey = line?.vehicle_type ?? ''
   const vehicleTypeLabel = vehicleTypeKey
@@ -266,8 +287,20 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     </div>
   )
 
+  const renewalField = (label: string, value: ReactNode, opts?: { dir?: 'ltr' | 'rtl' }) => (
+    <div className="ic-renewal-field">
+      <span className="ic-renewal-field-label">{label}</span>
+      <span className="ic-renewal-field-dots" aria-hidden="true" />
+      <span className="ic-renewal-field-value" dir={opts?.dir}>
+        {value}
+      </span>
+    </div>
+  )
+
   return (
-    <article className="installment-contract">
+    <article
+      className={`installment-contract${isRenewal ? ' installment-contract--renewal' : ''}`}
+    >
       <div className="ic-frame">
         <img
           className="ic-frame-border"
@@ -289,6 +322,9 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
             </div>
             <img className="ic-logo-img" src="/contract/logo.png" alt="Eleraqy Trading" />
             <div className="ic-title-badge">{contractTitle}</div>
+            {isRenewal ? (
+              <div className="ic-renewal-mode">{renewalPaymentModeLabel}</div>
+            ) : null}
           </div>
           <div className="ic-head-en">
             <div className="ic-head-en-top">Company</div>
@@ -297,7 +333,92 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           </div>
         </header>
 
-        {!isInstallment ? (
+        {isRenewal ? (
+          <>
+            <div className="ic-renewal-fields">
+              {renewalField('السيد /', customer?.name ?? '')}
+              {renewalField('اسم المستخدم /', resolveUsername(line, customer))}
+              {renewalField('السيريال /', resolveSerial(line, customer), { dir: 'ltr' })}
+              {renewalField('رقم الشريحة /', resolveSim(line, customer), { dir: 'ltr' })}
+              <div className="ic-renewal-field ic-renewal-field--phones">
+                <span className="ic-renewal-field-label">الموبايل ١ /</span>
+                <span className="ic-renewal-field-value" dir="ltr">
+                  {customer?.phone ?? ''}
+                </span>
+                <span className="ic-renewal-field-label">٢ /</span>
+                <span className="ic-renewal-field-value" dir="ltr">
+                  {customer?.phone_2 ?? ''}
+                </span>
+              </div>
+              {renewalField('تاريخ تجديد الاشتراك :', renewalDateLabel)}
+            </div>
+
+            {isPermanentRenewal ? (
+              <div className="ic-renewal-lifetime">تجديد الاشتراك مرة واحد مدي الحياة</div>
+            ) : (
+              <div className="ic-renewal-annual-note">
+                قيمة التجديد من إعدادات الجهاز (سعر التجديد السنوي)
+              </div>
+            )}
+
+            {isInstallment ? (
+              <div className="ic-renewal-pay">
+                <div className="ic-renewal-pay-summary">
+                  <div className="ic-renewal-pay-title">تجديد اشتراك ( قسط )</div>
+                  <div className="ic-renewal-pay-row">
+                    <span>تم دفع مبلغ</span>
+                    <strong>{fmtAmount(paidDisplay)}</strong>
+                    <span>متبقي</span>
+                    <strong>{fmtAmount(balanceDisplay)}</strong>
+                  </div>
+                  <div className="ic-renewal-pay-row">
+                    <span>{installmentIntervalLabel}</span>
+                    <strong>{fmtAmount(installmentAmount)}</strong>
+                    <span>لمدة</span>
+                    <strong>{installmentDurationLabel}</strong>
+                  </div>
+                </div>
+                <div className="ic-renewal-pay-grid">
+                  {renewalInstallmentAmounts.map((amount, index) => (
+                    <div key={`renewal-pay-${index}`} className="ic-renewal-pay-cell">
+                      <span className="ic-renewal-pay-num">{index + 1} -</span>
+                      <span className="ic-renewal-pay-label">تم دفع</span>
+                      <strong>{amount}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="ic-renewal-warn">
+                  في حالة عدم الالتزام بسداد الاقساط والانقطاع عن الدفع لمدة شهر يتم سحب تجديد
+                  الاشتراك تلقائي ولا يمكن الاسترداد مرة اخرى
+                </div>
+              </div>
+            ) : (
+              <div className="ic-renewal-cash">
+                <div className="ic-renewal-cash-cell">
+                  <div className="ic-renewal-cash-title">تجديد اشتراك ( كاش )</div>
+                  <div className="ic-renewal-cash-row">
+                    <span>رسوم تجديد الاشتراك</span>
+                    <strong>{fmtAmount(renewalFees)}</strong>
+                  </div>
+                </div>
+                <div className="ic-renewal-cash-cell">
+                  <div className="ic-renewal-cash-row">
+                    <span>تم دفع مبلغ</span>
+                    <strong>{fmtAmount(paidDisplay)}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="ic-renewal-bottom">
+              <div className="ic-renewal-notes">
+                <div className="ic-renewal-notes-title">ملاحظات</div>
+                <div className="ic-renewal-notes-body">{invoice.notes || ''}</div>
+              </div>
+              <div className="ic-renewal-sign">توقيع الموظف : ....................</div>
+            </div>
+          </>
+        ) : !isInstallment ? (
           <>
             <div className="ic-main ic-main--cash">
               <div className="ic-cash-grid">

@@ -11,7 +11,7 @@ export const CONTRACT_KINDS: { value: ContractKind; label: string; description: 
   {
     value: 'subscription_renewal',
     label: 'تجديد اشتراك',
-    description: 'تجديد اشتراك جهاز موجود — السعر 25% من سعر الجهاز كاش',
+    description: 'تجديد اشتراك جهاز موجود — السنوي بسعر ثابت من الإعدادات، ومدى الحياة 25% من كاش الاشتراك السنوي',
   },
   {
     value: 'external_device',

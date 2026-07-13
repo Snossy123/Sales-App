@@ -35,6 +35,7 @@ export interface PosContractHeaderProps {
   customerLabel?: string
   sectionNumber?: number
   submitAttempted?: boolean
+  customerLocked?: boolean
 }
 
 export function PosContractHeader({
@@ -65,6 +66,7 @@ export function PosContractHeader({
   customerLabel = 'العميل',
   sectionNumber = 1,
   submitAttempted = false,
+  customerLocked = false,
 }: PosContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
   const customerLinkedToDistributor = Boolean(
@@ -92,54 +94,64 @@ export function PosContractHeader({
     <PosSectionCard
       number={sectionNumber}
       title="بيانات التعاقد"
-      subtitle="اختر مصدر التعاقد والعميل وتاريخ التسجيل"
+      subtitle={
+        customerLocked
+          ? 'حدّد مصدر التعاقد وتاريخ التسجيل'
+          : 'اختر مصدر التعاقد والعميل وتاريخ التسجيل'
+      }
       contentClassName="p-sm sm:p-md"
-      highlighted={customerError || sourceError}
+      highlighted={(!customerLocked && customerError) || sourceError}
     >
-      <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
-        <div className={posRequiredWrap(customerError)}>
-          <SearchableSelect
-            data-tour="pos-customer"
-            label={customerLabel}
-            options={customers}
-            value={selectedCustomer}
-            onChange={onCustomerChange}
-            onSearchChange={onCustomerSearchChange}
-            getOptionValue={(c) => c.id}
-            getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-            placeholder="ابحث بالاسم أو الموبايل..."
-            loading={customersLoading}
-            emptyMessage="لا يوجد عميل مطابق"
-            hasError={customerError}
-          />
-          {customerError && (
-            <p className="mt-xs text-xs text-error">
-              {customerLabel === 'العميل' ? 'يجب اختيار العميل' : `يجب اختيار ${customerLabel}`}
-            </p>
-          )}
-          {selectedCustomer?.sales_user && (
-            <p className="mt-xs text-[13px] leading-snug text-secondary">
-              تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
-            </p>
-          )}
-          {dualAttribution && selectedCustomer?.distributor && (
-            <p className="mt-xs text-[13px] leading-snug text-secondary">
-              موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)} (يُحتسب مع الموظف)
-            </p>
-          )}
-          {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
-            <p className="mt-xs text-[13px] leading-snug text-secondary">
-              تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
-            </p>
-          )}
-          {selectedCustomer?.branch &&
-            !selectedCustomer.sales_user_id &&
-            !selectedCustomer.distributor_id && (
-              <p className="mt-xs text-[13px] leading-snug text-secondary">
-                تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
+      <div
+        className={`grid grid-cols-1 gap-md sm:grid-cols-2 ${
+          customerLocked ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+        }`}
+      >
+        {!customerLocked && (
+          <div className={posRequiredWrap(customerError)}>
+            <SearchableSelect
+              data-tour="pos-customer"
+              label={customerLabel}
+              options={customers}
+              value={selectedCustomer}
+              onChange={onCustomerChange}
+              onSearchChange={onCustomerSearchChange}
+              getOptionValue={(c) => c.id}
+              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
+              placeholder="ابحث بالاسم أو الموبايل..."
+              loading={customersLoading}
+              emptyMessage="لا يوجد عميل مطابق"
+              hasError={customerError}
+            />
+            {customerError && (
+              <p className="mt-xs text-xs text-error">
+                {customerLabel === 'العميل' ? 'يجب اختيار العميل' : `يجب اختيار ${customerLabel}`}
               </p>
             )}
-        </div>
+            {selectedCustomer?.sales_user && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
+              </p>
+            )}
+            {dualAttribution && selectedCustomer?.distributor && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)} (يُحتسب مع الموظف)
+              </p>
+            )}
+            {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
+              <p className="mt-xs text-[13px] leading-snug text-secondary">
+                تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
+              </p>
+            )}
+            {selectedCustomer?.branch &&
+              !selectedCustomer.sales_user_id &&
+              !selectedCustomer.distributor_id && (
+                <p className="mt-xs text-[13px] leading-snug text-secondary">
+                  تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
+                </p>
+              )}
+          </div>
+        )}
 
         {sourceToggleOptions.length > 0 && (
           <div>

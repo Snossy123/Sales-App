@@ -74,27 +74,35 @@ function DeviceIdentifiersTable({
       <table className="w-full min-w-[36rem] text-sm">
         <thead>
           <tr className="border-b border-outline-variant/60 bg-surface-container-low text-[11px] text-on-surface-variant">
-            <th className="px-sm py-2 text-start font-bold">#</th>
-            <th className="px-sm py-2 text-start font-bold">السريال (1)</th>
-            <th className="px-sm py-2 text-start font-bold">المستخدم (2)</th>
-            <th className="px-sm py-2 text-start font-bold">رقم الشريحة (3)</th>
-            <th className="px-sm py-2 text-start font-bold">علامة مميزة بالتفصيل</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">#</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">السريال (1)</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">المستخدم (2)</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">رقم الشريحة (3)</th>
+            <th className="px-sm py-2 text-start align-middle font-bold">علامة مميزة بالتفصيل</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((line, index) => (
             <tr key={line.id} className="border-b border-outline-variant/30 last:border-0">
-              <td className="px-sm py-2 font-medium text-on-surface">{index + 1}</td>
-              <td className="px-sm py-2 font-medium tabular-nums" dir="ltr">
-                {resolveSerial(line, customer)}
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium text-on-surface">
+                {index + 1}
               </td>
-              <td className="px-sm py-2 font-medium tabular-nums" dir="ltr">
-                {resolveUsername(line, customer)}
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
+                <span dir="ltr" className="inline-block tabular-nums">
+                  {resolveSerial(line, customer)}
+                </span>
               </td>
-              <td className="px-sm py-2 font-medium tabular-nums" dir="ltr">
-                {resolveSim(line, customer)}
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
+                <span dir="ltr" className="inline-block tabular-nums">
+                  {resolveUsername(line, customer)}
+                </span>
               </td>
-              <td className="px-sm py-2 font-medium" dir="ltr">
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
+                <span dir="ltr" className="inline-block tabular-nums">
+                  {resolveSim(line, customer)}
+                </span>
+              </td>
+              <td className="px-sm py-2 text-start align-middle font-medium">
                 {resolveVehicleDistinctiveDetail(line)}
               </td>
             </tr>

@@ -1134,6 +1134,213 @@
   -webkit-text-stroke: 0;
 }
 
+/* ===== Subscription renewal layout ===== */
+.installment-contract--renewal .ic-title-badge {
+  margin-bottom: 1mm;
+  box-shadow: none;
+}
+.ic-renewal-mode {
+  color: var(--ic-red);
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
+  font-size: 26pt;
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0.5mm 0 3mm;
+  -webkit-text-stroke: 0.35px currentColor;
+}
+.ic-renewal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2.8mm;
+  margin: 4mm 2mm 3mm;
+}
+.ic-renewal-field {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  min-height: 6mm;
+}
+.ic-renewal-field-label {
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 12pt;
+}
+.ic-renewal-field-dots {
+  flex: 1;
+  border-bottom: 1.5px dotted #333;
+  min-width: 8mm;
+  transform: translateY(-2px);
+}
+.ic-renewal-field-value {
+  font-size: 12pt;
+  font-weight: 600;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ic-renewal-field--phones {
+  gap: 3mm;
+}
+.ic-renewal-field--phones .ic-renewal-field-value {
+  flex: 1;
+  max-width: none;
+  border-bottom: 1.5px dotted #333;
+  min-height: 5mm;
+  padding-inline-end: 2mm;
+}
+.ic-renewal-lifetime {
+  text-align: center;
+  color: var(--ic-red);
+  font-size: 14pt;
+  font-weight: 800;
+  margin: 2mm 0 4mm;
+  -webkit-text-stroke: 0.3px currentColor;
+}
+.ic-renewal-annual-note {
+  text-align: center;
+  color: #333;
+  font-size: 10.5pt;
+  font-weight: 700;
+  margin: 1mm 0 4mm;
+}
+.ic-renewal-cash {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  border: 1.5px solid #111;
+  margin: 0 2mm 4mm;
+}
+.ic-renewal-cash-cell {
+  padding: 2.5mm 3mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2mm;
+}
+.ic-renewal-cash-cell + .ic-renewal-cash-cell {
+  border-inline-start: 1.5px solid #111;
+}
+.ic-renewal-cash-title {
+  color: var(--ic-red);
+  font-size: 13pt;
+  font-weight: 800;
+  text-align: center;
+}
+.ic-renewal-cash-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3mm;
+  font-size: 11pt;
+  font-weight: 700;
+}
+.ic-renewal-cash-row strong {
+  border-bottom: 1.5px dotted #333;
+  min-width: 18mm;
+  text-align: center;
+  font-weight: 700;
+}
+.ic-renewal-pay {
+  margin: 0 2mm 3mm;
+}
+.ic-renewal-pay-summary {
+  border: 1.5px solid #111;
+  padding: 2.5mm 3mm;
+  margin-bottom: 2mm;
+}
+.ic-renewal-pay-title {
+  color: var(--ic-red);
+  font-size: 13pt;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 2mm;
+}
+.ic-renewal-pay-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 2mm 3mm;
+  align-items: baseline;
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 1.5mm;
+}
+.ic-renewal-pay-row strong {
+  border-bottom: 1.5px dotted #333;
+  text-align: center;
+  min-height: 5mm;
+}
+.ic-renewal-pay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm;
+  margin-bottom: 2mm;
+}
+.ic-renewal-pay-cell {
+  border: 1.5px solid #111;
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  padding: 2mm 2.5mm;
+  font-size: 11pt;
+  font-weight: 700;
+  min-height: 9mm;
+}
+.ic-renewal-pay-num {
+  white-space: nowrap;
+}
+.ic-renewal-pay-label {
+  white-space: nowrap;
+}
+.ic-renewal-pay-cell strong {
+  flex: 1;
+  border-bottom: 1.5px dotted #333;
+  text-align: center;
+  min-height: 5mm;
+}
+.ic-renewal-warn {
+  color: var(--ic-red);
+  font-size: 10pt;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.45;
+  margin: 2mm 1mm 3mm;
+}
+.ic-renewal-bottom {
+  margin: 2mm 2mm 4mm;
+}
+.ic-renewal-notes {
+  border: 1.5px solid #111;
+  border-radius: 3mm;
+  padding: 2mm 3mm 8mm;
+  min-height: 28mm;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 5.8mm,
+      #bbb 5.8mm,
+      #bbb 6mm
+    );
+  background-origin: content-box;
+}
+.ic-renewal-notes-title {
+  font-size: 11pt;
+  font-weight: 800;
+  margin-bottom: 1mm;
+}
+.ic-renewal-notes-body {
+  font-size: 10pt;
+  white-space: pre-wrap;
+  min-height: 12mm;
+}
+.ic-renewal-sign {
+  margin-top: 3mm;
+  text-align: start;
+  font-size: 11pt;
+  font-weight: 700;
+}
+
 @media print {
   @page {
     size: A4 portrait;

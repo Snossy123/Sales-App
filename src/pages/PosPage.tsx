@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -16,6 +16,7 @@ import type {
   SalesInvoice,
   SalesRep,
   Promotion,
+  SubscriptionRenewalCandidate,
 } from '../api/types'
 import { contractPrintPath, isServiceInvoiceLine } from '../lib/sales'
 import { linePaidNow } from '../lib/cashSchedule'
@@ -54,6 +55,7 @@ import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
 import { PosOwnershipTransferSection } from '../components/pos/PosOwnershipTransferSection'
+import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -64,6 +66,7 @@ function addDays(dateStr: string, days: number): string {
 export function PosPage() {
   usePageTour('pos')
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const contextBranchId = useAuthStore((s) => s.branchId)
   const contextDepartmentId = useAuthStore((s) => s.departmentId)
@@ -75,8 +78,14 @@ export function PosPage() {
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
-  const [contractKind, setContractKind] = useState<ContractKind>('new_contract')
+  const [contractKind, setContractKind] = useState<ContractKind>(() =>
+    searchParams.get('contract_kind') === 'subscription_renewal'
+      ? 'subscription_renewal'
+      : 'new_contract',
+  )
   const [sourceTransferInvoice, setSourceTransferInvoice] = useState<SalesInvoice | null>(null)
+  const [sourceRenewalCandidate, setSourceRenewalCandidate] =
+    useState<SubscriptionRenewalCandidate | null>(null)
   const [transactionSource, setTransactionSource] = useState<TransactionSource>('branch')
   const [branchSearch, setBranchSearch] = useState('')
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
@@ -99,6 +108,41 @@ export function PosPage() {
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const hasAutoSelectedPromotion = useRef(false)
+  const hydratedRenewalLineRef = useRef<number | null>(null)
+
+  const renewalLineIdFromUrl = useMemo(() => {
+    const raw = searchParams.get('renewal_line_id')
+    const id = Number(raw)
+    return Number.isFinite(id) && id > 0 ? id : null
+  }, [searchParams])
+
+  const renewalHydrateQuery = useQuery({
+    queryKey: ['sales-invoices', 'renewal-candidates', 'line', renewalLineIdFromUrl],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<SubscriptionRenewalCandidate>>(
+        '/sales-invoices/renewal-candidates',
+        { params: { 'filter[line_id]': renewalLineIdFromUrl!, per_page: 1 } },
+      )
+      return data.data?.[0] ?? null
+    },
+    enabled: Boolean(renewalLineIdFromUrl),
+  })
+
+  useEffect(() => {
+    if (searchParams.get('contract_kind') === 'subscription_renewal' || renewalLineIdFromUrl) {
+      setContractKind('subscription_renewal')
+    }
+  }, [searchParams, renewalLineIdFromUrl])
+
+  useEffect(() => {
+    const candidate = renewalHydrateQuery.data
+    if (!candidate || !renewalLineIdFromUrl) return
+    if (hydratedRenewalLineRef.current === renewalLineIdFromUrl) return
+
+    hydratedRenewalLineRef.current = renewalLineIdFromUrl
+    setSourceRenewalCandidate(candidate)
+    setSearchParams({}, { replace: true })
+  }, [renewalHydrateQuery.data, renewalLineIdFromUrl, setSearchParams])
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -369,13 +413,31 @@ export function PosPage() {
 
 
   const manualDeviceEntry = allowsManualDeviceEntry(contractKind)
-  const cashPrice = Number(productQuery.data?.cash_price ?? productQuery.data?.sell_price ?? 0)
+  const cashAnnual = Number(
+    productQuery.data?.cash_annual_price ??
+      productQuery.data?.cash_price ??
+      productQuery.data?.sell_price ??
+      0,
+  )
+  const cashPrice = cashAnnual
   const installmentPrice = Number(
     productQuery.data?.installment_price ?? productQuery.data?.sell_price ?? 0,
   )
-  const renewalReferencePrice = subscriptionRenewalUnitPrice(cashPrice)
+  const activeRenewalType = deviceLines[0]?.renewalType ?? 'annual'
+  const annualRenewalPrice = Number(productQuery.data?.annual_renewal_price ?? 0)
+  const renewalReferencePrice =
+    activeRenewalType === 'permanent'
+      ? subscriptionRenewalUnitPrice(cashAnnual)
+      : annualRenewalPrice
   const available = stockQuery.data?.available ?? unitsQuery.data?.length ?? 0
-  const maxQuantity = manualDeviceEntry ? 99 : allowNegativeInventory ? 999 : available
+  const maxQuantity =
+    contractKind === 'subscription_renewal' || contractKind === 'ownership_transfer'
+      ? 1
+      : manualDeviceEntry
+        ? 99
+        : allowNegativeInventory
+          ? 999
+          : available
 
   useEffect(() => {
     if (quantity <= 0) {
@@ -399,12 +461,16 @@ export function PosPage() {
             })
           : paymentTerm === 'cash'
             ? contractKind === 'subscription_renewal'
-              ? subscriptionRenewalUnitPrice(cashPrice)
+              ? renewalType === 'permanent'
+                ? subscriptionRenewalUnitPrice(cashAnnual)
+                : annualRenewalPrice
               : contractKind === 'ownership_transfer'
                 ? 0
                 : cashPrice
             : contractKind === 'subscription_renewal'
-              ? subscriptionRenewalUnitPrice(cashPrice)
+              ? renewalType === 'permanent'
+                ? subscriptionRenewalUnitPrice(cashAnnual)
+                : annualRenewalPrice
               : contractKind === 'ownership_transfer'
                 ? 0
                 : installmentPrice
@@ -432,6 +498,8 @@ export function PosPage() {
   }, [
     quantity,
     cashPrice,
+    cashAnnual,
+    annualRenewalPrice,
     installmentPrice,
     unitsQuery.data,
     contractDate,
@@ -471,6 +539,66 @@ export function PosPage() {
       },
     ])
   }, [sourceTransferInvoice, contractKind, contractDate, minDownPercent])
+
+  useEffect(() => {
+    if (contractKind !== 'subscription_renewal' || !sourceRenewalCandidate) {
+      return
+    }
+
+    const renewalType = deviceLines[0]?.renewalType ?? 'annual'
+    const price = productQuery.data
+      ? resolveGpsUnitPrice(productQuery.data, {
+          contractKind: 'subscription_renewal',
+          paymentTerm: deviceLines[0]?.paymentTerm ?? 'installment',
+          renewalType,
+        })
+      : renewalType === 'permanent'
+        ? subscriptionRenewalUnitPrice(cashAnnual)
+        : annualRenewalPrice
+
+    setQuantity(1)
+    if (sourceRenewalCandidate.customer_id) {
+      setSelectedCustomer({
+        id: sourceRenewalCandidate.customer_id,
+        name: sourceRenewalCandidate.customer_name ?? '',
+        phone: sourceRenewalCandidate.customer_phone ?? '',
+        phone_2: sourceRenewalCandidate.customer_phone_2 ?? null,
+      } as Customer)
+    }
+
+    setDeviceLines((prev) => {
+      const existing = prev[0]
+      const base = existing
+        ? { ...existing, unitPrice: price }
+        : createDeviceLine(price, undefined, { contractDate, minDownPercent })
+
+      return [
+        {
+          ...base,
+          serialNumber: sourceRenewalCandidate.serial_number ?? '',
+          simNumber: sourceRenewalCandidate.sim_number ?? '',
+          username: sourceRenewalCandidate.username ?? '',
+          vehicleType: (sourceRenewalCandidate.vehicle_type as DeviceLineDraft['vehicleType']) ?? '',
+          vehiclePlateLetters: sourceRenewalCandidate.vehicle_plate_letters ?? '',
+          vehiclePlateNumbers: sourceRenewalCandidate.vehicle_plate_numbers ?? '',
+          chassisNumber: sourceRenewalCandidate.chassis_number ?? '',
+          engineNumber: sourceRenewalCandidate.engine_number ?? '',
+          // Keep user's annual/permanent choice once they change it.
+          renewalType: existing?.renewalType ?? 'annual',
+        },
+      ]
+    })
+    // Only re-run when the candidate or pricing inputs change — not on every line edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: preserve renewalType edits
+  }, [
+    sourceRenewalCandidate,
+    contractKind,
+    contractDate,
+    minDownPercent,
+    productQuery.data,
+    cashAnnual,
+    annualRenewalPrice,
+  ])
 
   const grossInstallationFeePerUnit =
     contractKind === 'new_contract' && enableInstallationFee && applyInstallationFee
@@ -531,6 +659,8 @@ export function PosPage() {
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'renewal-candidates'] })
+      setSourceRenewalCandidate(null)
     },
   })
 
@@ -553,6 +683,7 @@ export function PosPage() {
     if (!manualDeviceEntry && !allowNegativeInventory && quantity > available) return
     if (!allLinesValid) return
     if (contractKind === 'ownership_transfer' && !sourceTransferInvoice) return
+    if (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) return
 
     const units = unitsQuery.data ?? []
     const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
@@ -645,6 +776,10 @@ export function PosPage() {
       payload.source_sales_invoice_id = sourceTransferInvoice.id
     }
 
+    if (contractKind === 'subscription_renewal' && sourceRenewalCandidate) {
+      payload.source_sales_invoice_id = sourceRenewalCandidate.sales_invoice_id
+    }
+
     checkoutMutation.mutate(payload)
   }
 
@@ -664,6 +799,9 @@ export function PosPage() {
     if (!selectedCustomer) messages.push('يجب اختيار العميل')
     if (contractKind === 'ownership_transfer' && !sourceTransferInvoice) {
       messages.push('يجب اختيار التعاقد الأصلي لنقل الملكية')
+    }
+    if (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) {
+      messages.push('يجب اختيار التعاقد المراد تجديد اشتراكه')
     }
     if (!sourceReady) {
       if (transactionSource === 'branch') messages.push('يجب اختيار الفرع')
@@ -694,6 +832,7 @@ export function PosPage() {
     maxInstallmentCount,
     contractKind,
     sourceTransferInvoice,
+    sourceRenewalCandidate,
   ])
 
   const hasDeviceFieldErrors =
@@ -703,6 +842,8 @@ export function PosPage() {
     submitAttempted && !manualDeviceEntry && hasDeviceSale && !warehouseId
   const hasSourceTransferError =
     submitAttempted && contractKind === 'ownership_transfer' && !sourceTransferInvoice
+  const hasSourceRenewalError =
+    submitAttempted && contractKind === 'subscription_renewal' && !sourceRenewalCandidate
 
   const branchLabel =
     selectedBranch?.name_ar ||
@@ -721,6 +862,7 @@ export function PosPage() {
     !sourceReady ||
     deviceLines.length === 0 ||
     (contractKind === 'ownership_transfer' && !sourceTransferInvoice) ||
+    (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) ||
     (!manualDeviceEntry && !warehouseId) ||
     (!manualDeviceEntry && !allowNegativeInventory && quantity > available) ||
     !allLinesValid
@@ -733,7 +875,11 @@ export function PosPage() {
       headerExtra={
         contractKind === 'subscription_renewal' ? (
           <div className="rounded-lg border border-primary/25 bg-primary/5 px-sm py-xs text-sm">
-            <span className="text-on-surface-variant">سعر التجديد (25% كاش): </span>
+            <span className="text-on-surface-variant">
+              {activeRenewalType === 'permanent'
+                ? 'سعر التجديد (25% من كاش الاشتراك السنوي): '
+                : 'سعر التجديد السنوي: '}
+            </span>
             <span className="font-bold tabular-nums text-primary">
               {renewalReferencePrice.toLocaleString('ar-EG')} ج.م
             </span>
@@ -763,12 +909,21 @@ export function PosPage() {
           if (kind !== 'ownership_transfer') {
             setSourceTransferInvoice(null)
           }
+          if (kind !== 'subscription_renewal') {
+            setSourceRenewalCandidate(null)
+          }
         }}
       />
       {contractKind === 'ownership_transfer' && (
         <p className="mb-md rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm text-on-surface-variant">
           العميل المختار أدناه هو <strong className="text-on-surface">المالك الجديد</strong>. سيتم
           نقل التعاقد والأقساط المتبقية إليه بعد اعتماد نقل الملكية.
+        </p>
+      )}
+      {contractKind === 'subscription_renewal' && !sourceRenewalCandidate && (
+        <p className="mb-md rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm text-on-surface-variant">
+          اختر التعاقد المستحق للتجديد أولاً، ثم حدّد الاشتراك سنوي (سعر ثابت من إعدادات الجهاز) أو
+          مدى الحياة (25% من كاش الاشتراك السنوي).
         </p>
       )}
       {!manualDeviceEntry && !warehouseId && (
@@ -793,6 +948,13 @@ export function PosPage() {
               <PosOwnershipTransferSection
                 selectedSourceInvoice={sourceTransferInvoice}
                 onSourceInvoiceChange={setSourceTransferInvoice}
+                submitAttempted={submitAttempted}
+              />
+            )}
+            {contractKind === 'subscription_renewal' && (
+              <PosSubscriptionRenewalSection
+                selectedCandidate={sourceRenewalCandidate}
+                onCandidateChange={setSourceRenewalCandidate}
                 submitAttempted={submitAttempted}
               />
             )}
@@ -823,38 +985,60 @@ export function PosPage() {
               contractDate={contractDate}
               onContractDateChange={setContractDate}
               customerLabel={contractKind === 'ownership_transfer' ? 'المالك الجديد' : 'العميل'}
-              sectionNumber={contractKind === 'ownership_transfer' ? 2 : 1}
+              sectionNumber={
+                contractKind === 'ownership_transfer' || contractKind === 'subscription_renewal'
+                  ? 2
+                  : 1
+              }
               submitAttempted={submitAttempted}
+              customerLocked={
+                contractKind === 'subscription_renewal' && Boolean(sourceRenewalCandidate)
+              }
             />
 
             <PosSectionCard
-              number={contractKind === 'ownership_transfer' ? 3 : 2}
+              number={
+                contractKind === 'ownership_transfer' || contractKind === 'subscription_renewal'
+                  ? 3
+                  : 2
+              }
               title="الأجهزة"
               subtitle={
                 contractKind === 'ownership_transfer'
                   ? 'بيانات الجهاز من التعاقد الأصلي — الأقساط المتبقية تنتقل للمالك الجديد'
-                  : 'حدد عدد الأجهزة وبيانات كل جهاز وطريقة الدفع'
+                  : contractKind === 'subscription_renewal' && sourceRenewalCandidate
+                    ? 'اختر نوع الاشتراك وطريقة الدفع'
+                    : contractKind === 'subscription_renewal'
+                      ? 'بيانات الجهاز من التعاقد المختار — حدّد نوع الاشتراك وطريقة الدفع'
+                      : 'حدد عدد الأجهزة وبيانات كل جهاز وطريقة الدفع'
               }
-              highlighted={hasDeviceFieldErrors || hasWarehouseError || hasSourceTransferError}
+              highlighted={
+                hasDeviceFieldErrors ||
+                hasWarehouseError ||
+                hasSourceTransferError ||
+                hasSourceRenewalError
+              }
               contentClassName="space-y-md overflow-visible p-sm sm:p-md"
             >
-              <PosDevicesToolbar
-                quantity={quantity}
-                maxQuantity={maxQuantity}
-                onQuantityChange={setQuantity}
-                enableInstallationFee={contractKind === 'new_contract' && enableInstallationFee}
-                applyInstallationFee={applyInstallationFee}
-                onApplyInstallationFeeChange={setApplyInstallationFee}
-                allowDisableFeeInSale={allowDisableFeeInSale}
-                installationFeePerUnit={installationFee}
-                onInstallationFeeChange={setInstallationFee}
-                feeDiscountAmount={feeDiscountAmount}
-                feeDiscountPercent={feeDiscountPercent}
-                onFeeDiscountChange={({ amount, percent }) => {
-                  setFeeDiscountAmount(amount)
-                  setFeeDiscountPercent(percent)
-                }}
-              />
+              {!(contractKind === 'subscription_renewal' && sourceRenewalCandidate) && (
+                <PosDevicesToolbar
+                  quantity={quantity}
+                  maxQuantity={maxQuantity}
+                  onQuantityChange={setQuantity}
+                  enableInstallationFee={contractKind === 'new_contract' && enableInstallationFee}
+                  applyInstallationFee={applyInstallationFee}
+                  onApplyInstallationFeeChange={setApplyInstallationFee}
+                  allowDisableFeeInSale={allowDisableFeeInSale}
+                  installationFeePerUnit={installationFee}
+                  onInstallationFeeChange={setInstallationFee}
+                  feeDiscountAmount={feeDiscountAmount}
+                  feeDiscountPercent={feeDiscountPercent}
+                  onFeeDiscountChange={({ amount, percent }) => {
+                    setFeeDiscountAmount(amount)
+                    setFeeDiscountPercent(percent)
+                  }}
+                />
+              )}
 
               {hasDeviceSale ? (
                 <div className="flex flex-col gap-md overflow-visible">
@@ -875,12 +1059,17 @@ export function PosPage() {
                       employeesLoading={employeesQuery.isLoading}
                       showErrors={submitAttempted}
                       hidePaymentSection={contractKind === 'ownership_transfer'}
+                      lockedFromSource={
+                        contractKind === 'subscription_renewal' && Boolean(sourceRenewalCandidate)
+                      }
                     />
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-on-surface-variant">
-                  اختر عدد الأجهزة من الأعلى لبدء إدخال بيانات الأجهزة.
+                  {contractKind === 'subscription_renewal'
+                    ? 'اختر التعاقد للتجديد أولاً لملء بيانات الجهاز.'
+                    : 'اختر عدد الأجهزة من الأعلى لبدء إدخال بيانات الأجهزة.'}
                 </p>
               )}
             </PosSectionCard>

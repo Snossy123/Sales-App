@@ -225,6 +225,7 @@ interface DeviceLineCardProps {
   employeesLoading: boolean
   showErrors?: boolean
   hidePaymentSection?: boolean
+  lockedFromSource?: boolean
 }
 
 function priceForLine(
@@ -256,6 +257,7 @@ export function DeviceLineCard({
   employeesLoading,
   showErrors = false,
   hidePaymentSection = false,
+  lockedFromSource = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -265,10 +267,10 @@ export function DeviceLineCard({
   const patch = (partial: Partial<DeviceLineDraft>) => onChange({ ...line, ...partial })
 
   useEffect(() => {
-    if (index === 0 && expanded) {
+    if (index === 0 && expanded && !lockedFromSource) {
       serialInputRef.current?.focus()
     }
-  }, [index, expanded])
+  }, [index, expanded, lockedFromSource])
 
   const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
     patch({ [field]: normalizeScannedInput(raw) } as Partial<DeviceLineDraft>)
@@ -410,156 +412,162 @@ export function DeviceLineCard({
           size={22}
           className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
-        <span className="font-semibold text-on-surface">جهاز {index + 1}</span>
+        <span className="font-semibold text-on-surface">
+          {lockedFromSource ? 'تجديد الاشتراك' : `جهاز ${index + 1}`}
+        </span>
       </button>
 
       {expanded && (
         <div className="space-y-md p-sm sm:p-md">
-          <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
-            <div className={posRequiredWrap(Boolean(fieldErrors.serialNumber))}>
-              <label className={posLabelClass}>السريال</label>
-              <input
-                ref={serialInputRef}
-                value={line.serialNumber}
-                onChange={(e) => patchScanned('serialNumber', e.target.value)}
-                onKeyDown={(e) => focusNextAfterScan(e, simInputRef)}
-                placeholder="امسح أو أدخل السريال"
-                className={fieldErrorClass(Boolean(fieldErrors.serialNumber), posScanClass)}
-                dir="ltr"
-                autoComplete="off"
-                spellCheck={false}
-                data-tour={index === 0 ? 'pos-serial-scan' : undefined}
-              />
-              {fieldErrors.serialNumber && (
-                <p className="mt-xs text-xs text-error">{fieldErrors.serialNumber}</p>
-              )}
-            </div>
-            <div className={posRequiredWrap(Boolean(fieldErrors.simNumber))}>
-              <label className={posLabelClass}>رقم الشريحة / الكارت</label>
-              <input
-                ref={simInputRef}
-                value={line.simNumber}
-                onChange={(e) => patchScanned('simNumber', e.target.value)}
-                onKeyDown={(e) => focusNextAfterScan(e, usernameInputRef)}
-                placeholder="امسح أو أدخل رقم الشريحة"
-                className={fieldErrorClass(Boolean(fieldErrors.simNumber), posScanClass)}
-                dir="ltr"
-                autoComplete="off"
-                spellCheck={false}
-                inputMode="numeric"
-              />
-              {fieldErrors.simNumber && (
-                <p className="mt-xs text-xs text-error">{fieldErrors.simNumber}</p>
-              )}
-            </div>
-            <div className={posRequiredWrap(Boolean(fieldErrors.username))}>
-              <label className={posLabelClass}>اسم المستخدم</label>
-              <input
-                ref={usernameInputRef}
-                value={line.username}
-                onChange={(e) => patchScanned('username', e.target.value)}
-                placeholder="username"
-                className={fieldErrorClass(Boolean(fieldErrors.username), posInputClass)}
-                dir="ltr"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              {fieldErrors.username && (
-                <p className="mt-xs text-xs text-error">{fieldErrors.username}</p>
-              )}
-            </div>
-          </div>
+          {!lockedFromSource && (
+            <>
+              <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
+                <div className={posRequiredWrap(Boolean(fieldErrors.serialNumber))}>
+                  <label className={posLabelClass}>السريال</label>
+                  <input
+                    ref={serialInputRef}
+                    value={line.serialNumber}
+                    onChange={(e) => patchScanned('serialNumber', e.target.value)}
+                    onKeyDown={(e) => focusNextAfterScan(e, simInputRef)}
+                    placeholder="امسح أو أدخل السريال"
+                    className={fieldErrorClass(Boolean(fieldErrors.serialNumber), posScanClass)}
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                    data-tour={index === 0 ? 'pos-serial-scan' : undefined}
+                  />
+                  {fieldErrors.serialNumber && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.serialNumber}</p>
+                  )}
+                </div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.simNumber))}>
+                  <label className={posLabelClass}>رقم الشريحة / الكارت</label>
+                  <input
+                    ref={simInputRef}
+                    value={line.simNumber}
+                    onChange={(e) => patchScanned('simNumber', e.target.value)}
+                    onKeyDown={(e) => focusNextAfterScan(e, usernameInputRef)}
+                    placeholder="امسح أو أدخل رقم الشريحة"
+                    className={fieldErrorClass(Boolean(fieldErrors.simNumber), posScanClass)}
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                    inputMode="numeric"
+                  />
+                  {fieldErrors.simNumber && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.simNumber}</p>
+                  )}
+                </div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.username))}>
+                  <label className={posLabelClass}>اسم المستخدم</label>
+                  <input
+                    ref={usernameInputRef}
+                    value={line.username}
+                    onChange={(e) => patchScanned('username', e.target.value)}
+                    placeholder="username"
+                    className={fieldErrorClass(Boolean(fieldErrors.username), posInputClass)}
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {fieldErrors.username && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.username}</p>
+                  )}
+                </div>
+              </div>
 
-          <div
-            className={`grid grid-cols-1 gap-sm sm:grid-cols-2 ${
-              line.vehicleType === 'car' ||
-              line.vehicleType === 'motorcycle' ||
-              line.vehicleType === 'tuk_tuk'
-                ? 'lg:grid-cols-3'
-                : ''
-            }`}
-          >
-            <div className={posRequiredWrap(Boolean(fieldErrors.vehicleType))}>
-              <label className={posLabelClass}>نوع المركبة</label>
-              <select
-                value={line.vehicleType}
-                onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
-                className={fieldErrorClass(Boolean(fieldErrors.vehicleType), posSelectClass)}
+              <div
+                className={`grid grid-cols-1 gap-sm sm:grid-cols-2 ${
+                  line.vehicleType === 'car' ||
+                  line.vehicleType === 'motorcycle' ||
+                  line.vehicleType === 'tuk_tuk'
+                    ? 'lg:grid-cols-3'
+                    : ''
+                }`}
               >
-                <option value="">— اختر —</option>
-                <option value="car">سيارة</option>
-                <option value="tuk_tuk">توك توك</option>
-                <option value="motorcycle">دراجة نارية</option>
-                <option value="other">أخرى</option>
-              </select>
-              {fieldErrors.vehicleType && (
-                <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
-              )}
-            </div>
+                <div className={posRequiredWrap(Boolean(fieldErrors.vehicleType))}>
+                  <label className={posLabelClass}>نوع المركبة</label>
+                  <select
+                    value={line.vehicleType}
+                    onChange={(e) => patch({ vehicleType: e.target.value as VehicleType | '' })}
+                    className={fieldErrorClass(Boolean(fieldErrors.vehicleType), posSelectClass)}
+                  >
+                    <option value="">— اختر —</option>
+                    <option value="car">سيارة</option>
+                    <option value="tuk_tuk">توك توك</option>
+                    <option value="motorcycle">دراجة نارية</option>
+                    <option value="other">أخرى</option>
+                  </select>
+                  {fieldErrors.vehicleType && (
+                    <p className="mt-xs text-xs text-error">{fieldErrors.vehicleType}</p>
+                  )}
+                </div>
 
-            {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
-              <>
-                <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateLetters))}>
-                  <label className={posLabelClass}>حروف اللوحة</label>
-                  <input
-                    value={line.vehiclePlateLetters}
-                    onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
-                    className={fieldErrorClass(
-                      Boolean(fieldErrors.vehiclePlateLetters),
-                      posInputClass,
-                    )}
-                  />
-                  {fieldErrors.vehiclePlateLetters && (
-                    <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
-                  )}
-                </div>
-                <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateNumbers))}>
-                  <label className={posLabelClass}>أرقام اللوحة</label>
-                  <input
-                    value={line.vehiclePlateNumbers}
-                    onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
-                    dir="ltr"
-                    className={fieldErrorClass(
-                      Boolean(fieldErrors.vehiclePlateNumbers),
-                      posInputClass,
-                    )}
-                  />
-                  {fieldErrors.vehiclePlateNumbers && (
-                    <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateNumbers}</p>
-                  )}
-                </div>
-              </>
-            )}
+                {(line.vehicleType === 'car' || line.vehicleType === 'motorcycle') && (
+                  <>
+                    <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateLetters))}>
+                      <label className={posLabelClass}>حروف اللوحة</label>
+                      <input
+                        value={line.vehiclePlateLetters}
+                        onChange={(e) => patch({ vehiclePlateLetters: e.target.value })}
+                        className={fieldErrorClass(
+                          Boolean(fieldErrors.vehiclePlateLetters),
+                          posInputClass,
+                        )}
+                      />
+                      {fieldErrors.vehiclePlateLetters && (
+                        <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateLetters}</p>
+                      )}
+                    </div>
+                    <div className={posRequiredWrap(Boolean(fieldErrors.vehiclePlateNumbers))}>
+                      <label className={posLabelClass}>أرقام اللوحة</label>
+                      <input
+                        value={line.vehiclePlateNumbers}
+                        onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
+                        dir="ltr"
+                        className={fieldErrorClass(
+                          Boolean(fieldErrors.vehiclePlateNumbers),
+                          posInputClass,
+                        )}
+                      />
+                      {fieldErrors.vehiclePlateNumbers && (
+                        <p className="mt-xs text-xs text-error">{fieldErrors.vehiclePlateNumbers}</p>
+                      )}
+                    </div>
+                  </>
+                )}
 
-            {line.vehicleType === 'tuk_tuk' && (
-              <>
-                <div className={posRequiredWrap(Boolean(fieldErrors.chassisNumber))}>
-                  <label className={posLabelClass}>الشاسيه</label>
-                  <input
-                    value={line.chassisNumber}
-                    onChange={(e) => patch({ chassisNumber: e.target.value })}
-                    dir="ltr"
-                    className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
-                  />
-                  {fieldErrors.chassisNumber && (
-                    <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
-                  )}
-                </div>
-                <div className={posRequiredWrap(Boolean(fieldErrors.engineNumber))}>
-                  <label className={posLabelClass}>الموتور</label>
-                  <input
-                    value={line.engineNumber}
-                    onChange={(e) => patch({ engineNumber: e.target.value })}
-                    dir="ltr"
-                    className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
-                  />
-                  {fieldErrors.engineNumber && (
-                    <p className="mt-xs text-xs text-error">{fieldErrors.engineNumber}</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                {line.vehicleType === 'tuk_tuk' && (
+                  <>
+                    <div className={posRequiredWrap(Boolean(fieldErrors.chassisNumber))}>
+                      <label className={posLabelClass}>الشاسيه</label>
+                      <input
+                        value={line.chassisNumber}
+                        onChange={(e) => patch({ chassisNumber: e.target.value })}
+                        dir="ltr"
+                        className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
+                      />
+                      {fieldErrors.chassisNumber && (
+                        <p className="mt-xs text-xs text-error">{fieldErrors.chassisNumber}</p>
+                      )}
+                    </div>
+                    <div className={posRequiredWrap(Boolean(fieldErrors.engineNumber))}>
+                      <label className={posLabelClass}>الموتور</label>
+                      <input
+                        value={line.engineNumber}
+                        onChange={(e) => patch({ engineNumber: e.target.value })}
+                        dir="ltr"
+                        className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
+                      />
+                      {fieldErrors.engineNumber && (
+                        <p className="mt-xs text-xs text-error">{fieldErrors.engineNumber}</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
             <div className={posRequiredWrap(Boolean(fieldErrors.technician))}>

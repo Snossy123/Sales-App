@@ -12,6 +12,15 @@ function deviceLines(invoice: SalesInvoice): SalesInvoiceLine[] {
 function printLabel(line: SalesInvoiceLine, invoice: SalesInvoice, index: number, total: number): string {
   const cashTemplate = usesCashContractTemplate(line, invoice)
   const typeLabel = cashTemplate ? 'كاش' : 'تقسيط'
+  const isRenewal = invoice.contract_kind === 'subscription_renewal'
+
+  if (isRenewal) {
+    if (total === 1) {
+      return cashTemplate ? 'طباعة عقد تجديد — كاش' : 'طباعة عقد تجديد — تقسيط'
+    }
+    return `طباعة عقد تجديد ${typeLabel} — جهاز ${index + 1}`
+  }
+
   if (total === 1) {
     return cashTemplate ? 'طباعة عقد كاش' : 'طباعة عقد تقسيط'
   }

@@ -8,13 +8,14 @@ import { FilterBar } from '../../../components/FilterBar'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatDate } from '../../../lib/accounting'
+import { userHasPermission } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 import {
   listSubscriptionRenewals,
   SUBSCRIPTION_RENEWAL_STATUS_LABELS,
 } from '../api'
 
 const DUE_STATUS_OPTIONS = [
-  { value: '', label: 'المنتهي' },
   { value: 'overdue', label: 'المنتهي' },
   { value: 'upcoming', label: 'قادم (خلال 30 يوم)' },
   { value: 'all', label: 'كل الاشتراكات السنوية' },
@@ -28,7 +29,9 @@ function formatDaysUntil(days: number | null | undefined): string {
 }
 
 export function SubscriptionRenewalQueuePage() {
-  const [dueStatusFilter, setDueStatusFilter] = useState<'overdue' | 'upcoming' | 'all' | ''>('')
+  const user = useAuthStore((s) => s.user)
+  const canRenew = userHasPermission(user, 'sales.pos')
+  const [dueStatusFilter, setDueStatusFilter] = useState<'overdue' | 'upcoming' | 'all'>('overdue')
 
   const query = useQuery({
     queryKey: ['review', 'subscription-renewals', dueStatusFilter],
@@ -117,6 +120,14 @@ export function SubscriptionRenewalQueuePage() {
               header: '',
               render: (row) => (
                 <div className="flex flex-wrap gap-2">
+                  {canRenew ? (
+                    <Link
+                      to={`/pos?contract_kind=subscription_renewal&renewal_line_id=${row.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      تجديد
+                    </Link>
+                  ) : null}
                   {row.customer_id ? (
                     <Link
                       to={`/customers/${row.customer_id}`}

@@ -18,6 +18,7 @@ const emptyForm = {
   cash_permanent_price: '',
   installment_annual_price: '',
   installment_permanent_price: '',
+  annual_renewal_price: '',
   external_cash_annual_price: '',
   external_cash_permanent_price: '',
   external_installment_annual_price: '',
@@ -40,6 +41,7 @@ function toForm(product: GpsProduct): GpsProductForm {
     cash_permanent_price: String(cashPermanent),
     installment_annual_price: String(installmentAnnual),
     installment_permanent_price: String(installmentPermanent),
+    annual_renewal_price: String(product.annual_renewal_price ?? 0),
     external_cash_annual_price: String(
       product.external_cash_annual_price ?? cashAnnual,
     ),
@@ -69,6 +71,7 @@ function toPayload(form: GpsProductForm) {
     cash_permanent_price: Number(form.cash_permanent_price),
     installment_annual_price: installmentAnnual,
     installment_permanent_price: Number(form.installment_permanent_price),
+    annual_renewal_price: Number(form.annual_renewal_price || 0),
     cash_price: cashAnnual,
     installment_price: installmentAnnual,
     external_cash_annual_price: Number(form.external_cash_annual_price),
@@ -259,6 +262,22 @@ export function InventoryProductSettingsPage() {
                 label="تقسيط — مدى الحياة (ج.م)"
                 value={form.installment_permanent_price}
                 onChange={(value) => setForm({ ...form, installment_permanent_price: value })}
+              />
+            </div>
+          </section>
+
+          <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
+            <h3 className="text-sm font-bold text-on-surface">تجديد الاشتراك</h3>
+            <p className="text-xs text-on-surface-variant">
+              سعر التجديد السنوي مبلغ ثابت من الإعدادات. تجديد مدى الحياة = 25% من كاش الاشتراك السنوي.
+            </p>
+            <div className="grid gap-md sm:grid-cols-2">
+              <PriceField
+                id="gps-annual-renewal"
+                label="سعر التجديد السنوي (ج.م)"
+                value={form.annual_renewal_price}
+                onChange={(value) => setForm({ ...form, annual_renewal_price: value })}
+                required={false}
               />
             </div>
           </section>

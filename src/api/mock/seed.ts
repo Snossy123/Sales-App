@@ -356,6 +356,7 @@ export function createSeedState(): DemoState {
     cash_permanent_price: 4200,
     installment_annual_price: 3800,
     installment_permanent_price: 4500,
+    annual_renewal_price: 875,
     external_cash_annual_price: 900,
     external_cash_permanent_price: 1500,
     external_installment_annual_price: 1000,

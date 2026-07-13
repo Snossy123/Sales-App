@@ -269,10 +269,17 @@ export interface SubscriptionRenewalQueueItem {
   serial_number?: string | null
   sim_number?: string | null
   username?: string | null
+  vehicle_type?: string | null
+  vehicle_plate_letters?: string | null
+  vehicle_plate_numbers?: string | null
+  chassis_number?: string | null
+  engine_number?: string | null
   vehicle_info?: string | null
   branch_name?: string | null
   confirmed_at?: string | null
 }
+
+export type SubscriptionRenewalCandidate = SubscriptionRenewalQueueItem
 
 export interface AuthUser {
   id: number
@@ -372,6 +379,7 @@ export interface GpsProduct {
   cash_permanent_price?: number
   installment_annual_price?: number
   installment_permanent_price?: number
+  annual_renewal_price?: number
   external_cash_annual_price?: number
   external_cash_permanent_price?: number
   external_installment_annual_price?: number

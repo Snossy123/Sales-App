@@ -21,7 +21,10 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
   const installmentPermanent = num(product?.installment_permanent_price, installmentAnnual)
 
   if (ctx.contractKind === 'subscription_renewal') {
-    return subscriptionRenewalUnitPrice(cashAnnual)
+    if (ctx.renewalType === 'permanent') {
+      return subscriptionRenewalUnitPrice(cashAnnual)
+    }
+    return num(product?.annual_renewal_price)
   }
 
   if (ctx.contractKind === 'external_device') {
