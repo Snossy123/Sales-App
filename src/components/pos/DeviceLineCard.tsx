@@ -349,7 +349,7 @@ export function DeviceLineCard({
       discountAmount: 0,
       discountPercent: 0,
       cashSchedule: 'immediate',
-      downPayment: 0,
+      downPayment: price,
     })
   }
 
@@ -366,6 +366,10 @@ export function DeviceLineCard({
     if (line.paymentTerm === 'installment') {
       partial.downPayment = computeMinDownPayment(price, minDownPercent)
       partial.installmentAmount = suggestInstallmentAmount(price, 6, minDownPercent)
+    } else if (line.cashSchedule === 'immediate') {
+      // Discounts reset only on term switch; net follows unit price for immediate cash.
+      const nextNet = Math.max(0, price - line.discountAmount)
+      partial.downPayment = nextNet
     }
     patch(partial)
   }
@@ -375,11 +379,15 @@ export function DeviceLineCard({
     percent: number
     mode: DiscountMode
   }) => {
-    patch({
+    const partial: Partial<DeviceLineDraft> = {
       discountAmount: next.amount,
       discountPercent: next.percent,
       discountMode: next.mode,
-    })
+    }
+    if (line.paymentTerm === 'cash' && line.cashSchedule === 'immediate') {
+      partial.downPayment = Math.max(0, line.unitPrice - next.amount)
+    }
+    patch(partial)
   }
 
   return (
@@ -737,7 +745,12 @@ export function DeviceLineCard({
                   contractDate={contractDate}
                   lineTotal={net}
                   downPayment={line.downPayment}
-                  onChange={(cashSchedule) => patch({ cashSchedule })}
+                  onChange={(cashSchedule) =>
+                    patch({
+                      cashSchedule,
+                      downPayment: cashSchedule === 'immediate' ? net : 0,
+                    })
+                  }
                 />
                 <div>
                   <label className={posLabelClass}>مقدم (اختياري)</label>
@@ -746,6 +759,7 @@ export function DeviceLineCard({
                     max={net}
                     step="0.01"
                     value={line.downPayment || ''}
+                    disabled={line.cashSchedule === 'immediate'}
                     onChange={(e) =>
                       patch({ downPayment: parseLocalizedNumber(e.target.value) })
                     }

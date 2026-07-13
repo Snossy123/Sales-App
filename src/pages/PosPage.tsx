@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState, useEffect, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
@@ -98,6 +98,7 @@ export function PosPage() {
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const hasAutoSelectedPromotion = useRef(false)
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -109,11 +110,16 @@ export function PosPage() {
 
   useEffect(() => {
     const promos = activePromotionsQuery.data ?? []
-    if (promos.length > 0 && deviceLines.length > 0 && !selectedPromotionId) {
-      setSelectedPromotionId(promos[0].id)
-    }
     if (deviceLines.length === 0) {
       setSelectedPromotionId('')
+      hasAutoSelectedPromotion.current = false
+      return
+    }
+    // Auto-pick the first active offer once when devices are added; do not
+    // re-apply after the user clears or switches the selection.
+    if (!hasAutoSelectedPromotion.current && promos.length > 0 && !selectedPromotionId) {
+      setSelectedPromotionId(promos[0].id)
+      hasAutoSelectedPromotion.current = true
     }
   }, [activePromotionsQuery.data, deviceLines.length, selectedPromotionId])
 
@@ -891,7 +897,10 @@ export function PosPage() {
             totalEstimate={totalEstimate}
             promotions={activePromotionsQuery.data ?? []}
             selectedPromotionId={selectedPromotionId}
-            onPromotionChange={setSelectedPromotionId}
+            onPromotionChange={(id) => {
+              hasAutoSelectedPromotion.current = true
+              setSelectedPromotionId(id)
+            }}
             showPromotions={deviceLines.length > 0}
             devicesOnly
             validationSummary={validationSummary}

@@ -208,8 +208,7 @@
   align-items: stretch;
   margin-bottom: 1.5mm;
   /* Absorb the vertical slack freed by the compacted alert boxes so the data
-     panel + installment table rows expand to fill the page. Cash is pinned to
-     natural height below so its single fields panel doesn't over-stretch. */
+     panel / cash grid rows expand to fill the page. */
   flex: 1;
 }
 .ic-main::before {
@@ -229,7 +228,140 @@
 .ic-main--cash {
   grid-template-columns: 1fr;
   flex: 0 0 auto;
+  height: 100mm;
+  max-height: 100mm;
+  min-height: 0;
+  align-content: stretch;
 }
+.ic-cash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  direction: rtl;
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  border: 1px solid #b0b0b0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.55);
+}
+.ic-cash-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.ic-cash-col + .ic-cash-col {
+  border-inline-start: 1px solid #b0b0b0;
+}
+.ic-cash-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  padding: 1mm 2.2mm;
+  background: var(--ic-gray1);
+  min-height: 5.2mm;
+}
+.ic-cash-cell:nth-child(even) {
+  background: var(--ic-gray2);
+}
+.ic-cash-cell .ic-field-label {
+  font-size: 11pt;
+  -webkit-text-stroke: 0.4px currentColor;
+}
+.ic-cash-cell .ic-field-value {
+  font-size: 13pt;
+  -webkit-text-stroke: 0.3px currentColor;
+}
+.ic-cash-cell .ic-field-diamond {
+  font-size: 11pt;
+}
+.ic-cash-cell--split {
+  flex-wrap: nowrap;
+}
+.ic-cash-cell--split .ic-field-value {
+  flex: 0.9;
+}
+.ic-cash-below {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  min-height: 0;
+  gap: 2mm;
+  margin-top: 1.5mm;
+}
+.ic-cash-below .ic-cash-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2mm;
+  margin-top: 0;
+  padding: 0 2mm;
+}
+.ic-cash-below .ic-cash-notes .ic-note-pill {
+  align-self: center;
+  font-size: 11pt;
+  padding: 1.4mm 5mm;
+}
+.ic-cash-below .ic-cash-notes .ic-note-text {
+  width: 100%;
+  text-align: center;
+  border: 1.5px solid var(--ic-red);
+  border-radius: 999px;
+  padding: 2mm 4mm;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
+  font-size: 11pt;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.85);
+}
+.ic-cash-below .ic-terms {
+  font-size: 12pt;
+  line-height: 1.28;
+  margin: 0.5mm 0;
+  padding: 0 0.5mm;
+  -webkit-text-stroke: 0.25px currentColor;
+}
+.ic-cash-below .ic-warning {
+  font-size: 10.5pt;
+  padding: 1.2mm 4mm;
+  margin: 0 1mm;
+  min-height: 7mm;
+}
+.ic-cash-below .ic-warning-row {
+  gap: 1.8mm;
+  margin: 0 1mm;
+}
+.ic-cash-below .ic-warning-row .ic-warning {
+  font-size: 9.5pt;
+  padding: 1.4mm 2.5mm;
+  min-height: 6.5mm;
+}
+.ic-cash-below .ic-alert-grid {
+  gap: 2mm;
+  margin: 0.5mm 0;
+  flex: 1 1 auto;
+  min-height: 28mm;
+}
+.ic-cash-below .ic-alert-grid .ic-alert-box {
+  font-size: 10pt;
+  padding: 1.5mm 2mm;
+  line-height: 1.2;
+}
+.ic-cash-below .ic-alert-grid .ic-alert-warn {
+  font-size: 10.5pt;
+  margin: 0.4mm 0;
+}
+.ic-cash-below .ic-alert-grid .ic-alert-badge {
+  font-size: 13pt;
+  padding: 2mm 2.5mm;
+}
+.ic-cash-below .ic-signatures {
+  margin-top: 1mm;
+  font-size: 11pt;
+}
+
 /* fields | table — widen table as installment groups grow */
 .ic-main--table-cols-1 {
   grid-template-columns: 1.1fr 0.9fr;
@@ -977,6 +1109,17 @@
   direction: ltr;
   margin: 0;
   padding: 0;
+  -webkit-text-stroke: 0;
+}
+.ic-print-date {
+  font-size: 6.5pt;
+  color: #555;
+  text-align: end;
+  direction: ltr;
+  margin: 0 3mm;
+  margin-inline-start: auto;
+  padding: 0;
+  white-space: nowrap;
   -webkit-text-stroke: 0;
 }
 .ic-credit {

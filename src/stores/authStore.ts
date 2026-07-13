@@ -36,15 +36,25 @@ export const useAuthStore = create<AuthState>()(
           user,
           departmentId: user.administration_id ?? user.department_id ?? null,
           branchId: user.active_branch_id ?? user.preferences?.active_branch_id ?? user.branch_id ?? user.branch?.id ?? null,
+          warehouseId: null,
         })
       },
 
       updateUser: (user) => {
-        set((state) => ({
-          user,
-          departmentId: user.administration_id ?? user.department_id ?? state.departmentId,
-          branchId: user.active_branch_id ?? user.preferences?.active_branch_id ?? user.branch_id ?? user.branch?.id ?? state.branchId,
-        }))
+        set((state) => {
+          const nextBranchId =
+            user.active_branch_id ??
+            user.preferences?.active_branch_id ??
+            user.branch_id ??
+            user.branch?.id ??
+            state.branchId
+          return {
+            user,
+            departmentId: user.administration_id ?? user.department_id ?? state.departmentId,
+            branchId: nextBranchId,
+            warehouseId: nextBranchId !== state.branchId ? null : state.warehouseId,
+          }
+        })
       },
 
       setDepartmentId: (departmentId) =>

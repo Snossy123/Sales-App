@@ -131,8 +131,14 @@ export function useContextData() {
     setWarehousesLoading(warehousesQuery.isLoading)
     if (warehousesQuery.data) {
       setWarehouses(warehousesQuery.data)
-      if (!warehouseId && warehousesQuery.data[0]) {
-        selectWarehouse(warehousesQuery.data[0].id)
+      const stillValid =
+        warehouseId != null && warehousesQuery.data.some((warehouse) => warehouse.id === warehouseId)
+      if (!stillValid) {
+        if (warehousesQuery.data[0]) {
+          selectWarehouse(warehousesQuery.data[0].id)
+        } else {
+          useAuthStore.getState().setWarehouseId(null)
+        }
       }
     }
   }, [

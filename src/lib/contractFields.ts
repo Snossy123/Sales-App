@@ -6,6 +6,7 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
 } from '../api/types'
+import { isDeferredCashSchedule } from './cashSchedule'
 import { distributorLabel, isServiceInvoiceLine } from './sales'
 
 export const vehicleTypeLabels: Record<string, string> = {
@@ -112,6 +113,15 @@ export function resolveLinePaymentTerm(
   return term === 'cash' ? 'cash' : 'installment'
 }
 
+/** Cash contract layout only for immediate cash; deferred cash uses installment layout. */
+export function usesCashContractTemplate(
+  line: SalesInvoiceLine | undefined,
+  invoice: SalesInvoice,
+): boolean {
+  if (resolveLinePaymentTerm(line, invoice) !== 'cash') return false
+  return !isDeferredCashSchedule(line?.cash_schedule)
+}
+
 export function resolveSerial(line?: SalesInvoiceLine, customer?: Customer | null): string {
   return (
     line?.serial_number ??
@@ -149,9 +159,8 @@ export function resolveVehicle(line?: SalesInvoiceLine, invoice?: SalesInvoice):
   } else if (line?.vehicle_type === 'tuk_tuk') {
     const chassis = line.chassis_number?.trim() ?? ''
     const engine = line.engine_number?.trim() ?? ''
-    if (chassis && engine) detail = `شاسيه: ${chassis} — موتور: ${engine}`
-    else if (chassis) detail = `شاسيه: ${chassis}`
-    else if (engine) detail = `موتور: ${engine}`
+    if (chassis && engine) detail = `${chassis} — ${engine}`
+    else detail = chassis || engine
   } else if (line) {
     const plate = resolvePlateLabel(line)
     detail = plate !== '—' ? plate : ''

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
+import { usesCashContractTemplate } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
 import { contractPrintPath, isServiceInvoiceLine, ownershipTransferContractPrintPath, paymentTermLabel } from '../../lib/sales'
 import { Icon } from '../Icon'
@@ -9,10 +10,10 @@ function deviceLines(invoice: SalesInvoice): SalesInvoiceLine[] {
 }
 
 function printLabel(line: SalesInvoiceLine, invoice: SalesInvoice, index: number, total: number): string {
-  const term = line.payment_term ?? invoice.payment_term
-  const typeLabel = term === 'cash' ? 'كاش' : 'تقسيط'
+  const cashTemplate = usesCashContractTemplate(line, invoice)
+  const typeLabel = cashTemplate ? 'كاش' : 'تقسيط'
   if (total === 1) {
-    return term === 'cash' ? 'طباعة عقد كاش' : 'طباعة عقد تقسيط'
+    return cashTemplate ? 'طباعة عقد كاش' : 'طباعة عقد تقسيط'
   }
   return `طباعة عقد ${typeLabel} — جهاز ${index + 1}`
 }
