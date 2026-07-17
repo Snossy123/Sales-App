@@ -99,6 +99,7 @@ export function PosPage() {
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
   const [applyInstallationFee, setApplyInstallationFee] = useState(true)
   const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
+  const [applyTransportationFee, setApplyTransportationFee] = useState(false)
   const [transportationFee, setTransportationFee] = useState(0)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
   const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
@@ -608,7 +609,7 @@ export function PosPage() {
   const netInstallationFeePerUnit = Math.max(0, grossInstallationFeePerUnit - feeDiscountAmount)
   const netInstallationFeeTotal = netInstallationFeePerUnit * deviceLines.length
   const transportationFeeAmount =
-    contractKind === 'new_contract' && deviceLines.length > 0
+    contractKind === 'new_contract' && deviceLines.length > 0 && applyTransportationFee
       ? Math.max(0, Number(transportationFee) || 0)
       : 0
 
@@ -1048,6 +1049,8 @@ export function PosPage() {
                     setFeeDiscountPercent(percent)
                   }}
                   showTransportationFee={contractKind === 'new_contract'}
+                  applyTransportationFee={applyTransportationFee}
+                  onApplyTransportationFeeChange={setApplyTransportationFee}
                   transportationFee={transportationFee}
                   onTransportationFeeChange={setTransportationFee}
                 />

@@ -27,6 +27,8 @@ export interface PosDevicesToolbarProps {
     mode: DiscountMode
   }) => void
   showTransportationFee?: boolean
+  applyTransportationFee?: boolean
+  onApplyTransportationFeeChange?: (apply: boolean) => void
   transportationFee?: number
   onTransportationFeeChange?: (fee: number) => void
 }
@@ -45,16 +47,21 @@ export function PosDevicesToolbar({
   feeDiscountPercent,
   onFeeDiscountChange,
   showTransportationFee = false,
+  applyTransportationFee = false,
+  onApplyTransportationFeeChange,
   transportationFee = 0,
   onTransportationFeeChange,
 }: PosDevicesToolbarProps) {
   const decQty = () => onQuantityChange(Math.max(0, quantity - 1))
   const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
   const feeFieldsDisabled = !enableInstallationFee || !applyInstallationFee
+  const transportationFieldsDisabled = !applyTransportationFee
+  const showTransport =
+    showTransportationFee && onTransportationFeeChange && onApplyTransportationFeeChange
 
   return (
     <div className="space-y-sm" data-tour="pos-product">
-      <div className="grid grid-cols-1 items-end gap-md sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 items-end gap-md sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="shrink-0">
           <label className={posLabelClass}>عدد الأجهزة</label>
           <div className={posStepperClass}>
@@ -85,7 +92,7 @@ export function PosDevicesToolbar({
         {enableInstallationFee && (
           <>
             {allowDisableFeeInSale && (
-              <div className={`flex items-center sm:col-span-2 lg:col-span-1 ${posControlHeightClass}`}>
+              <div className={`flex items-center ${posControlHeightClass}`}>
                 <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
                   <input
                     type="checkbox"
@@ -109,7 +116,7 @@ export function PosDevicesToolbar({
               />
             </div>
 
-            <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+            <div className="min-w-0">
               <OptionalDiscountFields
                 label="خصم عام"
                 baseAmount={installationFeePerUnit}
@@ -122,16 +129,31 @@ export function PosDevicesToolbar({
           </>
         )}
 
-        {showTransportationFee && onTransportationFeeChange ? (
-          <div className="min-w-[7rem] shrink-0">
-            <label className={posLabelClass}>رسوم التنقلات</label>
-            <PosMoneyInput
-              min={0}
-              step="0.01"
-              value={transportationFee}
-              onChange={(e) => onTransportationFeeChange(parseLocalizedNumber(e.target.value))}
-            />
-          </div>
+        {showTransport ? (
+          <>
+            <div className={`flex items-center ${posControlHeightClass}`}>
+              <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={applyTransportationFee}
+                  onChange={(e) => onApplyTransportationFeeChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-outline-variant accent-primary"
+                />
+                تطبيق رسوم التنقلات
+              </label>
+            </div>
+
+            <div className="min-w-[7rem] shrink-0">
+              <label className={posLabelClass}>رسوم التنقلات</label>
+              <PosMoneyInput
+                min={0}
+                step="0.01"
+                value={transportationFee}
+                disabled={transportationFieldsDisabled}
+                onChange={(e) => onTransportationFeeChange(parseLocalizedNumber(e.target.value))}
+              />
+            </div>
+          </>
         ) : null}
       </div>
     </div>
