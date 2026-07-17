@@ -71,7 +71,14 @@ export function ReviewCollectionDetailPage() {
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div>
                   <div className="text-xs text-on-surface-variant">إجمالي العقد</div>
-                  <div className="font-medium">{formatMoney(Number(invoice.total))}</div>
+                  <div className="font-medium">
+                    {formatMoney(
+                      Math.max(
+                        0,
+                        Number(invoice.total ?? 0) - Number(invoice.transportation_fee ?? 0),
+                      ),
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs text-on-surface-variant">المحصّل</div>

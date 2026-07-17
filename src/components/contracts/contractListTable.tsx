@@ -75,6 +75,22 @@ export function buildContractListColumns(
       },
     },
     {
+      key: 'transportation_fee',
+      header: 'تنقلات',
+      render: (row) => {
+        const fee = Number(row.transportation_fee ?? 0)
+        if (fee <= 0) return '—'
+        return (
+          <span className="inline-flex items-center gap-1 tabular-nums whitespace-nowrap">
+            <span className="rounded bg-surface-container-high px-1.5 py-0.5 text-[11px] font-bold text-on-surface">
+              تنقلات
+            </span>
+            {fmtContractMoney(fee)}
+          </span>
+        )
+      },
+    },
+    {
       key: 'device_count',
       header: 'عدد الأجهزة',
       render: (row) => invoiceContractSummary(row).lineCount,
@@ -93,7 +109,7 @@ export function buildContractListColumns(
       header: 'إجمالي التعاقد',
       render: (row) => (
         <span className="tabular-nums font-medium whitespace-nowrap">
-          {fmtContractMoney(row.total)}
+          {fmtContractMoney(invoiceContractSummary(row).contractAmount)}
         </span>
       ),
     },

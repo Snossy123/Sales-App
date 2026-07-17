@@ -26,6 +26,9 @@ export interface PosDevicesToolbarProps {
     percent: number
     mode: DiscountMode
   }) => void
+  showTransportationFee?: boolean
+  transportationFee?: number
+  onTransportationFeeChange?: (fee: number) => void
 }
 
 export function PosDevicesToolbar({
@@ -41,6 +44,9 @@ export function PosDevicesToolbar({
   feeDiscountAmount,
   feeDiscountPercent,
   onFeeDiscountChange,
+  showTransportationFee = false,
+  transportationFee = 0,
+  onTransportationFeeChange,
 }: PosDevicesToolbarProps) {
   const decQty = () => onQuantityChange(Math.max(0, quantity - 1))
   const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
@@ -115,6 +121,18 @@ export function PosDevicesToolbar({
             </div>
           </>
         )}
+
+        {showTransportationFee && onTransportationFeeChange ? (
+          <div className="min-w-[7rem] shrink-0">
+            <label className={posLabelClass}>رسوم التنقلات</label>
+            <PosMoneyInput
+              min={0}
+              step="0.01"
+              value={transportationFee}
+              onChange={(e) => onTransportationFeeChange(parseLocalizedNumber(e.target.value))}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   )

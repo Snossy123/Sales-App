@@ -57,6 +57,15 @@ export function ContractReviewDecisionPanel({
             </div>
           ) : null}
 
+          {summary.transportationFee > 0 ? (
+            <div className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">التنقلات (خارج التعاقد)</span>
+              <span className="shrink-0 font-medium text-on-surface">
+                {fmtContractMoney(summary.transportationFee)}
+              </span>
+            </div>
+          ) : null}
+
           {summary.serviceLineCount > 0 ? (
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">
@@ -92,7 +101,7 @@ export function ContractReviewDecisionPanel({
             <div className="flex items-center justify-between gap-sm tabular-nums">
               <span className="font-bold text-on-surface">صافي التعاقد</span>
               <span className="text-lg font-extrabold text-on-surface">
-                {fmtContractMoney(summary.total)}
+                {fmtContractMoney(summary.contractAmount)}
               </span>
             </div>
           </div>

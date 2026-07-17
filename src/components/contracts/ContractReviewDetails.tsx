@@ -400,6 +400,17 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
         ]}
       />
     ) : null,
+    summary.transportationFee > 0 ? (
+      <FinancialSummaryCard
+        key="transportation"
+        title="التنقلات"
+        metrics={[
+          { label: 'رسوم', value: fmtContractMoney(summary.transportationFee) },
+          { label: 'النوع', value: 'خارج التعاقد' },
+          { label: 'صافي', value: fmtContractMoney(summary.transportationFee) },
+        ]}
+      />
+    ) : null,
     summary.lineCount > 0 ? (
       <FinancialSummaryCard
         key="devices"
@@ -478,9 +489,9 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
               </div>
             ) : null}
             <div className={summary.grandDiscount > 0 ? '' : 'col-span-2'}>
-              <p className="text-[11px] text-on-surface-variant">الصافي</p>
+              <p className="text-[11px] text-on-surface-variant">إجمالي التعاقد</p>
               <p className="text-lg font-extrabold tabular-nums text-primary">
-                {fmtContractMoney(summary.total)}
+                {fmtContractMoney(summary.contractAmount)}
               </p>
             </div>
           </div>

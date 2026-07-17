@@ -707,6 +707,7 @@ export interface SalesInvoice {
   subscription_renewal_date?: string | null
   renewal_type?: 'annual' | 'permanent' | null
   installation_fee?: string | number | null
+  transportation_fee?: string | number | null
   is_order_request?: boolean
   created_by?: number
   reviewed_by?: number
@@ -954,6 +955,7 @@ export interface CheckoutPayload {
   payment_term?: 'cash' | 'credit' | 'installment' | 'mixed'
   discount_amount?: number
   installation_fee?: number
+  transportation_fee?: number
   invoice_date?: string
   notes?: string
   distributor_balance_amount?: number

@@ -127,9 +127,13 @@ export function formatContractMoney(value: number): string {
 }
 
 export function buildContractSummaryLine(invoice: SalesInvoice): string {
+  const contractAmount = Math.max(
+    0,
+    Number(invoice.total ?? 0) - Number(invoice.transportation_fee ?? 0),
+  )
   const parts = [
     formatInvoiceDate(invoice.invoice_date),
-    formatContractMoney(Number(invoice.total)),
+    formatContractMoney(contractAmount),
     formatPaymentTerm(invoice.payment_term),
   ]
 

@@ -99,6 +99,7 @@ export function PosPage() {
   const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
   const [applyInstallationFee, setApplyInstallationFee] = useState(true)
   const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
+  const [transportationFee, setTransportationFee] = useState(0)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
   const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -606,18 +607,22 @@ export function PosPage() {
       : 0
   const netInstallationFeePerUnit = Math.max(0, grossInstallationFeePerUnit - feeDiscountAmount)
   const netInstallationFeeTotal = netInstallationFeePerUnit * deviceLines.length
+  const transportationFeeAmount =
+    contractKind === 'new_contract' && deviceLines.length > 0
+      ? Math.max(0, Number(transportationFee) || 0)
+      : 0
 
   const devicesSubtotal = deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)
   const totalEstimate = devicesSubtotal + netInstallationFeeTotal
 
   const paidAtCheckout = useMemo(() => {
-    let paid = netInstallationFeeTotal
+    let paid = netInstallationFeeTotal + transportationFeeAmount
     for (const line of deviceLines) {
       const net = lineNetTotal(line)
       paid += linePaidNow(line.paymentTerm, line.cashSchedule, net, line.downPayment)
     }
     return paid
-  }, [deviceLines, netInstallationFeeTotal])
+  }, [deviceLines, netInstallationFeeTotal, transportationFeeAmount])
 
   const customerDistributorQuery = useQuery({
     queryKey: ['customer', selectedCustomer?.id, 'distributor-profile-pos'],
@@ -635,7 +640,10 @@ export function PosPage() {
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
 
   const allLinesValid = deviceLines.every(
-    (line) => validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid,
+    (line) =>
+      validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
+        requireTechnician: contractKind !== 'subscription_renewal',
+      }).valid,
   )
 
   useEffect(() => {
@@ -672,18 +680,20 @@ export function PosPage() {
     e.preventDefault()
     setSubmitAttempted(true)
     const customerId = selectedCustomer?.id
+    const isRenewal = contractKind === 'subscription_renewal'
     const sourceReady =
-      transactionSource === 'branch'
+      isRenewal ||
+      (transactionSource === 'branch'
         ? Boolean(selectedBranch)
         : transactionSource === 'distributor'
           ? Boolean(selectedDistributor)
-          : Boolean(selectedSalesRep)
+          : Boolean(selectedSalesRep))
     if (!customerId || !sourceReady || deviceLines.length === 0) return
     if (!manualDeviceEntry && !warehouseId) return
     if (!manualDeviceEntry && !allowNegativeInventory && quantity > available) return
     if (!allLinesValid) return
     if (contractKind === 'ownership_transfer' && !sourceTransferInvoice) return
-    if (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) return
+    if (isRenewal && !sourceRenewalCandidate) return
 
     const units = unitsQuery.data ?? []
     const lines: CheckoutPayload['lines'] = deviceLines.map((line, index) => {
@@ -743,6 +753,7 @@ export function PosPage() {
       branch_id: resolvedBranchId || undefined,
       contract_kind: contractKind,
       installation_fee: grossInstallationFeePerUnit,
+      transportation_fee: transportationFeeAmount,
       discount_amount: feeDiscountAmount,
       invoice_date: contractDate,
       lines,
@@ -786,11 +797,12 @@ export function PosPage() {
   const hasDeviceSale = deviceLines.length > 0
 
   const sourceReady =
-    transactionSource === 'branch'
+    contractKind === 'subscription_renewal' ||
+    (transactionSource === 'branch'
       ? Boolean(selectedBranch)
       : transactionSource === 'distributor'
         ? Boolean(selectedDistributor)
-        : Boolean(selectedSalesRep)
+        : Boolean(selectedSalesRep))
 
   const validationSummary = useMemo(() => {
     if (!submitAttempted) return []
@@ -803,7 +815,7 @@ export function PosPage() {
     if (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) {
       messages.push('يجب اختيار التعاقد المراد تجديد اشتراكه')
     }
-    if (!sourceReady) {
+    if (contractKind !== 'subscription_renewal' && !sourceReady) {
       if (transactionSource === 'branch') messages.push('يجب اختيار الفرع')
       else if (transactionSource === 'distributor') messages.push('يجب اختيار الموزع')
       else messages.push('يجب اختيار موظف المبيعات')
@@ -815,7 +827,9 @@ export function PosPage() {
       messages.push('يجب إضافة جهاز واحد على الأقل')
     }
     deviceLines.forEach((line, index) => {
-      const result = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
+      const result = validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
+        requireTechnician: contractKind !== 'subscription_renewal',
+      })
       if (!result.valid) {
         messages.push(`جهاز ${index + 1}: ${result.errors[0]}`)
       }
@@ -837,7 +851,12 @@ export function PosPage() {
 
   const hasDeviceFieldErrors =
     submitAttempted &&
-    deviceLines.some((line) => !validateDeviceLine(line, minDownPercent, maxInstallmentCount).valid)
+    deviceLines.some(
+      (line) =>
+        !validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
+          requireTechnician: contractKind !== 'subscription_renewal',
+        }).valid,
+    )
   const hasWarehouseError =
     submitAttempted && !manualDeviceEntry && hasDeviceSale && !warehouseId
   const hasSourceTransferError =
@@ -959,49 +978,40 @@ export function PosPage() {
               />
             )}
 
-            <PosContractHeader
-              transactionSource={transactionSource}
-              onTransactionSourceChange={handleTransactionSourceChange}
-              selectedBranch={selectedBranch}
-              onBranchChange={setSelectedBranch}
-              onBranchSearchChange={setBranchSearch}
-              filteredBranches={filteredBranches}
-              branchesLoading={branchesQuery.isLoading}
-              selectedDistributor={selectedDistributor}
-              onDistributorChange={setSelectedDistributor}
-              onDistributorSearchChange={setDistributorSearch}
-              distributors={distributorsQuery.data ?? []}
-              distributorsLoading={distributorsQuery.isLoading}
-              selectedSalesRep={selectedSalesRep}
-              onSalesRepChange={setSelectedSalesRep}
-              onSalesRepSearchChange={setSalesRepSearch}
-              salesReps={salesRepsQuery.data ?? []}
-              salesRepsLoading={salesRepsQuery.isLoading}
-              selectedCustomer={selectedCustomer}
-              onCustomerChange={handleCustomerChange}
-              onCustomerSearchChange={setCustomerSearch}
-              customers={customersQuery.data ?? []}
-              customersLoading={customersQuery.isLoading}
-              contractDate={contractDate}
-              onContractDateChange={setContractDate}
-              customerLabel={contractKind === 'ownership_transfer' ? 'المالك الجديد' : 'العميل'}
-              sectionNumber={
-                contractKind === 'ownership_transfer' || contractKind === 'subscription_renewal'
-                  ? 2
-                  : 1
-              }
-              submitAttempted={submitAttempted}
-              customerLocked={
-                contractKind === 'subscription_renewal' && Boolean(sourceRenewalCandidate)
-              }
-            />
+            {contractKind !== 'subscription_renewal' && (
+              <PosContractHeader
+                transactionSource={transactionSource}
+                onTransactionSourceChange={handleTransactionSourceChange}
+                selectedBranch={selectedBranch}
+                onBranchChange={setSelectedBranch}
+                onBranchSearchChange={setBranchSearch}
+                filteredBranches={filteredBranches}
+                branchesLoading={branchesQuery.isLoading}
+                selectedDistributor={selectedDistributor}
+                onDistributorChange={setSelectedDistributor}
+                onDistributorSearchChange={setDistributorSearch}
+                distributors={distributorsQuery.data ?? []}
+                distributorsLoading={distributorsQuery.isLoading}
+                selectedSalesRep={selectedSalesRep}
+                onSalesRepChange={setSelectedSalesRep}
+                onSalesRepSearchChange={setSalesRepSearch}
+                salesReps={salesRepsQuery.data ?? []}
+                salesRepsLoading={salesRepsQuery.isLoading}
+                selectedCustomer={selectedCustomer}
+                onCustomerChange={handleCustomerChange}
+                onCustomerSearchChange={setCustomerSearch}
+                customers={customersQuery.data ?? []}
+                customersLoading={customersQuery.isLoading}
+                contractDate={contractDate}
+                onContractDateChange={setContractDate}
+                customerLabel={contractKind === 'ownership_transfer' ? 'المالك الجديد' : 'العميل'}
+                sectionNumber={contractKind === 'ownership_transfer' ? 2 : 1}
+                submitAttempted={submitAttempted}
+              />
+            )}
 
             <PosSectionCard
-              number={
-                contractKind === 'ownership_transfer' || contractKind === 'subscription_renewal'
-                  ? 3
-                  : 2
-              }
+              number={contractKind === 'ownership_transfer' ? 3 : 2}
               title="الأجهزة"
               subtitle={
                 contractKind === 'ownership_transfer'
@@ -1037,6 +1047,9 @@ export function PosPage() {
                     setFeeDiscountAmount(amount)
                     setFeeDiscountPercent(percent)
                   }}
+                  showTransportationFee={contractKind === 'new_contract'}
+                  transportationFee={transportationFee}
+                  onTransportationFeeChange={setTransportationFee}
                 />
               )}
 
@@ -1081,6 +1094,7 @@ export function PosPage() {
             devicesSubtotal={devicesSubtotal}
             servicesSubtotal={0}
             netInstallationFeeTotal={netInstallationFeeTotal}
+            transportationFee={transportationFeeAmount}
             deviceCount={deviceLines.length}
             paidAtCheckout={paidAtCheckout}
             totalEstimate={totalEstimate}

@@ -8,6 +8,7 @@ interface PosContractSummaryProps {
   devicesSubtotal: number
   servicesSubtotal: number
   netInstallationFeeTotal: number
+  transportationFee?: number
   deviceCount: number
   paidAtCheckout: number
   totalEstimate: number
@@ -34,6 +35,7 @@ export function PosContractSummary({
   devicesSubtotal,
   servicesSubtotal,
   netInstallationFeeTotal,
+  transportationFee = 0,
   deviceCount,
   paidAtCheckout,
   totalEstimate,
@@ -163,6 +165,15 @@ export function PosContractSummary({
               {totalEstimate.toLocaleString('ar-EG')} ج.م
             </span>
           </div>
+
+          {transportationFee > 0 ? (
+            <div className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">رسوم التنقلات (خارج التعاقد)</span>
+              <span className="shrink-0 font-medium text-on-surface">
+                {transportationFee.toLocaleString('ar-EG')} ج.م
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div

@@ -162,8 +162,10 @@ export function validateDeviceLine(
   line: DeviceLineDraft,
   minDownPercent: number,
   maxInstallmentCount: number,
+  options?: { requireTechnician?: boolean },
 ): { valid: boolean; fieldErrors: DeviceLineFieldErrors; errors: string[] } {
   const fieldErrors: DeviceLineFieldErrors = {}
+  const requireTechnician = options?.requireTechnician !== false
 
   if (!line.serialNumber.trim()) {
     fieldErrors.serialNumber = 'السريال مطلوب'
@@ -174,7 +176,7 @@ export function validateDeviceLine(
   if (!line.username.trim()) {
     fieldErrors.username = 'اسم المستخدم مطلوب'
   }
-  if (!line.technician) {
+  if (requireTechnician && !line.technician) {
     fieldErrors.technician = 'الفني مطلوب'
   }
   if (!line.vehicleType) {
@@ -291,7 +293,9 @@ export function DeviceLineCard({
     () => lineInstallmentCount(line, maxInstallmentCount),
     [line, maxInstallmentCount],
   )
-  const deviceValidation = validateDeviceLine(line, minDownPercent, maxInstallmentCount)
+  const deviceValidation = validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
+    requireTechnician: !lockedFromSource,
+  })
   const fieldErrors = showErrors ? deviceValidation.fieldErrors : {}
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
   const cashValidation = validateCashLine(line)
@@ -569,27 +573,31 @@ export function DeviceLineCard({
             </>
           )}
 
-          <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
-            <div className={posRequiredWrap(Boolean(fieldErrors.technician))}>
-              <SearchableSelect
-                label="الفني"
-                options={filteredEmployees}
-                value={line.technician}
-                onChange={(technician) => patch({ technician })}
-                onSearchChange={setTechnicianSearch}
-                getOptionValue={(emp) => emp.id}
-                getOptionLabel={(emp) =>
-                  `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
-                }
-                placeholder="ابحث باسم الفني..."
-                loading={employeesLoading}
-                emptyMessage="لا يوجد فني مطابق"
-                hasError={Boolean(fieldErrors.technician)}
-              />
-              {fieldErrors.technician && (
-                <p className="mt-xs text-xs text-error">{fieldErrors.technician}</p>
-              )}
-            </div>
+          <div
+            className={`grid grid-cols-1 gap-sm ${lockedFromSource ? '' : 'sm:grid-cols-2'}`}
+          >
+            {!lockedFromSource && (
+              <div className={posRequiredWrap(Boolean(fieldErrors.technician))}>
+                <SearchableSelect
+                  label="الفني"
+                  options={filteredEmployees}
+                  value={line.technician}
+                  onChange={(technician) => patch({ technician })}
+                  onSearchChange={setTechnicianSearch}
+                  getOptionValue={(emp) => emp.id}
+                  getOptionLabel={(emp) =>
+                    `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+                  }
+                  placeholder="ابحث باسم الفني..."
+                  loading={employeesLoading}
+                  emptyMessage="لا يوجد فني مطابق"
+                  hasError={Boolean(fieldErrors.technician)}
+                />
+                {fieldErrors.technician && (
+                  <p className="mt-xs text-xs text-error">{fieldErrors.technician}</p>
+                )}
+              </div>
+            )}
             <div>
               <label className={posLabelClass}>الاشتراك</label>
               <select

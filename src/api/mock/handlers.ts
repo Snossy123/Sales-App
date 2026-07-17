@@ -714,7 +714,10 @@ export function handleMockRequest(
       branch_id: branchFilter ?? undefined,
       sales_today: periodInvoices
         .filter((i) => i.status === 'confirmed')
-        .reduce((s, i) => s + Number(i.total), 0),
+        .reduce(
+          (s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0),
+          0,
+        ),
       invoices_today: periodInvoices.length,
       customers_count: state.customers.filter((c) => {
         if (!c.branch_id) return false
@@ -2461,6 +2464,10 @@ export function handleMockRequest(
           (line.line_type !== 'service' && line.product_unit_id != null),
       ).length
       const installationFee = installationFeePerUnit * deviceLineCount
+      const transportationFee =
+        contractKind === 'new_contract' && deviceLineCount > 0
+          ? Math.max(0, Number(body.transportation_fee ?? 0))
+          : 0
       let subtotal = 0
       const invoiceLines: SalesInvoiceLine[] = body.lines.map((line, index) => {
         const isServiceLine =
@@ -2525,14 +2532,14 @@ export function handleMockRequest(
         })
       }
 
-      const total = subtotal + installationFee
+      const total = subtotal + installationFee + transportationFee
 
       const lineTerms = body.lines.map((l) => l.payment_term ?? 'cash')
       const uniqueTerms = [...new Set(lineTerms)]
       const paymentTerm =
         uniqueTerms.length > 1 ? 'mixed' : (uniqueTerms[0] as SalesInvoice['payment_term'])
 
-      let paidAmount = installationFee
+      let paidAmount = installationFee + transportationFee
       body.lines.forEach((line, index) => {
         const lineTotal = Number(invoiceLines[index].line_total ?? 0)
         const term = line.payment_term ?? 'cash'
@@ -2569,6 +2576,7 @@ export function handleMockRequest(
         subtotal,
         discount_amount: feeDiscount * Math.max(1, deviceLineCount),
         installation_fee: installationFee,
+        transportation_fee: transportationFee,
         lines: invoiceLines,
         created_by: 2,
       }

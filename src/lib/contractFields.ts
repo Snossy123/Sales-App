@@ -439,6 +439,7 @@ export interface InvoiceContractSummary {
   feeGross: number
   feeDiscount: number
   feeNet: number
+  transportationFee: number
   devicesGross: number
   devicesDiscount: number
   devicesSubtotal: number
@@ -447,7 +448,10 @@ export interface InvoiceContractSummary {
   servicesSubtotal: number
   grandGross: number
   grandDiscount: number
+  /** Cash obligation including transportation */
   total: number
+  /** Contract value excluding transportation (stats / إجمالي التعاقد) */
+  contractAmount: number
   perDeviceFee: PerDeviceFee | null
 }
 
@@ -483,6 +487,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
   const feeDiscount = Number(invoice.discount_amount ?? 0)
   const feeNet = Number(invoice.installation_fee ?? 0)
   const feeGross = feeNet + feeDiscount
+  const transportationFee = Number(invoice.transportation_fee ?? 0)
   const perDeviceFee =
     lineCount > 0
       ? {
@@ -501,6 +506,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
   const grandGross = feeGross + devicesGross + servicesGross
   const grandDiscount = feeDiscount + devicesDiscount + servicesDiscount
   const total = Number(invoice.total ?? 0)
+  const contractAmount = Math.max(0, Math.round((total - transportationFee) * 100) / 100)
 
   return {
     lineCount,
@@ -508,6 +514,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
     feeGross,
     feeDiscount,
     feeNet,
+    transportationFee,
     devicesGross,
     devicesDiscount,
     devicesSubtotal,
@@ -517,6 +524,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
     grandGross,
     grandDiscount,
     total,
+    contractAmount,
     perDeviceFee,
   }
 }
