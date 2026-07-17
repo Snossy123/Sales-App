@@ -16,6 +16,8 @@ const paymentSourceLabels: Record<string, string> = {
   external: 'تحصيل خارجي',
   down_payment: 'مقدم',
   pos_cash: 'كاش POS',
+  transportation_fee: 'رسوم تنقلات',
+  contract_disbursement: 'أمر دفع',
 }
 
 interface Props {
