@@ -28,6 +28,11 @@ interface DataTableProps<T> {
   pageSize?: number
   /** Changing this value resets to page 1 (e.g. branch id, search query). */
   pageKey?: string | number
+  /**
+   * When set, the table body scrolls within this max height and the header
+   * stays sticky (replaces page-based browsing when pageSize is omitted).
+   */
+  maxHeight?: string
 }
 
 export function DataTable<T extends object>({
@@ -43,6 +48,7 @@ export function DataTable<T extends object>({
   onSort,
   pageSize,
   pageKey,
+  maxHeight,
 }: DataTableProps<T>) {
   const paginate = typeof pageSize === 'number' && pageSize > 0
   const total = data.length
@@ -73,20 +79,25 @@ export function DataTable<T extends object>({
     )
   }
 
+  const scrollable = Boolean(maxHeight)
+
   return (
     <div className="min-w-0">
       <div
         data-tour={dataTour}
-        className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest"
+        className={`rounded-lg border border-outline-variant bg-surface-container-lowest ${
+          scrollable ? 'overflow-auto' : 'overflow-x-auto'
+        }`}
+        style={scrollable ? { maxHeight } : undefined}
       >
         <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead>
+          <thead className={scrollable ? 'sticky top-0 z-10' : undefined}>
             <tr className="border-b border-outline-variant bg-surface-container-low">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   data-tour={col.headerDataTour}
-                  className={`px-md py-md text-right text-xs font-bold text-on-surface-variant ${col.className ?? ''}`}
+                  className={`bg-surface-container-low px-md py-md text-right text-xs font-bold text-on-surface-variant ${col.className ?? ''}`}
                 >
                   {col.sortable && onSort ? (
                     <button

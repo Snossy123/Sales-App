@@ -15,6 +15,7 @@ import type {
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
+import { FilterBar } from '../../../components/FilterBar'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
@@ -25,6 +26,7 @@ import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getScopedDepartmentId, isSuperAdmin, userHasPermission } from '../../../lib/access'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatRoleLabel } from '../../../lib/roleCatalog'
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { useAuthStore } from '../../../stores/authStore'
 import {
   EmployeeAccountModeField,
@@ -35,6 +37,29 @@ import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
+
+function employeeStatusSearchText(status: string): string {
+  const normalized = status.toLowerCase()
+  if (normalized === 'active') return 'active نشط'
+  if (normalized === 'inactive') return 'inactive غير نشط'
+  return status
+}
+
+function employeeSearchHaystack(employee: Employee, devices: ZkDevice[]): string {
+  const parts = [
+    employee.zk_pin,
+    employee.name,
+    employee.job?.name,
+    employee.job_title,
+    employee.branch?.name_ar,
+    employee.branch?.name,
+    zkDeviceLabel(branchZkDevice(devices, employee.branch_id)),
+    employee.salary != null ? String(employee.salary) : '',
+    employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG') : '',
+    employeeStatusSearchText(employee.status),
+  ]
+  return parts.filter(Boolean).join(' ').toLowerCase()
+}
 
 type CreateEntryType = 'employee' | 'user'
 
@@ -76,6 +101,8 @@ export function HrmEmployeesPage() {
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm)
   const [userForm, setUserForm] = useState(emptyUserForm)
   const [toast, setToast] = useState('')
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 300)
   const crudConfig = getEntityCrudConfig('employees')
 
   const modalOpen = panelOpen || editId !== null
@@ -330,6 +357,13 @@ export function HrmEmployeesPage() {
   const usesLinkedUser = employeeForm.user_account_mode === 'link' && Boolean(employeeForm.linked_user_id)
   const availableRoles = rolesQuery.data ?? []
 
+  const filteredEmployees = useMemo(() => {
+    const employees = query.data ?? []
+    const term = debouncedSearch.trim().toLowerCase()
+    if (!term) return employees
+    return employees.filter((employee) => employeeSearchHaystack(employee, zkDevices).includes(term))
+  }, [query.data, debouncedSearch, zkDevices])
+
   const selectedPermissions = useMemo(() => {
     const keys = new Set<string>()
     for (const roleName of userForm.role_names) {
@@ -564,11 +598,20 @@ export function HrmEmployeesPage() {
       } />
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="بحث في الاسم، البصمة، الوظيفة، الفرع، الجهاز، الراتب، الحالة..."
+        showClear={Boolean(search)}
+        onClear={() => setSearch('')}
+      />
+
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<Employee & Record<string, unknown>>
-          data={(query.data ?? []) as (Employee & Record<string, unknown>)[]}
+          data={filteredEmployees as (Employee & Record<string, unknown>)[]}
           keyExtractor={(row) => row.id}
-          pageSize={10}
+          maxHeight="70vh"
+          emptyMessage={search.trim() ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد بيانات'}
           columns={[
             { key: 'zk_pin', header: 'رقم البصمة', render: (row) => row.zk_pin ?? '—', className: 'tabular-nums' },
             {
@@ -606,6 +649,14 @@ export function HrmEmployeesPage() {
             ) },
           ]}
         />
+        {!query.isLoading && !query.isError && (
+          <p className="mt-sm text-xs text-on-surface-variant">
+            إجمالي {filteredEmployees.length}
+            {debouncedSearch.trim() && query.data
+              ? ` من أصل ${query.data.length}`
+              : null}
+          </p>
+        )}
       </AsyncState>
 
       <Modal open={modalOpen} onClose={closeModal} title={modalTitle}>
