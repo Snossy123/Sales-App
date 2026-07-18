@@ -15,7 +15,6 @@ const emptyForm = {
   model_code: '',
   brand: '',
   sell_price: '',
-  cost_price: '',
   is_active: true,
 }
 
@@ -43,7 +42,6 @@ export function AccessoriesCatalogPage() {
         model_code: form.model_code.trim() || null,
         brand: form.brand.trim() || null,
         sell_price: Number(form.sell_price),
-        cost_price: form.cost_price === '' ? null : Number(form.cost_price),
         is_active: form.is_active,
       }
       if (editingId) {
@@ -79,7 +77,6 @@ export function AccessoriesCatalogPage() {
       model_code: item.model_code ?? '',
       brand: item.brand ?? '',
       sell_price: String(item.sell_price ?? ''),
-      cost_price: item.cost_price == null ? '' : String(item.cost_price),
       is_active: item.is_active !== false,
     })
     setSuccess('')
@@ -139,17 +136,6 @@ export function AccessoriesCatalogPage() {
             value={form.sell_price}
             onChange={(e) => setForm((f) => ({ ...f, sell_price: e.target.value }))}
             required
-          />
-        </label>
-        <label className="text-sm">
-          سعر التكلفة
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            className={inputClass}
-            value={form.cost_price}
-            onChange={(e) => setForm((f) => ({ ...f, cost_price: e.target.value }))}
           />
         </label>
         <label className="flex items-end gap-sm pb-2 text-sm">

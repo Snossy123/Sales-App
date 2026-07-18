@@ -457,6 +457,8 @@ export function InstallmentCollectionPage() {
   const suspendMutation = useMutation({
     mutationFn: async (payload: {
       device_received: boolean
+      suspend_mode?: 'not_installed' | 'receive_device' | 'vehicle_impounded'
+      resume_from_date?: string
       serial_code?: string
       employee_id?: number
       reason?: string

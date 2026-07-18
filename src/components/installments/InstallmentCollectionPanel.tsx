@@ -89,6 +89,8 @@ export interface InstallmentCollectionPanelProps {
     Error,
     {
       device_received: boolean
+      suspend_mode?: 'not_installed' | 'receive_device' | 'vehicle_impounded'
+      resume_from_date?: string
       serial_code?: string
       employee_id?: number
       reason?: string
@@ -162,10 +164,13 @@ export function InstallmentCollectionPanel({
   resumeMutation,
 }: InstallmentCollectionPanelProps) {
   const serialRef = useRef<HTMLInputElement>(null)
-  const [suspendMode, setSuspendMode] = useState<'not_installed' | 'receive_device'>('not_installed')
+  const [suspendMode, setSuspendMode] = useState<'not_installed' | 'receive_device' | 'vehicle_impounded'>(
+    'not_installed',
+  )
   const [suspendSerial, setSuspendSerial] = useState('')
   const [suspendReason, setSuspendReason] = useState('')
   const [suspendEmployeeId, setSuspendEmployeeId] = useState<number | ''>('')
+  const [suspendResumeFromDate, setSuspendResumeFromDate] = useState('')
 
   useEffect(() => {
     if (!selected) return
@@ -173,6 +178,7 @@ export function InstallmentCollectionPanel({
     setSuspendSerial(String(selected.serial_number ?? ''))
     setSuspendReason('')
     setSuspendEmployeeId('')
+    setSuspendResumeFromDate('')
   }, [selected?.id])
 
   if (!selected) {
@@ -268,7 +274,9 @@ export function InstallmentCollectionPanel({
               message={
                 selected.device_in_custody
                   ? 'الأقساط معلّقة — الجهاز مستلم في الفرع'
-                  : 'الأقساط معلّقة — الجهاز لم يُركّب بعد أو لم يُستلم'
+                  : selected.collection_status === 'postponed'
+                    ? 'الأقساط معلّقة — عربية محبوسة / جدول مُرحَّل'
+                    : 'الأقساط معلّقة — الجهاز لم يُركّب بعد أو لم يُستلم'
               }
             />
             <button
@@ -297,13 +305,15 @@ export function InstallmentCollectionPanel({
             summary="تعليق الأقساط حتى يسدد العميل"
           >
             <p className="mb-sm text-xs text-on-surface-variant">
-              استخدم التعليق عندما لا يستطيع العميل الدفع الآن — سواء الجهاز لم يُركّب بعد أو تستلم الجهاز منه.
+              استخدم التعليق عندما لا يستطيع العميل الدفع الآن — سواء الجهاز لم يُركّب بعد، أو تستلم الجهاز، أو
+              العربية محبوسة وتحتاج ترحيل الأقساط.
             </p>
 
             <div className="mb-sm flex flex-wrap gap-xs">
               {[
                 { value: 'not_installed' as const, label: 'لم يُركّب بعد' },
                 { value: 'receive_device' as const, label: 'استلام الجهاز' },
+                { value: 'vehicle_impounded' as const, label: 'العربية محبوسة' },
               ].map((option) => (
                 <button
                   key={option.value}
@@ -352,6 +362,21 @@ export function InstallmentCollectionPanel({
               </>
             )}
 
+            {suspendMode === 'vehicle_impounded' && (
+              <>
+                <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية الترحيل</label>
+                <input
+                  type="date"
+                  value={suspendResumeFromDate}
+                  onChange={(e) => setSuspendResumeFromDate(e.target.value)}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                />
+                <p className="mb-sm text-xs text-on-surface-variant">
+                  تُرحَّل الأقساط غير المدفوعة لتبدأ من هذا التاريخ — بدون استلام الجهاز.
+                </p>
+              </>
+            )}
+
             <label className="mb-xs block text-xs text-on-surface-variant">سبب التعليق</label>
             <textarea
               value={suspendReason}
@@ -370,6 +395,9 @@ export function InstallmentCollectionPanel({
               onClick={() =>
                 suspendMutation.mutate({
                   device_received: suspendMode === 'receive_device',
+                  suspend_mode: suspendMode,
+                  resume_from_date:
+                    suspendMode === 'vehicle_impounded' ? suspendResumeFromDate : undefined,
                   serial_code: suspendMode === 'receive_device' ? suspendSerial : undefined,
                   employee_id: suspendEmployeeId || undefined,
                   reason: suspendReason.trim() || undefined,
@@ -379,7 +407,8 @@ export function InstallmentCollectionPanel({
               disabled={
                 suspendMutation.isPending ||
                 !branchId ||
-                (suspendMode === 'receive_device' && !suspendSerial.trim())
+                (suspendMode === 'receive_device' && !suspendSerial.trim()) ||
+                (suspendMode === 'vehicle_impounded' && !suspendResumeFromDate)
               }
               className="w-full rounded-lg border border-error/40 bg-error/5 py-2 text-sm font-bold text-error"
             >

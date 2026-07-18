@@ -69,6 +69,7 @@ export const navEntries: NavEntry[] = [
         { to: '/pricing/catalog', icon: 'sell', label: 'دليل الأسعار', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/review/subscription-renewals', icon: 'autorenew', label: 'تجديد الاشتراكات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/expenses/new', icon: 'add_card', label: 'طلب مصروف', roles: ['super_admin', 'admin'] },
       ],
     },
   },
@@ -96,27 +97,23 @@ export const navEntries: NavEntry[] = [
     },
   },
   {
-    type: 'group',
-    group: {
-      id: 'customers',
-      label: 'العملاء',
+    type: 'item',
+    item: {
+      to: '/customers',
       icon: 'group',
-      items: [
-        { to: '/customers', icon: 'groups', label: 'العملاء', end: true, roles: ['super_admin', 'admin', 'sales', 'collector'] },
-        { to: '/customers/add', icon: 'person_add', label: 'إضافة عميل', roles: ['super_admin', 'admin', 'sales'] },
-      ],
+      label: 'العملاء',
+      end: true,
+      roles: ['super_admin', 'admin', 'sales', 'collector'],
     },
   },
   {
-    type: 'group',
-    group: {
-      id: 'distributors',
-      label: 'الموزعين',
+    type: 'item',
+    item: {
+      to: '/distributors',
       icon: 'local_shipping',
-      items: [
-        { to: '/distributors', icon: 'local_shipping', label: 'الموزعين', end: true, roles: ['super_admin', 'admin', 'sales', 'collector'] },
-        { to: '/distributors/add', icon: 'person_add', label: 'إضافة موزع', roles: ['super_admin', 'admin', 'sales'] },
-      ],
+      label: 'الموزعين',
+      end: true,
+      roles: ['super_admin', 'admin', 'sales', 'collector'],
     },
   },
   {
@@ -129,7 +126,6 @@ export const navEntries: NavEntry[] = [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/collections', icon: 'payments', label: 'مراجعة التحصيلات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/expenses', icon: 'receipt', label: 'مراجعة المصروفات', roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/expenses/new', icon: 'add_card', label: 'طلب مصروف', roles: ['super_admin', 'admin'] },
         { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/evaluation-queue', icon: 'rate_review', label: 'تقييم العملاء', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/evaluation-questions', icon: 'quiz', label: 'أسئلة التقييم', roles: ['super_admin', 'admin', 'reviewer'] },
