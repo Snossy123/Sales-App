@@ -55,6 +55,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/crm/referrals': 'crm.access_own_leads',
   '/crm/referrals/follow-ups': 'crm.access_own_schedule',
   '/crm/referrals/add': 'crm.access_own_leads',
+  '/crm/referrals/network': 'crm.access_own_leads',
   '/crm/follow-ups': 'crm.access_own_schedule',
   '/crm/activities': 'crm.activities.manage',
   '/crm/call-logs': 'crm.view_own_call_log',

@@ -312,6 +312,8 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/settings': ['super_admin'],
   '/crm/referrals': ['super_admin', 'admin', 'crm'],
   '/crm/referrals/follow-ups': ['super_admin', 'admin', 'crm'],
+  '/crm/referrals/add': ['super_admin', 'admin', 'crm'],
+  '/crm/referrals/network': ['super_admin', 'admin', 'crm'],
   '/crm/customers/add': ['super_admin', 'admin', 'crm'],
   '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/activities': ['super_admin', 'admin', 'crm'],

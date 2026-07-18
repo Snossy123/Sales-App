@@ -1280,6 +1280,23 @@ export type ReferralReferrerOption =
       referral_lead: ReferralLead
     }
 
+export interface ReferralNetworkMetrics {
+  referred_count: number
+  conversion_rate: number
+  total_sales: number
+}
+
+export interface ReferralNetworkNode {
+  kind: 'customer' | 'referral_lead'
+  id: number
+  name: string
+  phone: string
+  converted: boolean
+  status?: string
+  metrics: ReferralNetworkMetrics
+  children: ReferralNetworkNode[]
+}
+
 export interface ReferralLeadStatusLog {
   id: number
   referral_lead_id: number

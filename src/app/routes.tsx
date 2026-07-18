@@ -106,6 +106,7 @@ import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
 import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
 import { CrmCustomerAddPage } from '../modules/crm/pages/CrmCustomerAddPage'
 import { CrmReferralAddPage } from '../modules/crm/pages/CrmReferralAddPage'
+import { CrmReferralNetworkPage } from '../modules/crm/pages/CrmReferralNetworkPage'
 import { CrmReferralsFollowUpsPage } from '../modules/crm/pages/CrmReferralsFollowUpsPage'
 import { CrmReferralsPipelinePage } from '../modules/crm/pages/CrmReferralsPipelinePage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
@@ -279,6 +280,7 @@ export function AppRoutes() {
             <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
             <Route path="crm/referrals" element={<CrmReferralsPipelinePage />} />
             <Route path="crm/referrals/add" element={<CrmReferralAddPage />} />
+            <Route path="crm/referrals/network" element={<CrmReferralNetworkPage />} />
             <Route path="crm/referrals/follow-ups" element={<CrmReferralsFollowUpsPage />} />
             <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
             <Route path="crm/activities" element={<CrmActivitiesPage />} />

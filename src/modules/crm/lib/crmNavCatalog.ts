@@ -39,6 +39,14 @@ export const CRM_NAV_CATALOG: CrmNavItemDef[] = [
     availability: 'active',
   },
   {
+    id: 'referral-network',
+    to: '/crm/referrals/network',
+    icon: 'account_tree',
+    label: 'شبكة الإحالات',
+    roles: ['super_admin', 'admin', 'crm'],
+    availability: 'active',
+  },
+  {
     id: 'reports',
     to: '/crm/reports',
     icon: 'analytics',
