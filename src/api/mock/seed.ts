@@ -1,3 +1,5 @@
+import { getAllPermissions } from '../../modules/admin/lib/permissionCatalog'
+import { buildManagerPermissionKeys } from '../../lib/roleCatalog'
 import type {
   AccountingAccount,
   AccountingAccTransMapping,
@@ -41,8 +43,11 @@ import type {
   HrmUserShift,
   HrmUserSalesTarget,
   DepartmentStock,
+  AccessoryPackage,
+  AccessoryWarehouseStock,
   GpsProduct,
   GpsStock,
+  ProductModel,
   InstallmentItem,
   InstallmentPlan,
   Lead,
@@ -136,6 +141,9 @@ export interface DemoState {
   gpsProduct: GpsProduct
   departmentStocks: DepartmentStock[]
   stocks: GpsStock[]
+  accessories: ProductModel[]
+  accessoryPackages: AccessoryPackage[]
+  accessoryStocks: AccessoryWarehouseStock[]
   distributors: Distributor[]
   services: Service[]
   customers: Customer[]
@@ -653,25 +661,10 @@ export function createSeedState(): DemoState {
       roles: [{ id: 5, name: 'AdministrationManager' }],
       data_scope: 'administration',
       data_scope_label: 'إدارة الدلتا',
-      permissions: [
+      permissions: buildManagerPermissionKeys(
+        getAllPermissions().map((p) => p.key),
         'scope.administration',
-        'users.manage',
-        'dashboard.view',
-        'customers.manage',
-        'sales.invoices.view',
-        'review.view_queue',
-        'review.view_contracts',
-        'review.view_detail',
-        'review.approve',
-        'review.reject',
-        'review.print',
-        'installments.collect',
-        'installments.view',
-        'inventory.manage',
-        'contract_cases.manage',
-        'contract_cases.disburse',
-        'crm.leads.manage',
-      ],
+      ),
     },
     {
       id: 2,
@@ -692,7 +685,14 @@ export function createSeedState(): DemoState {
       roles: [{ id: 2, name: 'Sales' }],
       data_scope: 'branch',
       data_scope_label: 'فرع مدينة نصر',
-      permissions: ['scope.branch', 'dashboard.view', 'sales.pos', 'sales.invoices.view'],
+      permissions: [
+        'scope.branch',
+        'dashboard.view',
+        'sales.pos',
+        'sales.invoices.view',
+        'inventory.manage',
+        'device_movements.manage',
+      ],
     },
     {
       id: 3,
@@ -1252,6 +1252,11 @@ export function createSeedState(): DemoState {
     },
   ]
 
+  const administrationManagerPermissionKeys = buildManagerPermissionKeys(
+    getAllPermissions().map((p) => p.key),
+    'scope.administration',
+  )
+
   const adminRoles: AdminRole[] = [
     {
       id: 1,
@@ -1270,12 +1275,14 @@ export function createSeedState(): DemoState {
       id: 2,
       name: 'Sales',
       name_ar: 'المبيعات',
-      permissions_count: 6,
+      permissions_count: 8,
       permissions: [
         { id: 5, name: 'dashboard.view' },
         { id: 6, name: 'sales.pos' },
         { id: 7, name: 'crm.access_own_leads' },
         { id: 8, name: 'scope.branch' },
+        { id: 18, name: 'inventory.manage' },
+        { id: 19, name: 'device_movements.manage' },
       ],
     },
     {
@@ -1303,24 +1310,11 @@ export function createSeedState(): DemoState {
       id: 4,
       name: 'AdministrationManager',
       name_ar: 'مدير الإدارة',
-      permissions_count: 40,
-      permissions: [
-        { id: 1, name: 'users.manage' },
-        { id: 4, name: 'audit.view' },
-        { id: 5, name: 'dashboard.view' },
-        { id: 6, name: 'customers.manage' },
-        { id: 7, name: 'sales.invoices.view' },
-        { id: 8, name: 'crm.leads.manage' },
-        { id: 9, name: 'hr.employees.manage' },
-        { id: 10, name: 'accounting.access_accounting_module' },
-        { id: 11, name: 'scope.administration' },
-        { id: 12, name: 'review.print' },
-        { id: 13, name: 'review.approve' },
-        { id: 14, name: 'contract_cases.manage' },
-        { id: 15, name: 'contract_cases.disburse' },
-        { id: 16, name: 'installments.collect' },
-        { id: 17, name: 'inventory.manage' },
-      ],
+      permissions_count: administrationManagerPermissionKeys.length,
+      permissions: administrationManagerPermissionKeys.map((name, idx) => ({
+        id: 400 + idx,
+        name,
+      })),
     },
   ]
 
@@ -1596,6 +1590,75 @@ export function createSeedState(): DemoState {
     gpsProduct,
     departmentStocks,
     stocks,
+    accessories: [
+      {
+        id: 101,
+        name: 'Power Cable',
+        name_ar: 'كابل طاقة',
+        model_code: 'ACC-CABLE',
+        kind: 'accessory',
+        sell_price: 100,
+        cost_price: 40,
+        is_active: true,
+      },
+      {
+        id: 102,
+        name: 'Mount Bracket',
+        name_ar: 'حامل تثبيت',
+        model_code: 'ACC-MOUNT',
+        kind: 'accessory',
+        sell_price: 80,
+        cost_price: 30,
+        is_active: true,
+      },
+      {
+        id: 103,
+        name: 'Remote',
+        name_ar: 'ريموت',
+        model_code: 'ACC-REMOTE',
+        kind: 'accessory',
+        sell_price: 150,
+        cost_price: 60,
+        is_active: true,
+      },
+    ],
+    accessoryPackages: [
+      {
+        id: 1,
+        name_ar: 'باكدج تركيب أساسي',
+        name: 'Basic Install Kit',
+        sell_price: 220,
+        cost_price: 100,
+        is_active: true,
+        items: [
+          { id: 1, product_model_id: 101, quantity: 1 },
+          { id: 2, product_model_id: 102, quantity: 1 },
+        ],
+      },
+    ],
+    accessoryStocks: [
+      {
+        id: 1,
+        warehouse_id: warehouses[0]?.id ?? 1,
+        product_model_id: 101,
+        quantity: 50,
+        reserved: 0,
+      },
+      {
+        id: 2,
+        warehouse_id: warehouses[0]?.id ?? 1,
+        product_model_id: 102,
+        quantity: 40,
+        reserved: 0,
+      },
+      {
+        id: 3,
+        warehouse_id: warehouses[0]?.id ?? 1,
+        product_model_id: 103,
+        quantity: 25,
+        reserved: 0,
+      },
+    ],
     distributors,
     services,
     customers,

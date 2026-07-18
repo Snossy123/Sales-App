@@ -62,7 +62,7 @@ export function BranchInventoryPage() {
               setVoucherOpen(true)
             }}
           >
-            إذن صرف عهدة
+            إذن صرف
           </button>
         </div>
       }

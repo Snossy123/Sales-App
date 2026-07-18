@@ -19,6 +19,24 @@ export const PROTECTED_ROLE_SLUGS = new Set(Object.keys(SYSTEM_ROLE_LABELS))
 
 export const ROLE_ASSIGNMENT_EXCLUDED = new Set(['Admin', 'AdministrationManager', 'Super Admin'])
 
+/** Permissions denied to AdministrationManager / BranchManager (denylist model). */
+export const MANAGER_DENIED_PERMISSIONS = new Set([
+  'scope.organization',
+  'roles.manage',
+  'payments.refund',
+])
+
+/** Build manager permission keys: all catalog keys except denylist + exclusive scope. */
+export function buildManagerPermissionKeys(
+  allKeys: string[],
+  scope: 'scope.administration' | 'scope.branch',
+): string[] {
+  const base = allKeys.filter(
+    (key) => !MANAGER_DENIED_PERMISSIONS.has(key) && !key.startsWith('scope.'),
+  )
+  return [...base, scope]
+}
+
 export function formatRoleLabel(role: Pick<Role, 'name'> & { name_ar?: string | null }): string {
   if (role.name_ar?.trim()) return role.name_ar.trim()
   return SYSTEM_ROLE_LABELS[role.name] ?? role.name

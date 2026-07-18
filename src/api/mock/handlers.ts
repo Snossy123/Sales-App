@@ -40,6 +40,7 @@ import { customerAllPhoneNumbers } from '../../lib/customerForm'
 import { isSuperAdmin } from '../../lib/access'
 import { CONTRACT_TEMPLATES, mockContractPreviewHtml } from '../../lib/contractTemplates'
 import type { DemoState, DemoUser } from './seed'
+import { tryHandleAccessoryRequest } from './accessoryHandlers'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
@@ -4153,14 +4154,20 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'admin/permissions') {
     const allKeys = [
-      'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage', 'stock.transfer',
+      'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
+      'device_movements.manage', 'stock.transfer',
       'customers.manage', 'sales.pos', 'sales.invoices.view',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.approve', 'review.reject', 'review.print',
+      'review.manage_evaluation_questions', 'review.view_evaluation_queue',
+      'review.view_subscription_renewals', 'review.record_evaluation',
       'review.view_collections', 'review.confirm_collections',
       'review.view_expenses', 'review.approve_expenses', 'expenses.submit',
       'installments.collect', 'installments.view',
       'installments.reconcile', 'external_collections.collect', 'collection_accounts.manage',
+      'payments.view', 'payments.refund',
+      'trash.view', 'trash.restore', 'trash.force_delete',
+      'faq.manage', 'feedback.view',
       'users.manage', 'roles.manage', 'audit.view', 'settings.manage', 'reports.financial',
       'crm.access_all_leads', 'crm.access_own_leads', 'crm.access_all_schedule', 'crm.access_own_schedule',
       'crm.access_all_campaigns', 'crm.access_own_campaigns', 'crm.access_contact_login', 'crm.access_sources',
@@ -4174,6 +4181,10 @@ export function handleMockRequest(
       'accounting.map_transactions', 'accounting.view_transfer', 'accounting.add_transfer',
       'accounting.edit_transfer', 'accounting.delete_transfer', 'accounting.manage_budget',
       'accounting.view_reports',
+      'support.view_assigned_tasks', 'support.update_assigned_tasks',
+      'support.view_all_tasks', 'support.assign_tasks',
+      'scope.organization', 'scope.administration', 'scope.branches', 'scope.branch',
+      'contract_cases.manage', 'contract_cases.disburse',
     ]
     const grouped: Record<string, string[]> = {}
     for (const perm of allKeys) {
@@ -4417,6 +4428,14 @@ export function handleMockRequest(
 
   const pricingResult = tryHandlePricingRequest(m, path, data as Record<string, unknown> | undefined, params)
   if (pricingResult !== null) return pricingResult
+
+  const accessoryResult = tryHandleAccessoryRequest(
+    m,
+    path,
+    data as Record<string, unknown> | undefined,
+    params,
+  )
+  if (accessoryResult !== null) return accessoryResult
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)
 }

@@ -405,6 +405,65 @@ export interface ProductModel {
   name: string
   name_ar?: string | null
   brand?: string | null
+  model_code?: string | null
+  kind?: 'device' | 'accessory' | string
+  sell_price?: number | string
+  cost_price?: number | string | null
+  is_active?: boolean
+  product_category_id?: number | null
+  warehouse_stocks?: AccessoryWarehouseStock[]
+}
+
+export interface AccessoryWarehouseStock {
+  id: number
+  organization_id?: number
+  warehouse_id: number
+  product_model_id: number
+  quantity: number
+  reserved: number
+  available?: number
+  product_model?: ProductModel
+  warehouse?: Warehouse
+}
+
+export interface AccessoryPackageItem {
+  id?: number
+  accessory_package_id?: number
+  product_model_id: number
+  quantity: number
+  product_model?: ProductModel
+}
+
+export interface AccessoryPackage {
+  id: number
+  name_ar: string
+  name?: string | null
+  sell_price: number | string
+  cost_price?: number | string | null
+  is_active: boolean
+  items?: AccessoryPackageItem[]
+}
+
+export interface AccessoryCheckoutPayload {
+  customer_id: number
+  distributor_id?: number
+  sales_user_id?: number
+  branch_id?: number
+  warehouse_id: number
+  invoice_date?: string
+  notes?: string
+  distributor_balance_amount?: number
+  lines: {
+    line_type: 'accessory' | 'package'
+    product_model_id?: number
+    accessory_package_id?: number
+    description?: string
+    quantity: number
+    unit_price?: number
+    payment_term?: 'cash' | 'installment'
+    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
+    down_payment?: number
+  }[]
 }
 
 export interface ProductUnit {
@@ -755,10 +814,12 @@ export type PaymentTransactionReceipt = PaymentTransaction
 
 export interface SalesInvoiceLine {
   id: number
-  line_type?: 'device' | 'service'
+  line_type?: 'device' | 'service' | 'accessory' | 'package'
   product_id?: number
   product_unit_id?: number
+  product_model_id?: number | null
   service_id?: number | null
+  accessory_package_id?: number | null
   description?: string | null
   quantity?: number
   unit_price: string | number
@@ -774,6 +835,7 @@ export interface SalesInvoiceLine {
   product_name_ar?: string | null
   product_unit?: ProductUnit
   product_model?: ProductModel
+  accessory_package?: AccessoryPackage | null
   service?: Service | null
   serial_number?: string | null
   sim_number?: string | null

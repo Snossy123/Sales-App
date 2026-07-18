@@ -13,6 +13,9 @@ import { WarehousesPage } from '../pages/WarehousesPage'
 import { PosPage } from '../pages/PosPage'
 import { PosServicesPage } from '../pages/PosServicesPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
+import { AccessoriesCatalogPage } from '../pages/AccessoriesCatalogPage'
+import { AccessoryPackagesPage } from '../pages/AccessoryPackagesPage'
+import { AccessoryStockPage } from '../pages/AccessoryStockPage'
 import { MaintenanceServicesPage } from '../pages/MaintenanceServicesPage'
 import { ServicesPage } from '../pages/ServicesPage'
 import { ServiceFormPage } from '../pages/ServiceFormPage'
@@ -193,6 +196,9 @@ export function AppRoutes() {
             <Route path="inventory/returns" element={<InventoryReturnsPage />} />
             <Route path="inventory/settings" element={<InventoryProductSettingsPage />} />
             <Route path="inventory/warehouses" element={<WarehousesPage />} />
+            <Route path="inventory/accessories" element={<AccessoriesCatalogPage />} />
+            <Route path="inventory/accessory-packages" element={<AccessoryPackagesPage />} />
+            <Route path="inventory/accessory-stock" element={<AccessoryStockPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="pos/services" element={<PosServicesPage />} />
             <Route path="pricing/catalog" element={<PricingCatalogPage />} />

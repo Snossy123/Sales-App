@@ -79,6 +79,13 @@ function migrateState(state: DemoState): DemoState {
     state.services = seed.services
     if (!state.counters.service) state.counters.service = seed.counters.service
   }
+  if (!state.accessories?.length) {
+    state.accessories = seed.accessories
+    state.accessoryPackages = seed.accessoryPackages
+    state.accessoryStocks = seed.accessoryStocks
+  }
+  if (!state.accessoryPackages) state.accessoryPackages = seed.accessoryPackages
+  if (!state.accessoryStocks) state.accessoryStocks = seed.accessoryStocks
   if (!state.counters.distributor) state.counters.distributor = seed.counters.distributor
   if (!state.counters.dailyBranchReport) {
     state.counters.dailyBranchReport = seed.counters.dailyBranchReport
