@@ -1,25 +1,17 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { ReferralLead, ReferralReferrerOption } from '../../../api/types'
-import { DateTimeInput12h } from '../../../components/DateTimeInput12h'
 import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
-import { SalesPageShell } from '../../../components/SalesPageShell'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
+import {
+  ReferralPersonCard,
+  type ReferralEntry,
+} from '../components/ReferralPersonCard'
 
 type ReferrerOption = ReferralReferrerOption & { optionKey: string }
-
-type ReferralEntry = {
-  key: string
-  phone: string
-  name: string
-  follow_up_at: string
-  notes: string
-}
-
-const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
 function createEmptyEntry(): ReferralEntry {
   return {
@@ -35,8 +27,10 @@ export function CrmReferralAddPage() {
   const navigate = useNavigate()
   const [referrerSearch, setReferrerSearch] = useState('')
   const [selectedReferrer, setSelectedReferrer] = useState<ReferrerOption | null>(null)
-  const [entries, setEntries] = useState<ReferralEntry[]>([createEmptyEntry()])
+  const [entries, setEntries] = useState<ReferralEntry[]>(() => [createEmptyEntry()])
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const activeExpandedKey = expandedKey ?? entries[0]?.key ?? ''
 
   const debouncedReferrerSearch = useDebouncedValue(referrerSearch, 300)
   const searchTerm = debouncedReferrerSearch.trim()
@@ -65,156 +59,160 @@ export function CrmReferralAddPage() {
   }
 
   const addEntry = () => {
-    setEntries((prev) => [...prev, createEmptyEntry()])
+    const next = createEmptyEntry()
+    setEntries((prev) => [...prev, next])
+    setExpandedKey(next.key)
   }
 
   const removeEntry = (key: string) => {
-    setEntries((prev) => (prev.length <= 1 ? prev : prev.filter((entry) => entry.key !== key)))
+    setEntries((prev) => {
+      if (prev.length <= 1) return prev
+      const next = prev.filter((entry) => entry.key !== key)
+      if (activeExpandedKey === key) {
+        setExpandedKey(next[0]?.key ?? null)
+      }
+      return next
+    })
   }
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedReferrer) {
-        throw new Error('يجب اختيار مصدر الإحالة')
-      }
+  const saveReferrals = async () => {
+    if (!selectedReferrer) {
+      throw new Error('يجب اختيار مصدر الترشيح')
+    }
 
-      const validEntries = entries.filter((entry) => entry.phone.trim())
-      if (validEntries.length === 0) {
-        throw new Error('يجب إدخال رقم هاتف واحد على الأقل')
-      }
+    const validEntries = entries.filter((entry) => entry.phone.trim())
+    if (validEntries.length === 0) {
+      throw new Error('يجب إدخال رقم هاتف واحد على الأقل')
+    }
 
-      const referrerPayload =
-        selectedReferrer.kind === 'customer'
-          ? { referred_by_customer_id: selectedReferrer.customer.id }
-          : { referred_by_referral_lead_id: selectedReferrer.referral_lead.id }
+    const referrerPayload =
+      selectedReferrer.kind === 'customer'
+        ? { referred_by_customer_id: selectedReferrer.customer.id }
+        : { referred_by_referral_lead_id: selectedReferrer.referral_lead.id }
 
-      for (const entry of validEntries) {
-        await api.post<ReferralLead>('/crm/referral-leads', {
-          phone: entry.phone.trim(),
-          name: entry.name.trim() || null,
-          notes: entry.notes.trim() || null,
-          follow_up_at: entry.follow_up_at || null,
-          ...referrerPayload,
-        })
-      }
-    },
+    for (const entry of validEntries) {
+      await api.post<ReferralLead>('/crm/referral-leads', {
+        phone: entry.phone.trim(),
+        name: entry.name.trim() || null,
+        notes: entry.notes.trim() || null,
+        follow_up_at: entry.follow_up_at || null,
+        ...referrerPayload,
+      })
+    }
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: saveReferrals,
     onSuccess: () => navigate('/crm/referrals'),
     onError: (err) => setError(getErrorMessage(err)),
   })
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    setError('')
-    createMutation.mutate()
-  }
+  const saveAndContinueMutation = useMutation({
+    mutationFn: saveReferrals,
+    onSuccess: () => {
+      const fresh = createEmptyEntry()
+      setEntries([fresh])
+      setExpandedKey(fresh.key)
+      setError('')
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const pending = saveMutation.isPending || saveAndContinueMutation.isPending
 
   return (
-    <SalesPageShell
-      title="إضافة ترشيح"
-      subtitle="تسجيل أرقام ترشيح جديدة مع ربطها بمصدر الإحالة"
-      actions={
-        <Link
-          to="/crm/referrals"
-          className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
-        >
-          <Icon name="arrow_forward" size={18} />
-          العودة للترشيحات
-        </Link>
-      }
-    >
-      <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-md">
-        <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-          <h3 className="mb-sm text-sm font-bold text-on-surface">مصدر الترشيح</h3>
-          <SearchableSelect
-            label="مصدر الإحالة *"
-            options={referrersQuery.data ?? []}
-            value={selectedReferrer}
-            onChange={setSelectedReferrer}
-            onSearchChange={setReferrerSearch}
-            getOptionValue={(option) => option.optionKey}
-            getOptionLabel={(option) => option.label}
-            placeholder="ابحث عن عميل أو ترشيح..."
-            loading={referrersQuery.isLoading}
-            emptyMessage="لا يوجد عميل أو ترشيح مطابق"
+    <div className="mx-auto max-w-3xl space-y-md pb-24">
+      <header className="flex items-start gap-sm">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Icon name="group" size={24} />
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-on-surface sm:text-2xl">إضافة ترشيح</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            تسجيل أرقام ترشيح جديدة مع ربطها بمصدر الإحالة
+          </p>
+        </div>
+      </header>
+
+      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+        <SearchableSelect
+          label="مصدر الترشيح *"
+          options={referrersQuery.data ?? []}
+          value={selectedReferrer}
+          onChange={setSelectedReferrer}
+          onSearchChange={setReferrerSearch}
+          getOptionValue={(option) => option.optionKey}
+          getOptionLabel={(option) => option.label}
+          placeholder="اختر مصدر الترشيح أو ابحث..."
+          loading={referrersQuery.isLoading}
+          emptyMessage="لا يوجد عميل أو ترشيح مطابق"
+        />
+      </section>
+
+      <section className="space-y-sm">
+        <h3 className="text-sm font-bold text-on-surface">بيانات الترشيح</h3>
+
+        {entries.map((entry, index) => (
+          <ReferralPersonCard
+            key={entry.key}
+            entry={entry}
+            index={index}
+            expanded={activeExpandedKey === entry.key}
+            canRemove={entries.length > 1}
+            onToggle={() => setExpandedKey(entry.key)}
+            onRemove={() => removeEntry(entry.key)}
+            onChange={(patch) => updateEntry(entry.key, patch)}
           />
-        </section>
-
-        <section className="space-y-sm">
-          <div className="flex items-center justify-between gap-sm">
-            <h3 className="text-sm font-bold text-on-surface">بيانات الترشيح</h3>
-            <button
-              type="button"
-              onClick={addEntry}
-              className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-sm py-1.5 text-sm font-medium text-primary hover:bg-surface-container"
-            >
-              <Icon name="add" size={18} />
-              إضافة شخص
-            </button>
-          </div>
-
-          {entries.map((entry, index) => (
-            <div
-              key={entry.key}
-              className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
-            >
-              <div className="flex items-center justify-between gap-sm">
-                <p className="text-sm font-medium text-on-surface-variant">شخص {index + 1}</p>
-                {entries.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEntry(entry.key)}
-                    className="inline-flex items-center gap-xs text-sm text-error hover:underline"
-                  >
-                    <Icon name="delete" size={16} />
-                    حذف
-                  </button>
-                )}
-              </div>
-              <input
-                placeholder="رقم الهاتف *"
-                value={entry.phone}
-                onChange={(e) => updateEntry(entry.key, { phone: e.target.value })}
-                required={index === 0}
-                className={inputClass}
-                dir="ltr"
-              />
-              <input
-                placeholder="الاسم (اختياري)"
-                value={entry.name}
-                onChange={(e) => updateEntry(entry.key, { name: e.target.value })}
-                className={inputClass}
-              />
-              <div>
-                <label className="mb-xs block text-sm text-on-surface-variant">
-                  موعد المتابعة الأولى (اختياري)
-                </label>
-                <DateTimeInput12h
-                  value={entry.follow_up_at}
-                  onChange={(value) => updateEntry(entry.key, { follow_up_at: value })}
-                />
-              </div>
-              <textarea
-                placeholder="ملاحظات"
-                value={entry.notes}
-                onChange={(e) => updateEntry(entry.key, { notes: e.target.value })}
-                rows={3}
-                className={inputClass}
-              />
-            </div>
-          ))}
-        </section>
-
-        {error && <p className="text-sm text-error">{error}</p>}
+        ))}
 
         <button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="flex items-center gap-xs rounded-lg bg-secondary px-md py-sm text-sm font-bold text-on-secondary"
+          type="button"
+          onClick={addEntry}
+          className="flex w-full items-center justify-center gap-xs rounded-xl border border-dashed border-primary/40 bg-primary/5 px-md py-3 text-sm font-bold text-primary hover:bg-primary/10"
         >
-          <Icon name="save" size={18} />
-          {entries.filter((e) => e.phone.trim()).length > 1 ? 'حفظ الترشيحات' : 'حفظ الترشيح'}
+          <Icon name="add" size={20} />
+          إضافة شخص آخر
         </button>
-      </form>
-    </SalesPageShell>
+      </section>
+
+      {error && <p className="text-sm text-error">{error}</p>}
+
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-outline-variant bg-surface-container-lowest/95 px-md py-sm backdrop-blur supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-end gap-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/crm/referrals')}
+            disabled={pending}
+            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+          >
+            إلغاء
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setError('')
+              saveAndContinueMutation.mutate()
+            }}
+            className="inline-flex items-center gap-xs rounded-lg border border-primary px-md py-2 text-sm font-bold text-primary hover:bg-primary/5 disabled:opacity-60"
+          >
+            <Icon name="add" size={18} />
+            حفظ ومتابعة الإضافة
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setError('')
+              saveMutation.mutate()
+            }}
+            className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-60"
+          >
+            <Icon name="check" size={18} />
+            حفظ
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
