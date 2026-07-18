@@ -4,10 +4,15 @@ import { useState } from 'react'
 import { api } from '../api/client'
 import type { Customer, Distributor, SalesInvoice } from '../api/types'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
+import { CustomerCallTimelineSection } from '../components/customers/CustomerCallTimelineSection'
+import { CustomerComplaintsSection } from '../components/customers/CustomerComplaintsSection'
 import { CustomerContractsSection } from '../components/customers/CustomerContractsSection'
 import { CustomerDeviceHistorySection } from '../components/customers/CustomerDeviceHistorySection'
+import { CustomerInstallationsSection } from '../components/customers/CustomerInstallationsSection'
 import { CustomerOwnershipTransfersSection } from '../components/customers/CustomerOwnershipTransfersSection'
 import { CustomerEvaluationsSection } from '../components/customers/CustomerEvaluationsSection'
+import { CustomerReferralsSection } from '../components/customers/CustomerReferralsSection'
+import { CustomerWarrantySection } from '../components/customers/CustomerWarrantySection'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
@@ -24,6 +29,7 @@ import {
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
 import { customerToPhoneEntries } from '../lib/customerForm'
+import { listCustomerEvaluations } from '../modules/review/api'
 
 function getCustomerDistributorProfile(customer: Customer): Distributor | undefined {
   return (
@@ -52,6 +58,24 @@ const sourceLabels: Record<string, string> = {
   transportation_fee: 'رسوم تنقلات',
   contract_disbursement: 'أمر دفع',
 }
+
+const acquisitionLabels: Record<string, string> = {
+  customer_referral: 'ترشيح عميل',
+  social: 'سوشيال',
+}
+
+const SECTION_NAV = [
+  { id: 'customer-profile', label: 'البيانات' },
+  { id: 'customer-calls', label: 'المكالمات' },
+  { id: 'customer-contracts', label: 'العقود' },
+  { id: 'customer-invoices-payments', label: 'المدفوعات' },
+  { id: 'customer-installations', label: 'التركيبات' },
+  { id: 'customer-complaints', label: 'الشكاوى' },
+  { id: 'customer-warranty', label: 'الضمان' },
+  { id: 'customer-referrals', label: 'الترشيحات' },
+  { id: 'customer-evaluations', label: 'التقييم' },
+  { id: 'customer-attachments', label: 'الملفات' },
+] as const
 
 function ProfileDetailItem({
   icon,
@@ -99,7 +123,8 @@ export function CustomerDetailPage() {
     queryFn: async () => {
       const { data } = await api.get<Customer>(`/customers/${id}`, {
         params: {
-          include: 'guarantors,distributorProfile,salesInvoices.lines.productUnit,salesInvoices.lines.installmentPlan.items,ownershipTransfersFrom,ownershipTransfersTo',
+          include:
+            'guarantors,distributorProfile,salesInvoices.lines.productUnit,salesInvoices.lines.installmentPlan.items,ownershipTransfersFrom,ownershipTransfersTo,referredCustomers,referralLeads',
           sales_invoice_status: 'all',
         },
       })
@@ -116,6 +141,12 @@ export function CustomerDetailPage() {
       })
       return (data as { data?: PaymentRow[] }).data ?? []
     },
+    enabled: Boolean(id),
+  })
+
+  const evaluationsQuery = useQuery({
+    queryKey: ['customer', id, 'evaluations-summary'],
+    queryFn: () => listCustomerEvaluations(Number(id)),
     enabled: Boolean(id),
   })
 
@@ -137,6 +168,19 @@ export function CustomerDetailPage() {
     (customer as Customer & { ownershipTransfersTo?: Customer['ownership_transfers_to'] })
       ?.ownershipTransfersTo ??
     []
+
+  const referrer =
+    customer?.referred_by_customer ??
+    (customer as Customer & { referredByCustomer?: Customer['referred_by_customer'] } | undefined)
+      ?.referredByCustomer
+
+  const completedRatings = (evaluationsQuery.data ?? [])
+    .map((e) => e.overall_rating)
+    .filter((r): r is number => r != null)
+  const avgRating =
+    completedRatings.length > 0
+      ? completedRatings.reduce((a, b) => a + b, 0) / completedRatings.length
+      : null
 
   return (
     <div>
@@ -184,7 +228,10 @@ export function CustomerDetailPage() {
               </div>
             )}
 
-            <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+            <section
+              id="customer-profile"
+              className="mb-md scroll-mt-24 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest"
+            >
               <div className="border-b border-outline-variant/60 bg-surface-container/40 px-lg py-md">
                 <div className="grid grid-cols-1 items-start gap-lg sm:grid-cols-[1fr_auto]">
                   <div className="min-w-0">
@@ -192,6 +239,46 @@ export function CustomerDetailPage() {
                       <h1 className="text-2xl font-bold text-on-surface">{customer.name}</h1>
                       <StatusBadge status={customer.status} />
                     </div>
+
+                    <div className="mt-sm flex flex-wrap gap-x-md gap-y-1 text-sm text-on-surface-variant">
+                      {referrer && (
+                        <span>
+                          رشّحه:{' '}
+                          <Link
+                            to={`/customers/${referrer.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {referrer.name}
+                          </Link>
+                        </span>
+                      )}
+                      {customer.acquisition_source && (
+                        <span>
+                          المصدر:{' '}
+                          <span className="font-medium text-on-surface">
+                            {acquisitionLabels[customer.acquisition_source] ??
+                              customer.acquisition_source}
+                          </span>
+                        </span>
+                      )}
+                      {customer.credit_score != null && (
+                        <span>
+                          الائتمان:{' '}
+                          <span className="font-medium tabular-nums text-on-surface">
+                            {customer.credit_score}/100
+                          </span>
+                        </span>
+                      )}
+                      {avgRating != null && (
+                        <span>
+                          التقييم:{' '}
+                          <span className="font-medium tabular-nums text-on-surface">
+                            {avgRating.toFixed(1)}/5
+                          </span>
+                        </span>
+                      )}
+                    </div>
+
                     {canManage && (
                       <div className="mt-sm flex flex-wrap items-center gap-md">
                         <Link
@@ -256,8 +343,34 @@ export function CustomerDetailPage() {
                 {customer.city && (
                   <ProfileDetailItem icon="map" label="المدينة" value={customer.city} />
                 )}
+                {customer.notes && (
+                  <ProfileDetailItem
+                    icon="notes"
+                    label="ملاحظات"
+                    value={customer.notes}
+                    className="sm:col-span-2 lg:col-span-3"
+                  />
+                )}
               </dl>
             </section>
+
+            <nav
+              className="mb-md sticky top-0 z-10 -mx-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest/95 px-sm py-sm backdrop-blur"
+              aria-label="أقسام صفحة العميل"
+            >
+              <ul className="flex min-w-max gap-1">
+                {SECTION_NAV.map((item) => (
+                  <li key={item.id}>
+                    <a
+                      href={`#${item.id}`}
+                      className="inline-flex rounded-md px-sm py-1.5 text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
             {hasGuarantor && guarantor ? (
               <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
@@ -292,7 +405,15 @@ export function CustomerDetailPage() {
               </section>
             )}
 
-            <section className="mb-md">
+            <CustomerReferralsSection customer={customer} />
+
+            <CustomerCallTimelineSection customerId={customer.id} />
+
+            <div id="customer-evaluations" className="scroll-mt-24">
+              <CustomerEvaluationsSection customerId={customer.id} />
+            </div>
+
+            <section id="customer-invoices-payments" className="mb-md scroll-mt-24">
               <h2 className="mb-sm text-lg font-semibold">سجل المدفوعات</h2>
               <DataTable<PaymentRow>
                 data={paymentsQuery.data ?? []}
@@ -317,7 +438,7 @@ export function CustomerDetailPage() {
               />
             </section>
 
-            <div className="mb-md">
+            <div id="customer-attachments" className="mb-md scroll-mt-24">
               <CustomerAttachmentsSection
                 mode="view"
                 customerId={customer.id}
@@ -330,13 +451,17 @@ export function CustomerDetailPage() {
               transfersTo={ownershipTransfersTo}
             />
 
-            {customer && (
-              <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
-            )}
+            <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
 
-            <CustomerContractsSection invoices={invoices} />
+            <div id="customer-contracts" className="scroll-mt-24">
+              <CustomerContractsSection invoices={invoices} />
+            </div>
 
-            {customer && <CustomerEvaluationsSection customerId={customer.id} />}
+            <CustomerInstallationsSection customerId={customer.id} />
+
+            <CustomerComplaintsSection customerId={customer.id} />
+
+            <CustomerWarrantySection />
           </>
         )}
       </AsyncState>

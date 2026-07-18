@@ -4,6 +4,8 @@ import type { PaginatedResponse, SupportTask, SupportTaskStatus } from '../../ap
 export interface SupportTaskFilters {
   status?: SupportTaskStatus | ''
   employee_id?: number | ''
+  customer_id?: number | ''
+  task_type?: string | ''
   per_page?: number
 }
 
@@ -14,6 +16,8 @@ export async function listSupportTasks(filters: SupportTaskFilters = {}) {
   }
   if (filters.status) params['filter[status]'] = filters.status
   if (filters.employee_id) params['filter[employee_id]'] = filters.employee_id
+  if (filters.customer_id) params['filter[customer_id]'] = filters.customer_id
+  if (filters.task_type) params['filter[task_type]'] = filters.task_type
 
   const { data } = await api.get<PaginatedResponse<SupportTask>>('/support/tasks', { params })
   return data

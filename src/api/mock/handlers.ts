@@ -280,6 +280,18 @@ function enrichCustomer(
     }
   })
 
+  const referrer = customer.referred_by_customer_id
+    ? state.customers.find((c) => c.id === customer.referred_by_customer_id)
+    : undefined
+  const referredCustomers = state.customers
+    .filter((c) => c.referred_by_customer_id === customer.id)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      status: c.status,
+    }))
+
   return {
     ...customer,
     branch: customer.branch_id
@@ -303,6 +315,11 @@ function enrichCustomer(
           }
         : undefined
       : undefined,
+    referred_by_customer: referrer
+      ? { id: referrer.id, name: referrer.name, phone: referrer.phone }
+      : null,
+    referred_customers: referredCustomers,
+    referral_leads: [],
     sales_invoices: salesInvoices,
   }
 }
@@ -4472,6 +4489,23 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'external-collections/collect') {
     return { id: 1, collection_channel: 'external', amount: (data as { amount?: number }).amount ?? 0 }
+  }
+
+  // Customer 360° supporting endpoints (empty demos until seeded)
+  if (m === 'GET' && path === 'crm/call-logs') {
+    return paginate([], params)
+  }
+  if (m === 'GET' && path === 'support/tasks') {
+    return paginate([], params)
+  }
+  if (m === 'GET' && path === 'contract-cases') {
+    return paginate([], params)
+  }
+  if (m === 'GET' && path === 'crm/referral-leads') {
+    return paginate([], params)
+  }
+  if (m === 'GET' && path.match(/^customers\/\d+\/service-evaluations$/)) {
+    return { data: [] }
   }
 
   const chatResult = tryHandleChatRequest(m, path, data as Record<string, unknown> | undefined, ctx.user?.id)

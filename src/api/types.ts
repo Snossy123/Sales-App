@@ -187,6 +187,8 @@ export interface SupportTask {
   sales_invoice_line_id?: number | null
   customer_id?: number | null
   employee_id?: number | null
+  task_type?: string | null
+  contract_case_id?: number | null
   status: SupportTaskStatus
   scheduled_at?: string | null
   completed_at?: string | null
@@ -515,6 +517,8 @@ export interface Customer {
   distributor_profile?: Distributor | null
   sales_user?: { id: number; name: string; branch_id?: number | null }
   referred_by_customer?: Pick<Customer, 'id' | 'name' | 'phone'> | null
+  referred_customers?: Pick<Customer, 'id' | 'name' | 'phone' | 'status'>[]
+  referral_leads?: ReferralLead[]
   guarantors?: Guarantor[]
   media?: MediaFile[]
   sales_invoices?: SalesInvoice[]
