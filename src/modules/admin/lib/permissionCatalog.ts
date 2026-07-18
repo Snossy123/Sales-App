@@ -151,6 +151,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'customers.manage', module: 'customers', category: 'other', label: 'إدارة العملاء', description: 'إنشاء وتعديل بيانات العملاء والضامنين' },
   { key: 'sales.pos', module: 'sales', category: 'other', label: 'نقطة البيع والتعاقدات', description: 'تنفيذ التعاقدات، الأسعار، العروض، والإكسسوارات' },
   { key: 'sales.invoices.view', module: 'sales', category: 'view', label: 'عرض الفواتير', description: 'استعراض فواتير المبيعات وتفاصيلها' },
+  { key: 'sales.daily_mission', module: 'sales', category: 'view', label: 'مهمة اليوم', description: 'عرض بطاقات مهمة اليوم لموظف المبيعات' },
   { key: 'review.view_queue', module: 'review', category: 'view', label: 'عرض قائمة المراجعة', description: 'استعراض التعاقدات بانتظار المراجعة' },
   { key: 'review.view_contracts', module: 'review', category: 'view', label: 'عرض كل التعاقدات', description: 'استعراض جميع التعاقدات وحالاتها' },
   { key: 'review.view_detail', module: 'review', category: 'view', label: 'عرض تفاصيل المراجعة', description: 'فتح تفاصيل التعاقد لمراجعته' },

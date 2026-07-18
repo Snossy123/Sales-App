@@ -25,6 +25,7 @@ import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerEditPage } from '../pages/CustomerEditPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
+import { SalesDailyMissionPage } from '../pages/SalesDailyMissionPage'
 import { DistributorsPage } from '../pages/DistributorsPage'
 import { DistributorAddPage } from '../pages/DistributorAddPage'
 import { DistributorDetailPage } from '../pages/DistributorDetailPage'
@@ -109,6 +110,7 @@ import { CrmReferralAddPage } from '../modules/crm/pages/CrmReferralAddPage'
 import { CrmReferralNetworkPage } from '../modules/crm/pages/CrmReferralNetworkPage'
 import { CrmReferralsFollowUpsPage } from '../modules/crm/pages/CrmReferralsFollowUpsPage'
 import { CrmReferralsPipelinePage } from '../modules/crm/pages/CrmReferralsPipelinePage'
+import { CrmCeoDashboardPage } from '../modules/crm/pages/CrmCeoDashboardPage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
 import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
 import { EvaluationQuestionsPage } from '../modules/review/pages/EvaluationQuestionsPage'
@@ -206,6 +208,7 @@ export function AppRoutes() {
             <Route path="pricing/promotions" element={<PromotionsPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />
             <Route path="sales/maintenance" element={<MaintenanceServicesPage />} />
+            <Route path="sales/mission" element={<SalesDailyMissionPage />} />
             <Route path="services" element={<ServicesPage />} />
             <Route path="services/add" element={<ServiceFormPage />} />
             <Route path="services/:id/edit" element={<ServiceFormPage />} />
@@ -277,6 +280,7 @@ export function AppRoutes() {
             <Route path="admin/faq" element={<AdminFaqPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<Navigate to="/crm/referrals" replace />} />
+            <Route path="crm/ceo" element={<CrmCeoDashboardPage />} />
             <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
             <Route path="crm/referrals" element={<CrmReferralsPipelinePage />} />
             <Route path="crm/referrals/add" element={<CrmReferralAddPage />} />

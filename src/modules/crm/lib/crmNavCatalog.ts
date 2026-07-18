@@ -20,6 +20,15 @@ export interface CrmNavItemDef {
  * لتفعيل تبويب معلّق لاحقاً: غيّر availability إلى 'active'.
  */
 export const CRM_NAV_CATALOG: CrmNavItemDef[] = [
+  {
+    id: 'ceo-dashboard',
+    to: '/crm/ceo',
+    icon: 'dashboard',
+    label: 'لوحة المدير',
+    end: true,
+    roles: ['super_admin', 'admin', 'crm'],
+    availability: 'active',
+  },
   // ——— نشط: نطاق العميل الحالي (الترشيحات) ———
   {
     id: 'referrals',
@@ -148,7 +157,7 @@ export const CRM_NAV_CATALOG: CrmNavItemDef[] = [
   },
 ]
 
-const ACTIVE_CRM_ROUTE_PREFIXES = ['/crm/referrals', '/crm/reports'] as const
+const ACTIVE_CRM_ROUTE_PREFIXES = ['/crm/ceo', '/crm/referrals', '/crm/reports'] as const
 
 export function getActiveCrmNavItems(): CrmNavItemDef[] {
   return CRM_NAV_CATALOG.filter((item) => item.availability === 'active')

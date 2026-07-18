@@ -32,6 +32,16 @@ export const navEntries: NavEntry[] = [
   {
     type: 'item',
     item: {
+      to: '/sales/mission',
+      icon: 'flag',
+      label: 'مهمة اليوم',
+      end: true,
+      roles: ['super_admin', 'admin', 'sales'],
+    },
+  },
+  {
+    type: 'item',
+    item: {
       to: '/',
       icon: 'dashboard',
       label: 'لوحة التحكم',
@@ -263,6 +273,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/pricing/promotions': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
+  '/sales/mission': ['super_admin', 'admin', 'sales'],
   '/services': ['super_admin', 'admin'],
   '/services/add': ['super_admin', 'admin'],
   '/contract-templates': ['super_admin', 'admin'],
@@ -310,6 +321,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/roles': ['super_admin', 'admin'],
   '/admin/activity-log': ['super_admin', 'admin'],
   '/admin/settings': ['super_admin'],
+  '/crm/ceo': ['super_admin', 'admin', 'crm'],
   '/crm/referrals': ['super_admin', 'admin', 'crm'],
   '/crm/referrals/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/referrals/add': ['super_admin', 'admin', 'crm'],
@@ -587,7 +599,8 @@ export function getDefaultRoute(user: AuthUser | null): string {
   if (role === 'hr_manager') return '/hrm'
   if (role === 'accountant') return '/accounting'
   if (role === 'support') return '/support/my-tasks'
-  if (role === 'admin') return '/gps/management'
+  if (role === 'admin') return '/crm/ceo'
+  if (role === 'sales') return '/sales/mission'
   return '/'
 }
 

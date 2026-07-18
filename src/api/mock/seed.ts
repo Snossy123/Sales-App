@@ -446,6 +446,7 @@ export function createSeedState(): DemoState {
       id: 1,
       branch_id: 1,
       distributor_id: 1,
+      sales_user_id: 2,
       name: 'أحمد محمود حسن',
       phone: '01012345678',
       phone_2: '01087654321',
@@ -462,6 +463,7 @@ export function createSeedState(): DemoState {
       id: 2,
       branch_id: 1,
       distributor_id: 2,
+      sales_user_id: 2,
       name: 'سارة علي إبراهيم',
       phone: '01098765432',
       national_id: '29505051234567',
@@ -477,6 +479,7 @@ export function createSeedState(): DemoState {
       id: 3,
       branch_id: 3,
       distributor_id: 3,
+      sales_user_id: 2,
       name: 'خالد عبد الرحمن',
       phone: '01234567890',
       national_id: '28808081234567',
@@ -568,6 +571,7 @@ export function createSeedState(): DemoState {
       warehouse_id: 1,
       customer_id: 1,
       distributor_id: 1,
+      sales_user_id: 2,
       status: 'pending_review',
       payment_term: 'installment',
       payment_status: 'unpaid',
@@ -689,8 +693,10 @@ export function createSeedState(): DemoState {
       permissions: [
         'scope.branch',
         'dashboard.view',
+        'customers.manage',
         'sales.pos',
         'sales.invoices.view',
+        'sales.daily_mission',
         'inventory.manage',
         'device_movements.manage',
       ],
@@ -1067,6 +1073,14 @@ export function createSeedState(): DemoState {
     },
   ]
 
+  const todayMorning = new Date()
+  todayMorning.setHours(10, 0, 0, 0)
+  const todayAfternoon = new Date()
+  todayAfternoon.setHours(14, 30, 0, 0)
+  const overdueDay = new Date()
+  overdueDay.setDate(overdueDay.getDate() - 3)
+  overdueDay.setHours(11, 0, 0, 0)
+
   const crmSchedules: CrmSchedule[] = [
     {
       id: 1,
@@ -1097,6 +1111,36 @@ export function createSeedState(): DemoState {
       customer_id: 1,
       customer: customers[0],
       users: [{ id: 7, name: 'ليلى — CRM' }],
+    },
+    {
+      id: 4,
+      title: 'اتصال متابعة — أحمد',
+      status: 'scheduled',
+      schedule_type: 'call',
+      start_datetime: todayMorning.toISOString(),
+      customer_id: 1,
+      customer: customers[0],
+      users: [{ id: 2, name: 'محمد — مبيعات' }],
+    },
+    {
+      id: 5,
+      title: 'معاينة موقع — سارة',
+      status: 'open',
+      schedule_type: 'meeting',
+      start_datetime: todayAfternoon.toISOString(),
+      customer_id: 2,
+      customer: customers[1],
+      users: [{ id: 2, name: 'محمد — مبيعات' }],
+    },
+    {
+      id: 6,
+      title: 'إعادة اتصال متأخرة — خالد',
+      status: 'open',
+      schedule_type: 'call',
+      start_datetime: overdueDay.toISOString(),
+      customer_id: 3,
+      customer: customers[2],
+      users: [{ id: 2, name: 'محمد — مبيعات' }],
     },
   ]
 
@@ -1284,6 +1328,9 @@ export function createSeedState(): DemoState {
         { id: 8, name: 'scope.branch' },
         { id: 18, name: 'inventory.manage' },
         { id: 19, name: 'device_movements.manage' },
+        { id: 20, name: 'sales.daily_mission' },
+        { id: 21, name: 'customers.manage' },
+        { id: 22, name: 'sales.invoices.view' },
       ],
     },
     {
@@ -1573,6 +1620,19 @@ export function createSeedState(): DemoState {
         target_end: '2026-06-30',
         target_count: 10,
         achieved_count: 3,
+        commission_percent: 5,
+      },
+      {
+        id: 2,
+        employee_id: 1,
+        target_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString()
+          .slice(0, 10),
+        target_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+          .toISOString()
+          .slice(0, 10),
+        target_count: 12,
+        achieved_count: 5,
         commission_percent: 5,
       },
     ],

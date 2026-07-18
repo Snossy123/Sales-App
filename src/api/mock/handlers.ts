@@ -3614,6 +3614,10 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path === 'crm/ceo/dashboard') {
+    return buildCeoDashboardMock(state, params)
+  }
+
   if (m === 'GET' && path === 'leads') {
     let leads = [...state.leads]
     const scopedBranchIds = getScopedBranchIds(state, ctx)
@@ -4227,7 +4231,7 @@ export function handleMockRequest(
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
       'device_movements.manage', 'stock.transfer',
-      'customers.manage', 'sales.pos', 'sales.invoices.view',
+      'customers.manage', 'sales.pos', 'sales.invoices.view', 'sales.daily_mission',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.approve', 'review.reject', 'review.print',
       'review.manage_evaluation_questions', 'review.view_evaluation_queue',
@@ -4491,6 +4495,161 @@ export function handleMockRequest(
     return { id: 1, collection_channel: 'external', amount: (data as { amount?: number }).amount ?? 0 }
   }
 
+  if (m === 'GET' && path === 'sales/daily-mission') {
+    const userId = ctx.user?.id
+    if (!userId) throw mockError(401, 'غير مصرح')
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const overdueCutoff = new Date(today)
+    overdueCutoff.setDate(overdueCutoff.getDate() - 2)
+
+    const isOpen = (status?: string) => status === 'open' || status === 'scheduled'
+    const assignedToUser = (schedule: { users?: { id: number }[] }) =>
+      (schedule.users ?? []).some((u) => u.id === userId)
+
+    const startOfDay = (iso?: string | null) => {
+      if (!iso) return null
+      const d = new Date(iso)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+
+    const customerById = (id?: number | null) =>
+      id != null ? state.customers.find((c) => c.id === id) : undefined
+
+    const callCards = state.crmSchedules
+      .filter(
+        (s) =>
+          s.schedule_type === 'call' &&
+          isOpen(s.status) &&
+          assignedToUser(s) &&
+          s.customer_id != null &&
+          startOfDay(s.start_datetime)?.getTime() === today.getTime(),
+      )
+      .map((s) => {
+        const customer = customerById(s.customer_id)
+        if (!customer) return null
+        const time = s.start_datetime
+          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          : ''
+        return {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          subtitle: `${s.title}${time ? ` · ${time}` : ''}`,
+          meta: { schedule_id: s.id, schedule_type: s.schedule_type, status: s.status },
+        }
+      })
+      .filter(Boolean)
+
+    const viewingCards = state.crmSchedules
+      .filter(
+        (s) =>
+          s.schedule_type === 'meeting' &&
+          isOpen(s.status) &&
+          assignedToUser(s) &&
+          s.customer_id != null &&
+          startOfDay(s.start_datetime)?.getTime() === today.getTime(),
+      )
+      .map((s) => {
+        const customer = customerById(s.customer_id)
+        if (!customer) return null
+        const time = s.start_datetime
+          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          : ''
+        return {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          subtitle: `${s.title}${time ? ` · ${time}` : ''}`,
+          meta: { schedule_id: s.id, schedule_type: s.schedule_type, status: s.status },
+        }
+      })
+      .filter(Boolean)
+
+    const overdueCards = state.crmSchedules
+      .filter(
+        (s) =>
+          isOpen(s.status) &&
+          assignedToUser(s) &&
+          s.customer_id != null &&
+          (startOfDay(s.start_datetime)?.getTime() ?? Infinity) <= overdueCutoff.getTime(),
+      )
+      .map((s) => {
+        const customer = customerById(s.customer_id)
+        if (!customer) return null
+        const start = startOfDay(s.start_datetime)
+        const daysLate = start
+          ? Math.max(0, Math.round((today.getTime() - start.getTime()) / 86400000))
+          : 0
+        return {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          subtitle: `${s.title} · متأخر ${daysLate} يوم`,
+          meta: {
+            schedule_id: s.id,
+            schedule_type: s.schedule_type,
+            status: s.status,
+            days_overdue: daysLate,
+          },
+        }
+      })
+      .filter(Boolean)
+
+    const readyCards = state.invoices
+      .filter(
+        (inv) =>
+          inv.status !== 'confirmed' &&
+          inv.customer_id != null &&
+          (inv.sales_user_id === userId ||
+            customerById(inv.customer_id)?.sales_user_id === userId),
+      )
+      .map((inv) => {
+        const customer = customerById(inv.customer_id)
+        if (!customer) return null
+        return {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          subtitle: `${inv.invoice_number ?? 'فاتورة'} · ${inv.status}`,
+          meta: {
+            sales_invoice_id: inv.id,
+            invoice_number: inv.invoice_number,
+            status: inv.status,
+          },
+        }
+      })
+      .filter(Boolean)
+
+    const vipCards = state.customers
+      .filter((c) => c.sales_user_id === userId && (c.credit_score ?? 0) >= 85)
+      .map((c) => ({
+        customer_id: c.id,
+        customer_name: c.name,
+        customer_phone: c.phone,
+        subtitle: `ائتمان ${c.credit_score}/100`,
+        meta: { credit_score: c.credit_score },
+      }))
+
+    return {
+      date: today.toISOString().slice(0, 10),
+      calls: callCards,
+      viewings: viewingCards,
+      ready_to_contract: readyCards,
+      overdue: overdueCards,
+      vip: vipCards,
+      counts: {
+        calls: callCards.length,
+        viewings: viewingCards.length,
+        ready_to_contract: readyCards.length,
+        overdue: overdueCards.length,
+        vip: vipCards.length,
+      },
+    }
+  }
+
   // Customer 360° supporting endpoints (empty demos until seeded)
   if (m === 'GET' && path === 'crm/call-logs') {
     return paginate([], params)
@@ -4526,6 +4685,183 @@ export function handleMockRequest(
   if (accessoryResult !== null) return accessoryResult
 
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)
+}
+
+function buildCeoDashboardMock(state: DemoState, params: Record<string, string>) {
+  const period = ['day', 'week', 'month', 'year'].includes(String(params.period))
+    ? String(params.period)
+    : 'month'
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  const periodBounds = (): { start: Date; end: Date } => {
+    const start = new Date(today)
+    const end = new Date(today)
+    if (period === 'day') {
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'week') {
+      start.setDate(today.getDate() - today.getDay())
+      start.setHours(0, 0, 0, 0)
+      end.setTime(start.getTime())
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'year') {
+      start.setMonth(0, 1)
+      start.setHours(0, 0, 0, 0)
+      end.setMonth(11, 31)
+      end.setHours(23, 59, 59, 999)
+    } else {
+      start.setDate(1)
+      start.setHours(0, 0, 0, 0)
+      end.setMonth(today.getMonth() + 1, 0)
+      end.setHours(23, 59, 59, 999)
+    }
+    return { start, end }
+  }
+
+  const { start, end } = periodBounds()
+  const inPeriod = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return d >= start && d <= end
+  }
+
+  const invoiceAmount = (inv: SalesInvoice) =>
+    Number(inv.total ?? 0) - Number((inv as SalesInvoice & { transportation_fee?: number }).transportation_fee ?? 0)
+
+  const confirmedInPeriod = state.invoices.filter(
+    (inv) => inv.status === 'confirmed' && inPeriod(inv.invoice_date),
+  )
+  const totalSales = confirmedInPeriod.reduce((sum, inv) => sum + invoiceAmount(inv), 0)
+
+  const activeTargets = (state.hrmUserSalesTargets ?? []).filter((t) => {
+    const tStart = new Date(t.target_start)
+    const tEnd = new Date(t.target_end)
+    return tStart <= end && tEnd >= start
+  })
+  const targetCount = activeTargets.reduce((s, t) => s + Number(t.target_count ?? 0), 0)
+  const achievedCount = activeTargets.reduce((s, t) => s + Number(t.achieved_count ?? 0), 0)
+  const percent = targetCount > 0 ? Math.round(Math.min(100, (achievedCount / targetCount) * 1000)) / 10 : 0
+
+  const openLeads = state.leads.filter(
+    (l) => !l.converted_customer_id && l.status !== 'won' && l.status !== 'lost',
+  )
+  const values = openLeads
+    .map((l) => Number(l.expected_value ?? 0))
+    .filter((v) => v > 0)
+    .sort((a, b) => b - a)
+  const thresholdIndex = Math.max(0, Math.ceil(values.length * 0.2) - 1)
+  const threshold = values.length > 0 ? values[thresholdIndex] : null
+  const hotLeads = openLeads
+    .filter((l) => l.status === 'qualified' || (threshold != null && Number(l.expected_value ?? 0) >= threshold))
+    .sort((a, b) => Number(b.expected_value ?? 0) - Number(a.expected_value ?? 0))
+    .slice(0, 10)
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      status: l.status,
+      expected_value: l.expected_value != null ? Number(l.expected_value) : null,
+      device_count: l.device_count ?? null,
+      assignee: l.assignee ?? null,
+      branch: l.branch
+        ? { id: l.branch.id, name: l.branch.name_ar || l.branch.name }
+        : null,
+    }))
+
+  const startOfToday = new Date(today)
+  startOfToday.setHours(0, 0, 0, 0)
+  const overdueFollowUps = state.crmSchedules
+    .filter((s) => {
+      if (!s.start_datetime) return false
+      if (['completed', 'cancelled', 'done'].includes(s.status)) return false
+      return new Date(s.start_datetime) < startOfToday
+    })
+    .sort((a, b) => String(a.start_datetime).localeCompare(String(b.start_datetime)))
+    .slice(0, 20)
+    .map((s) => ({
+      id: s.id,
+      source: 'schedule' as const,
+      title: s.title,
+      status: s.status,
+      start_datetime: s.start_datetime,
+      schedule_type: s.schedule_type,
+      lead: s.lead ? { id: s.lead.id, name: s.lead.name, phone: s.lead.phone } : null,
+      customer: s.customer
+        ? { id: s.customer.id, name: s.customer.name, phone: s.customer.phone }
+        : null,
+    }))
+
+  const installationItems = state.invoices
+    .filter((inv) => inv.status === 'confirmed' && Boolean(inv.technician_name))
+    .slice(0, 3)
+    .map((inv, index) => {
+      const customer = state.customers.find((c) => c.id === inv.customer_id)
+      return {
+        id: 9000 + index,
+        customer_name: customer?.name ?? 'عميل',
+        customer_phone: customer?.phone ?? null,
+        scheduled_at: `${todayStr}T0${10 + index}:00:00`,
+        executed_at: null as string | null,
+        status: index === 0 ? 'in_progress' : 'assigned',
+        sales_invoice_id: inv.id,
+      }
+    })
+
+  const byUser = new Map<number, { sales_total: number; invoices_count: number }>()
+  for (const inv of confirmedInPeriod) {
+    const userId = inv.sales_user_id ?? inv.created_by
+    if (!userId) continue
+    const prev = byUser.get(userId) ?? { sales_total: 0, invoices_count: 0 }
+    prev.sales_total += invoiceAmount(inv)
+    prev.invoices_count += 1
+    byUser.set(userId, prev)
+  }
+  const topEmployees = [...byUser.entries()]
+    .map(([userId, stats]) => ({
+      user_id: userId,
+      name: state.users.find((u) => u.id === userId)?.name ?? '—',
+      sales_total: stats.sales_total,
+      invoices_count: stats.invoices_count,
+    }))
+    .sort((a, b) => b.sales_total - a.sales_total)
+    .slice(0, 5)
+
+  const chartMap = new Map<string, number>()
+  for (const inv of confirmedInPeriod) {
+    let label: string
+    if (period === 'day') {
+      const hour = inv.confirmed_at
+        ? new Date(inv.confirmed_at).getHours()
+        : 10
+      label = `${String(hour).padStart(2, '0')}:00`
+    } else {
+      const d = new Date(inv.invoice_date)
+      label = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    }
+    chartMap.set(label, (chartMap.get(label) ?? 0) + invoiceAmount(inv))
+  }
+  const salesChart = [...chartMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, amount]) => ({ label, amount }))
+
+  return {
+    period,
+    total_sales: totalSales,
+    target_achievement: {
+      target_count: targetCount,
+      achieved_count: achievedCount,
+      percent,
+    },
+    hot_leads: hotLeads,
+    overdue_follow_ups: overdueFollowUps,
+    installations_today: {
+      count: installationItems.length,
+      items: installationItems,
+    },
+    top_employees: topEmployees,
+    sales_chart: salesChart,
+  }
 }
 
 function mockError(status: number, message: string): Error & { response: { status: number; data: { message: string } } } {

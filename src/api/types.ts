@@ -1103,6 +1103,30 @@ export interface CollectInstallmentPayload {
   amount: number
 }
 
+export interface DailyMissionCard {
+  customer_id: number
+  customer_name: string
+  customer_phone: string
+  subtitle?: string | null
+  meta?: Record<string, unknown>
+}
+
+export interface DailyMissionResponse {
+  date: string
+  calls: DailyMissionCard[]
+  viewings: DailyMissionCard[]
+  ready_to_contract: DailyMissionCard[]
+  overdue: DailyMissionCard[]
+  vip: DailyMissionCard[]
+  counts: {
+    calls: number
+    viewings: number
+    ready_to_contract: number
+    overdue: number
+    vip: number
+  }
+}
+
 // CRM module
 export interface CrmDashboardStats {
   leads_by_status: Record<string, number>
@@ -1110,6 +1134,69 @@ export interface CrmDashboardStats {
   converted_this_month: number
   conversion_rate: number
   organization_id?: number
+}
+
+export interface CeoDashboardHotLead {
+  id: number
+  name: string
+  phone: string
+  status: string
+  expected_value?: number | null
+  device_count?: number | null
+  assignee?: { id: number; name: string } | null
+  branch?: { id: number; name: string } | null
+}
+
+export interface CeoDashboardFollowUp {
+  id: number
+  source: 'schedule' | 'referral' | string
+  title: string
+  status: string
+  start_datetime?: string | null
+  schedule_type?: string | null
+  lead?: { id: number; name: string; phone?: string } | null
+  customer?: { id: number; name: string; phone?: string } | null
+  referral?: { id: number; name?: string | null; phone?: string } | null
+}
+
+export interface CeoDashboardInstallationItem {
+  id: number
+  customer_name?: string | null
+  customer_phone?: string | null
+  scheduled_at?: string | null
+  executed_at?: string | null
+  status: string
+  sales_invoice_id?: number | null
+}
+
+export interface CeoDashboardTopEmployee {
+  user_id: number
+  name: string
+  sales_total: number
+  invoices_count: number
+}
+
+export interface CeoDashboardChartPoint {
+  label: string
+  amount: number
+}
+
+export interface CeoDashboard {
+  period: string
+  total_sales: number
+  target_achievement: {
+    target_count: number
+    achieved_count: number
+    percent: number
+  }
+  hot_leads: CeoDashboardHotLead[]
+  overdue_follow_ups: CeoDashboardFollowUp[]
+  installations_today: {
+    count: number
+    items: CeoDashboardInstallationItem[]
+  }
+  top_employees: CeoDashboardTopEmployee[]
+  sales_chart: CeoDashboardChartPoint[]
 }
 
 export interface CrmSchedule {
