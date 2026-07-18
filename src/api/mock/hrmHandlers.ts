@@ -11,6 +11,7 @@ import type {
   HrmPayrollGroup,
   HrmPayrollRecord,
   HrmShift,
+  MediaFile,
   PaginatedResponse,
   ZkDevice,
 } from '../types'
@@ -48,6 +49,12 @@ function mockError(status: number, message: string): Error & { response: { statu
 
 function today(): string {
   return new Date().toISOString().split('T')[0]
+}
+
+function getEmployeeMedia(state: DemoState): (MediaFile & { employee_id: number })[] {
+  const extended = state as DemoState & { employeeMedia?: (MediaFile & { employee_id: number })[] }
+  if (!extended.employeeMedia) extended.employeeMedia = []
+  return extended.employeeMedia
 }
 
 function enrichEmployee(state: DemoState, emp: Employee): Employee {
@@ -417,6 +424,64 @@ export function tryHandleHrmRequest(
       employee.profile_photo_url = null
     })
     return { profile_photo_url: null }
+  }
+
+  if (m === 'GET' && path.match(/^employees\/\d+\/media$/)) {
+    const employeeId = Number(path.split('/')[1])
+    const employee = state.employees.find((e) => e.id === employeeId)
+    if (!employee) throw mockError(404, 'الموظف غير موجود')
+    const media = getEmployeeMedia(state).filter((item) => item.employee_id === employeeId)
+    return { data: media }
+  }
+
+  if (m === 'POST' && path.match(/^employees\/\d+\/media$/)) {
+    const employeeId = Number(path.split('/')[1])
+    const employee = state.employees.find((e) => e.id === employeeId)
+    if (!employee) throw mockError(404, 'الموظف غير موجود')
+
+    let fileName = 'attachment.pdf'
+    let description: string | null = null
+    if (data instanceof FormData) {
+      const file = data.get('file')
+      if (file && typeof file === 'object' && 'name' in file) {
+        fileName = String((file as File).name)
+      }
+      const desc = data.get('description')
+      if (typeof desc === 'string' && desc.trim()) description = desc.trim()
+    }
+
+    let created: MediaFile | undefined
+    mutateState((s) => {
+      const mediaCounter = (s.counters as { media?: number }).media ?? 0
+      ;(s.counters as { media?: number }).media = mediaCounter + 1
+      const item: MediaFile & { employee_id: number } = {
+        id: mediaCounter + 1,
+        employee_id: employeeId,
+        file_name: fileName,
+        mime_type: fileName.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        size: 1024,
+        description,
+        url: `https://demo.local/media/employees/${employeeId}/${encodeURIComponent(fileName)}`,
+        uploaded_by: ctx.user?.id ?? null,
+        created_at: new Date().toISOString(),
+      }
+      getEmployeeMedia(s).push(item)
+      created = item
+    })
+    return created
+  }
+
+  if (m === 'DELETE' && path.match(/^employees\/\d+\/media\/\d+$/)) {
+    const parts = path.split('/')
+    const employeeId = Number(parts[1])
+    const mediaId = Number(parts[3])
+    mutateState((s) => {
+      const list = getEmployeeMedia(s)
+      const index = list.findIndex((item) => item.id === mediaId && item.employee_id === employeeId)
+      if (index === -1) throw mockError(404, 'المرفق غير موجود')
+      list.splice(index, 1)
+    })
+    return { message: 'تم حذف المرفق.' }
   }
 
   if (m === 'GET' && path.match(/^(hrm\/)?employees\/\d+\/allowances$/)) {

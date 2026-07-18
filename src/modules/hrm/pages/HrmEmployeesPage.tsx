@@ -33,6 +33,11 @@ import {
   inferEmployeeAccountMode,
   type EmployeeAccountMode,
 } from '../components/EmployeeAccountModeField'
+import {
+  EmployeeAttachmentsSection,
+  uploadEmployeeAttachments,
+  type PendingAttachment,
+} from '../components/EmployeeAttachmentsSection'
 import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 
@@ -100,6 +105,7 @@ export function HrmEmployeesPage() {
   const [createEntryType, setCreateEntryType] = useState<CreateEntryType>('employee')
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm)
   const [userForm, setUserForm] = useState(emptyUserForm)
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -232,6 +238,9 @@ export function HrmEmployeesPage() {
         return data
       }
       const { data } = await api.post<Employee>('/employees', payload)
+      if (pendingFiles.length > 0) {
+        await uploadEmployeeAttachments(data.id, pendingFiles)
+      }
       return data
     },
     onSuccess: () => {
@@ -277,6 +286,7 @@ export function HrmEmployeesPage() {
     setCreateEntryType('employee')
     setEmployeeForm(emptyEmployeeForm)
     setUserForm(resetUserForm())
+    setPendingFiles([])
   }
 
   const handleDeviceChange = (deviceId: number | '') => {
@@ -459,6 +469,15 @@ export function HrmEmployeesPage() {
         <option value="active">نشط</option>
         <option value="inactive">غير نشط</option>
       </select>
+      {isCreateMode ? (
+        <EmployeeAttachmentsSection
+          mode="create"
+          pendingFiles={pendingFiles}
+          onPendingChange={setPendingFiles}
+        />
+      ) : editId != null ? (
+        <EmployeeAttachmentsSection mode="view" employeeId={editId} />
+      ) : null}
     </>
   )
 
@@ -590,6 +609,7 @@ export function HrmEmployeesPage() {
             setCreateEntryType('employee')
             setEmployeeForm(emptyEmployeeForm)
             setUserForm(resetUserForm())
+            setPendingFiles([])
           }}
           className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
         >

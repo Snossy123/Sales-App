@@ -24,6 +24,7 @@ import { ProfilePhotoUploader } from '../../../components/ProfilePhotoUploader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EmployeeAccountModeField, inferEmployeeAccountMode, type EmployeeAccountMode } from '../components/EmployeeAccountModeField'
+import { EmployeeAttachmentsSection } from '../components/EmployeeAttachmentsSection'
 import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
@@ -444,6 +445,10 @@ export function HrmEmployeeDetailPage() {
                 </div>
               </dl>
             </section>
+
+            <div className="mb-md">
+              <EmployeeAttachmentsSection mode="view" employeeId={employee.id} />
+            </div>
 
             <div className="mb-md flex flex-wrap gap-xs border-b border-outline-variant">
               {tabs.map((tab) => (
@@ -870,6 +875,9 @@ export function HrmEmployeeDetailPage() {
             <option value="active">نشط</option>
             <option value="inactive">غير نشط</option>
           </select>
+          {Number.isFinite(employeeId) && employeeId > 0 && (
+            <EmployeeAttachmentsSection mode="view" employeeId={employeeId} />
+          )}
           <button
             type="submit"
             disabled={saveMutation.isPending}
