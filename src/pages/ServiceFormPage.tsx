@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { ContractTemplate, Service } from '../api/types'
+import type { ContractTemplate, Service, ServiceCategory } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { SERVICE_CATEGORIES } from '../lib/services'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 text-sm'
 
@@ -13,6 +14,7 @@ interface ServiceForm {
   code: string
   name: string
   name_ar: string
+  category: ServiceCategory
   cash_price: number
   installment_price: number
   is_active: boolean
@@ -24,6 +26,7 @@ const emptyForm: ServiceForm = {
   code: '',
   name: '',
   name_ar: '',
+  category: 'other',
   cash_price: 0,
   installment_price: 0,
   is_active: true,
@@ -63,6 +66,7 @@ export function ServiceFormPage() {
         code: service.code ?? '',
         name: service.name,
         name_ar: service.name_ar ?? '',
+        category: service.category ?? 'other',
         cash_price: Number(service.cash_price ?? service.default_price),
         installment_price: Number(service.installment_price ?? service.default_price),
         is_active: service.is_active,
@@ -78,6 +82,7 @@ export function ServiceFormPage() {
         code: form.code.trim() || null,
         name: (form.name_ar || form.name).trim(),
         name_ar: form.name_ar.trim() || null,
+        category: form.category,
         cash_price: form.cash_price,
         installment_price: form.installment_price,
         is_active: form.is_active,
@@ -145,6 +150,26 @@ export function ServiceFormPage() {
                 dir="ltr"
                 className={inputClass}
               />
+            </div>
+            <div>
+              <label className="mb-xs block text-sm text-on-surface-variant">تصنيف الخدمة *</label>
+              <select
+                value={form.category}
+                onChange={(e) =>
+                  setForm({ ...form, category: e.target.value as ServiceCategory })
+                }
+                required
+                className={inputClass}
+              >
+                {SERVICE_CATEGORIES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                فك / تركيب / سوفت وير تُستخدم تلقائياً في حساب مديونية الجهاز عند الاسترجاع.
+              </p>
             </div>
             <div>
               <label className="mb-xs block text-sm text-on-surface-variant">

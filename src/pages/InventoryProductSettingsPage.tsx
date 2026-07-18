@@ -1,13 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { api, getErrorMessage } from '../api/client'
-import type { GpsProduct } from '../api/types'
+import type { GpsProduct, Service, ServiceCategory } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
+import { type ApiPaginated } from '../lib/sales'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -23,7 +24,12 @@ const emptyForm = {
   external_cash_permanent_price: '',
   external_installment_annual_price: '',
   external_installment_permanent_price: '',
-  device_debt_price: '',
+  monthly_interest_amount: '',
+}
+
+function serviceCashPrice(services: Service[], category: ServiceCategory): number {
+  const match = services.find((service) => service.category === category && service.is_active)
+  return Number(match?.cash_price ?? match?.default_price ?? 0)
 }
 
 type GpsProductForm = typeof emptyForm
@@ -54,7 +60,7 @@ function toForm(product: GpsProduct): GpsProductForm {
     external_installment_permanent_price: String(
       product.external_installment_permanent_price ?? installmentAnnual,
     ),
-    device_debt_price: String(product.device_debt_price ?? 0),
+    monthly_interest_amount: String(product.monthly_interest_amount ?? 0),
   }
 }
 
@@ -78,7 +84,7 @@ function toPayload(form: GpsProductForm) {
     external_cash_permanent_price: Number(form.external_cash_permanent_price),
     external_installment_annual_price: Number(form.external_installment_annual_price),
     external_installment_permanent_price: Number(form.external_installment_permanent_price),
-    device_debt_price: Number(form.device_debt_price || 0),
+    monthly_interest_amount: Number(form.monthly_interest_amount || 0),
   }
 }
 
@@ -88,12 +94,14 @@ function PriceField({
   value,
   onChange,
   required = true,
+  min = 0.01,
 }: {
   id: string
   label: string
   value: string
   onChange: (value: string) => void
   required?: boolean
+  min?: number
 }) {
   return (
     <div>
@@ -103,7 +111,7 @@ function PriceField({
       <input
         id={id}
         type="number"
-        min={0.01}
+        min={min}
         step="0.01"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -135,6 +143,33 @@ export function InventoryProductSettingsPage() {
       return failureCount < 2
     },
   })
+
+  const servicesQuery = useQuery({
+    queryKey: ['services', 'debt-fees'],
+    queryFn: async () => {
+      const { data } = await api.get<ApiPaginated<Service>>('/services', {
+        params: { per_page: 100, 'filter[is_active]': '1' },
+      })
+      return data.data ?? []
+    },
+  })
+
+  const debtBasePreview = useMemo(() => {
+    const services = servicesQuery.data ?? []
+    const uninstallFee = serviceCashPrice(services, 'uninstall')
+    const installationFee = serviceCashPrice(services, 'installation')
+    const softwareFee = serviceCashPrice(services, 'software')
+    const cashAnnual = Number(form.cash_annual_price || 0)
+    const cashAnnualPortion = Math.round(cashAnnual * 0.25 * 100) / 100
+    const baseTotal = uninstallFee + installationFee + softwareFee + cashAnnualPortion
+    return {
+      uninstallFee,
+      installationFee,
+      softwareFee,
+      cashAnnualPortion,
+      baseTotal,
+    }
+  }, [servicesQuery.data, form.cash_annual_price])
 
   useEffect(() => {
     if (query.data) {
@@ -318,14 +353,33 @@ export function InventoryProductSettingsPage() {
           <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
             <h3 className="text-sm font-bold text-on-surface">مديونية الجهاز</h3>
             <p className="text-xs text-on-surface-variant">
-              تُستخدم عند حساب استرجاع العقد — الفرق بين المدفوع ومديونية الجهاز يُصرف كأمر دفع للعميل.
+              تُحسب عند الاسترجاع: رسوم فك + تركيب + سوفت + 25% من كاش الاشتراك السنوي + (قيمة
+              فائدة كل شهر × عدد الشهور من تاريخ تنفيذ التركيب).
             </p>
             <PriceField
-              id="gps-device-debt"
-              label="مديونية الجهاز (ج.م)"
-              value={form.device_debt_price}
-              onChange={(value) => setForm({ ...form, device_debt_price: value })}
+              id="gps-monthly-interest"
+              label="قيمة فائدة كل شهر (ج.م)"
+              value={form.monthly_interest_amount}
+              onChange={(value) => setForm({ ...form, monthly_interest_amount: value })}
+              required={false}
+              min={0}
             />
+            <div className="space-y-1 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-sm py-sm text-xs text-on-surface-variant">
+              <p className="font-medium text-on-surface">البنود الثابتة (بدون الفائدة الشهرية)</p>
+              <p>رسوم فك: {debtBasePreview.uninstallFee.toLocaleString('ar-EG')} ج.م</p>
+              <p>رسوم تركيب: {debtBasePreview.installationFee.toLocaleString('ar-EG')} ج.م</p>
+              <p>رسوم سوفت: {debtBasePreview.softwareFee.toLocaleString('ar-EG')} ج.م</p>
+              <p>
+                25% من كاش اشتراك سنوي:{' '}
+                {debtBasePreview.cashAnnualPortion.toLocaleString('ar-EG')} ج.م
+              </p>
+              <p className="pt-1 font-medium text-on-surface">
+                الإجمالي الثابت: {debtBasePreview.baseTotal.toLocaleString('ar-EG')} ج.م
+              </p>
+              <p className="text-[11px]">
+                أسعار الفك/التركيب/السوفت تُسحب من أول خدمة مفعّلة لكل تصنيف في صفحة الخدمات.
+              </p>
+            </div>
           </section>
 
           <p className="text-xs text-on-surface-variant">

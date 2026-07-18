@@ -1437,6 +1437,7 @@ export function handleMockRequest(
       external_installment_annual_price?: number
       external_installment_permanent_price?: number
       device_debt_price?: number
+      monthly_interest_amount?: number
     }
     let updated = state.gpsProduct
     mutateState((s) => {
@@ -1478,6 +1479,7 @@ export function handleMockRequest(
           external_installment_permanent_price:
             body.external_installment_permanent_price ?? installmentPrice ?? cashPrice,
           device_debt_price: body.device_debt_price ?? 0,
+          monthly_interest_amount: body.monthly_interest_amount ?? 0,
         }
         updated = { ...s.gpsProduct }
         return
@@ -1522,6 +1524,8 @@ export function handleMockRequest(
           ?? cashPrice,
         device_debt_price:
           body.device_debt_price ?? s.gpsProduct.device_debt_price ?? 0,
+        monthly_interest_amount:
+          body.monthly_interest_amount ?? s.gpsProduct.monthly_interest_amount ?? 0,
       }
       updated = { ...s.gpsProduct }
     })
@@ -2315,6 +2319,56 @@ export function handleMockRequest(
           paid_at: p.paid_at,
           status: p.status,
         })),
+    }
+  }
+
+  if (m === 'GET' && path.match(/^sales-invoices\/\d+\/contract-return-preview$/)) {
+    const id = Number(path.split('/')[1])
+    const invoice = state.invoices.find((i) => i.id === id)
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+
+    const activeServiceCash = (category: string) => {
+      const service = state.services.find((s) => s.category === category && s.is_active)
+      return Number(service?.cash_price ?? service?.default_price ?? 0)
+    }
+    const cashAnnual = Number(
+      state.gpsProduct.cash_annual_price ?? state.gpsProduct.cash_price ?? state.gpsProduct.sell_price ?? 0,
+    )
+    const uninstallFee = activeServiceCash('uninstall')
+    const installationFee = activeServiceCash('installation')
+    const softwareFee = activeServiceCash('software')
+    const cashAnnualPortion = Math.round(cashAnnual * 0.25 * 100) / 100
+    const monthlyInterest = Number(state.gpsProduct.monthly_interest_amount ?? 0)
+    const months = 0
+    const interestTotal = Math.round(monthlyInterest * months * 100) / 100
+    const calculatedDebt =
+      Math.round(
+        (uninstallFee + installationFee + softwareFee + cashAnnualPortion + interestTotal) * 100,
+      ) / 100
+
+    const overrideRaw = params.device_debt_amount
+    const hasOverride = overrideRaw !== undefined && overrideRaw !== ''
+    const deviceDebt = hasOverride ? Number(overrideRaw) : calculatedDebt
+
+    const paidFromTx = state.paymentTransactions
+      .filter((p) => p.sales_invoice_id === invoice.id && p.status !== 'refunded')
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+    const totalPaid = Math.max(Number(invoice.paid_amount ?? 0), paidFromTx)
+
+    return {
+      total_paid: totalPaid,
+      device_debt_amount: deviceDebt,
+      disbursement_amount: Math.max(0, Math.round((totalPaid - deviceDebt) * 100) / 100),
+      breakdown: {
+        uninstall_fee: uninstallFee,
+        installation_fee: installationFee,
+        software_fee: softwareFee,
+        cash_annual_portion: cashAnnualPortion,
+        monthly_interest_amount: monthlyInterest,
+        months,
+        interest_total: interestTotal,
+        installation_executed_at: null,
+      },
     }
   }
 

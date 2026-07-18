@@ -6,10 +6,22 @@ import { Icon } from '../Icon'
 
 type CaseType = 'support' | 'return' | 'exchange'
 
+interface ReturnDebtBreakdown {
+  uninstall_fee: number
+  installation_fee: number
+  software_fee: number
+  cash_annual_portion: number
+  monthly_interest_amount: number
+  months: number
+  interest_total: number
+  installation_executed_at?: string | null
+}
+
 interface ReturnPreview {
   total_paid: number
   device_debt_amount: number
   disbursement_amount: number
+  breakdown?: ReturnDebtBreakdown
 }
 
 interface ContractCaseRecord {
@@ -268,8 +280,51 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                     {Number(previewQuery.data.total_paid).toLocaleString('ar-EG')} ج.م
                   </dd>
                 </div>
+                {previewQuery.data.breakdown && (
+                  <div className="space-y-1 rounded border border-outline-variant/60 bg-surface-container-lowest px-sm py-sm text-xs text-on-surface-variant">
+                    <p className="font-medium text-on-surface">تفصيل المديونية المحسوبة</p>
+                    <p>
+                      رسوم فك:{' '}
+                      {Number(previewQuery.data.breakdown.uninstall_fee).toLocaleString('ar-EG')} ج.م
+                    </p>
+                    <p>
+                      رسوم تركيب:{' '}
+                      {Number(previewQuery.data.breakdown.installation_fee).toLocaleString('ar-EG')}{' '}
+                      ج.م
+                    </p>
+                    <p>
+                      رسوم سوفت:{' '}
+                      {Number(previewQuery.data.breakdown.software_fee).toLocaleString('ar-EG')} ج.م
+                    </p>
+                    <p>
+                      25% من كاش اشتراك سنوي:{' '}
+                      {Number(previewQuery.data.breakdown.cash_annual_portion).toLocaleString(
+                        'ar-EG',
+                      )}{' '}
+                      ج.م
+                    </p>
+                    <p>
+                      فائدة ({Number(previewQuery.data.breakdown.months)} شهر ×{' '}
+                      {Number(previewQuery.data.breakdown.monthly_interest_amount).toLocaleString(
+                        'ar-EG',
+                      )}
+                      ):{' '}
+                      {Number(previewQuery.data.breakdown.interest_total).toLocaleString('ar-EG')} ج.م
+                    </p>
+                    {previewQuery.data.breakdown.installation_executed_at ? (
+                      <p>
+                        تاريخ تنفيذ التركيب:{' '}
+                        {previewQuery.data.breakdown.installation_executed_at}
+                      </p>
+                    ) : (
+                      <p>لم يُسجَّل تنفيذ تركيب بعد — الفائدة = 0</p>
+                    )}
+                  </div>
+                )}
                 <div>
-                  <label className="mb-xs block text-on-surface-variant">مديونية الجهاز (ج.م)</label>
+                  <label className="mb-xs block text-on-surface-variant">
+                    مديونية الجهاز (ج.م) — يمكن تعديلها يدوياً
+                  </label>
                   <input
                     type="number"
                     min={0}

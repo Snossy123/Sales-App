@@ -16,6 +16,7 @@ import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, paginatedMeta } from '../lib/sales'
 import { contractTemplateLabel } from '../lib/contractTemplates'
 import { getUserRole } from '../lib/permissions'
+import { serviceCategoryLabel } from '../lib/services'
 import { useAuthStore } from '../stores/authStore'
 
 export function ServicesPage() {
@@ -110,6 +111,11 @@ export function ServicesPage() {
               key: 'name',
               header: 'الخدمة',
               render: (row) => row.name_ar || row.name,
+            },
+            {
+              key: 'category',
+              header: 'التصنيف',
+              render: (row) => serviceCategoryLabel(row.category),
             },
             {
               key: 'cash_price',

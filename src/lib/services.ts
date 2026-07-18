@@ -4,7 +4,8 @@ export const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: 'maintenance', label: 'صيانة' },
   { value: 'software', label: 'سوفت وير' },
   { value: 'subscription', label: 'تجديد اشتراك' },
-  { value: 'installation', label: 'تركيب وفك' },
+  { value: 'installation', label: 'تركيب' },
+  { value: 'uninstall', label: 'فك' },
   { value: 'transfer', label: 'نقل' },
   { value: 'other', label: 'أخرى' },
 ]

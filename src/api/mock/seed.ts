@@ -370,6 +370,7 @@ export function createSeedState(): DemoState {
     external_installment_annual_price: 1000,
     external_installment_permanent_price: 1700,
     device_debt_price: 800,
+    monthly_interest_amount: 250,
     cost_price: 2200,
   }
 
@@ -427,7 +428,7 @@ export function createSeedState(): DemoState {
   ]
 
   const services: Service[] = [
-    { id: 1, code: 'SRV-FK', name: 'رسوم فك', name_ar: 'رسوم فك', category: 'installation', default_price: 100, is_active: true },
+    { id: 1, code: 'SRV-FK', name: 'رسوم فك', name_ar: 'رسوم فك', category: 'uninstall', default_price: 100, is_active: true },
     { id: 2, code: 'SRV-TRK', name: 'رسوم تركيب', name_ar: 'رسوم تركيب', category: 'installation', default_price: 500, is_active: true },
     { id: 3, code: 'SRV-SFT', name: 'رسوم سوفت وير', name_ar: 'رسوم سوفت وير', category: 'software', default_price: 200, is_active: true },
     { id: 4, code: 'SRV-SUB-Y', name: 'تجديد اشتراك سنة', name_ar: 'تجديد اشتراك سنة', category: 'subscription', default_price: 300, is_active: true },

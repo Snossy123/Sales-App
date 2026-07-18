@@ -385,6 +385,7 @@ export interface GpsProduct {
   external_installment_annual_price?: number
   external_installment_permanent_price?: number
   device_debt_price?: number
+  monthly_interest_amount?: number
   cost_price?: number | null
 }
 
@@ -600,6 +601,7 @@ export type ServiceCategory =
   | 'software'
   | 'subscription'
   | 'installation'
+  | 'uninstall'
   | 'transfer'
   | 'other'
 
