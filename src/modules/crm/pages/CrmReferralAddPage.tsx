@@ -2,81 +2,101 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
-import type { Customer, PaginatedResponse, ReferralLead } from '../../../api/types'
+import type { ReferralLead, ReferralReferrerOption } from '../../../api/types'
 import { DateTimeInput12h } from '../../../components/DateTimeInput12h'
 import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
-import { referrerLabel } from '../lib/referralLeads'
 
-type ReferrerMode = 'customer' | 'referral_lead'
+type ReferrerOption = ReferralReferrerOption & { optionKey: string }
+
+type ReferralEntry = {
+  key: string
+  phone: string
+  name: string
+  follow_up_at: string
+  notes: string
+}
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
-export function CrmReferralAddPage() {
-  const navigate = useNavigate()
-  const [referrerMode, setReferrerMode] = useState<ReferrerMode>('customer')
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [selectedReferralLead, setSelectedReferralLead] = useState<ReferralLead | null>(null)
-  const [form, setForm] = useState({
+function createEmptyEntry(): ReferralEntry {
+  return {
+    key: crypto.randomUUID(),
     phone: '',
     name: '',
     follow_up_at: '',
     notes: '',
-  })
+  }
+}
+
+export function CrmReferralAddPage() {
+  const navigate = useNavigate()
+  const [referrerSearch, setReferrerSearch] = useState('')
+  const [selectedReferrer, setSelectedReferrer] = useState<ReferrerOption | null>(null)
+  const [entries, setEntries] = useState<ReferralEntry[]>([createEmptyEntry()])
   const [error, setError] = useState('')
 
-  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
+  const debouncedReferrerSearch = useDebouncedValue(referrerSearch, 300)
+  const searchTerm = debouncedReferrerSearch.trim()
 
-  const customersQuery = useQuery({
-    queryKey: ['customers', 'referral-add', debouncedCustomerSearch],
+  const referrersQuery = useQuery({
+    queryKey: ['referral-leads', 'referrer-search', searchTerm],
     queryFn: async () => {
-      const params: Record<string, string | number> = { per_page: 20 }
-      if (debouncedCustomerSearch.trim()) {
-        params['filter[name]'] = debouncedCustomerSearch.trim()
-      }
-      const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
-      return data.data
-    },
-    enabled: referrerMode === 'customer',
-  })
-
-  const notInterestedQuery = useQuery({
-    queryKey: ['referral-leads', 'not-interested'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<ReferralLead>>('/crm/referral-leads', {
-        params: {
-          per_page: 100,
-          'filter[status]': 'not_interested',
-          include: 'referredByCustomer',
+      const { data } = await api.get<{ data: ReferralReferrerOption[] }>(
+        '/crm/referral-leads/referrer-search',
+        {
+          params: {
+            q: searchTerm || undefined,
+            limit: 20,
+          },
         },
-      })
-      return data.data
+      )
+      return data.data.map((option) => ({
+        ...option,
+        optionKey: `${option.kind}-${option.id}`,
+      }))
     },
-    enabled: referrerMode === 'referral_lead',
   })
+
+  const updateEntry = (key: string, patch: Partial<ReferralEntry>) => {
+    setEntries((prev) => prev.map((entry) => (entry.key === key ? { ...entry, ...patch } : entry)))
+  }
+
+  const addEntry = () => {
+    setEntries((prev) => [...prev, createEmptyEntry()])
+  }
+
+  const removeEntry = (key: string) => {
+    setEntries((prev) => (prev.length <= 1 ? prev : prev.filter((entry) => entry.key !== key)))
+  }
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
-        phone: form.phone.trim(),
-        name: form.name.trim() || null,
-        notes: form.notes.trim() || null,
-        follow_up_at: form.follow_up_at || null,
+      if (!selectedReferrer) {
+        throw new Error('يجب اختيار مصدر الإحالة')
       }
 
-      if (referrerMode === 'customer') {
-        if (!selectedCustomer) throw new Error('يجب اختيار العميل المُحيل')
-        payload.referred_by_customer_id = selectedCustomer.id
-      } else {
-        if (!selectedReferralLead) throw new Error('يجب اختيار ترشيح سابق')
-        payload.referred_by_referral_lead_id = selectedReferralLead.id
+      const validEntries = entries.filter((entry) => entry.phone.trim())
+      if (validEntries.length === 0) {
+        throw new Error('يجب إدخال رقم هاتف واحد على الأقل')
       }
 
-      const { data } = await api.post<ReferralLead>('/crm/referral-leads', payload)
-      return data
+      const referrerPayload =
+        selectedReferrer.kind === 'customer'
+          ? { referred_by_customer_id: selectedReferrer.customer.id }
+          : { referred_by_referral_lead_id: selectedReferrer.referral_lead.id }
+
+      for (const entry of validEntries) {
+        await api.post<ReferralLead>('/crm/referral-leads', {
+          phone: entry.phone.trim(),
+          name: entry.name.trim() || null,
+          notes: entry.notes.trim() || null,
+          follow_up_at: entry.follow_up_at || null,
+          ...referrerPayload,
+        })
+      }
     },
     onSuccess: () => navigate('/crm/referrals'),
     onError: (err) => setError(getErrorMessage(err)),
@@ -91,7 +111,7 @@ export function CrmReferralAddPage() {
   return (
     <SalesPageShell
       title="إضافة ترشيح"
-      subtitle="تسجيل رقم ترشيح جديد مع ربطه بمصدر الإحالة"
+      subtitle="تسجيل أرقام ترشيح جديدة مع ربطها بمصدر الإحالة"
       actions={
         <Link
           to="/crm/referrals"
@@ -105,101 +125,83 @@ export function CrmReferralAddPage() {
       <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-md">
         <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
           <h3 className="mb-sm text-sm font-bold text-on-surface">مصدر الترشيح</h3>
-          <div className="mb-md flex w-fit gap-1 rounded-lg border border-outline-variant p-0.5 text-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setReferrerMode('customer')
-                setSelectedReferralLead(null)
-              }}
-              className={`rounded px-md py-1.5 font-medium ${
-                referrerMode === 'customer'
-                  ? 'bg-primary text-on-primary'
-                  : 'text-on-surface-variant'
-              }`}
-            >
-              عميل مسجّل
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setReferrerMode('referral_lead')
-                setSelectedCustomer(null)
-                setCustomerSearch('')
-              }}
-              className={`rounded px-md py-1.5 font-medium ${
-                referrerMode === 'referral_lead'
-                  ? 'bg-primary text-on-primary'
-                  : 'text-on-surface-variant'
-              }`}
-            >
-              ترشيح سابق (غير مهتم)
-            </button>
-          </div>
-
-          {referrerMode === 'customer' && (
-            <SearchableSelect
-              label="العميل المُحيل *"
-              options={customersQuery.data ?? []}
-              value={selectedCustomer}
-              onChange={setSelectedCustomer}
-              onSearchChange={setCustomerSearch}
-              getOptionValue={(c) => c.id}
-              getOptionLabel={(c) => `${c.name} — ${c.phone}`}
-              placeholder="ابحث عن عميل..."
-              loading={customersQuery.isLoading}
-              emptyMessage="لا يوجد عميل مطابق"
-            />
-          )}
-
-          {referrerMode === 'referral_lead' && (
-            <SearchableSelect
-              label="الترشيح السابق *"
-              options={notInterestedQuery.data ?? []}
-              value={selectedReferralLead}
-              onChange={setSelectedReferralLead}
-              onSearchChange={() => {}}
-              getOptionValue={(l) => l.id}
-              getOptionLabel={(l) => `${l.name || l.phone} — ${referrerLabel(l)}`}
-              placeholder="اختر ترشيحاً غير مهتم..."
-              loading={notInterestedQuery.isLoading}
-              emptyMessage="لا توجد ترشيحات غير مهتمة"
-            />
-          )}
+          <SearchableSelect
+            label="مصدر الإحالة *"
+            options={referrersQuery.data ?? []}
+            value={selectedReferrer}
+            onChange={setSelectedReferrer}
+            onSearchChange={setReferrerSearch}
+            getOptionValue={(option) => option.optionKey}
+            getOptionLabel={(option) => option.label}
+            placeholder="ابحث عن عميل أو ترشيح..."
+            loading={referrersQuery.isLoading}
+            emptyMessage="لا يوجد عميل أو ترشيح مطابق"
+          />
         </section>
 
-        <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md space-y-sm">
-          <h3 className="text-sm font-bold text-on-surface">بيانات الترشيح</h3>
-          <input
-            placeholder="رقم الهاتف *"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            required
-            className={inputClass}
-            dir="ltr"
-          />
-          <input
-            placeholder="الاسم (اختياري)"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className={inputClass}
-          />
-          <div>
-            <label className="mb-xs block text-sm text-on-surface-variant">
-              موعد المتابعة الأولى (اختياري)
-            </label>
-            <DateTimeInput12h
-              value={form.follow_up_at}
-              onChange={(value) => setForm({ ...form, follow_up_at: value })}
-            />
+        <section className="space-y-sm">
+          <div className="flex items-center justify-between gap-sm">
+            <h3 className="text-sm font-bold text-on-surface">بيانات الترشيح</h3>
+            <button
+              type="button"
+              onClick={addEntry}
+              className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-sm py-1.5 text-sm font-medium text-primary hover:bg-surface-container"
+            >
+              <Icon name="add" size={18} />
+              إضافة شخص
+            </button>
           </div>
-          <textarea
-            placeholder="ملاحظات"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            rows={3}
-            className={inputClass}
-          />
+
+          {entries.map((entry, index) => (
+            <div
+              key={entry.key}
+              className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
+            >
+              <div className="flex items-center justify-between gap-sm">
+                <p className="text-sm font-medium text-on-surface-variant">شخص {index + 1}</p>
+                {entries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(entry.key)}
+                    className="inline-flex items-center gap-xs text-sm text-error hover:underline"
+                  >
+                    <Icon name="delete" size={16} />
+                    حذف
+                  </button>
+                )}
+              </div>
+              <input
+                placeholder="رقم الهاتف *"
+                value={entry.phone}
+                onChange={(e) => updateEntry(entry.key, { phone: e.target.value })}
+                required={index === 0}
+                className={inputClass}
+                dir="ltr"
+              />
+              <input
+                placeholder="الاسم (اختياري)"
+                value={entry.name}
+                onChange={(e) => updateEntry(entry.key, { name: e.target.value })}
+                className={inputClass}
+              />
+              <div>
+                <label className="mb-xs block text-sm text-on-surface-variant">
+                  موعد المتابعة الأولى (اختياري)
+                </label>
+                <DateTimeInput12h
+                  value={entry.follow_up_at}
+                  onChange={(value) => updateEntry(entry.key, { follow_up_at: value })}
+                />
+              </div>
+              <textarea
+                placeholder="ملاحظات"
+                value={entry.notes}
+                onChange={(e) => updateEntry(entry.key, { notes: e.target.value })}
+                rows={3}
+                className={inputClass}
+              />
+            </div>
+          ))}
         </section>
 
         {error && <p className="text-sm text-error">{error}</p>}
@@ -210,7 +212,7 @@ export function CrmReferralAddPage() {
           className="flex items-center gap-xs rounded-lg bg-secondary px-md py-sm text-sm font-bold text-on-secondary"
         >
           <Icon name="save" size={18} />
-          حفظ الترشيح
+          {entries.filter((e) => e.phone.trim()).length > 1 ? 'حفظ الترشيحات' : 'حفظ الترشيح'}
         </button>
       </form>
     </SalesPageShell>

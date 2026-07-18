@@ -1266,6 +1266,20 @@ export interface ReferralLead {
   status_logs?: ReferralLeadStatusLog[]
 }
 
+export type ReferralReferrerOption =
+  | {
+      kind: 'customer'
+      id: number
+      label: string
+      customer: Customer
+    }
+  | {
+      kind: 'referral_lead'
+      id: number
+      label: string
+      referral_lead: ReferralLead
+    }
+
 export interface ReferralLeadStatusLog {
   id: number
   referral_lead_id: number
