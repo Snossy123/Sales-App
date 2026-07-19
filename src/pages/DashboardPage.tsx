@@ -22,6 +22,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { usePageTour } from '../hooks/usePageTour'
 import { BarChartPanel } from '../components/charts/BarChartPanel'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
+import { StackedBarChartPanel } from '../components/charts/StackedBarChartPanel'
+import { CHART_COLORS } from '../lib/chartColors'
 import {
   computeDashboardInsights,
   computeDashboardInstallmentDonut,
@@ -128,6 +130,37 @@ export function DashboardPage() {
     () => (query.data ? computeDashboardInstallmentDonut(query.data) : []),
     [query.data],
   )
+
+  const paymentTermChart = useMemo(
+    () =>
+      (query.data?.sales_by_payment_term ?? []).map((row) => ({
+        label: row.label,
+        cash: row.cash,
+        installment: row.installment,
+      })),
+    [query.data?.sales_by_payment_term],
+  )
+
+  const sourceDonut = useMemo(
+    () =>
+      (query.data?.sales_by_source ?? [])
+        .filter((row) => row.amount > 0)
+        .map((row, i) => ({
+          label: row.label,
+          value: row.amount,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        })),
+    [query.data?.sales_by_source],
+  )
+
+  const last3Months = query.data?.last_3_months ?? []
+  const prev = query.data?.previous_period
+
+  const formatChangeTrend = (change: number | null | undefined) => {
+    if (change == null) return undefined
+    const sign = change > 0 ? '+' : ''
+    return `${sign}${change}% عن الفترة السابقة`
+  }
 
   const insights = useMemo(
     () => (query.data ? computeDashboardInsights(query.data, showReviews) : []),
@@ -311,11 +344,15 @@ export function DashboardPage() {
                 label={salesLabelForPeriod(period)}
                 value={fmtMoney(query.data.sales_today)}
                 icon="payments"
+                trend={formatChangeTrend(prev?.sales_change_percent)}
+                trendUp={(prev?.sales_change_percent ?? 0) >= 0}
               />
               <KpiCard
                 label={invoicesLabelForPeriod(period)}
                 value={query.data.invoices_today}
                 icon="receipt_long"
+                trend={formatChangeTrend(prev?.invoices_change_percent)}
+                trendUp={(prev?.invoices_change_percent ?? 0) >= 0}
               />
               <KpiCard label="إجمالي العملاء" value={query.data.customers_count} icon="group" />
             </div>
@@ -358,7 +395,7 @@ export function DashboardPage() {
             >
               <div
                 data-tour="dashboard-charts"
-                className="grid grid-cols-1 gap-md xl:grid-cols-3"
+                className="mb-md grid grid-cols-1 gap-md xl:grid-cols-3"
               >
                 {showInventoryCharts && (
                   <ChartCard title="مخزون الإدارات" subtitle="إجمالي ومعلق" className="xl:col-span-1">
@@ -376,6 +413,63 @@ export function DashboardPage() {
                 {installmentDonut.length > 0 && (
                   <ChartCard title="ملخص الأقساط" subtitle="حسب الحالة" className="xl:col-span-1">
                     <DonutChartPanel data={installmentDonut} />
+                  </ChartCard>
+                )}
+
+                {sourceDonut.length > 0 && (
+                  <ChartCard title="المبيعات حسب المصدر" subtitle="مصدر اكتساب العميل" className="xl:col-span-1">
+                    <DonutChartPanel data={sourceDonut} />
+                  </ChartCard>
+                )}
+
+                {paymentTermChart.length > 0 && (
+                  <ChartCard
+                    title="كاش مقابل تقسيط"
+                    subtitle="آخر 6 أشهر"
+                    className="xl:col-span-2"
+                  >
+                    <StackedBarChartPanel
+                      data={paymentTermChart}
+                      xKey="label"
+                      series={[
+                        { key: 'cash', label: 'كاش', color: CHART_COLORS[0] },
+                        { key: 'installment', label: 'تقسيط', color: CHART_COLORS[2] },
+                      ]}
+                      height={220}
+                    />
+                  </ChartCard>
+                )}
+
+                {last3Months.length > 0 && (
+                  <ChartCard title="آخر 3 أشهر" subtitle="مبيعات · تعاقدات · تحصيل" className="xl:col-span-1">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-outline-variant text-xs text-on-surface-variant">
+                            <th className="px-xs py-sm text-start font-medium">الشهر</th>
+                            <th className="px-xs py-sm text-start font-medium">المبيعات</th>
+                            <th className="px-xs py-sm text-start font-medium">تعاقدات</th>
+                            <th className="px-xs py-sm text-start font-medium">تحصيل</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {last3Months.map((row) => (
+                            <tr key={row.month} className="border-b border-outline-variant/60 last:border-0">
+                              <td className="px-xs py-sm font-medium text-on-surface">{row.label}</td>
+                              <td className="px-xs py-sm tabular-nums text-on-surface">
+                                {fmtMoney(row.sales)}
+                              </td>
+                              <td className="px-xs py-sm tabular-nums text-on-surface">
+                                {row.invoices_count}
+                              </td>
+                              <td className="px-xs py-sm tabular-nums text-on-surface">
+                                {fmtMoney(row.collections)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </ChartCard>
                 )}
 

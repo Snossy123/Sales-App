@@ -727,16 +727,147 @@ export function handleMockRequest(
     const stock = warehouseId ? getStock(state, warehouseId) : null
     const availableQty = stock ? stock.quantity - stock.reserved : state.stocks.reduce((s, x) => s + x.quantity - x.reserved, 0)
 
+    const salesToday = periodInvoices
+      .filter((i) => i.status === 'confirmed')
+      .reduce((s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0), 0)
+    const invoicesToday = periodInvoices.length
+
+    const previousPeriodBounds = (): { start: Date; end: Date } | null => {
+      if (period === 'all') return null
+      const start = new Date(today)
+      const end = new Date(today)
+      if (period === 'day') {
+        start.setDate(today.getDate() - 1)
+        start.setHours(0, 0, 0, 0)
+        end.setDate(today.getDate() - 1)
+        end.setHours(23, 59, 59, 999)
+      } else if (period === 'week') {
+        const weekStart = new Date(today)
+        weekStart.setDate(today.getDate() - today.getDay() - 7)
+        weekStart.setHours(0, 0, 0, 0)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekStart.getDate() + 6)
+        weekEnd.setHours(23, 59, 59, 999)
+        return { start: weekStart, end: weekEnd }
+      } else if (period === 'month') {
+        start.setMonth(today.getMonth() - 1, 1)
+        start.setHours(0, 0, 0, 0)
+        end.setMonth(today.getMonth(), 0)
+        end.setHours(23, 59, 59, 999)
+      } else if (period === 'year') {
+        start.setFullYear(today.getFullYear() - 1, 0, 1)
+        start.setHours(0, 0, 0, 0)
+        end.setFullYear(today.getFullYear() - 1, 11, 31)
+        end.setHours(23, 59, 59, 999)
+      }
+      return { start, end }
+    }
+
+    const pctChange = (current: number, previous: number): number | null => {
+      if (previous <= 0) return current > 0 ? 100 : null
+      return Math.round(((current - previous) / previous) * 1000) / 10
+    }
+
+    const prevBounds = previousPeriodBounds()
+    let previous_period: DashboardStats['previous_period'] = null
+    if (prevBounds) {
+      const prevInvoices = branchInvoices.filter((i) => {
+        const d = new Date(i.invoice_date)
+        return d >= prevBounds.start && d <= prevBounds.end
+      })
+      const prevSales = prevInvoices
+        .filter((i) => i.status === 'confirmed')
+        .reduce((s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0), 0)
+      previous_period = {
+        sales: prevSales,
+        invoices: prevInvoices.length,
+        sales_change_percent: pctChange(salesToday, prevSales),
+        invoices_change_percent: pctChange(invoicesToday, prevInvoices.length),
+      }
+    }
+
+    const arMonths = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    ]
+    const monthKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const monthLabel = (d: Date) => `${arMonths[d.getMonth()]} ${d.getFullYear()}`
+
+    const sales_by_payment_term: NonNullable<DashboardStats['sales_by_payment_term']> = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const key = monthKey(d)
+      const monthInvoices = confirmed.filter((inv) => monthKey(new Date(inv.invoice_date)) === key)
+      sales_by_payment_term.push({
+        month: key,
+        label: monthLabel(d),
+        cash: monthInvoices
+          .filter((inv) => inv.payment_term === 'cash')
+          .reduce((s, inv) => s + Number(inv.total) - Number(inv.transportation_fee ?? 0), 0),
+        installment: monthInvoices
+          .filter((inv) => inv.payment_term === 'installment')
+          .reduce((s, inv) => s + Number(inv.total) - Number(inv.transportation_fee ?? 0), 0),
+      })
+    }
+
+    const sourceMap = new Map<string, { amount: number; count: number }>()
+    for (const inv of periodInvoices.filter((i) => i.status === 'confirmed')) {
+      const customer = state.customers.find((c) => c.id === inv.customer_id)
+      const source = customer?.acquisition_source || 'unknown'
+      const prev = sourceMap.get(source) ?? { amount: 0, count: 0 }
+      prev.amount += Number(inv.total) - Number(inv.transportation_fee ?? 0)
+      prev.count += 1
+      sourceMap.set(source, prev)
+    }
+    const sourceLabels: Record<string, string> = {
+      customer_referral: 'ترشيح عميل',
+      social: 'سوشيال ميديا',
+      unknown: 'غير محدد',
+    }
+    const sales_by_source = [...sourceMap.entries()]
+      .map(([source, stats]) => ({
+        source,
+        label: sourceLabels[source] ?? source,
+        amount: stats.amount,
+        count: stats.count,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+
+    const last_3_months: NonNullable<DashboardStats['last_3_months']> = []
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const key = monthKey(d)
+      const monthInvoices = confirmed.filter((inv) => monthKey(new Date(inv.invoice_date)) === key)
+      const collections = (state.paymentTransactions ?? [])
+        .filter((p) => {
+          if (p.status !== 'active' || !p.paid_at) return false
+          if (monthKey(new Date(p.paid_at)) !== key) return false
+          if (!p.sales_invoice_id) return true
+          const inv = state.invoices.find((x) => x.id === p.sales_invoice_id)
+          if (!inv) return false
+          if (branchFilter) return inv.branch_id === branchFilter
+          if (scopedBranchIds) return inv.branch_id != null && scopedBranchIds.includes(inv.branch_id)
+          return true
+        })
+        .reduce((s, p) => s + Number(p.amount), 0)
+      last_3_months.push({
+        month: key,
+        label: monthLabel(d),
+        sales: monthInvoices.reduce(
+          (s, inv) => s + Number(inv.total) - Number(inv.transportation_fee ?? 0),
+          0,
+        ),
+        invoices_count: monthInvoices.length,
+        collections,
+      })
+    }
+
     const stats: DashboardStats = {
       period,
       branch_id: branchFilter ?? undefined,
-      sales_today: periodInvoices
-        .filter((i) => i.status === 'confirmed')
-        .reduce(
-          (s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0),
-          0,
-        ),
-      invoices_today: periodInvoices.length,
+      sales_today: salesToday,
+      invoices_today: invoicesToday,
       customers_count: state.customers.filter((c) => {
         if (!c.branch_id) return false
         if (branchFilter) return c.branch_id === branchFilter
@@ -773,6 +904,10 @@ export function handleMockRequest(
           customer: state.customers.find((c) => c.id === inv.customer_id),
         })),
       overdue_installments_list: overdueList,
+      previous_period,
+      sales_by_payment_term,
+      sales_by_source,
+      last_3_months,
     }
     return stats
   }
@@ -3615,7 +3750,7 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'crm/ceo/dashboard') {
-    return buildCeoDashboardMock(state, params)
+    return buildCeoDashboardMock(state, params, ctx)
   }
 
   if (m === 'GET' && path === 'leads') {
@@ -4687,12 +4822,19 @@ export function handleMockRequest(
   throw mockError(404, `Mock endpoint not found: ${m} ${path}`)
 }
 
-function buildCeoDashboardMock(state: DemoState, params: Record<string, string>) {
+function buildCeoDashboardMock(
+  state: DemoState,
+  params: Record<string, string>,
+  ctx?: MockContext,
+) {
   const period = ['day', 'week', 'month', 'year'].includes(String(params.period))
     ? String(params.period)
     : 'month'
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
+  const scopedBranchIds = ctx ? getScopedBranchIds(state, ctx) : null
+  const inScopeBranch = (branchId?: number | null) =>
+    scopedBranchIds == null || (branchId != null && scopedBranchIds.includes(branchId))
 
   const periodBounds = (): { start: Date; end: Date } => {
     const start = new Date(today)
@@ -4730,9 +4872,54 @@ function buildCeoDashboardMock(state: DemoState, params: Record<string, string>)
     Number(inv.total ?? 0) - Number((inv as SalesInvoice & { transportation_fee?: number }).transportation_fee ?? 0)
 
   const confirmedInPeriod = state.invoices.filter(
-    (inv) => inv.status === 'confirmed' && inPeriod(inv.invoice_date),
+    (inv) =>
+      inv.status === 'confirmed' &&
+      inPeriod(inv.invoice_date) &&
+      inScopeBranch(inv.branch_id),
   )
   const totalSales = confirmedInPeriod.reduce((sum, inv) => sum + invoiceAmount(inv), 0)
+
+  const previousPeriodBounds = (): { start: Date; end: Date } => {
+    const start = new Date(today)
+    const end = new Date(today)
+    if (period === 'day') {
+      start.setDate(today.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      end.setDate(today.getDate() - 1)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'week') {
+      start.setDate(today.getDate() - today.getDay() - 7)
+      start.setHours(0, 0, 0, 0)
+      end.setTime(start.getTime())
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'year') {
+      start.setFullYear(today.getFullYear() - 1, 0, 1)
+      start.setHours(0, 0, 0, 0)
+      end.setFullYear(today.getFullYear() - 1, 11, 31)
+      end.setHours(23, 59, 59, 999)
+    } else {
+      start.setMonth(today.getMonth() - 1, 1)
+      start.setHours(0, 0, 0, 0)
+      end.setMonth(today.getMonth(), 0)
+      end.setHours(23, 59, 59, 999)
+    }
+    return { start, end }
+  }
+  const { start: prevStart, end: prevEnd } = previousPeriodBounds()
+  const previousSales = state.invoices
+    .filter((inv) => {
+      if (inv.status !== 'confirmed' || !inScopeBranch(inv.branch_id)) return false
+      const d = new Date(inv.invoice_date)
+      return d >= prevStart && d <= prevEnd
+    })
+    .reduce((sum, inv) => sum + invoiceAmount(inv), 0)
+  const salesChangePercent =
+    previousSales <= 0
+      ? totalSales > 0
+        ? 100
+        : null
+      : Math.round(((totalSales - previousSales) / previousSales) * 1000) / 10
 
   const activeTargets = (state.hrmUserSalesTargets ?? []).filter((t) => {
     const tStart = new Date(t.target_start)
@@ -4743,31 +4930,20 @@ function buildCeoDashboardMock(state: DemoState, params: Record<string, string>)
   const achievedCount = activeTargets.reduce((s, t) => s + Number(t.achieved_count ?? 0), 0)
   const percent = targetCount > 0 ? Math.round(Math.min(100, (achievedCount / targetCount) * 1000)) / 10 : 0
 
-  const openLeads = state.leads.filter(
-    (l) => !l.converted_customer_id && l.status !== 'won' && l.status !== 'lost',
-  )
-  const values = openLeads
-    .map((l) => Number(l.expected_value ?? 0))
-    .filter((v) => v > 0)
-    .sort((a, b) => b - a)
-  const thresholdIndex = Math.max(0, Math.ceil(values.length * 0.2) - 1)
-  const threshold = values.length > 0 ? values[thresholdIndex] : null
-  const hotLeads = openLeads
-    .filter((l) => l.status === 'qualified' || (threshold != null && Number(l.expected_value ?? 0) >= threshold))
-    .sort((a, b) => Number(b.expected_value ?? 0) - Number(a.expected_value ?? 0))
-    .slice(0, 10)
-    .map((l) => ({
-      id: l.id,
-      name: l.name,
-      phone: l.phone,
-      status: l.status,
-      expected_value: l.expected_value != null ? Number(l.expected_value) : null,
-      device_count: l.device_count ?? null,
-      assignee: l.assignee ?? null,
-      branch: l.branch
-        ? { id: l.branch.id, name: l.branch.name_ar || l.branch.name }
-        : null,
-    }))
+  const scopedLeads = state.leads.filter((l) => inScopeBranch(l.branch?.id))
+  const contracted = scopedLeads.filter((l) => l.status === 'won').length
+  const notInterested = scopedLeads.filter((l) => l.status === 'lost').length
+  const notContacted = scopedLeads.filter((l) => l.status === 'new').length
+  const inProgress = scopedLeads.filter((l) =>
+    ['contacted', 'negotiation', 'qualified'].includes(l.status),
+  ).length
+  const leadsBreakdown = {
+    total: contracted + notInterested + notContacted + inProgress,
+    contracted,
+    not_interested: notInterested,
+    not_contacted: notContacted,
+    in_progress: inProgress,
+  }
 
   const startOfToday = new Date(today)
   startOfToday.setHours(0, 0, 0, 0)
@@ -4793,7 +4969,12 @@ function buildCeoDashboardMock(state: DemoState, params: Record<string, string>)
     }))
 
   const installationItems = state.invoices
-    .filter((inv) => inv.status === 'confirmed' && Boolean(inv.technician_name))
+    .filter(
+      (inv) =>
+        inv.status === 'confirmed' &&
+        Boolean(inv.technician_name) &&
+        inScopeBranch(inv.branch_id),
+    )
     .slice(0, 3)
     .map((inv, index) => {
       const customer = state.customers.find((c) => c.id === inv.customer_id)
@@ -4808,24 +4989,46 @@ function buildCeoDashboardMock(state: DemoState, params: Record<string, string>)
       }
     })
 
-  const byUser = new Map<number, { sales_total: number; invoices_count: number }>()
+  const byUser = new Map<
+    number,
+    { sales_total: number; invoices_count: number; branchCounts: Map<number, number> }
+  >()
   for (const inv of confirmedInPeriod) {
     const userId = inv.sales_user_id ?? inv.created_by
     if (!userId) continue
-    const prev = byUser.get(userId) ?? { sales_total: 0, invoices_count: 0 }
+    const prev = byUser.get(userId) ?? {
+      sales_total: 0,
+      invoices_count: 0,
+      branchCounts: new Map<number, number>(),
+    }
     prev.sales_total += invoiceAmount(inv)
     prev.invoices_count += 1
+    if (inv.branch_id != null) {
+      prev.branchCounts.set(inv.branch_id, (prev.branchCounts.get(inv.branch_id) ?? 0) + 1)
+    }
     byUser.set(userId, prev)
   }
   const topEmployees = [...byUser.entries()]
-    .map(([userId, stats]) => ({
-      user_id: userId,
-      name: state.users.find((u) => u.id === userId)?.name ?? '—',
-      sales_total: stats.sales_total,
-      invoices_count: stats.invoices_count,
-    }))
+    .map(([userId, stats]) => {
+      let topBranchId: number | null = null
+      let topBranchCount = 0
+      for (const [branchId, count] of stats.branchCounts) {
+        if (count > topBranchCount) {
+          topBranchId = branchId
+          topBranchCount = count
+        }
+      }
+      const branch = topBranchId != null ? state.branches.find((b) => b.id === topBranchId) : null
+      return {
+        user_id: userId,
+        name: state.users.find((u) => u.id === userId)?.name ?? '—',
+        sales_total: stats.sales_total,
+        invoices_count: stats.invoices_count,
+        branch_name: branch ? branch.name_ar || branch.name : null,
+      }
+    })
     .sort((a, b) => b.sales_total - a.sales_total)
-    .slice(0, 5)
+    .slice(0, 10)
 
   const chartMap = new Map<string, number>()
   for (const inv of confirmedInPeriod) {
@@ -4845,18 +5048,63 @@ function buildCeoDashboardMock(state: DemoState, params: Record<string, string>)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([label, amount]) => ({ label, amount }))
 
+  const decided = leadsBreakdown.contracted + leadsBreakdown.not_interested
+  const conversion = {
+    contracted_percent:
+      decided > 0 ? Math.round((leadsBreakdown.contracted / decided) * 1000) / 10 : 0,
+    not_interested_percent:
+      decided > 0 ? Math.round((leadsBreakdown.not_interested / decided) * 1000) / 10 : 0,
+    decided_total: decided,
+  }
+  const funnelTotal = Math.max(1, leadsBreakdown.total)
+  const funnel = [
+    {
+      key: 'not_contacted',
+      label: 'لم يتم التواصل',
+      count: leadsBreakdown.not_contacted,
+      percent: Math.round((leadsBreakdown.not_contacted / funnelTotal) * 1000) / 10,
+    },
+    {
+      key: 'in_progress',
+      label: 'قيد المتابعة',
+      count: leadsBreakdown.in_progress,
+      percent: Math.round((leadsBreakdown.in_progress / funnelTotal) * 1000) / 10,
+    },
+    {
+      key: 'contracted',
+      label: 'تم التعاقد',
+      count: leadsBreakdown.contracted,
+      percent: Math.round((leadsBreakdown.contracted / funnelTotal) * 1000) / 10,
+    },
+    {
+      key: 'not_interested',
+      label: 'غير مهتم',
+      count: leadsBreakdown.not_interested,
+      percent: Math.round((leadsBreakdown.not_interested / funnelTotal) * 1000) / 10,
+    },
+  ]
+
+  const byStatus: Record<string, number> = {}
+  for (const item of installationItems) {
+    byStatus[item.status] = (byStatus[item.status] ?? 0) + 1
+  }
+
   return {
     period,
     total_sales: totalSales,
+    sales_change_percent: salesChangePercent,
     target_achievement: {
       target_count: targetCount,
       achieved_count: achievedCount,
       percent,
     },
-    hot_leads: hotLeads,
+    leads_breakdown: leadsBreakdown,
+    conversion,
+    funnel,
     overdue_follow_ups: overdueFollowUps,
     installations_today: {
       count: installationItems.length,
+      by_status: byStatus,
       items: installationItems,
     },
     top_employees: topEmployees,

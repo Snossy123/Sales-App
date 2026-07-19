@@ -625,6 +625,98 @@ export function createSeedState(): DemoState {
       rejection_reason: 'بيانات العميل غير مكتملة',
       created_by: 2,
     },
+    {
+      id: 5,
+      invoice_number: 'INV-2026-0005',
+      invoice_date: new Date().toISOString().slice(0, 10),
+      branch_id: 3,
+      warehouse_id: 3,
+      customer_id: 3,
+      distributor_id: 3,
+      sales_user_id: 5,
+      status: 'confirmed',
+      payment_term: 'cash',
+      payment_status: 'paid',
+      total: 23200,
+      paid_amount: 23200,
+      balance_due: 0,
+      technician_name: 'يوسف دعم فني',
+      lines: [
+        {
+          id: 5,
+          product_id: 1,
+          quantity: 4,
+          unit_price: 5800,
+          product_name_ar: gpsProduct.name_ar,
+        },
+      ],
+      confirmed_at: new Date().toISOString(),
+      created_by: 5,
+    },
+    {
+      id: 6,
+      invoice_number: 'INV-2026-0006',
+      invoice_date: new Date().toISOString().slice(0, 10),
+      branch_id: 3,
+      warehouse_id: 3,
+      customer_id: 3,
+      distributor_id: 3,
+      sales_user_id: 5,
+      status: 'confirmed',
+      payment_term: 'cash',
+      payment_status: 'paid',
+      total: 32900,
+      paid_amount: 32900,
+      balance_due: 0,
+      technician_name: 'محمود الفني',
+      lines: [
+        {
+          id: 6,
+          product_id: 1,
+          quantity: 5,
+          unit_price: 6580,
+          product_name_ar: gpsProduct.name_ar,
+        },
+      ],
+      confirmed_at: new Date(Date.now() - 3600_000).toISOString(),
+      created_by: 5,
+    },
+    {
+      id: 7,
+      invoice_number: 'INV-2026-0007',
+      invoice_date: (() => {
+        const d = new Date()
+        d.setDate(Math.max(1, d.getDate() - 5))
+        return d.toISOString().slice(0, 10)
+      })(),
+      branch_id: 3,
+      warehouse_id: 3,
+      customer_id: 3,
+      distributor_id: 3,
+      sales_user_id: 5,
+      status: 'confirmed',
+      payment_term: 'cash',
+      payment_status: 'paid',
+      total: 17500,
+      paid_amount: 17500,
+      balance_due: 0,
+      technician_name: 'يوسف دعم فني',
+      lines: [
+        {
+          id: 7,
+          product_id: 1,
+          quantity: 5,
+          unit_price: 3500,
+          product_name_ar: gpsProduct.name_ar,
+        },
+      ],
+      confirmed_at: (() => {
+        const d = new Date()
+        d.setDate(Math.max(1, d.getDate() - 5))
+        return d.toISOString()
+      })(),
+      created_by: 5,
+    },
   ]
 
   stocks[0].reserved = 2
@@ -1071,6 +1163,69 @@ export function createSeedState(): DemoState {
       converted_customer_id: 1,
       branch: branches[0],
     },
+    // طنطا — تغطية كاملة لتوزيع الليدز في لوحة مدير الدلتا
+    {
+      id: 6,
+      name: 'حسن رجب',
+      phone: '01010001116',
+      source: 'موقع',
+      status: 'qualified',
+      expected_value: 52000,
+      device_count: 6,
+      branch: branches[2],
+    },
+    {
+      id: 7,
+      name: 'رانيا عصام',
+      phone: '01043334449',
+      source: 'معرض',
+      status: 'contacted',
+      expected_value: 28000,
+      device_count: 3,
+      branch: branches[2],
+    },
+    {
+      id: 8,
+      name: 'منى طنطاوي',
+      phone: '01087778889',
+      source: 'فيسبوك',
+      status: 'negotiation',
+      expected_value: 42000,
+      device_count: 4,
+      branch: branches[2],
+    },
+    {
+      id: 9,
+      name: 'خالد البحيري',
+      phone: '01098889990',
+      source: 'واتساب',
+      status: 'new',
+      expected_value: 18000,
+      device_count: 2,
+      branch: branches[2],
+    },
+    {
+      id: 10,
+      name: 'هبة الغربي',
+      phone: '01009990001',
+      source: 'معرض',
+      status: 'won',
+      expected_value: 35000,
+      device_count: 5,
+      converted_on: new Date().toISOString().slice(0, 10),
+      converted_customer_id: 3,
+      branch: branches[2],
+    },
+    {
+      id: 11,
+      name: 'طارق السمنودي',
+      phone: '01011112223',
+      source: 'ترشيح',
+      status: 'lost',
+      expected_value: 22000,
+      device_count: 1,
+      branch: branches[2],
+    },
   ]
 
   const todayMorning = new Date()
@@ -1141,6 +1296,51 @@ export function createSeedState(): DemoState {
       customer_id: 3,
       customer: customers[2],
       users: [{ id: 2, name: 'محمد — مبيعات' }],
+    },
+    {
+      id: 7,
+      title: 'متابعة متأخرة — رانيا عصام',
+      status: 'open',
+      schedule_type: 'call',
+      start_datetime: (() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 2)
+        d.setHours(12, 0, 0, 0)
+        return d.toISOString()
+      })(),
+      lead_id: 7,
+      lead: leads[6],
+      users: [{ id: 5, name: 'أحمد — مدير إدارة الدلتا' }],
+    },
+    {
+      id: 8,
+      title: 'عرض متأخر — منى طنطاوي',
+      status: 'open',
+      schedule_type: 'meeting',
+      start_datetime: (() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 4)
+        d.setHours(15, 0, 0, 0)
+        return d.toISOString()
+      })(),
+      lead_id: 8,
+      lead: leads[7],
+      users: [{ id: 5, name: 'أحمد — مدير إدارة الدلتا' }],
+    },
+    {
+      id: 9,
+      title: 'متابعة متأخرة — حسن رجب',
+      status: 'open',
+      schedule_type: 'call',
+      start_datetime: (() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 1)
+        d.setHours(10, 30, 0, 0)
+        return d.toISOString()
+      })(),
+      lead_id: 6,
+      lead: leads[5],
+      users: [{ id: 5, name: 'أحمد — مدير إدارة الدلتا' }],
     },
   ]
 
@@ -1622,6 +1822,7 @@ export function createSeedState(): DemoState {
         achieved_count: 3,
         commission_percent: 5,
       },
+      // 16 + 11 = 27 من 35 → ~77% في لوحة المدير
       {
         id: 2,
         employee_id: 1,
@@ -1631,9 +1832,22 @@ export function createSeedState(): DemoState {
         target_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
           .toISOString()
           .slice(0, 10),
-        target_count: 12,
-        achieved_count: 5,
-        commission_percent: 5,
+        target_count: 20,
+        achieved_count: 16,
+        commission_percent: 2.5,
+      },
+      {
+        id: 3,
+        employee_id: 2,
+        target_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString()
+          .slice(0, 10),
+        target_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+          .toISOString()
+          .slice(0, 10),
+        target_count: 15,
+        achieved_count: 11,
+        commission_percent: 2.0,
       },
     ],
     adminRoles,

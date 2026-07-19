@@ -320,6 +320,35 @@ export interface LoginResponse {
   user: AuthUser
 }
 
+export interface DashboardPreviousPeriod {
+  sales: number
+  invoices: number
+  sales_change_percent: number | null
+  invoices_change_percent: number | null
+}
+
+export interface DashboardSalesByPaymentTerm {
+  month: string
+  label: string
+  cash: number
+  installment: number
+}
+
+export interface DashboardSalesBySource {
+  source: string
+  label: string
+  amount: number
+  count: number
+}
+
+export interface DashboardMonthSummary {
+  month: string
+  label: string
+  sales: number
+  invoices_count: number
+  collections: number
+}
+
 export interface DashboardStats {
   period?: string
   branch_id?: number | null
@@ -334,6 +363,10 @@ export interface DashboardStats {
   recent_invoices?: DashboardInvoiceSummary[]
   overdue_installments_list?: DashboardInstallmentSummary[]
   pending_review_invoices?: DashboardInvoiceSummary[]
+  previous_period?: DashboardPreviousPeriod | null
+  sales_by_payment_term?: DashboardSalesByPaymentTerm[]
+  sales_by_source?: DashboardSalesBySource[]
+  last_3_months?: DashboardMonthSummary[]
 }
 
 export interface DashboardInvoiceSummary {
@@ -1136,15 +1169,12 @@ export interface CrmDashboardStats {
   organization_id?: number
 }
 
-export interface CeoDashboardHotLead {
-  id: number
-  name: string
-  phone: string
-  status: string
-  expected_value?: number | null
-  device_count?: number | null
-  assignee?: { id: number; name: string } | null
-  branch?: { id: number; name: string } | null
+export interface CeoDashboardLeadsBreakdown {
+  total: number
+  contracted: number
+  not_interested: number
+  not_contacted: number
+  in_progress: number
 }
 
 export interface CeoDashboardFollowUp {
@@ -1174,6 +1204,7 @@ export interface CeoDashboardTopEmployee {
   name: string
   sales_total: number
   invoices_count: number
+  branch_name?: string | null
 }
 
 export interface CeoDashboardChartPoint {
@@ -1181,18 +1212,35 @@ export interface CeoDashboardChartPoint {
   amount: number
 }
 
+export interface CeoDashboardConversion {
+  contracted_percent: number
+  not_interested_percent: number
+  decided_total: number
+}
+
+export interface CeoDashboardFunnelStage {
+  key: string
+  label: string
+  count: number
+  percent: number
+}
+
 export interface CeoDashboard {
   period: string
   total_sales: number
+  sales_change_percent?: number | null
   target_achievement: {
     target_count: number
     achieved_count: number
     percent: number
   }
-  hot_leads: CeoDashboardHotLead[]
+  leads_breakdown: CeoDashboardLeadsBreakdown
+  conversion?: CeoDashboardConversion
+  funnel?: CeoDashboardFunnelStage[]
   overdue_follow_ups: CeoDashboardFollowUp[]
   installations_today: {
     count: number
+    by_status?: Record<string, number>
     items: CeoDashboardInstallationItem[]
   }
   top_employees: CeoDashboardTopEmployee[]
