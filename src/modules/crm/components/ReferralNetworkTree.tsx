@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReferralNetworkNode } from '../../../api/types'
-import { Icon } from '../../../components/Icon'
+import { referralStatusMeta } from '../lib/referralLeads'
+import { CrmStatusPill } from './ui/CrmChip'
 
 function formatSales(value: number): string {
   if (!value) return '—'
@@ -15,165 +16,154 @@ function formatRate(rate: number): string {
 }
 
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2)
-  return (parts[0][0] + parts[1][0]).slice(0, 2)
+  return name.trim().slice(0, 1) || '?'
 }
 
 interface ReferralNetworkTreeProps {
   nodes: ReferralNetworkNode[]
 }
 
-interface TreeNodeProps {
-  node: ReferralNetworkNode
-  depth: number
-  isLast: boolean
-}
-
-function MetricChip({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: string | number
-  accent?: boolean
-}) {
+function MetricCell({ value, label }: { value: string | number; label: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-        accent
-          ? 'bg-primary/12 text-primary ring-1 ring-primary/15'
-          : 'bg-surface-container text-on-surface ring-1 ring-outline-variant/60'
-      }`}
-    >
-      <span className="text-on-surface-variant">{label}</span>
-      <strong className="tabular-nums">{value}</strong>
-    </span>
+    <div className="flex min-w-16 flex-col items-center gap-px">
+      <span className="text-[15px] font-bold">{value}</span>
+      <span className="text-[10.5px]" style={{ color: 'var(--crm-text-faint)' }}>
+        {label}
+      </span>
+    </div>
   )
 }
 
-function TreeNode({ node, depth, isLast }: TreeNodeProps) {
-  const [open, setOpen] = useState(depth < 2)
+function ChildRow({ child }: { child: ReferralNetworkNode }) {
+  const childMeta = child.status ? referralStatusMeta(child.status) : null
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3.5 py-2.5 transition-colors"
+      style={{
+        border: `1px solid ${hovered ? 'var(--crm-primary-soft-border)' : 'var(--crm-border-soft)'}`,
+        borderRadius: 'var(--crm-radius-md)',
+        background: 'var(--crm-surface-muted)',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span className="h-px w-5 shrink-0" style={{ background: 'var(--crm-border)' }} />
+      <span
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[11px] font-semibold"
+        style={{ background: 'var(--crm-primary-soft)', color: 'var(--crm-primary)' }}
+      >
+        {initials(child.name)}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="text-[12.5px] font-semibold">{child.name}</span>
+        <span className="text-[11px] tabular-nums" dir="ltr" style={{ color: 'var(--crm-text-faint)' }}>
+          {child.phone}
+        </span>
+      </div>
+      {childMeta ? (
+        <CrmStatusPill label={childMeta.label} color={childMeta.color} tint={childMeta.tint} />
+      ) : (
+        <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
+          {child.metrics.referred_count} أحال
+        </span>
+      )}
+    </div>
+  )
+}
+
+function NetworkNodeCard({ node, depth = 0 }: { node: ReferralNetworkNode; depth?: number }) {
+  const [open, setOpen] = useState(depth < 1)
   const hasChildren = node.children.length > 0
   const isCustomer = node.kind === 'customer'
 
   return (
-    <li className={`relative list-none ${depth > 0 ? 'ms-7' : ''}`}>
-      {depth > 0 && (
-        <>
-          {/* Vertical guide: full height for middle siblings, stops at node for last */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute top-0 w-px bg-outline-variant"
-            style={{
-              insetInlineStart: '-1.15rem',
-              height: isLast ? '1.875rem' : '100%',
-            }}
-          />
-          {/* Horizontal elbow into the card */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute top-[1.875rem] h-px w-[1.15rem] bg-outline-variant"
-            style={{ insetInlineStart: '-1.15rem' }}
-          />
-        </>
-      )}
-
-      <div
-        className={`group relative z-[1] flex flex-col gap-sm rounded-2xl border bg-surface-container-lowest p-sm shadow-sm transition-all duration-200 sm:flex-row sm:items-center sm:justify-between sm:gap-md sm:p-md ${
-          depth === 0
-            ? 'border-primary/30 bg-gradient-to-l from-surface-container-lowest to-primary/5 ring-1 ring-primary/15'
-            : 'border-outline-variant hover:border-primary/35 hover:shadow-md'
-        }`}
+    <section
+      className="overflow-hidden"
+      style={{
+        background: 'var(--crm-surface)',
+        border: '1px solid var(--crm-border)',
+        borderRadius: 'var(--crm-radius-md)',
+        boxShadow: 'var(--crm-shadow)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => hasChildren && setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center gap-3.5 px-[18px] py-3.5 text-start"
+        style={{
+          background: 'var(--crm-surface-muted)',
+          borderBottom: open && hasChildren ? '1px solid var(--crm-border-soft)' : undefined,
+          cursor: hasChildren ? 'pointer' : 'default',
+        }}
       >
-        <div className="flex min-w-0 items-center gap-sm">
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container text-primary transition-colors hover:bg-primary/10"
-              aria-expanded={open}
-              aria-label={open ? 'طي الفرع' : 'توسيع الفرع'}
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-[12.5px] font-semibold"
+          style={{
+            background: isCustomer ? 'var(--crm-primary)' : 'var(--crm-primary-soft)',
+            color: isCustomer ? '#fff' : 'var(--crm-primary)',
+          }}
+        >
+          {initials(node.name)}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-sm font-bold">{node.name}</span>
+            <span
+              className="rounded-[9px] px-2.5 py-0.5 text-[10.5px] font-semibold"
+              style={{ background: 'var(--crm-neutral-soft)', color: 'var(--crm-text)' }}
             >
-              <Icon name={open ? 'expand_more' : 'chevron_left'} size={18} />
-            </button>
-          ) : (
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-outline-variant text-on-surface-variant">
-              <Icon name="fiber_manual_record" size={10} />
+              {isCustomer ? 'عميل' : 'ترشيح'}
             </span>
-          )}
-
-          <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-              isCustomer
-                ? 'bg-primary text-on-primary'
-                : 'bg-surface-container-high text-on-surface-variant'
-            }`}
-          >
-            {initials(node.name)}
           </div>
+          <span className="text-[11.5px] tabular-nums" dir="ltr" style={{ color: 'var(--crm-text-faint)' }}>
+            {node.phone}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <MetricCell value={node.metrics.referred_count} label="أحال" />
+          <MetricCell value={formatRate(node.metrics.conversion_rate)} label="تحويل" />
+          <MetricCell value={formatSales(node.metrics.total_sales)} label="مبيعات" />
+          {hasChildren ? (
+            <span className="w-4 text-center text-xs" style={{ color: 'var(--crm-text-disabled)' }}>
+              {open ? '▴' : '▾'}
+            </span>
+          ) : null}
+        </div>
+      </button>
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-xs">
-              <p className="truncate text-sm font-bold text-on-surface sm:text-base">{node.name}</p>
-              {node.converted && (
-                <span
-                  className="inline-flex items-center rounded-full bg-secondary/15 p-0.5 text-secondary"
-                  title="محوّل"
-                >
-                  <Icon name="check_circle" size={16} filled />
-                </span>
-              )}
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
-                  isCustomer
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-surface-container-high text-on-surface-variant'
-                }`}
-              >
-                {isCustomer ? 'عميل' : 'ترشيح'}
-              </span>
+      {hasChildren && open ? (
+        <div className="flex flex-col gap-2.5 px-[18px] py-3.5">
+          {node.children.map((child) => (
+            <div key={`${child.kind}-${child.id}`} className="flex flex-col gap-2.5">
+              <ChildRow child={child} />
+              {child.children.length > 0 ? (
+                <div className="ps-6">
+                  <NetworkNodeCard node={child} depth={depth + 1} />
+                </div>
+              ) : null}
             </div>
-            <p className="mt-0.5 tabular-nums text-xs text-on-surface-variant" dir="ltr">
-              {node.phone}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5 ps-10 sm:ps-0">
-          <MetricChip label="جاب" value={node.metrics.referred_count} />
-          <MetricChip label="تحويل" value={formatRate(node.metrics.conversion_rate)} />
-          <MetricChip label="مبيعات" value={formatSales(node.metrics.total_sales)} accent />
-        </div>
-      </div>
-
-      {hasChildren && open && (
-        <ul className="relative mt-sm space-y-sm border-s border-transparent ps-0">
-          {node.children.map((child, index) => (
-            <TreeNode
-              key={`${child.kind}-${child.id}`}
-              node={child}
-              depth={depth + 1}
-              isLast={index === node.children.length - 1}
-            />
           ))}
-        </ul>
-      )}
-    </li>
+        </div>
+      ) : null}
+    </section>
   )
 }
 
 export function ReferralNetworkTree({ nodes }: ReferralNetworkTreeProps) {
   if (nodes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-sm rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/50 px-md py-xl text-center">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Icon name="account_tree" size={28} />
-        </span>
-        <p className="text-sm font-medium text-on-surface">لا توجد شبكة إحالات للعرض</p>
-        <p className="max-w-sm text-xs text-on-surface-variant">
+      <div
+        className="flex flex-col items-center justify-center gap-2 px-3.5 py-10 text-center"
+        style={{
+          border: '1px dashed var(--crm-border)',
+          borderRadius: 'var(--crm-radius-md)',
+          background: 'var(--crm-surface-muted)',
+        }}
+      >
+        <p className="text-sm font-medium">لا توجد شبكة إحالات للعرض</p>
+        <p className="max-w-sm text-xs" style={{ color: 'var(--crm-text-faint)' }}>
           اختر عميلاً كجذر، أو سجّل ترشيحات جديدة لبناء الشجرة
         </p>
       </div>
@@ -181,17 +171,10 @@ export function ReferralNetworkTree({ nodes }: ReferralNetworkTreeProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-outline-variant bg-gradient-to-b from-surface-container-lowest to-surface-container-low/40 p-md sm:p-lg">
-      <ul className="space-y-md">
-        {nodes.map((node, index) => (
-          <TreeNode
-            key={`${node.kind}-${node.id}`}
-            node={node}
-            depth={0}
-            isLast={index === nodes.length - 1}
-          />
-        ))}
-      </ul>
+    <div className="flex flex-col gap-3.5">
+      {nodes.map((node) => (
+        <NetworkNodeCard key={`${node.kind}-${node.id}`} node={node} />
+      ))}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { Icon } from './Icon'
 import { NavIcon } from './NavIcon'
 import { SidebarNavItem } from './SidebarNavItem'
+import { CrmSidebarSection } from '../modules/crm/components/CrmSidebarSection'
 import type { NavGroup } from '../lib/permissions'
 import { isNavGroupActive } from '../lib/permissions'
 import type { AuthUser } from '../api/types'
@@ -58,17 +59,25 @@ export function SidebarNavGroup({
       </button>
 
       {isOpen && !collapsed && (
-        <div className="ms-sm flex flex-col gap-xs border-s border-outline-variant/60 ps-sm">
-          {group.items.map((item) => (
-            <SidebarNavItem
-              key={`${item.label}-${item.to}`}
-              item={item}
-              user={user}
-              pathname={pathname}
-              variant="sub"
-            />
-          ))}
-        </div>
+        group.id === 'crm' ? (
+          <CrmSidebarSection
+            allowedItems={group.items}
+            user={user}
+            pathname={pathname}
+          />
+        ) : (
+          <div className="ms-4 flex flex-col gap-xs border-s border-outline-variant/50 ps-3">
+            {group.items.map((item) => (
+              <SidebarNavItem
+                key={`${item.label}-${item.to}`}
+                item={item}
+                user={user}
+                pathname={pathname}
+                variant="sub"
+              />
+            ))}
+          </div>
+        )
       )}
     </div>
   )

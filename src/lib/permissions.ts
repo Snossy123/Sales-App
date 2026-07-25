@@ -1,6 +1,6 @@
 import type { AuthUser, DemoRole } from '../api/types'
 import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
-import { buildActiveCrmNavItems, CRM_DEFAULT_ROUTE, isSuspendedCrmRoute } from '../modules/crm/lib/crmNavCatalog'
+import { buildActiveCrmNavItems, CRM_DEFAULT_ROUTE } from '../modules/crm/lib/crmNavCatalog'
 import { userHasReviewAccess } from './permissionChecks'
 import { resolveRoutePermissions, userCanAccessByPermissions } from './routePermissions'
 import { formatUserRolesLabel } from './roleCatalog'
@@ -323,19 +323,18 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/admin/settings': ['super_admin'],
   '/crm/ceo': ['super_admin', 'admin', 'crm'],
   '/crm/referrals': ['super_admin', 'admin', 'crm'],
-  '/crm/referrals/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/referrals/add': ['super_admin', 'admin', 'crm'],
+  '/crm/referrals/list': ['super_admin', 'admin', 'crm'],
   '/crm/referrals/network': ['super_admin', 'admin', 'crm'],
-  '/crm/customers/add': ['super_admin', 'admin', 'crm'],
-  '/crm/follow-ups': ['super_admin', 'admin', 'crm'],
   '/crm/activities': ['super_admin', 'admin', 'crm'],
   '/crm/call-logs': ['super_admin', 'admin', 'crm'],
-  '/crm/campaigns': ['super_admin', 'admin', 'crm'],
-  '/crm/proposals': ['super_admin', 'admin', 'crm'],
-  '/crm/order-requests': ['super_admin', 'admin', 'crm'],
-  '/crm/marketplace': ['super_admin', 'admin', 'crm'],
   '/crm/reports': ['super_admin', 'admin', 'crm'],
-  '/crm/settings': ['super_admin', 'admin', 'crm'],
+  '/crm/reports/employees': ['super_admin', 'admin', 'crm'],
+  '/crm/reports/leaderboard': ['super_admin', 'admin', 'crm'],
+  '/crm/reports/owner-detail': ['super_admin', 'admin', 'crm'],
+  '/crm/reports/owner-pipeline': ['super_admin', 'admin', 'crm'],
+  '/crm/reports/owners': ['super_admin', 'admin', 'crm'],
+  '/crm/tasks': ['super_admin', 'admin', 'crm'],
   '/support/my-tasks': ['super_admin', 'admin', 'support'],
   '/support/tasks': ['super_admin', 'admin'],
 }
@@ -540,10 +539,6 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   }
 
   if (normalized.startsWith('/crm')) {
-    if (isSuspendedCrmRoute(normalized) && !isSuperAdmin(user)) {
-      return false
-    }
-
     const crmRoute = normalized === '/crm' ? '/crm' : (normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm')
     const allowed = routeRoles[crmRoute] ?? routeRoles['/crm']
     return allowed?.includes(role) ?? false
@@ -651,12 +646,24 @@ export function isNavItemActive(item: NavItem, pathname: string, user: AuthUser 
     return normalized === target
   }
 
+  // Pipeline home only — do not mark active for list/network (sibling nav items).
   if (item.to === '/crm/referrals' || target === '/crm/referrals') {
-    return normalized === '/crm/referrals' || normalized.startsWith('/crm/referrals/')
+    return (
+      normalized === '/crm/referrals' ||
+      normalized === '/crm/referrals/add' ||
+      /^\/crm\/referrals\/\d+(\/.*)?$/.test(normalized)
+    )
   }
 
   if (item.to === '/crm' || target === '/crm') {
     return normalized === '/crm'
+  }
+
+  if (target === '/crm/reports/owner-detail') {
+    return (
+      normalized === target
+      || normalized.startsWith('/crm/reports/owners/')
+    )
   }
 
   if (target.startsWith('/crm/')) {

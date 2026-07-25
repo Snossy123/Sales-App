@@ -11,19 +11,19 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'ملغى',
 }
 
-const STATUS_CHIP: Record<string, string> = {
-  completed: 'bg-[#e9f7ef] text-[#16a34a]',
-  in_progress: 'bg-[#eef3ff] text-primary',
-  assigned: 'bg-[#f1f3f7] text-[#64748b]',
-  pending: 'bg-[#fef4e9] text-[#e58a1a]',
-  cancelled: 'bg-[#fdeded] text-[#dc2626]',
+const STATUS_CHIP: Record<string, { color: string; tint: string }> = {
+  completed: { color: 'var(--crm-success)', tint: 'var(--crm-success-soft)' },
+  in_progress: { color: 'var(--crm-primary)', tint: 'var(--crm-primary-soft)' },
+  assigned: { color: '#64748b', tint: 'var(--crm-neutral-soft)' },
+  pending: { color: 'var(--crm-warning)', tint: 'var(--crm-warning-soft)' },
+  cancelled: { color: 'var(--crm-danger)', tint: 'var(--crm-danger-soft)' },
 }
 
 const AVATAR_TONES = [
-  'bg-[#eef3ff] text-primary',
-  'bg-[#f1ecfe] text-[#7c5cfc]',
-  'bg-[#e9f7ef] text-[#16a34a]',
-  'bg-[#fef1e6] text-[#e58a1a]',
+  { bg: 'var(--crm-primary-soft)', color: 'var(--crm-primary)' },
+  { bg: '#f1ecfe', color: '#7c5cfc' },
+  { bg: 'var(--crm-success-soft)', color: 'var(--crm-success)' },
+  { bg: 'var(--crm-warning-soft)', color: 'var(--crm-warning)' },
 ]
 
 interface CeoInstallationListProps {
@@ -43,46 +43,68 @@ export function CeoInstallationList({ items, count, formatDateTime }: CeoInstall
       title="التركيبات اليوم"
       subtitle={`${count} مهام مجدولة`}
       icon={
-        <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#eef3ff] text-primary">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-[9px]"
+          style={{ background: 'var(--crm-primary-soft)', color: 'var(--crm-primary)' }}
+        >
           <Icon name="handyman" size={17} />
         </div>
       }
       action={
-        <Link to="/support/tasks" className="text-[12.5px] font-semibold text-primary hover:underline">
+        <Link
+          to="/support/tasks"
+          className="text-[12.5px] font-semibold"
+          style={{ color: 'var(--crm-primary)' }}
+        >
           المهام
         </Link>
       }
       headerClassName="mb-2 items-center"
     >
       {items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[#8890a0]">لا توجد تركيبات مجدولة اليوم</p>
+        <p className="py-8 text-center text-[13px]" style={{ color: 'var(--crm-text-faint)' }}>
+          لا توجد تركيبات مجدولة اليوم
+        </p>
       ) : (
         <div className="flex flex-col">
-          {items.slice(0, 6).map((item, index) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 border-t border-[#f1f3f8] px-1.5 py-3"
-            >
+          {items.slice(0, 6).map((item, index) => {
+            const tone = AVATAR_TONES[index % AVATAR_TONES.length]
+            const chip = STATUS_CHIP[item.status] ?? {
+              color: 'var(--crm-text-muted)',
+              tint: 'var(--crm-neutral-soft)',
+            }
+            return (
               <div
-                className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] text-sm font-bold ${AVATAR_TONES[index % AVATAR_TONES.length]}`}
+                key={item.id}
+                className="flex items-center gap-3 px-1.5 py-3"
+                style={{ borderTop: '1px solid var(--crm-border-soft)' }}
               >
-                {initialOf(item.customer_name)}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[13.5px] font-semibold text-[#1f2531]">
-                  {item.customer_name ?? 'عميل'}
+                <div
+                  className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] text-sm font-bold"
+                  style={{ background: tone.bg, color: tone.color }}
+                >
+                  {initialOf(item.customer_name)}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span
+                    className="truncate text-[13.5px] font-semibold"
+                    style={{ color: 'var(--crm-text)' }}
+                  >
+                    {item.customer_name ?? 'عميل'}
+                  </span>
+                  <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
+                    {formatDateTime(item.scheduled_at)}
+                  </span>
+                </div>
+                <span
+                  className="shrink-0 rounded-[8px] px-2.5 py-1 text-[11px] font-semibold"
+                  style={{ background: chip.tint, color: chip.color }}
+                >
+                  {STATUS_LABELS[item.status] ?? item.status}
                 </span>
-                <span className="text-[11.5px] text-[#9098a8]">
-                  {formatDateTime(item.scheduled_at)}
-                </span>
               </div>
-              <span
-                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold ${STATUS_CHIP[item.status] ?? 'bg-[#f1f3f7] text-[#64748b]'}`}
-              >
-                {STATUS_LABELS[item.status] ?? item.status}
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </CeoCard>

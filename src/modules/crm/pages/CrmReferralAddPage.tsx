@@ -7,6 +7,11 @@ import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import {
+  CRM_PRIMARY_BTN,
+  CRM_SECONDARY_BTN,
+  CrmPageShell,
+} from '../components/CrmPageShell'
+import {
   ReferralPersonCard,
   type ReferralEntry,
 } from '../components/ReferralPersonCard'
@@ -121,20 +126,29 @@ export function CrmReferralAddPage() {
   const pending = saveMutation.isPending || saveAndContinueMutation.isPending
 
   return (
-    <div className="mx-auto max-w-3xl space-y-md pb-24">
-      <header className="flex items-start gap-sm">
-        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <CrmPageShell
+      narrow
+      kicker="الترشيحات"
+      title="إضافة ترشيح"
+      subtitle="تسجيل أرقام ترشيح جديدة مع ربطها بمصدر الإحالة"
+      headerExtra={
+        <span
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]"
+          style={{ background: 'var(--crm-primary-soft)', color: 'var(--crm-primary)' }}
+        >
           <Icon name="group" size={24} />
         </span>
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-on-surface sm:text-2xl">إضافة ترشيح</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            تسجيل أرقام ترشيح جديدة مع ربطها بمصدر الإحالة
-          </p>
-        </div>
-      </header>
-
-      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+      }
+    >
+      <section
+        className="p-[18px]"
+        style={{
+          background: 'var(--crm-surface)',
+          border: '1px solid var(--crm-border)',
+          borderRadius: 'var(--crm-radius-md)',
+          boxShadow: 'var(--crm-shadow)',
+        }}
+      >
         <SearchableSelect
           label="مصدر الترشيح *"
           options={referrersQuery.data ?? []}
@@ -149,8 +163,13 @@ export function CrmReferralAddPage() {
         />
       </section>
 
-      <section className="space-y-sm">
-        <h3 className="text-sm font-bold text-on-surface">بيانات الترشيح</h3>
+      <section className="flex flex-col gap-2.5">
+        <h3
+          className="m-0 text-[13px] font-bold"
+          style={{ color: 'var(--crm-text-secondary)' }}
+        >
+          بيانات الترشيح
+        </h3>
 
         {entries.map((entry, index) => (
           <ReferralPersonCard
@@ -168,22 +187,38 @@ export function CrmReferralAddPage() {
         <button
           type="button"
           onClick={addEntry}
-          className="flex w-full items-center justify-center gap-xs rounded-xl border border-dashed border-primary/40 bg-primary/5 px-md py-3 text-sm font-bold text-primary hover:bg-primary/10"
+          className="flex w-full items-center justify-center gap-2 px-3.5 py-3 text-[13px] font-semibold"
+          style={{
+            borderRadius: 'var(--crm-radius-md)',
+            border: '1px dashed var(--crm-primary-soft-border)',
+            background: 'var(--crm-primary-soft)',
+            color: 'var(--crm-primary)',
+          }}
         >
           <Icon name="add" size={20} />
           إضافة شخص آخر
         </button>
       </section>
 
-      {error && <p className="text-sm text-error">{error}</p>}
+      {error && (
+        <p className="m-0 text-[13px]" style={{ color: 'var(--crm-danger)' }}>
+          {error}
+        </p>
+      )}
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-outline-variant bg-surface-container-lowest/95 px-md py-sm backdrop-blur supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-end gap-sm">
+      <div
+        className="fixed inset-x-0 bottom-0 z-10 px-[18px] py-3 backdrop-blur supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        style={{
+          borderTop: '1px solid var(--crm-border)',
+          background: 'color-mix(in srgb, var(--crm-surface) 95%, transparent)',
+        }}
+      >
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={() => navigate('/crm/referrals')}
             disabled={pending}
-            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-2 text-sm font-medium text-on-surface hover:bg-surface-container"
+            className={`${CRM_SECONDARY_BTN} disabled:opacity-60`}
           >
             إلغاء
           </button>
@@ -194,7 +229,8 @@ export function CrmReferralAddPage() {
               setError('')
               saveAndContinueMutation.mutate()
             }}
-            className="inline-flex items-center gap-xs rounded-lg border border-primary px-md py-2 text-sm font-bold text-primary hover:bg-primary/5 disabled:opacity-60"
+            className={`${CRM_SECONDARY_BTN} disabled:opacity-60`}
+            style={{ borderColor: 'var(--crm-primary)', color: 'var(--crm-primary)' }}
           >
             <Icon name="add" size={18} />
             حفظ ومتابعة الإضافة
@@ -206,13 +242,13 @@ export function CrmReferralAddPage() {
               setError('')
               saveMutation.mutate()
             }}
-            className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-60"
+            className={`${CRM_PRIMARY_BTN} disabled:opacity-60`}
           >
             <Icon name="check" size={18} />
             حفظ
           </button>
         </div>
       </div>
-    </div>
+    </CrmPageShell>
   )
 }

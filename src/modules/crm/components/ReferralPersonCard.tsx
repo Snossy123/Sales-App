@@ -10,7 +10,7 @@ export type ReferralEntry = {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2.5 pe-sm ps-10 text-sm text-on-surface placeholder:text-on-surface-variant/70'
+  'w-full rounded-[9px] border py-2.5 pe-2.5 ps-10 text-[13px] [border-color:var(--crm-border)] [background:var(--crm-surface-muted)] [color:var(--crm-text)]'
 
 interface ReferralPersonCardProps {
   entry: ReferralEntry
@@ -32,31 +32,41 @@ export function ReferralPersonCard({
   onChange,
 }: ReferralPersonCardProps) {
   const badge = (
-    <span className="inline-flex rounded-md bg-primary/10 px-sm py-1 text-xs font-bold text-primary">
+    <span
+      className="inline-flex rounded-[9px] px-2.5 py-1 text-xs font-bold"
+      style={{ background: 'var(--crm-primary-soft)', color: 'var(--crm-primary)' }}
+    >
       شخص {index + 1}
     </span>
   )
 
   if (!expanded) {
     return (
-      <div className="flex items-center justify-between gap-sm rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-sm">
+      <div
+        className="flex items-center justify-between gap-2 px-3.5 py-2.5"
+        style={{
+          border: '1px solid var(--crm-border)',
+          borderRadius: 'var(--crm-radius-md)',
+          background: 'var(--crm-surface)',
+        }}
+      >
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-sm text-start"
+          className="flex min-w-0 flex-1 items-center gap-2 text-start"
         >
           {badge}
           {(entry.phone || entry.name) && (
-            <span className="truncate text-sm text-on-surface-variant">
+            <span className="truncate text-sm" style={{ color: 'var(--crm-text-muted)' }}>
               {entry.name || entry.phone}
               {entry.name && entry.phone ? (
-                <span className="ms-xs tabular-nums" dir="ltr">
+                <span className="ms-1 tabular-nums" dir="ltr">
                   · {entry.phone}
                 </span>
               ) : null}
             </span>
           )}
-          <Icon name="expand_more" size={20} className="ms-auto shrink-0 text-on-surface-variant" />
+          <Icon name="expand_more" size={20} className="ms-auto shrink-0" />
         </button>
         {canRemove && (
           <button
@@ -73,17 +83,26 @@ export function ReferralPersonCard({
   }
 
   return (
-    <div className="space-y-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-      <div className="flex items-center justify-between gap-sm">
-        <button type="button" onClick={onToggle} className="flex items-center gap-sm">
+    <div
+      className="space-y-3.5 p-3.5"
+      style={{
+        border: '1px solid var(--crm-border)',
+        borderRadius: 'var(--crm-radius-md)',
+        background: 'var(--crm-surface)',
+        boxShadow: 'var(--crm-shadow)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={onToggle} className="flex items-center gap-2">
           {badge}
-          <Icon name="expand_less" size={20} className="text-on-surface-variant" />
+          <Icon name="expand_less" size={20} />
         </button>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
-            className="inline-flex items-center gap-xs text-sm font-medium text-error hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
+            style={{ color: 'var(--crm-danger)' }}
           >
             <Icon name="delete" size={16} />
             حذف

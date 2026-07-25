@@ -84,6 +84,13 @@ export function CustomerCallTimelineSection({ customerId }: CustomerCallTimeline
                     )}
                   </div>
 
+                  {call.statement?.trim() ? (
+                    <p className="mt-sm whitespace-pre-wrap text-sm text-on-surface">
+                      <span className="font-medium">الإفادة: </span>
+                      {call.statement.trim()}
+                    </p>
+                  ) : null}
+
                   {call.audio_url ? (
                     <div className="mt-sm">
                       <audio controls preload="none" className="h-10 w-full max-w-md" src={call.audio_url}>

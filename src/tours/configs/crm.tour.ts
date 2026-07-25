@@ -2,35 +2,35 @@ import type { TourConfig } from '../types'
 
 export const crmTour: TourConfig = {
   id: 'crm',
-  route: '/crm',
+  route: '/crm/referrals',
   steps: [
     {
       id: 'kpis',
       target: '[data-tour="crm-kpis"]',
-      title: { ar: 'مؤشرات CRM', en: 'CRM metrics' },
+      title: { ar: 'مؤشرات الترشيحات', en: 'Referral metrics' },
       content: {
-        ar: 'متابعات اليوم، تحويلات الشهر، نسبة التحويل، وإجمالي العملاء المحتملين.',
-        en: 'Today\'s follow-ups, monthly conversions, conversion rate, and total leads.',
+        ar: 'إجمالي الترشيحات، المتابعات المستحقة، المواعيد المجدولة، وحالات التركيب.',
+        en: 'Total referrals, due follow-ups, scheduled installations, and installed count.',
       },
       placement: 'bottom',
     },
     {
       id: 'pipeline',
       target: '[data-tour="crm-pipeline"]',
-      title: { ar: 'مراحل Pipeline', en: 'Pipeline stages' },
+      title: { ar: 'مراحل الترشيح', en: 'Referral stages' },
       content: {
-        ar: 'الأعمدة تمثل مراحل العميل المحتمل: جديد، تواصل، تفاوض، انتظار التعاقد، تم التعاقد، غير مهتم.',
-        en: 'Columns represent lead stages: new, contacted, negotiation, qualified, won, lost.',
+        ar: 'الأعمدة تمثل مراحل الترشيح: لم يرد، غير مهتم، موعد تركيب، تم التركيب.',
+        en: 'Columns represent referral stages: no answer, not interested, installation scheduled, installed.',
       },
       placement: 'top',
     },
     {
       id: 'lead-card',
       target: '[data-tour="crm-lead-card"]',
-      title: { ar: 'بطاقة العميل المحتمل', en: 'Lead card' },
+      title: { ar: 'بطاقة الترشيح', en: 'Referral card' },
       content: {
-        ar: 'كل بطاقة تعرض الاسم والهاتف وعدد الأجهزة. غيّر المرحلة من القائمة المنسدلة.',
-        en: 'Each card shows name, phone, and device count. Change stage from the dropdown.',
+        ar: 'كل بطاقة تعرض الاسم والهاتف والمُحيل. غيّر الحالة أو افتح ملف الترشيح.',
+        en: 'Each card shows name, phone, and referrer. Change status or open the profile.',
       },
       placement: 'left',
     },

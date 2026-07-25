@@ -1,12 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../api/client'
 import type { ReferralLeadReport, ReferralLeadReportByUser } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
-import { DataTable } from '../../../components/DataTable'
-import { Icon } from '../../../components/Icon'
-import { KpiCard } from '../../../components/KpiCard'
-import { PageHeader } from '../../../components/PageHeader'
+import {
+  CRM_PRIMARY_BTN,
+  CRM_SECONDARY_BTN,
+  CrmFilterPanel,
+  CrmPageShell,
+} from '../components/CrmPageShell'
+import { CrmChip } from '../components/ui/CrmChip'
+import { CrmKpiCard } from '../components/ui/CrmKpiCard'
+import {
+  CrmTable,
+  CrmTableHeader,
+  CrmTableHeaderCell,
+  CrmTableRow,
+} from '../components/ui/CrmTable'
+import { referralStatusMeta } from '../lib/referralLeads'
+import { downloadCsv } from '../lib/ownerReports'
 import {
   buildStatusBreakdown,
   formatReportDateLabel,
@@ -16,10 +29,18 @@ import {
   type ReferralReportPeriod,
 } from '../lib/referralReports'
 
-const inputClass =
-  'rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-2 text-sm text-on-surface'
+const sectionStyle: CSSProperties = {
+  background: 'var(--crm-surface)',
+  border: '1px solid var(--crm-border)',
+  borderRadius: 'var(--crm-radius-md)',
+  boxShadow: 'var(--crm-shadow)',
+}
+
+const PERF_COLS = '1.4fr repeat(5, 1fr) 120px'
+const QUARTER_GOAL = 20
 
 export function CrmReportsPage() {
+  const navigate = useNavigate()
   const [period, setPeriod] = useState<ReferralReportPeriod>('quarter')
   const [dateRange, setDateRange] = useState(() => getReferralReportDateRange('quarter'))
 
@@ -47,204 +68,337 @@ export function CrmReportsPage() {
 
   const byUser = (query.data?.by_user ?? []) as ReferralLeadReportByUser[]
 
-  return (
-    <div className="space-y-md">
-      <PageHeader
-        title="تقارير الترشيحات"
-        subtitle="أداء الموظفين ومعدل التحويل من الترشيح إلى تركيب فعلي"
-      />
+  const goalProgress = query.data
+    ? Math.min(100, Math.round((query.data.summary.conversion_rate / QUARTER_GOAL) * 100))
+    : 0
 
-      <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-        <div className="flex flex-col gap-md lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="mb-xs text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-              الفترة الزمنية
-            </p>
-            <div className="flex flex-wrap gap-1 rounded-lg border border-outline-variant bg-surface-container-low p-0.5">
-              {getReferralReportPeriodOptions().map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => applyPeriod(option.id)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    period === option.id
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+  const handleExport = () => {
+    if (!query.data) return
+    downloadCsv(
+      'crm-referral-report.csv',
+      ['الموظف', 'الترشيحات', 'لم يرد', 'غير مهتم', 'مواعيد', 'تركيب', 'التحويل %'],
+      byUser.map((row) => [
+        row.user_name,
+        row.total,
+        row.no_answer,
+        row.not_interested,
+        row.installation_scheduled,
+        row.installed,
+        userConversionRate(row),
+      ]),
+    )
+  }
+
+  return (
+    <CrmPageShell
+      kicker="التحليلات"
+      title="تقارير الترشيحات"
+      subtitle="معدل التحويل من الترشيح إلى تركيب فعلي وأداء كل موظف."
+      actions={
+        <>
+          <button type="button" onClick={handleExport} className={CRM_SECONDARY_BTN}>
+            تصدير
+          </button>
+          <Link to="/crm/reports/owner-detail" className={CRM_PRIMARY_BTN}>
+            تقرير مفصّل
+          </Link>
+        </>
+      }
+      filters={
+        <CrmFilterPanel>
+          <span className="text-xs font-medium" style={{ color: 'var(--crm-text-faint)' }}>
+            الفترة
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {getReferralReportPeriodOptions().map((option) => (
+              <CrmChip
+                key={option.id}
+                label={option.label}
+                active={period === option.id}
+                onClick={() => applyPeriod(option.id)}
+              />
+            ))}
           </div>
 
           {period === 'custom' && (
-            <div className="flex flex-wrap items-center gap-sm">
-              <label className="flex flex-col gap-xs text-xs text-on-surface-variant">
+            <div className="flex flex-wrap items-center gap-2">
+              <label
+                className="inline-flex h-[38px] items-center gap-2 px-2.5 text-[11.5px]"
+                style={{
+                  border: '1px solid var(--crm-border)',
+                  borderRadius: 9,
+                  background: 'var(--crm-surface-muted)',
+                  color: 'var(--crm-text-faint)',
+                }}
+              >
                 من
                 <input
                   type="date"
                   value={dateRange.from}
                   onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
-                  className={inputClass}
+                  className="border-none bg-transparent text-[12.5px] font-medium outline-none"
+                  style={{ color: 'var(--crm-text)' }}
                   dir="ltr"
                 />
               </label>
-              <label className="flex flex-col gap-xs text-xs text-on-surface-variant">
+              <label
+                className="inline-flex h-[38px] items-center gap-2 px-2.5 text-[11.5px]"
+                style={{
+                  border: '1px solid var(--crm-border)',
+                  borderRadius: 9,
+                  background: 'var(--crm-surface-muted)',
+                  color: 'var(--crm-text-faint)',
+                }}
+              >
                 إلى
                 <input
                   type="date"
                   value={dateRange.to}
                   onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
-                  className={inputClass}
+                  className="border-none bg-transparent text-[12.5px] font-medium outline-none"
+                  style={{ color: 'var(--crm-text)' }}
                   dir="ltr"
                 />
               </label>
             </div>
           )}
 
+          <div className="flex-1" />
+
           {query.data && (
-            <p className="text-sm text-on-surface-variant">
+            <p className="text-xs" style={{ color: 'var(--crm-text-faint)' }}>
               {formatReportDateLabel(query.data.from)}
-              <span className="mx-xs">←</span>
+              <span className="mx-1.5">←</span>
               {formatReportDateLabel(query.data.to)}
             </p>
           )}
-        </div>
-      </section>
-
+        </CrmFilterPanel>
+      }
+    >
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {query.data && (
           <>
-            <section className="overflow-hidden rounded-xl border border-secondary/20 bg-gradient-to-l from-secondary/10 via-surface-container-lowest to-surface-container-lowest p-md shadow-sm">
-              <div className="flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium text-on-surface-variant">معدل التحويل الكلي</p>
-                  <p className="mt-xs tabular-nums text-4xl font-bold text-secondary">
+            <div className="grid gap-3.5 lg:grid-cols-[minmax(280px,1fr)_minmax(340px,1.6fr)]">
+              <div
+                className="flex flex-col justify-between gap-[18px] p-7"
+                style={{
+                  background: 'var(--crm-primary)',
+                  border: '1px solid var(--crm-primary)',
+                  borderRadius: 'var(--crm-radius-md)',
+                  boxShadow: 'var(--crm-shadow-primary)',
+                  color: '#fff',
+                }}
+              >
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[12.5px] font-medium" style={{ color: '#dbe6fd' }}>
+                    معدل التحويل الكلي
+                  </span>
+                  <span className="text-[46px] font-bold leading-none tracking-[-0.04em]">
                     {query.data.summary.conversion_rate}%
-                  </p>
-                  <p className="mt-sm max-w-xl text-sm text-on-surface-variant">
-                    {query.data.summary.installed} تركيب مكتمل من أصل {query.data.summary.total} ترشيح
-                    في الفترة المحددة
-                  </p>
+                  </span>
+                  <span className="text-[12.5px]" style={{ color: '#c9dcfc' }}>
+                    {query.data.summary.installed} تركيب مكتمل من أصل {query.data.summary.total}{' '}
+                    ترشيح
+                  </span>
                 </div>
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/15 text-secondary">
-                  <Icon name="trending_up" size={32} />
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between text-[11.5px]">
+                    <span style={{ color: '#c9dcfc' }}>الهدف الربعي {QUARTER_GOAL}%</span>
+                    <span className="font-semibold text-white">{goalProgress}% من الهدف</span>
+                  </div>
+                  <div
+                    className="h-2 overflow-hidden rounded-full"
+                    style={{ background: 'rgba(255,255,255,.28)' }}
+                  >
+                    <div
+                      className="h-full rounded-full bg-white transition-all"
+                      style={{ width: `${goalProgress}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            </section>
 
-            <section className="grid grid-cols-2 gap-md lg:grid-cols-5">
-              <KpiCard label="إجمالي الترشيحات" value={query.data.summary.total} icon="groups" />
-              <KpiCard label="لم يردوا" value={query.data.summary.no_answer} icon="phone_missed" />
-              <KpiCard
-                label="غير مهتمين"
-                value={query.data.summary.not_interested}
-                icon="thumb_down"
-              />
-              <KpiCard
-                label="مواعيد مجدولة"
-                value={query.data.summary.installation_scheduled}
-                icon="schedule"
-              />
-              <KpiCard
-                label="تم التركيب"
-                value={query.data.summary.installed}
-                icon="check_circle"
-                alert={query.data.summary.installed === 0 && query.data.summary.total > 0}
-              />
-            </section>
-
-            <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-              <div className="mb-md flex items-center justify-between gap-sm">
-                <div>
-                  <h2 className="text-base font-bold text-on-surface">توزيع الحالات</h2>
-                  <p className="text-xs text-on-surface-variant">
+              <section className="flex flex-col gap-3.5 p-[18px]" style={sectionStyle}>
+                <div className="flex flex-col gap-0.5">
+                  <h2 className="m-0 text-[14.5px] font-bold">توزيع الحالات</h2>
+                  <p className="m-0 text-xs" style={{ color: 'var(--crm-text-faint)' }}>
                     نسبة كل مرحلة من إجمالي الترشيحات
                   </p>
                 </div>
-              </div>
-              <div className="space-y-sm">
-                {breakdown.map((item) => (
-                  <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-md">
-                    <div>
-                      <div className="mb-1 flex items-center justify-between text-sm">
-                        <span className="font-medium text-on-surface">{item.label}</span>
-                        <span className="tabular-nums text-on-surface-variant">
-                          {item.count} ({item.percent}%)
-                        </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
+                <div className="flex flex-col gap-3.5">
+                  {breakdown.map((item) => {
+                    const meta = referralStatusMeta(item.key)
+                    return (
+                      <div key={item.key} className="flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className="crm-status-dot"
+                              style={{ background: meta.color, width: 7, height: 7 }}
+                            />
+                            <span className="text-[12.5px] font-medium">{item.label}</span>
+                          </div>
+                          <span className="text-[12.5px]" style={{ color: 'var(--crm-text-muted)' }}>
+                            <span className="font-bold" style={{ color: 'var(--crm-text)' }}>
+                              {item.count}
+                            </span>
+                            {' · '}
+                            {item.percent}%
+                          </span>
+                        </div>
                         <div
-                          className={`h-full rounded-full transition-all ${item.barColor}`}
-                          style={{ width: `${Math.max(item.percent, item.count > 0 ? 4 : 0)}%` }}
-                        />
+                          className="h-2 overflow-hidden rounded-full"
+                          style={{ background: 'var(--crm-neutral-soft)' }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.max(item.percent, item.count > 0 ? 4 : 0)}%`,
+                              background: meta.color,
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                    )
+                  })}
+                </div>
+              </section>
+            </div>
 
-            <section className="rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-              <div className="border-b border-outline-variant px-md py-sm">
-                <h2 className="text-base font-bold text-on-surface">أداء الموظفين</h2>
-                <p className="text-xs text-on-surface-variant">
-                  عدد الترشيحات المضافة وحالاتها لكل موظف CRM
+            <div className="flex flex-wrap gap-3.5">
+              <CrmKpiCard label="إجمالي الترشيحات" value={query.data.summary.total} />
+              <CrmKpiCard
+                label="لم يردوا"
+                value={query.data.summary.no_answer}
+                dot={referralStatusMeta('no_answer').color}
+              />
+              <CrmKpiCard
+                label="غير مهتمين"
+                value={query.data.summary.not_interested}
+                variant="danger"
+              />
+              <CrmKpiCard
+                label="مواعيد مجدولة"
+                value={query.data.summary.installation_scheduled}
+                variant="warning"
+              />
+              <CrmKpiCard
+                label="تم التركيب"
+                value={query.data.summary.installed}
+                variant="success"
+              />
+            </div>
+
+            <section className="overflow-hidden" style={sectionStyle}>
+              <div
+                className="flex flex-col gap-0.5 px-[18px] py-3.5"
+                style={{ borderBottom: '1px solid var(--crm-border-soft)' }}
+              >
+                <h2 className="m-0 text-[14.5px] font-bold">أداء الموظفين</h2>
+                <p className="m-0 text-xs" style={{ color: 'var(--crm-text-faint)' }}>
+                  اضغط على الموظف لعرض تقريره التفصيلي
                 </p>
               </div>
-              <div className="p-md pt-0">
-                <DataTable<ReferralLeadReportByUser & Record<string, unknown>>
-                  data={byUser as (ReferralLeadReportByUser & Record<string, unknown>)[]}
-                  keyExtractor={(row) => row.user_id}
-                  pageSize={10}
-                  emptyMessage="لا توجد ترشيحات في هذه الفترة"
-                  columns={[
-                    {
-                      key: 'user_name',
-                      header: 'الموظف',
-                      render: (row) => (
-                        <span className="font-medium text-on-surface">{row.user_name}</span>
-                      ),
-                    },
-                    {
-                      key: 'total',
-                      header: 'الترشيحات',
-                      className: 'tabular-nums font-semibold',
-                    },
-                    {
-                      key: 'no_answer',
-                      header: 'لم يرد',
-                      className: 'tabular-nums',
-                    },
-                    {
-                      key: 'not_interested',
-                      header: 'غير مهتم',
-                      className: 'tabular-nums',
-                    },
-                    {
-                      key: 'installation_scheduled',
-                      header: 'مواعيد',
-                      className: 'tabular-nums',
-                    },
-                    {
-                      key: 'installed',
-                      header: 'تركيب',
-                      className: 'tabular-nums text-secondary font-semibold',
-                    },
-                    {
-                      key: 'conversion',
-                      header: 'التحويل',
-                      className: 'tabular-nums',
-                      render: (row) => `${userConversionRate(row)}%`,
-                    },
-                  ]}
-                />
-              </div>
+
+              {byUser.length === 0 ? (
+                <p
+                  className="px-[18px] py-8 text-center text-sm"
+                  style={{ color: 'var(--crm-text-faint)' }}
+                >
+                  لا توجد ترشيحات في هذه الفترة
+                </p>
+              ) : (
+                <CrmTable
+                  header={
+                    <CrmTableHeader columns={PERF_COLS}>
+                      <CrmTableHeaderCell>الموظف</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>الترشيحات</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>لم يرد</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>غير مهتم</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>مواعيد</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>تركيب</CrmTableHeaderCell>
+                      <CrmTableHeaderCell>التحويل</CrmTableHeaderCell>
+                    </CrmTableHeader>
+                  }
+                >
+                  {byUser.map((row) => {
+                    const rate = userConversionRate(row)
+                    const href = row.user_id
+                      ? `/crm/reports/owners/${row.user_id}?from=${dateRange.from}&to=${dateRange.to}`
+                      : null
+                    const ini = (row.user_name || '?').slice(0, 1)
+                    return (
+                      <CrmTableRow
+                        key={row.user_id ?? row.user_name}
+                        columns={PERF_COLS}
+                        onClick={href ? () => navigate(href) : undefined}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[11px] font-semibold"
+                            style={{
+                              background: 'var(--crm-primary-soft)',
+                              color: 'var(--crm-primary)',
+                            }}
+                          >
+                            {ini}
+                          </span>
+                          <span
+                            className="text-[13px] font-semibold"
+                            style={{ color: 'var(--crm-primary)' }}
+                          >
+                            {row.user_name}
+                          </span>
+                        </div>
+                        <span className="text-[12.5px] font-semibold tabular-nums">{row.total}</span>
+                        <span
+                          className="text-[12.5px] tabular-nums"
+                          style={{ color: 'var(--crm-text-secondary)' }}
+                        >
+                          {row.no_answer}
+                        </span>
+                        <span
+                          className="text-[12.5px] tabular-nums"
+                          style={{ color: 'var(--crm-text-secondary)' }}
+                        >
+                          {row.not_interested}
+                        </span>
+                        <span
+                          className="text-[12.5px] tabular-nums"
+                          style={{ color: 'var(--crm-text-secondary)' }}
+                        >
+                          {row.installation_scheduled}
+                        </span>
+                        <span
+                          className="text-[12.5px] tabular-nums"
+                          style={{ color: 'var(--crm-text-secondary)' }}
+                        >
+                          {row.installed}
+                        </span>
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-[13px]"
+                            style={{ background: 'var(--crm-neutral-soft)' }}
+                          >
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, Math.max(rate, rate > 0 ? 4 : 0))}%`,
+                                background: 'var(--crm-primary)',
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs font-semibold tabular-nums">{rate}%</span>
+                        </div>
+                      </CrmTableRow>
+                    )
+                  })}
+                </CrmTable>
+              )}
             </section>
           </>
         )}
       </AsyncState>
-    </div>
+    </CrmPageShell>
   )
 }

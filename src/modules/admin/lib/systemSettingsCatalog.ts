@@ -114,8 +114,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   {
     key: 'crm',
     label: 'قسم المبيعات',
-    description: 'العملاء المحتملون، الحملات، والعروض',
-    settingsPath: '/crm/settings',
+    description: 'الترشيحات، المكالمات، المهام، وتقارير الإحالات',
   },
   {
     key: 'hrm',

@@ -27,14 +27,14 @@ export function SidebarNavItem({
       <NavLink
         to={navTo}
         end={item.end}
-        className={`relative flex items-center gap-xs rounded-md py-xs pe-sm ps-md text-sm transition-all ${
+        className={`relative flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-all ${
           isActive
-            ? 'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:end-0 before:w-[3px] before:rounded-full before:bg-primary'
+            ? 'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1.5 before:end-0 before:w-[3px] before:rounded-full before:bg-primary'
             : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
         }`}
       >
         <NavIcon name={item.icon} size={16} className="shrink-0" />
-        {item.label}
+        <span className="truncate">{item.label}</span>
       </NavLink>
     )
   }

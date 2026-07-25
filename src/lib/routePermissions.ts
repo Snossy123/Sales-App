@@ -55,18 +55,17 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/crm': 'crm.access_own_leads',
   '/crm/ceo': 'crm.access_own_leads',
   '/crm/referrals': 'crm.access_own_leads',
-  '/crm/referrals/follow-ups': 'crm.access_own_schedule',
   '/crm/referrals/add': 'crm.access_own_leads',
+  '/crm/referrals/list': 'crm.access_own_leads',
   '/crm/referrals/network': 'crm.access_own_leads',
-  '/crm/follow-ups': 'crm.access_own_schedule',
-  '/crm/activities': 'crm.activities.manage',
+  '/crm/reports/employees': 'crm.access_all_leads',
+  '/crm/reports/leaderboard': 'crm.access_all_leads',
+  '/crm/reports/owner-detail': 'crm.access_all_leads',
+  '/crm/reports/owner-pipeline': 'crm.access_all_leads',
+  '/crm/activities': 'crm.access_own_leads',
   '/crm/call-logs': 'crm.view_own_call_log',
-  '/crm/campaigns': 'crm.access_own_campaigns',
-  '/crm/proposals': 'crm.access_proposal',
-  '/crm/order-requests': 'crm.access_own_leads',
-  '/crm/marketplace': 'crm.access_b2b_marketplace',
   '/crm/reports': 'crm.access_all_leads',
-  '/crm/settings': 'crm.leads.manage',
+  '/crm/tasks': 'crm.access_own_leads',
   '/support/my-tasks': 'support.view_assigned_tasks',
   '/support/tasks': ['support.view_all_tasks', 'support.assign_tasks'],
   '/accounting': 'accounting.access_accounting_module',
@@ -115,6 +114,12 @@ export function resolveRoutePermissions(path: string): string[] | null {
     const value = ROUTE_PERMISSIONS[adminRoute]
     if (!value) return ['users.manage']
     return Array.isArray(value) ? value : [value]
+  }
+  if (normalized.startsWith('/crm/reports/employees')) {
+    return ['crm.access_all_leads']
+  }
+  if (normalized.startsWith('/crm/reports/owners')) {
+    return ['crm.access_all_leads']
   }
   if (normalized.startsWith('/crm/')) {
     const crmRoute = normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm'

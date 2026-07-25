@@ -21,15 +21,25 @@ export function CeoCard({
 }: CeoCardProps) {
   return (
     <div
-      className={`flex flex-col rounded-[18px] border border-[#edeff4] bg-white p-[22px] shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${className}`}
+      className={`flex flex-col p-[18px] ${className}`}
+      style={{
+        background: 'var(--crm-surface)',
+        border: '1px solid var(--crm-border)',
+        borderRadius: 'var(--crm-radius-md)',
+        boxShadow: 'var(--crm-shadow)',
+      }}
     >
-      <div className={`mb-4 flex items-start justify-between gap-3 ${headerClassName}`}>
+      <div className={`mb-3.5 flex items-start justify-between gap-2.5 ${headerClassName}`}>
         <div className="flex min-w-0 items-center gap-2.5">
           {icon}
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-base font-bold text-[#171b24]">{title}</span>
+            <span className="text-[14.5px] font-bold" style={{ color: 'var(--crm-text)' }}>
+              {title}
+            </span>
             {subtitle && (
-              <span className="text-[12.5px] font-medium text-[#8890a0]">{subtitle}</span>
+              <span className="text-xs font-medium" style={{ color: 'var(--crm-text-faint)' }}>
+                {subtitle}
+              </span>
             )}
           </div>
         </div>

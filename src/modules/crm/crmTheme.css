@@ -1,0 +1,62 @@
+/* CRM-scoped design tokens — matches docs/CRM Redesign System mockup */
+.crm-scope {
+  --crm-primary: #2563eb;
+  --crm-primary-hover: #1d4ed8;
+  --crm-primary-soft: #eff4fe;
+  --crm-primary-soft-border: #bfd3fa;
+  --crm-bg: #f4f6fa;
+  --crm-surface: #ffffff;
+  --crm-surface-muted: #f7f9fc;
+  --crm-border: #e5e9f2;
+  --crm-border-soft: #eef1f7;
+  --crm-border-muted: #e9edf5;
+  --crm-text: #0f172a;
+  --crm-text-secondary: #475569;
+  --crm-text-muted: #64748b;
+  --crm-text-faint: #8a94a6;
+  --crm-text-disabled: #a9b2c3;
+  --crm-danger: #dc2626;
+  --crm-danger-soft: #fdecec;
+  --crm-warning: #b45309;
+  --crm-warning-soft: #fef3e2;
+  --crm-success: #15803d;
+  --crm-success-hover: #116632;
+  --crm-success-soft: #e7f6ec;
+  --crm-neutral-soft: #eef1f7;
+  --crm-ink: #0f172a;
+  --crm-ink-soft: #22304d;
+  --crm-radius-sm: 9px;
+  --crm-radius-md: 13px;
+  --crm-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --crm-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --crm-shadow-hover: 0 8px 20px rgba(15, 23, 42, 0.09);
+  --crm-shadow-primary: 0 6px 18px rgba(37, 99, 235, 0.28);
+  --crm-shadow-bulk: 0 18px 44px rgba(15, 23, 42, 0.18);
+  --crm-font: 'IBM Plex Sans Arabic', 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+
+  font-family: var(--crm-font);
+  color: var(--crm-text);
+}
+
+.crm-scope *:focus-visible {
+  outline: 2px solid var(--crm-primary);
+  outline-offset: 2px;
+}
+
+.crm-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.crm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  width: fit-content;
+  font-size: 11.5px;
+  font-weight: 600;
+}

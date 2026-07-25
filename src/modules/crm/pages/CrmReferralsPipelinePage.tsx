@@ -1,22 +1,33 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../api/client'
-import type { PaginatedResponse, ReferralLead } from '../../../api/types'
+import type { PaginatedResponse, ReferralLead, ReferralLeadStatus } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
-import { KpiCard } from '../../../components/KpiCard'
-import { PageHeader } from '../../../components/PageHeader'
+import { CrmLeadDrawer } from '../components/CrmLeadDrawer'
+import { CRM_PRIMARY_BTN, CRM_SECONDARY_BTN, CrmPageShell } from '../components/CrmPageShell'
 import { ReferralStatusModal } from '../components/ReferralStatusModal'
+import { CrmChip } from '../components/ui/CrmChip'
+import { CrmKanbanBoard, CrmKanbanColumn } from '../components/ui/CrmKanban'
+import { CrmKpiCard } from '../components/ui/CrmKpiCard'
+import { CrmLeadCard } from '../components/ui/CrmLeadCard'
+import { CrmToolbar } from '../components/ui/CrmToolbar'
 import {
-  formatReferralDateTime,
   REFERRAL_STATUSES,
-  referrerLabel,
+  REFERRAL_STATUSES_NEED_MODAL,
 } from '../lib/referralLeads'
+
+type AgentFilter = 'all' | number
 
 export function CrmReferralsPipelinePage() {
   const queryClient = useQueryClient()
+  const dragId = useRef<number | null>(null)
+  const [agentFilter, setAgentFilter] = useState<AgentFilter>('all')
+  const [drawerId, setDrawerId] = useState<number | null>(null)
   const [statusLead, setStatusLead] = useState<ReferralLead | null>(null)
+  const [statusTarget, setStatusTarget] = useState<ReferralLeadStatus | null>(null)
+  const [optimistic, setOptimistic] = useState<Record<number, ReferralLeadStatus>>({})
 
   const query = useQuery({
     queryKey: ['referral-leads'],
@@ -24,7 +35,7 @@ export function CrmReferralsPipelinePage() {
       const { data } = await api.get<PaginatedResponse<ReferralLead>>('/crm/referral-leads', {
         params: {
           per_page: 200,
-          include: 'referredByCustomer,referredByReferralLead,creator',
+          include: 'referredByCustomer,referredByReferralLead,creator,assignee',
         },
       })
       return data.data
@@ -39,108 +50,224 @@ export function CrmReferralsPipelinePage() {
     },
   })
 
-  const leadsByStatus = (status: string) =>
-    (query.data ?? []).filter((lead) => lead.status === status)
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: ReferralLeadStatus }) => {
+      const { data } = await api.patch<ReferralLead>(`/crm/referral-leads/${id}/status`, { status })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['referral-leads'] })
+      queryClient.invalidateQueries({ queryKey: ['referral-leads-due'] })
+    },
+  })
 
-  const summary = {
-    total: query.data?.length ?? 0,
-    due: dueQuery.data?.length ?? 0,
-    installed: leadsByStatus('installed').length,
-    scheduled: leadsByStatus('installation_scheduled').length,
-  }
+  const leads = useMemo(() => {
+    const raw = query.data ?? []
+    return raw.map((lead) =>
+      optimistic[lead.id] ? { ...lead, status: optimistic[lead.id] } : lead,
+    )
+  }, [query.data, optimistic])
+
+  const agents = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const lead of query.data ?? []) {
+      const id = lead.assigned_to ?? lead.assignee?.id ?? lead.created_by
+      const name = lead.assignee?.name ?? lead.creator?.name
+      if (id && name) map.set(id, name)
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [query.data])
+
+  const visible = useMemo(() => {
+    if (agentFilter === 'all') return leads
+    return leads.filter(
+      (l) => (l.assigned_to ?? l.assignee?.id ?? l.created_by) === agentFilter,
+    )
+  }, [leads, agentFilter])
+
+  const leadsByStatus = (status: ReferralLeadStatus) =>
+    visible.filter((lead) => lead.status === status)
+
+  const total = visible.length
+  const installed = leadsByStatus('installed').length
+  const scheduled = leadsByStatus('installation_scheduled').length
+  const conv = total > 0 ? ((installed / total) * 100).toFixed(1) + '%' : '0%'
 
   const invalidate = () => {
+    setOptimistic({})
     queryClient.invalidateQueries({ queryKey: ['referral-leads'] })
     queryClient.invalidateQueries({ queryKey: ['referral-leads-due'] })
   }
 
+  const openStatusModal = (lead: ReferralLead, status: ReferralLeadStatus) => {
+    setStatusLead(lead)
+    setStatusTarget(status)
+  }
+
+  const handleDrop = (targetStatus: ReferralLeadStatus) => {
+    const id = dragId.current
+    dragId.current = null
+    if (id == null) return
+    const lead = (query.data ?? []).find((l) => l.id === id)
+    if (!lead || lead.status === targetStatus) return
+
+    setOptimistic((prev) => ({ ...prev, [id]: targetStatus }))
+
+    if (REFERRAL_STATUSES_NEED_MODAL.includes(targetStatus)) {
+      openStatusModal(lead, targetStatus)
+      return
+    }
+
+    statusMutation.mutate(
+      { id, status: targetStatus },
+      {
+        onSuccess: () => setOptimistic((prev) => {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        }),
+        onError: () => setOptimistic((prev) => {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        }),
+      },
+    )
+  }
+
+  const closeStatusModal = () => {
+    if (statusLead) {
+      setOptimistic((prev) => {
+        const next = { ...prev }
+        delete next[statusLead.id]
+        return next
+      })
+    }
+    setStatusLead(null)
+    setStatusTarget(null)
+  }
+
   return (
-    <div>
-      <PageHeader
-        title="الترشيحات"
-        subtitle="متابعة أرقام الترشيح من العملاء حتى التركيب"
-        actions={
-          <Link
-            to="/crm/referrals/add"
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-          >
-            <Icon name="add" size={18} />
-            ترشيح جديد
+    <CrmPageShell
+      kicker="المبيعات"
+      title="خط الترشيحات"
+      subtitle="كل ترشيح من أول مكالمة حتى التركيب — اسحب البطاقات لتحديث الحالة فوراً."
+      actions={
+        <>
+          <Link to="/crm/referrals/list" className={CRM_SECONDARY_BTN}>
+            تصدير
           </Link>
+          <Link to="/crm/referrals/add" className={CRM_PRIMARY_BTN}>
+            <Icon name="add" size={18} />
+            + ترشيح جديد
+          </Link>
+        </>
+      }
+    >
+      <div className="flex flex-wrap gap-3.5" data-tour="crm-kpis">
+        <CrmKpiCard
+          variant="primary"
+          label="إجمالي الترشيحات"
+          value={total}
+          hint="هذا الشهر"
+        />
+        <CrmKpiCard
+          variant="danger"
+          label="متابعات مستحقة اليوم"
+          value={dueQuery.data?.length ?? 0}
+          hint="تحتاج مكالمة قبل نهاية اليوم"
+        />
+        <CrmKpiCard
+          variant="warning"
+          label="مواعيد تركيب مجدولة"
+          value={scheduled}
+          hint="أقرب مواعيد التركيب"
+        />
+        <CrmKpiCard
+          variant="success"
+          label="معدل التحويل"
+          value={conv}
+          hint={`${installed} تركيب مكتمل`}
+        />
+      </div>
+
+      <CrmToolbar
+        hint="اسحب أي بطاقة بين الأعمدة لتغيير حالتها"
+        end={
+          <>
+            <CrmChip
+              label="كل الموظفين"
+              active={agentFilter === 'all'}
+              onClick={() => setAgentFilter('all')}
+            />
+            {agents.slice(0, 6).map((agent) => (
+              <CrmChip
+                key={agent.id}
+                label={agent.name}
+                active={agentFilter === agent.id}
+                onClick={() => setAgentFilter(agent.id)}
+              />
+            ))}
+          </>
         }
       />
 
-      <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="إجمالي الترشيحات" value={summary.total} icon="groups" />
-        <KpiCard label="متابعات مستحقة" value={summary.due} icon="event" />
-        <KpiCard label="مواعيد مجدولة" value={summary.scheduled} icon="schedule" />
-        <KpiCard label="تم التركيب" value={summary.installed} icon="check_circle" />
-      </div>
-
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        <div className="pipeline-scroll flex gap-md overflow-x-auto pb-md">
+        <CrmKanbanBoard columns={4}>
           {REFERRAL_STATUSES.map((stage) => {
-            const leads = leadsByStatus(stage.key)
+            const columnLeads = leadsByStatus(stage.key)
             return (
-              <div
+              <CrmKanbanColumn
                 key={stage.key}
-                className="min-w-[260px] flex-shrink-0 rounded-lg border border-outline-variant bg-surface-container-lowest"
+                title={stage.label}
+                count={columnLeads.length}
+                dotColor={stage.hex}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  handleDrop(stage.key)
+                }}
               >
-                <div
-                  className={`rounded-t-lg border-b border-outline-variant px-sm py-sm ${stage.color}`}
-                >
-                  <h3 className="text-sm font-bold text-on-surface">{stage.label}</h3>
-                  <span className="text-xs text-on-surface-variant">{leads.length}</span>
-                </div>
-                <ul className="max-h-[calc(100vh-360px)] space-y-sm overflow-y-auto p-sm">
-                  {leads.map((lead) => (
-                    <li
-                      key={lead.id}
-                      className="rounded-lg border border-outline-variant/80 bg-surface-container-lowest p-sm shadow-sm"
-                    >
-                      <p className="font-medium text-on-surface">{lead.name || 'بدون اسم'}</p>
-                      <p className="tabular-nums text-xs text-on-surface-variant" dir="ltr">
-                        {lead.phone}
-                      </p>
-                      <p className="mt-xs text-xs text-on-surface-variant">
-                        المُحيل: {referrerLabel(lead)}
-                      </p>
-                      {lead.follow_up_at && (
-                        <p className="mt-xs text-xs text-primary">
-                          متابعة: {formatReferralDateTime(lead.follow_up_at)}
-                        </p>
-                      )}
-                      {lead.installation_scheduled_at && (
-                        <p className="mt-xs text-xs text-secondary">
-                          تركيب: {formatReferralDateTime(lead.installation_scheduled_at)}
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setStatusLead(lead)}
-                        className="mt-sm text-xs font-medium text-primary hover:underline"
-                      >
-                        تغيير الحالة
-                      </button>
-                    </li>
-                  ))}
-                  {leads.length === 0 && (
-                    <li className="py-md text-center text-xs text-on-surface-variant">
-                      لا يوجد
-                    </li>
-                  )}
-                </ul>
-              </div>
+                {columnLeads.map((lead) => (
+                  <CrmLeadCard
+                    key={lead.id}
+                    lead={lead}
+                    onOpen={() => setDrawerId(lead.id)}
+                    onDragStart={() => {
+                      dragId.current = lead.id
+                    }}
+                  />
+                ))}
+                {columnLeads.length === 0 ? (
+                  <p className="py-8 text-center text-xs" style={{ color: 'var(--crm-text-faint)' }}>
+                    لا توجد ترشيحات
+                  </p>
+                ) : null}
+              </CrmKanbanColumn>
             )
           })}
-        </div>
+        </CrmKanbanBoard>
       </AsyncState>
+
+      <CrmLeadDrawer
+        leadId={drawerId}
+        onClose={() => setDrawerId(null)}
+        onRequestStatusModal={(lead, status) => {
+          setDrawerId(null)
+          openStatusModal(lead, status)
+        }}
+        onScheduleInstall={(lead) => {
+          setDrawerId(null)
+          openStatusModal(lead, 'installation_scheduled')
+        }}
+      />
 
       <ReferralStatusModal
         lead={statusLead}
-        onClose={() => setStatusLead(null)}
+        initialStatus={statusTarget}
+        onClose={closeStatusModal}
         onSuccess={invalidate}
       />
-    </div>
+    </CrmPageShell>
   )
 }

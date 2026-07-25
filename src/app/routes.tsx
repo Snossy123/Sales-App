@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../layouts/AppShell'
 import { useAuthStore } from '../stores/authStore'
 import { canAccessRoute, getDefaultRoute } from '../lib/permissions'
@@ -96,20 +96,18 @@ import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPag
 import { AdminFaqPage } from '../modules/admin/pages/AdminFaqPage'
 import { TrashPage } from '../modules/admin/pages/TrashPage'
 import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
-import { CrmFollowUpsPage } from '../modules/crm/pages/CrmFollowUpsPage'
 import { CrmActivitiesPage } from '../modules/crm/pages/CrmActivitiesPage'
 import { CrmCallLogsPage } from '../modules/crm/pages/CrmCallLogsPage'
-import { CrmOrderRequestsPage } from '../modules/crm/pages/CrmOrderRequestsPage'
-import { CrmMarketplacePage } from '../modules/crm/pages/CrmMarketplacePage'
-import { CrmCampaignsPage } from '../modules/crm/pages/CrmCampaignsPage'
-import { CrmProposalsPage } from '../modules/crm/pages/CrmProposalsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
-import { CrmSettingsPage } from '../modules/crm/pages/CrmSettingsPage'
-import { CrmCustomerAddPage } from '../modules/crm/pages/CrmCustomerAddPage'
+import { CrmLeaderboardPage } from '../modules/crm/pages/CrmLeaderboardPage'
+import { CrmOwnerDetailPage } from '../modules/crm/pages/CrmOwnerDetailPage'
+import { CrmOwnerPipelinePage } from '../modules/crm/pages/CrmOwnerPipelinePage'
+import { CrmReferralLeadProfilePage } from '../modules/crm/pages/CrmReferralLeadProfilePage'
 import { CrmReferralAddPage } from '../modules/crm/pages/CrmReferralAddPage'
 import { CrmReferralNetworkPage } from '../modules/crm/pages/CrmReferralNetworkPage'
-import { CrmReferralsFollowUpsPage } from '../modules/crm/pages/CrmReferralsFollowUpsPage'
+import { CrmReferralsListPage } from '../modules/crm/pages/CrmReferralsListPage'
 import { CrmReferralsPipelinePage } from '../modules/crm/pages/CrmReferralsPipelinePage'
+import { CrmTasksPage } from '../modules/crm/pages/CrmTasksPage'
 import { CrmCeoDashboardPage } from '../modules/crm/pages/CrmCeoDashboardPage'
 import { SupportTasksAdminPage } from '../modules/support/pages/SupportTasksAdminPage'
 import { MyTasksPage } from '../modules/support/pages/MyTasksPage'
@@ -124,6 +122,19 @@ import { PortalInvoicesPage } from '../modules/crm/portal/PortalInvoicesPage'
 import { PortalLedgerPage } from '../modules/crm/portal/PortalLedgerPage'
 import { PortalOrderRequestsPage } from '../modules/crm/portal/PortalOrderRequestsPage'
 import { usePortalAuthStore } from '../stores/portalAuthStore'
+
+/** Legacy employee report URL → unified owner performance page */
+function RedirectEmployeeReportToOwner() {
+  const { userId } = useParams<{ userId: string }>()
+  const [searchParams] = useSearchParams()
+  const qs = searchParams.toString()
+  return (
+    <Navigate
+      to={`/crm/reports/owners/${userId}${qs ? `?${qs}` : ''}`}
+      replace
+    />
+  )
+}
 
 function ProtectedRoute() {
   const token = useAuthStore((s) => s.token)
@@ -281,20 +292,21 @@ export function AppRoutes() {
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<Navigate to="/crm/referrals" replace />} />
             <Route path="crm/ceo" element={<CrmCeoDashboardPage />} />
-            <Route path="crm/customers/add" element={<CrmCustomerAddPage />} />
             <Route path="crm/referrals" element={<CrmReferralsPipelinePage />} />
             <Route path="crm/referrals/add" element={<CrmReferralAddPage />} />
+            <Route path="crm/referrals/list" element={<CrmReferralsListPage />} />
             <Route path="crm/referrals/network" element={<CrmReferralNetworkPage />} />
-            <Route path="crm/referrals/follow-ups" element={<CrmReferralsFollowUpsPage />} />
-            <Route path="crm/follow-ups" element={<CrmFollowUpsPage />} />
+            <Route path="crm/referrals/:id" element={<CrmReferralLeadProfilePage />} />
+            <Route path="crm/tasks" element={<CrmTasksPage />} />
             <Route path="crm/activities" element={<CrmActivitiesPage />} />
             <Route path="crm/call-logs" element={<CrmCallLogsPage />} />
-            <Route path="crm/order-requests" element={<CrmOrderRequestsPage />} />
-            <Route path="crm/marketplace" element={<CrmMarketplacePage />} />
-            <Route path="crm/campaigns" element={<CrmCampaignsPage />} />
-            <Route path="crm/proposals" element={<CrmProposalsPage />} />
             <Route path="crm/reports" element={<CrmReportsPage />} />
-            <Route path="crm/settings" element={<CrmSettingsPage />} />
+            <Route path="crm/reports/leaderboard" element={<CrmLeaderboardPage />} />
+            <Route path="crm/reports/owner-summary" element={<Navigate to="/crm/reports" replace />} />
+            <Route path="crm/reports/owner-detail" element={<CrmOwnerDetailPage />} />
+            <Route path="crm/reports/owner-pipeline" element={<CrmOwnerPipelinePage />} />
+            <Route path="crm/reports/owners/:userId" element={<CrmOwnerDetailPage />} />
+            <Route path="crm/reports/employees/:userId" element={<RedirectEmployeeReportToOwner />} />
             <Route path="support/tasks" element={<SupportTasksAdminPage />} />
             <Route path="support/my-tasks" element={<MyTasksPage />} />
           </Route>

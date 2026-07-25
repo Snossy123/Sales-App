@@ -6,7 +6,8 @@ import { DateTimeInput12h } from '../../../components/DateTimeInput12h'
 import { Modal } from '../../../components/Modal'
 import { REFERRAL_STATUSES } from '../lib/referralLeads'
 
-const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
+const inputClass =
+  'w-full rounded-[9px] border px-2.5 py-2 text-[13px] [border-color:var(--crm-border)] [background:var(--crm-surface-muted)]'
 
 interface ChildReferralRow {
   phone: string
@@ -15,11 +16,18 @@ interface ChildReferralRow {
 
 interface ReferralStatusModalProps {
   lead: ReferralLead | null
+  /** Prefill target status (e.g. from drag-and-drop) */
+  initialStatus?: ReferralLeadStatus | null
   onClose: () => void
   onSuccess: () => void
 }
 
-export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatusModalProps) {
+export function ReferralStatusModal({
+  lead,
+  initialStatus,
+  onClose,
+  onSuccess,
+}: ReferralStatusModalProps) {
   const [status, setStatus] = useState<ReferralLeadStatus>('no_answer')
   const [followUpAt, setFollowUpAt] = useState('')
   const [installationScheduledAt, setInstallationScheduledAt] = useState('')
@@ -29,13 +37,13 @@ export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatus
 
   useEffect(() => {
     if (!lead) return
-    setStatus(lead.status)
+    setStatus(initialStatus ?? lead.status)
     setFollowUpAt(lead.follow_up_at ?? '')
     setInstallationScheduledAt(lead.installation_scheduled_at ?? '')
     setNotes('')
     setChildReferrals([{ phone: '', name: '' }])
     setError('')
-  }, [lead])
+  }, [lead, initialStatus])
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -85,16 +93,16 @@ export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatus
 
   return (
     <Modal open={lead !== null} onClose={onClose} title="تغيير حالة الترشيح">
-      <form onSubmit={handleSubmit} className="space-y-sm">
-        <p className="text-sm text-on-surface-variant">
+      <form onSubmit={handleSubmit} className="crm-scope space-y-3">
+        <p className="text-sm" style={{ color: 'var(--crm-text-muted)' }}>
           {lead.name || lead.phone}
-          <span className="mx-xs">·</span>
+          <span className="mx-1">·</span>
           <span dir="ltr" className="tabular-nums">
             {lead.phone}
           </span>
         </p>
 
-        <label className="block text-sm font-medium text-on-surface">الحالة</label>
+        <label className="block text-sm font-medium">الحالة</label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as ReferralLeadStatus)}
@@ -109,27 +117,26 @@ export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatus
 
         {status === 'no_answer' && (
           <div>
-            <label className="mb-xs block text-sm font-medium text-on-surface">
-              موعد إعادة الاتصال
-            </label>
+            <label className="mb-1 block text-sm font-medium">موعد إعادة الاتصال</label>
             <DateTimeInput12h value={followUpAt} onChange={setFollowUpAt} />
           </div>
         )}
 
         {status === 'installation_scheduled' && (
           <div>
-            <label className="mb-xs block text-sm font-medium text-on-surface">
-              تاريخ ووقت موعد التركيب
-            </label>
+            <label className="mb-1 block text-sm font-medium">تاريخ ووقت موعد التركيب</label>
             <DateTimeInput12h value={installationScheduledAt} onChange={setInstallationScheduledAt} />
           </div>
         )}
 
         {status === 'not_interested' && (
-          <div className="space-y-sm rounded-lg border border-outline-variant p-sm">
-            <p className="text-sm font-medium text-on-surface">أرقام ترشيح جديدة (اختياري)</p>
+          <div
+            className="space-y-2 rounded-[13px] p-2.5"
+            style={{ border: '1px solid var(--crm-border)' }}
+          >
+            <p className="text-sm font-medium">أرقام ترشيح جديدة (اختياري)</p>
             {childReferrals.map((row, index) => (
-              <div key={index} className="grid gap-xs sm:grid-cols-2">
+              <div key={index} className="grid gap-2 sm:grid-cols-2">
                 <input
                   placeholder="رقم الهاتف"
                   value={row.phone}
@@ -156,7 +163,8 @@ export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatus
             <button
               type="button"
               onClick={() => setChildReferrals([...childReferrals, { phone: '', name: '' }])}
-              className="text-sm text-primary hover:underline"
+              className="text-sm font-semibold"
+              style={{ color: 'var(--crm-primary)' }}
             >
               + إضافة رقم
             </button>
@@ -171,20 +179,26 @@ export function ReferralStatusModal({ lead, onClose, onSuccess }: ReferralStatus
           className={inputClass}
         />
 
-        {error && <p className="text-sm text-error">{error}</p>}
+        {error && (
+          <p className="text-sm" style={{ color: 'var(--crm-danger)' }}>
+            {error}
+          </p>
+        )}
 
-        <div className="flex gap-sm">
+        <div className="flex gap-2">
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary"
+            className="h-[38px] rounded-[9px] px-3.5 text-[13px] font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--crm-primary)' }}
           >
             حفظ
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-outline-variant px-md py-2 text-sm"
+            className="h-[38px] rounded-[9px] border px-3.5 text-[13px]"
+            style={{ borderColor: 'var(--crm-border)', color: 'var(--crm-text-secondary)' }}
           >
             إلغاء
           </button>

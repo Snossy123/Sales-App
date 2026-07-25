@@ -1,170 +1,149 @@
 import type { DemoRole } from '../../../api/types'
 
-/** حالة ظهور عنصر CRM في القائمة الجانبية */
-export type CrmNavAvailability = 'active' | 'suspended'
+export type CrmNavSectionId = 'home' | 'daily' | 'analytics'
 
 export interface CrmNavItemDef {
   id: string
   to: string
   icon: string
   label: string
+  letter: string
+  section: CrmNavSectionId
   end?: boolean
   roles: DemoRole[]
-  availability: CrmNavAvailability
-  /** سبب التعليق — للمرجع عند إعادة التفعيل */
-  suspendNote?: string
 }
 
+export const CRM_NAV_SECTION_LABELS: Record<CrmNavSectionId, string> = {
+  home: 'الرئيسية',
+  daily: 'العمل اليومي',
+  analytics: 'التحليلات',
+}
+
+const CRM_NAV_SECTION_ORDER: CrmNavSectionId[] = ['home', 'daily', 'analytics']
+
 /**
- * مصدر حقيقة لعناصر CRM.
- * لتفعيل تبويب معلّق لاحقاً: غيّر availability إلى 'active'.
+ * مصدر حقيقة لعناصر CRM النشطة — مرتبة حسب أقسام الشريط الجانبي في إعادة التصميم.
  */
 export const CRM_NAV_CATALOG: CrmNavItemDef[] = [
-  {
-    id: 'ceo-dashboard',
-    to: '/crm/ceo',
-    icon: 'dashboard',
-    label: 'لوحة المدير',
-    end: true,
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'active',
-  },
-  // ——— نشط: نطاق العميل الحالي (الترشيحات) ———
+  // ——— الرئيسية ———
   {
     id: 'referrals',
     to: '/crm/referrals',
     icon: 'share',
-    label: 'الترشيحات',
+    label: 'خط الترشيحات',
+    letter: 'خ',
+    section: 'home',
     end: true,
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'active',
   },
   {
-    id: 'referral-follow-ups',
-    to: '/crm/referrals/follow-ups',
-    icon: 'event_available',
-    label: 'متابعات الترشيحات',
+    id: 'referrals-list',
+    to: '/crm/referrals/list',
+    icon: 'list_alt',
+    label: 'قائمة الترشيحات',
+    letter: 'ق',
+    section: 'home',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'active',
-  },
-  {
-    id: 'referral-network',
-    to: '/crm/referrals/network',
-    icon: 'account_tree',
-    label: 'شبكة الإحالات',
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'active',
-  },
-  {
-    id: 'reports',
-    to: '/crm/reports',
-    icon: 'analytics',
-    label: 'تقارير الترشيحات',
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'active',
   },
 
-  // ——— معلّق: ميزات CRM العامة (محفوظة للمستقبل) ———
+  // ——— العمل اليومي ———
   {
-    id: 'pipeline',
-    to: '/crm',
-    icon: 'hub',
-    label: 'العملاء المحتملين',
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'Pipeline CRM العام (new → won)',
-  },
-  {
-    id: 'customer-add',
-    to: '/crm/customers/add',
-    icon: 'person_add',
-    label: 'إضافة عميل',
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'تسجيل عميل مع مصدر إحالة من CRM',
-  },
-  {
-    id: 'follow-ups',
-    to: '/crm/follow-ups',
-    icon: 'event',
-    label: 'المتابعات',
-    roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'جدولة متابعات CRM العامة',
-  },
-  {
-    id: 'activities',
-    to: '/crm/activities',
+    id: 'tasks',
+    to: '/crm/tasks',
     icon: 'task',
-    label: 'الأنشطة',
+    label: 'المهام',
+    letter: 'م',
+    section: 'daily',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'سجل أنشطة العملاء المحتملين',
   },
   {
     id: 'call-logs',
     to: '/crm/call-logs',
     icon: 'call',
     label: 'سجل المكالمات',
+    letter: 'س',
+    section: 'daily',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'تسجيل ومتابعة المكالمات',
   },
   {
-    id: 'campaigns',
-    to: '/crm/campaigns',
-    icon: 'campaign',
-    label: 'الحملات',
+    id: 'activities',
+    to: '/crm/activities',
+    icon: 'view_agenda',
+    label: 'الأنشطة',
+    letter: 'ن',
+    section: 'daily',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'حملات SMS/بريد',
+  },
+
+  // ——— التحليلات ———
+  {
+    id: 'reports',
+    to: '/crm/reports',
+    icon: 'analytics',
+    label: 'تقارير الترشيحات',
+    letter: 'ت',
+    section: 'analytics',
+    roles: ['super_admin', 'admin', 'crm'],
   },
   {
-    id: 'proposals',
-    to: '/crm/proposals',
-    icon: 'description',
-    label: 'العروض',
+    id: 'owner-detail',
+    to: '/crm/reports/owner-detail',
+    icon: 'person_search',
+    label: 'أداء الموظف',
+    letter: 'أ',
+    section: 'analytics',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'عروض أسعار للعملاء المحتملين',
   },
   {
-    id: 'order-requests',
-    to: '/crm/order-requests',
-    icon: 'shopping_cart',
-    label: 'طلبات العملاء',
+    id: 'leaderboard',
+    to: '/crm/reports/leaderboard',
+    icon: 'leaderboard',
+    label: 'لوحة المتصدرين',
+    letter: 'ل',
+    section: 'analytics',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'طلبات بوابة العملاء',
   },
   {
-    id: 'marketplace',
-    to: '/crm/marketplace',
-    icon: 'extension',
-    label: 'التكاملات',
+    id: 'referral-network',
+    to: '/crm/referrals/network',
+    icon: 'account_tree',
+    label: 'شبكة الإحالات',
+    letter: 'ش',
+    section: 'analytics',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'تكاملات B2B وFacebook leads',
   },
   {
-    id: 'settings',
-    to: '/crm/settings',
-    icon: 'settings',
-    label: 'الإعدادات',
+    id: 'owner-pipeline',
+    to: '/crm/reports/owner-pipeline',
+    icon: 'filter_alt',
+    label: 'خط الأنابيب',
+    letter: 'ط',
+    section: 'analytics',
     roles: ['super_admin', 'admin', 'crm'],
-    availability: 'suspended',
-    suspendNote: 'إعدادات CRM ومصادر العملاء',
+  },
+  {
+    id: 'ceo-dashboard',
+    to: '/crm/ceo',
+    icon: 'dashboard',
+    label: 'لوحة المدير',
+    letter: 'د',
+    section: 'analytics',
+    end: true,
+    roles: ['super_admin', 'admin', 'crm'],
   },
 ]
 
-const ACTIVE_CRM_ROUTE_PREFIXES = ['/crm/ceo', '/crm/referrals', '/crm/reports'] as const
+const ACTIVE_CRM_ROUTE_PREFIXES = [
+  '/crm/ceo',
+  '/crm/referrals',
+  '/crm/reports',
+  '/crm/tasks',
+  '/crm/call-logs',
+  '/crm/activities',
+] as const
 
 export function getActiveCrmNavItems(): CrmNavItemDef[] {
-  return CRM_NAV_CATALOG.filter((item) => item.availability === 'active')
-}
-
-export function getSuspendedCrmNavItems(): CrmNavItemDef[] {
-  return CRM_NAV_CATALOG.filter((item) => item.availability === 'suspended')
+  return CRM_NAV_CATALOG
 }
 
 export function crmNavDefToNavItem(def: CrmNavItemDef): {
@@ -189,6 +168,21 @@ export function buildActiveCrmNavItems(): CrmNavItem[] {
   return getActiveCrmNavItems().map(crmNavDefToNavItem)
 }
 
+export interface CrmNavSection {
+  id: CrmNavSectionId
+  label: string
+  items: CrmNavItemDef[]
+}
+
+/** أقسام الشريط الجانبي لـ CRM كما في إعادة التصميم */
+export function buildCrmNavSections(): CrmNavSection[] {
+  return CRM_NAV_SECTION_ORDER.map((id) => ({
+    id,
+    label: CRM_NAV_SECTION_LABELS[id],
+    items: CRM_NAV_CATALOG.filter((item) => item.section === id),
+  })).filter((section) => section.items.length > 0)
+}
+
 export function isActiveCrmRoute(path: string): boolean {
   const normalized = path.replace(/\/$/, '') || '/'
   return ACTIVE_CRM_ROUTE_PREFIXES.some(
@@ -196,11 +190,5 @@ export function isActiveCrmRoute(path: string): boolean {
   )
 }
 
-export function isSuspendedCrmRoute(path: string): boolean {
-  const normalized = path.replace(/\/$/, '') || '/'
-  if (!normalized.startsWith('/crm')) return false
-  return !isActiveCrmRoute(normalized)
-}
-
-/** المسار الافتراضي لقسم CRM في النطاق الحالي */
+/** المسار الافتراضي لقسم CRM */
 export const CRM_DEFAULT_ROUTE = '/crm/referrals'

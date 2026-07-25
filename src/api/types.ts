@@ -1227,6 +1227,8 @@ export interface CeoDashboardFunnelStage {
 
 export interface CeoDashboard {
   period: string
+  from?: string
+  to?: string
   total_sales: number
   sales_change_percent?: number | null
   target_achievement: {
@@ -1338,14 +1340,43 @@ export interface CrmActivity {
   user?: { id: number; name: string }
 }
 
+export type CallStatementOutcome =
+  | 'interested'
+  | 'not_interested'
+  | 'unavailable'
+  | 'callback_requested'
+
+export type CallStatementNextAction =
+  | 'callback'
+  | 'schedule_visit'
+  | 'prepare_quote'
+  | 'follow_install'
+  | 'collection'
+  | 'other'
+
+export type CallStatementPriority = 'medium' | 'high'
+
+export interface CallStatementForm {
+  outcome?: CallStatementOutcome | null
+  next_action?: CallStatementNextAction | null
+  follow_up_date?: string | null
+  notes?: string | null
+  priority?: CallStatementPriority | null
+}
+
 export interface CrmCallLog {
   id: number
   mobile_number?: string | null
   mobile_name?: string | null
   call_type?: string | null
   duration?: number | null
+  statement?: string | null
+  statement_form?: CallStatementForm | null
+  crm_task_id?: number | null
+  crm_task?: { id: number; title?: string | null; status?: string | null } | null
   start_time?: string | null
   customer_id?: number | null
+  referral_lead_id?: number | null
   service_evaluation_request_id?: number | null
   audio_url?: string | null
   service_evaluation_request?: { id: number; status?: string; executed_at?: string | null }
@@ -1379,6 +1410,15 @@ export type ReferralLeadStatus =
   | 'installation_scheduled'
   | 'installed'
 
+export interface ReferralLeadTimelineEvent {
+  type: 'status' | 'call' | 'task'
+  at: string
+  title: string
+  body?: string | null
+  actor?: string | null
+  meta?: Record<string, unknown>
+}
+
 export interface ReferralLead {
   id: number
   organization_id?: number
@@ -1403,6 +1443,7 @@ export interface ReferralLead {
   creator?: { id: number; name: string }
   assignee?: { id: number; name: string }
   status_logs?: ReferralLeadStatusLog[]
+  timeline?: ReferralLeadTimelineEvent[]
 }
 
 export type ReferralReferrerOption =
@@ -1446,6 +1487,32 @@ export interface ReferralLeadStatusLog {
   user?: { id: number; name: string }
 }
 
+export type CrmTaskStatus = 'todo' | 'in_progress' | 'done'
+
+export type CrmTaskPriority = 'low' | 'medium' | 'high'
+
+export type CrmTaskBucket = 'today' | 'upcoming' | 'overdue' | 'completed' | 'all'
+
+export interface CrmTask {
+  id: number
+  organization_id?: number
+  title: string
+  description?: string | null
+  employee_id?: number | null
+  priority: CrmTaskPriority
+  deadline?: string | null
+  status: CrmTaskStatus
+  tags?: string[] | null
+  started_at?: string | null
+  finished_at?: string | null
+  total_time_minutes?: number | null
+  created_by?: number | null
+  created_at?: string
+  updated_at?: string
+  employee?: Employee
+  creator?: { id: number; name: string }
+}
+
 export interface ReferralLeadReportSummary {
   total: number
   no_answer: number
@@ -1470,6 +1537,251 @@ export interface ReferralLeadReport {
   to: string
   summary: ReferralLeadReportSummary
   by_user: ReferralLeadReportByUser[]
+}
+
+export interface ReferralEmployeeReport {
+  from: string
+  to: string
+  user: { id: number; name: string }
+  summary: ReferralLeadReportSummary
+  referrals: Array<{
+    id: number
+    name?: string | null
+    phone: string
+    status: ReferralLeadStatus
+    follow_up_at?: string | null
+    installation_scheduled_at?: string | null
+    installed_at?: string | null
+    converted_customer_id?: number | null
+    created_at?: string
+  }>
+  calls: Array<{
+    id: number
+    mobile_number?: string | null
+    mobile_name?: string | null
+    statement?: string | null
+    start_time?: string | null
+    duration?: number | null
+    crm_task_id?: number | null
+    customer_id?: number | null
+    referral_lead_id?: number | null
+    created_at?: string
+  }>
+  tasks: Array<{
+    id: number
+    title: string
+    description?: string | null
+    status: CrmTaskStatus
+    priority: CrmTaskPriority
+    deadline?: string | null
+    employee_id?: number | null
+    created_at?: string
+  }>
+}
+
+export type OwnerLeaderboardSort =
+  | 'converted'
+  | 'leads'
+  | 'total_activities'
+  | 'calls'
+  | 'meetings'
+  | 'done_activities'
+  | 'completion_rate'
+
+export interface OwnerLeaderboardRow {
+  rank: number
+  owner_id: number
+  owner_name: string
+  converted: number
+  leads: number
+  total_activities: number
+  calls: number
+  meetings: number
+  done_activities: number
+  completion_rate: number
+}
+
+export interface OwnerLeaderboardResponse {
+  from: string
+  to: string
+  sort: OwnerLeaderboardSort
+  sort_dir: 'asc' | 'desc'
+  rows: OwnerLeaderboardRow[]
+}
+
+export interface OwnerSummaryTotals {
+  active_owners: number
+  total_leads: number
+  active_leads: number
+  converted: number
+  activities: number
+}
+
+export interface OwnerSummaryRow {
+  owner_id: number
+  owner_name: string
+  leads: number
+  active_leads: number
+  converted: number
+  total_activities: number
+  open_activities: number
+  done_activities: number
+  canceled_activities: number
+  calls: number
+  meetings: number
+  tasks: number
+  notes: number
+}
+
+export interface OwnerSummaryResponse {
+  from: string
+  to: string
+  summary: OwnerSummaryTotals
+  rows: OwnerSummaryRow[]
+}
+
+export interface OwnerDetailLeadRow {
+  id: number
+  date?: string | null
+  name?: string | null
+  phone?: string | null
+  company?: string | null
+  source?: string | null
+  status: ReferralLeadStatus | string
+  converted: boolean
+  follow_up_at?: string | null
+  installation_scheduled_at?: string | null
+  created_at?: string | null
+}
+
+export interface OwnerDetailActivityRow {
+  id: number
+  date?: string | null
+  time?: string | null
+  subject: string
+  lead_name: string
+  lead_id?: number | null
+  priority?: string | null
+  type: 'call' | 'task' | 'meeting' | string
+  status: string
+}
+
+export interface OwnerDetailCallRow {
+  id: number
+  mobile_number?: string | null
+  mobile_name?: string | null
+  statement?: string | null
+  start_time?: string | null
+  duration?: number | null
+  crm_task_id?: number | null
+  customer_id?: number | null
+  referral_lead_id?: number | null
+  created_at?: string | null
+  date?: string | null
+}
+
+export interface OwnerDetailResponse {
+  from: string
+  to: string
+  user: { id: number; name: string }
+  summary: {
+    leads: number
+    active_leads: number
+    converted: number
+    total_activities: number
+    open_activities: number
+    done_activities: number
+    canceled_activities: number
+    calls: number
+    meetings: number
+    tasks: number
+    notes: number
+    no_answer: number
+    not_interested: number
+    installation_scheduled: number
+    installed: number
+    conversion_rate: number
+  }
+  leads: OwnerDetailLeadRow[]
+  calls: OwnerDetailCallRow[]
+  activities: OwnerDetailActivityRow[]
+}
+
+export interface OwnerPipelineStatusRow {
+  status: string
+  label: string
+  leads: number
+  share: number
+}
+
+export interface OwnerPipelineOwnerBreakdown {
+  status: string
+  label: string
+  count: number
+}
+
+export interface OwnerPipelineOwnerRow {
+  owner_id: number
+  owner_name: string
+  total_leads: number
+  status_breakdown: OwnerPipelineOwnerBreakdown[]
+}
+
+export interface OwnerPipelineResponse {
+  from: string
+  to: string
+  total: number
+  by_status: OwnerPipelineStatusRow[]
+  by_owner: OwnerPipelineOwnerRow[]
+}
+
+export interface ActivitiesBoardInstallationRow {
+  id: number
+  invoice_number?: string | null
+  customer_name?: string | null
+  serial_number?: string | null
+  vehicle_info?: string | null
+  executed_at?: string | null
+  scheduled_at?: string | null
+  status: string
+  employee_name?: string | null
+  task_type?: string | null
+}
+
+export interface ActivitiesBoardTaskRow {
+  id: number
+  subject: string
+  owner_name: string
+  date?: string | null
+  reminder?: number | null
+  status: string
+  priority?: string | null
+}
+
+export interface ActivitiesBoardCallRow {
+  id: number
+  subject: string
+  owner_name: string
+  date?: string | null
+  reminder?: number | null
+  phones: string[]
+  status: string
+  referral_lead_id?: number | null
+  referral_lead_name?: string | null
+}
+
+export interface ActivitiesBoardResponse {
+  from: string
+  to: string
+  summary: {
+    total: number
+    installations: number
+    tasks: number
+    calls: number
+  }
+  installations: ActivitiesBoardInstallationRow[]
+  tasks: ActivitiesBoardTaskRow[]
+  calls: ActivitiesBoardCallRow[]
 }
 
 export interface PortalUser {

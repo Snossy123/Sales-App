@@ -58,7 +58,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
   leads: {
     resource: 'leads',
     trashType: 'leads',
-    listPath: '/crm/leads',
+    listPath: '/crm/referrals',
     label: (row) => (row as { name?: string }).name ?? `#${row.id}`,
     permissions: { create: [...salesRoles], edit: [...salesRoles], delete: [...adminRoles] },
     editMode: 'modal',
@@ -82,7 +82,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
   crmCampaigns: {
     resource: 'crm/campaigns',
     trashType: 'crm-campaigns',
-    listPath: '/crm/campaigns',
+    listPath: '/crm/referrals',
     label: (row) => (row as { name?: string }).name ?? `#${row.id}`,
     permissions: { create: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
     editMode: 'inline',
