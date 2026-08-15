@@ -2115,12 +2115,15 @@ export interface ZkDevice {
   id: number
   branch_id: number
   name: string
-  ip_address: string
+  serial_number?: string | null
+  ip_address?: string | null
   port?: number
   comm_key?: string | null
+  connection_mode?: 'pull' | 'push' | 'both' | string | null
   last_sync_at?: string | null
   last_sync_status?: string | null
   last_sync_message?: string | null
+  last_seen_at?: string | null
   is_active?: boolean
   branch?: Branch
 }

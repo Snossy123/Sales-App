@@ -12,12 +12,16 @@ import { ToastBanner } from '../../../components/ToastBanner'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
-// Default TCP/UDP port for ZKTeco biometric devices.
+// Default TCP/UDP port for ZKTeco biometric devices (pull mode).
 const DEFAULT_ZK_PORT = 4370
+
+type ConnectionMode = 'pull' | 'push' | 'both'
 
 const emptyForm = {
   name: '',
   branch_id: '' as number | '',
+  serial_number: '',
+  connection_mode: 'pull' as ConnectionMode,
   ip_address: '',
   port: String(DEFAULT_ZK_PORT),
   comm_key: '',
@@ -30,12 +34,20 @@ function formatSyncStatus(status?: string | null): string {
   return '—'
 }
 
+function formatMode(mode?: string | null): string {
+  if (mode === 'push') return 'ADMS / دفع'
+  if (mode === 'both') return 'سحب + دفع'
+  return 'سحب (UDP)'
+}
+
 export function HrmZkDevicesPage() {
   const queryClient = useQueryClient()
   const [panelOpen, setPanelOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
+
+  const isPushOnly = form.connection_mode === 'push'
 
   const query = useQuery({
     queryKey: ['hrm', 'zk-devices'],
@@ -61,7 +73,9 @@ export function HrmZkDevicesPage() {
       const payload = {
         name: form.name,
         branch_id: Number(form.branch_id),
-        ip_address: form.ip_address,
+        serial_number: form.serial_number || null,
+        connection_mode: form.connection_mode,
+        ip_address: isPushOnly ? form.ip_address || null : form.ip_address,
         port: form.port ? Number(form.port) : DEFAULT_ZK_PORT,
         comm_key: form.comm_key || undefined,
         is_active: form.is_active,
@@ -118,12 +132,25 @@ export function HrmZkDevicesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const pushUsersMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post<{ queued: number; message: string }>(
+        `/hrm/zk-devices/${id}/push-users`,
+      )
+      return data
+    },
+    onSuccess: (data) => setToast(data.message || `تم وضع ${data.queued} أمر في الطابور`),
+    onError: (err) => setToast(getErrorMessage(err)),
+  })
+
   const openEdit = (device: ZkDevice) => {
     setEditId(device.id)
     setForm({
       name: device.name,
       branch_id: device.branch_id,
-      ip_address: device.ip_address,
+      serial_number: device.serial_number ?? '',
+      connection_mode: (device.connection_mode as ConnectionMode) || 'pull',
+      ip_address: device.ip_address ?? '',
       port: String(device.port ?? DEFAULT_ZK_PORT),
       comm_key: device.comm_key ?? '',
       is_active: device.is_active ?? true,
@@ -136,7 +163,7 @@ export function HrmZkDevicesPage() {
     <div>
       <PageHeader
         title="أجهزة البصمة ZK"
-        subtitle="ربط جهاز بصمة لكل فرع ومزامنة سجلات الحضور"
+        subtitle="ربط جهاز بصمة لكل فرع — سحب UDP أو دفع ADMS"
         actions={
           <div className="flex flex-wrap gap-xs">
             <button
@@ -180,22 +207,34 @@ export function HrmZkDevicesPage() {
               render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—',
             },
             {
+              key: 'serial_number',
+              header: 'الرقم التسلسلي',
+              className: 'tabular-nums',
+              render: (row) => row.serial_number || '—',
+            },
+            {
+              key: 'connection_mode',
+              header: 'الوضع',
+              render: (row) => formatMode(row.connection_mode),
+            },
+            {
               key: 'ip_address',
               header: 'IP',
               className: 'tabular-nums',
-              render: (row) => `${row.ip_address}:${row.port ?? DEFAULT_ZK_PORT}`,
+              render: (row) =>
+                row.ip_address ? `${row.ip_address}:${row.port ?? DEFAULT_ZK_PORT}` : '— (ADMS)',
             },
             {
-              key: 'last_sync_at',
-              header: 'آخر مزامنة',
+              key: 'last_seen_at',
+              header: 'آخر ظهور',
               render: (row) =>
-                row.last_sync_at
-                  ? new Date(row.last_sync_at).toLocaleString('ar-EG')
+                row.last_seen_at
+                  ? new Date(row.last_seen_at).toLocaleString('ar-EG')
                   : '—',
             },
             {
               key: 'last_sync_status',
-              header: 'الحالة',
+              header: 'المزامنة',
               render: (row) => (
                 <StatusBadge
                   status={row.last_sync_status === 'success' ? 'active' : row.last_sync_status === 'failed' ? 'inactive' : 'default'}
@@ -213,33 +252,51 @@ export function HrmZkDevicesPage() {
             {
               key: 'actions',
               header: '',
-              render: (row) => (
-                <div className="flex flex-wrap gap-sm">
-                  <button
-                    type="button"
-                    onClick={() => testMutation.mutate(row.id)}
-                    disabled={testMutation.isPending}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    اختبار
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => syncMutation.mutate(row.id)}
-                    disabled={syncMutation.isPending}
-                    className="text-xs text-secondary hover:underline"
-                  >
-                    مزامنة
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(row)}
-                    className="text-xs text-on-surface-variant hover:underline"
-                  >
-                    تعديل
-                  </button>
-                </div>
-              ),
+              render: (row) => {
+                const canPull = row.connection_mode !== 'push'
+                const canPush = row.connection_mode === 'push' || row.connection_mode === 'both'
+                return (
+                  <div className="flex flex-wrap gap-sm">
+                    {canPull && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => testMutation.mutate(row.id)}
+                          disabled={testMutation.isPending}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          اختبار
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => syncMutation.mutate(row.id)}
+                          disabled={syncMutation.isPending}
+                          className="text-xs text-secondary hover:underline"
+                        >
+                          مزامنة
+                        </button>
+                      </>
+                    )}
+                    {canPush && (
+                      <button
+                        type="button"
+                        onClick={() => pushUsersMutation.mutate(row.id)}
+                        disabled={pushUsersMutation.isPending}
+                        className="text-xs text-tertiary hover:underline"
+                      >
+                        إرسال الموظفين
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openEdit(row)}
+                      className="text-xs text-on-surface-variant hover:underline"
+                    >
+                      تعديل
+                    </button>
+                  </div>
+                )
+              },
             },
           ]}
         />
@@ -285,11 +342,30 @@ export function HrmZkDevicesPage() {
               </option>
             ))}
           </select>
+          <select
+            value={form.connection_mode}
+            onChange={(e) =>
+              setForm({ ...form, connection_mode: e.target.value as ConnectionMode })
+            }
+            className={inputClass}
+          >
+            <option value="pull">سحب (UDP / منفذ 4370)</option>
+            <option value="push">دفع (ADMS / Cloud)</option>
+            <option value="both">سحب + دفع</option>
+          </select>
           <input
-            placeholder="IP"
+            placeholder="الرقم التسلسلي SN (مطلوب لـ ADMS)"
+            value={form.serial_number}
+            onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
+            required={form.connection_mode !== 'pull'}
+            dir="ltr"
+            className={`${inputClass} sm:col-span-2`}
+          />
+          <input
+            placeholder={isPushOnly ? 'IP (اختياري)' : 'IP'}
             value={form.ip_address}
             onChange={(e) => setForm({ ...form, ip_address: e.target.value })}
-            required
+            required={!isPushOnly}
             dir="ltr"
             className={inputClass}
           />
@@ -301,7 +377,7 @@ export function HrmZkDevicesPage() {
             className={inputClass}
           />
           <input
-            placeholder="Comm Key (اختياري)"
+            placeholder="Comm Key (اختياري — وضع السحب)"
             value={form.comm_key}
             onChange={(e) => setForm({ ...form, comm_key: e.target.value })}
             dir="ltr"

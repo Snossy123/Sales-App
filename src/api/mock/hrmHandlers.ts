@@ -251,6 +251,8 @@ function buildMockZkDevices(state: DemoState): ZkDevice[] {
     id: index + 1,
     branch_id: branch.id,
     name: `جهاز ${branch.name_ar ?? branch.name}`,
+    serial_number: `MOCKSN${String(index + 1).padStart(3, '0')}`,
+    connection_mode: 'pull',
     ip_address: `192.168.1.${10 + index}`,
     port: 4370,
     is_active: true,
