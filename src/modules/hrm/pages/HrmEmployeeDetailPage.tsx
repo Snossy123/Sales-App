@@ -14,7 +14,6 @@ import type {
   HrmPayrollRecord,
   HrmUserSalesTarget,
   PaginatedResponse,
-  ZkDevice,
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
@@ -25,10 +24,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EmployeeAccountModeField, inferEmployeeAccountMode, type EmployeeAccountMode } from '../components/EmployeeAccountModeField'
 import { EmployeeAttachmentsSection } from '../components/EmployeeAttachmentsSection'
-import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
-import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 
 type TabId = 'attendance' | 'leaves' | 'allowances' | 'payroll' | 'sales-targets' | 'debts'
@@ -61,7 +58,6 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 const emptyForm = {
   user_account_mode: 'none' as EmployeeAccountMode,
   linked_user_id: '' as number | '',
-  zk_device_id: '' as number | '',
   zk_pin: '',
   name: '',
   phone: '',
@@ -194,22 +190,14 @@ export function HrmEmployeeDetailPage() {
   })
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments', 'hrm-employee-detail'],
+    queryKey: ['departments', 'hrm-employee-detail', form.branch_id],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', { params: { per_page: 100 } })
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (form.branch_id) params['filter[branch_id]'] = Number(form.branch_id)
+      const { data } = await api.get<PaginatedResponse<Department>>('/departments', { params })
       return data.data
     },
-    enabled: editOpen,
-  })
-
-  const zkDevicesQuery = useQuery({
-    queryKey: ['hrm', 'zk-devices', 'hrm-employee-detail'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<ZkDevice>>('/hrm/zk-devices', {
-        params: { per_page: 100, include: 'branch' },
-      })
-      return data.data
-    },
+    enabled: editOpen && Boolean(form.branch_id),
   })
 
   const jobsQuery = useQuery({
@@ -279,24 +267,12 @@ export function HrmEmployeeDetailPage() {
   })
 
   const employee = employeeQuery.data
-  const zkDevices = zkDevicesQuery.data ?? []
-  const branchDevice = employee ? branchZkDevice(zkDevices, employee.branch_id) : undefined
-
-  const handleDeviceChange = (deviceId: number | '') => {
-    const device = zkDevices.find((d) => d.id === deviceId)
-    setForm((current) => ({
-      ...current,
-      zk_device_id: deviceId,
-      branch_id: device?.branch_id ?? current.branch_id,
-    }))
-  }
 
   const handleBranchChange = (branchId: number | '') => {
-    const device = branchZkDevice(zkDevices, branchId)
     setForm((current) => ({
       ...current,
       branch_id: branchId,
-      zk_device_id: device?.id ?? '',
+      department_id: '',
     }))
   }
 
@@ -323,7 +299,6 @@ export function HrmEmployeeDetailPage() {
     setForm({
       user_account_mode: inferEmployeeAccountMode(employee),
       linked_user_id: employee.user_id ?? '',
-      zk_device_id: branchZkDevice(zkDevices, employee.branch_id)?.id ?? '',
       zk_pin: employee.zk_pin ?? '',
       name: employee.name,
       phone: employee.phone ?? '',
@@ -420,10 +395,6 @@ export function HrmEmployeeDetailPage() {
                 <div>
                   <dt className="text-sm text-on-surface-variant">رقم البصمة</dt>
                   <dd className="tabular-nums">{employee.zk_pin ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-on-surface-variant">جهاز البصمة</dt>
-                  <dd className="tabular-nums">{zkDeviceLabel(branchDevice)}</dd>
                 </div>
                 <div>
                   <dt className="text-sm text-on-surface-variant">الفرع</dt>
@@ -842,6 +813,7 @@ export function HrmEmployeeDetailPage() {
             onChange={(e) =>
               setForm({ ...form, department_id: e.target.value ? Number(e.target.value) : '' })
             }
+            disabled={!form.branch_id}
             className={inputClass}
           >
             <option value="">القسم</option>
@@ -851,12 +823,6 @@ export function HrmEmployeeDetailPage() {
               </option>
             ))}
           </select>
-          <EmployeeZkDeviceField
-            value={form.zk_device_id}
-            onChange={handleDeviceChange}
-            devices={zkDevices}
-            isLoading={zkDevicesQuery.isLoading}
-          />
           <input
             placeholder="رقم البصمة"
             value={form.zk_pin}
@@ -864,9 +830,6 @@ export function HrmEmployeeDetailPage() {
             className={inputClass}
             dir="ltr"
           />
-          <p className="sm:col-span-2 text-[11px] text-on-surface-variant">
-            للموظف المتحرك: استخدم نفس رقم البصمة على كل أجهزة الفروع المسموحة. الفرع هنا = الفرع الأساسي للرواتب.
-          </p>
           <select
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value })}

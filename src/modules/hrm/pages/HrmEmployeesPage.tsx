@@ -11,7 +11,6 @@ import type {
   HrmJob,
   PaginatedResponse,
   Section,
-  ZkDevice,
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DataTable } from '../../../components/DataTable'
@@ -38,8 +37,6 @@ import {
   uploadEmployeeAttachments,
   type PendingAttachment,
 } from '../components/EmployeeAttachmentsSection'
-import { EmployeeZkDeviceField } from '../components/EmployeeZkDeviceField'
-import { branchZkDevice, zkDeviceLabel } from '../lib/zkDevice'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -50,7 +47,7 @@ function employeeStatusSearchText(status: string): string {
   return status
 }
 
-function employeeSearchHaystack(employee: Employee, devices: ZkDevice[]): string {
+function employeeSearchHaystack(employee: Employee): string {
   const parts = [
     employee.zk_pin,
     employee.name,
@@ -58,7 +55,6 @@ function employeeSearchHaystack(employee: Employee, devices: ZkDevice[]): string
     employee.job_title,
     employee.branch?.name_ar,
     employee.branch?.name,
-    zkDeviceLabel(branchZkDevice(devices, employee.branch_id)),
     employee.salary != null ? String(employee.salary) : '',
     employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG') : '',
     employeeStatusSearchText(employee.status),
@@ -71,7 +67,6 @@ type CreateEntryType = 'employee' | 'user'
 const emptyEmployeeForm = {
   user_account_mode: 'none' as EmployeeAccountMode,
   linked_user_id: '' as number | '',
-  zk_device_id: '' as number | '',
   zk_pin: '',
   name: '',
   phone: '',
@@ -134,22 +129,14 @@ export function HrmEmployeesPage() {
   })
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments', 'hrm-employees'],
+    queryKey: ['departments', 'hrm-employees', employeeForm.branch_id],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Department>>('/departments', { params: { per_page: 100 } })
+      const params: Record<string, string | number> = { per_page: 100 }
+      if (employeeForm.branch_id) params['filter[branch_id]'] = Number(employeeForm.branch_id)
+      const { data } = await api.get<PaginatedResponse<Department>>('/departments', { params })
       return data.data
     },
-    enabled: modalOpen,
-  })
-
-  const zkDevicesQuery = useQuery({
-    queryKey: ['hrm', 'zk-devices', 'hrm-employees'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<ZkDevice>>('/hrm/zk-devices', {
-        params: { per_page: 100, include: 'branch' },
-      })
-      return data.data
-    },
+    enabled: modalOpen && Boolean(employeeForm.branch_id),
   })
 
   const jobsQuery = useQuery({
@@ -289,21 +276,11 @@ export function HrmEmployeesPage() {
     setPendingFiles([])
   }
 
-  const handleDeviceChange = (deviceId: number | '') => {
-    const device = zkDevices.find((d) => d.id === deviceId)
-    setEmployeeForm((current) => ({
-      ...current,
-      zk_device_id: deviceId,
-      branch_id: device?.branch_id ?? current.branch_id,
-    }))
-  }
-
   const handleBranchChange = (branchId: number | '') => {
-    const device = branchZkDevice(zkDevices, branchId)
     setEmployeeForm((current) => ({
       ...current,
       branch_id: branchId,
-      zk_device_id: device?.id ?? '',
+      department_id: '',
     }))
   }
 
@@ -332,7 +309,6 @@ export function HrmEmployeesPage() {
     setEmployeeForm({
       user_account_mode: inferEmployeeAccountMode(emp),
       linked_user_id: emp.user_id ?? '',
-      zk_device_id: branchZkDevice(zkDevices, emp.branch_id)?.id ?? '',
       zk_pin: emp.zk_pin ?? '',
       name: emp.name,
       phone: emp.phone ?? '',
@@ -362,7 +338,6 @@ export function HrmEmployeesPage() {
     }))
   }
 
-  const zkDevices = zkDevicesQuery.data ?? []
   const linkableUsers = linkableUsersQuery.data ?? []
   const usesLinkedUser = employeeForm.user_account_mode === 'link' && Boolean(employeeForm.linked_user_id)
   const availableRoles = rolesQuery.data ?? []
@@ -371,8 +346,8 @@ export function HrmEmployeesPage() {
     const employees = query.data ?? []
     const term = debouncedSearch.trim().toLowerCase()
     if (!term) return employees
-    return employees.filter((employee) => employeeSearchHaystack(employee, zkDevices).includes(term))
-  }, [query.data, debouncedSearch, zkDevices])
+    return employees.filter((employee) => employeeSearchHaystack(employee).includes(term))
+  }, [query.data, debouncedSearch])
 
   const selectedPermissions = useMemo(() => {
     const keys = new Set<string>()
@@ -440,17 +415,12 @@ export function HrmEmployeesPage() {
       <select
         value={employeeForm.department_id}
         onChange={(e) => setEmployeeForm({ ...employeeForm, department_id: e.target.value ? Number(e.target.value) : '' })}
+        disabled={!employeeForm.branch_id}
         className={inputClass}
       >
         <option value="">القسم</option>
         {(departmentsQuery.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name_ar ?? d.name}</option>)}
       </select>
-      <EmployeeZkDeviceField
-        value={employeeForm.zk_device_id}
-        onChange={handleDeviceChange}
-        devices={zkDevices}
-        isLoading={zkDevicesQuery.isLoading}
-      />
       <input
         placeholder="رقم البصمة"
         value={employeeForm.zk_pin}
@@ -458,9 +428,6 @@ export function HrmEmployeesPage() {
         className={inputClass}
         dir="ltr"
       />
-      <p className="sm:col-span-2 text-[11px] text-on-surface-variant">
-        للموظف المتحرك: استخدم نفس رقم البصمة على كل أجهزة الفروع المسموحة. الفرع هنا = الفرع الأساسي للرواتب.
-      </p>
       <select
         value={employeeForm.status}
         onChange={(e) => setEmployeeForm({ ...employeeForm, status: e.target.value })}
@@ -621,7 +588,7 @@ export function HrmEmployeesPage() {
       <FilterBar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="بحث في الاسم، البصمة، الوظيفة، الفرع، الجهاز، الراتب، الحالة..."
+        searchPlaceholder="بحث في الاسم، البصمة، الوظيفة، الفرع، الراتب، الحالة..."
         showClear={Boolean(search)}
         onClear={() => setSearch('')}
       />
@@ -651,12 +618,6 @@ export function HrmEmployeesPage() {
             },
             { key: 'job_title', header: 'الوظيفة', render: (row) => row.job?.name ?? row.job_title ?? '—' },
             { key: 'branch', header: 'الفرع', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
-            {
-              key: 'zk_device',
-              header: 'جهاز البصمة',
-              render: (row) => zkDeviceLabel(branchZkDevice(zkDevices, row.branch_id)),
-              className: 'tabular-nums',
-            },
             { key: 'salary', header: 'الراتب', className: 'tabular-nums', render: (row) => row.salary != null ? Number(row.salary).toLocaleString('ar-EG') : '—' },
             { key: 'status', header: 'الحالة', render: (row) => <StatusBadge status={row.status} /> },
             { key: 'actions', header: '', render: (row) => (
