@@ -162,7 +162,7 @@ export function validateDeviceLine(
   line: DeviceLineDraft,
   minDownPercent: number,
   maxInstallmentCount: number,
-  options?: { requireTechnician?: boolean },
+  options?: { requireTechnician?: boolean; skipPayment?: boolean },
 ): { valid: boolean; fieldErrors: DeviceLineFieldErrors; errors: string[] } {
   const fieldErrors: DeviceLineFieldErrors = {}
   const requireTechnician = options?.requireTechnician !== false
@@ -201,7 +201,9 @@ export function validateDeviceLine(
 
   const cashValidation = validateCashLine(line)
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
-  const paymentErrors = [...cashValidation.errors, ...installmentValidation.errors]
+  const paymentErrors = options?.skipPayment
+    ? []
+    : [...cashValidation.errors, ...installmentValidation.errors]
   const fieldErrorMessages = Object.values(fieldErrors)
   const errors = [...fieldErrorMessages, ...paymentErrors]
 
@@ -226,6 +228,7 @@ interface DeviceLineCardProps {
   employees: Employee[]
   employeesLoading: boolean
   showErrors?: boolean
+  showPayment?: boolean
   hidePaymentSection?: boolean
   lockedFromSource?: boolean
   annualRenewalOnly?: boolean
@@ -259,6 +262,7 @@ export function DeviceLineCard({
   employees,
   employeesLoading,
   showErrors = false,
+  showPayment = true,
   hidePaymentSection = false,
   lockedFromSource = false,
   annualRenewalOnly = false,
@@ -630,6 +634,7 @@ export function DeviceLineCard({
             />
           </div>
 
+          {showPayment ? (
           <div
             className={`${colBox} ${hasPaymentErrors ? 'border-error/25 bg-error/[0.06]' : ''}`}
             data-tour={index === 0 ? 'pos-payment' : undefined}
@@ -807,6 +812,7 @@ export function DeviceLineCard({
               </>
             )}
           </div>
+          ) : null}
         </div>
       )}
     </div>

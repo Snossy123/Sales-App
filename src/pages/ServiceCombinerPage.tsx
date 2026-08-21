@@ -15,7 +15,7 @@ import type {
   Service,
   SubscriptionRenewalCandidate,
 } from '../api/types'
-import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
+import { computeInstallmentCount, type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { linePaidNow } from '../lib/cashSchedule'
 import { resolveGpsUnitPrice } from '../lib/gpsProductPricing'
@@ -51,7 +51,12 @@ import {
   DeviceLineCard,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
-import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
+import {
+  createDefaultServicePayment,
+  ServicePaymentSection,
+  validateServicePayment,
+  type ServicePaymentState,
+} from '../components/services/ServicePaymentSection'
 import { posToggleBtn } from '../components/pos/posFormStyles'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
@@ -68,6 +73,7 @@ function deviceCheckoutLine(
   kind: 'subscription_renewal' | 'external_device',
   contractDate: string,
   maxInstallmentCount: number,
+  collectionScope: 'contract' | 'service' = 'service',
 ): CheckoutPayload['lines'][number] {
   const renewalDate = line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
   const base = {
@@ -89,6 +95,10 @@ function deviceCheckoutLine(
     engine_number: line.engineNumber.trim() || undefined,
     renewal_type: 'annual' as const,
     subscription_renewal_date: renewalDate,
+  }
+
+  if (collectionScope === 'contract') {
+    return base
   }
 
   if (line.paymentTerm === 'installment') {
@@ -140,6 +150,10 @@ export function ServiceCombinerPage() {
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
+  const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>('contract')
+  const [contractPayment, setContractPayment] = useState<ServicePaymentState>(() =>
+    createDefaultServicePayment(0, minDownPercent),
+  )
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -458,23 +472,27 @@ export function ServiceCombinerPage() {
   const total = devicesSubtotal + feesSubtotal
 
   const paidNow =
-    (renewalLine && selectedChips.has('annual_renewal')
-      ? linePaidNow(
-          renewalLine.paymentTerm,
-          renewalLine.cashSchedule,
-          lineNetTotal(renewalLine),
-          renewalLine.downPayment,
-        )
-      : 0) +
-    (externalLine && selectedChips.has('external_device')
-      ? linePaidNow(
-          externalLine.paymentTerm,
-          externalLine.cashSchedule,
-          lineNetTotal(externalLine),
-          externalLine.downPayment,
-        )
-      : 0) +
-    activeFeeLines.reduce((sum, line) => sum + serviceLinePaidNow(line), 0)
+    collectionScope === 'contract'
+      ? contractPayment.paymentTerm === 'cash'
+        ? total
+        : Math.min(total, Math.max(0, contractPayment.downPayment))
+      : (renewalLine && selectedChips.has('annual_renewal')
+          ? linePaidNow(
+              renewalLine.paymentTerm,
+              renewalLine.cashSchedule,
+              lineNetTotal(renewalLine),
+              renewalLine.downPayment,
+            )
+          : 0) +
+        (externalLine && selectedChips.has('external_device')
+          ? linePaidNow(
+              externalLine.paymentTerm,
+              externalLine.cashSchedule,
+              lineNetTotal(externalLine),
+              externalLine.downPayment,
+            )
+          : 0) +
+        activeFeeLines.reduce((sum, line) => sum + serviceLinePaidNow(line), 0)
 
   const balanceDue = Math.max(0, total - paidNow)
 
@@ -494,6 +512,51 @@ export function ServiceCombinerPage() {
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
   const maxDistributorBalanceUse = Math.min(distributorBalanceAvailable, paidNow)
 
+  const applyContractTerm = (term: ServicePaymentState['paymentTerm']) => {
+    if (renewalLine) {
+      setRenewalLine({
+        ...renewalLine,
+        paymentTerm: term,
+        unitPrice: term === 'installment' ? annualRenewalPrice : annualRenewalPrice,
+      })
+    }
+    if (externalLine) {
+      setExternalLine({
+        ...externalLine,
+        paymentTerm: term,
+        unitPrice: term === 'installment' ? externalInstallmentPrice : externalCashPrice,
+      })
+    }
+    setFeeLines((prev) => {
+      const next = { ...prev }
+      for (const id of Object.keys(next)) {
+        const line = next[id]
+        next[id] = {
+          ...line,
+          paymentTerm: term,
+          unit_price: term === 'installment' ? line.installmentPrice : line.cashPrice,
+        }
+      }
+      return next
+    })
+  }
+
+  const handleCollectionScopeChange = (scope: 'contract' | 'service') => {
+    setCollectionScope(scope)
+    if (scope === 'contract') {
+      applyContractTerm(contractPayment.paymentTerm)
+    }
+  }
+
+  const handleContractPaymentChange = (patch: Partial<ServicePaymentState>) => {
+    setContractPayment((prev) => ({ ...prev, ...patch }))
+    if (patch.paymentTerm) {
+      applyContractTerm(patch.paymentTerm)
+    }
+  }
+
+  const skipLinePayment = collectionScope === 'contract'
+
   const sourceReady =
     transactionSource === 'branch'
       ? Boolean(selectedBranch)
@@ -507,20 +570,29 @@ export function ServiceCombinerPage() {
       Boolean(renewalLine) &&
       validateDeviceLine(renewalLine!, minDownPercent, maxInstallmentCount, {
         requireTechnician: false,
+        skipPayment: skipLinePayment,
       }).valid)
 
   const externalValid =
     !selectedChips.has('external_device') ||
     (Boolean(externalLine) &&
-      validateDeviceLine(externalLine!, minDownPercent, maxInstallmentCount).valid)
+      validateDeviceLine(externalLine!, minDownPercent, maxInstallmentCount, {
+        skipPayment: skipLinePayment,
+      }).valid)
 
   const feesValid = activeFeeLines.every(
     (line) =>
-      validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
-      validateServiceLineCash(line).valid &&
+      (skipLinePayment ||
+        (validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
+          validateServiceLineCash(line).valid)) &&
       line.description.trim() &&
       line.unit_price > 0,
   )
+
+  const contractPaymentValid =
+    collectionScope !== 'contract' ||
+    selectedChips.size === 0 ||
+    validateServicePayment(contractPayment, total, minDownPercent, maxInstallmentCount).valid
 
   const missingFeeService = COMBINER_FEE_CHIPS.some(
     (chip) => selectedChips.has(chip.id) && !feeLines[chip.id],
@@ -534,6 +606,7 @@ export function ServiceCombinerPage() {
     renewalValid &&
     externalValid &&
     feesValid &&
+    contractPaymentValid &&
     !missingFeeService
 
   const checkoutMutation = useMutation({
@@ -543,12 +616,24 @@ export function ServiceCombinerPage() {
       const lines: CheckoutPayload['lines'] = []
       if (selectedChips.has('annual_renewal') && renewalLine) {
         lines.push(
-          deviceCheckoutLine(renewalLine, 'subscription_renewal', contractDate, maxInstallmentCount),
+          deviceCheckoutLine(
+            renewalLine,
+            'subscription_renewal',
+            contractDate,
+            maxInstallmentCount,
+            collectionScope,
+          ),
         )
       }
       if (selectedChips.has('external_device') && externalLine) {
         lines.push(
-          deviceCheckoutLine(externalLine, 'external_device', contractDate, maxInstallmentCount),
+          deviceCheckoutLine(
+            externalLine,
+            'external_device',
+            contractDate,
+            maxInstallmentCount,
+            collectionScope,
+          ),
         )
       }
       for (const line of activeFeeLines) {
@@ -557,8 +642,15 @@ export function ServiceCombinerPage() {
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
-          payment_term: line.paymentTerm,
-          cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
+          payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
+          cash_schedule:
+            collectionScope === 'service' && line.paymentTerm === 'cash'
+              ? line.cashSchedule
+              : undefined,
+        }
+        if (collectionScope === 'contract') {
+          lines.push(base)
+          continue
         }
         if (line.paymentTerm === 'installment') {
           lines.push({
@@ -586,7 +678,27 @@ export function ServiceCombinerPage() {
         contract_kind: deriveCombinerContractKind(selectedChips),
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
+        collection_scope: collectionScope,
         lines,
+      }
+
+      if (collectionScope === 'contract') {
+        payload.payment_term = contractPayment.paymentTerm
+        if (contractPayment.paymentTerm === 'installment') {
+          payload.installment_plan = {
+            down_payment: contractPayment.downPayment,
+            installment_amount: contractPayment.installmentAmount,
+            installment_count: computeInstallmentCount(
+              total,
+              contractPayment.installmentAmount,
+              contractPayment.downPayment,
+              maxInstallmentCount,
+            ),
+            interval_type: contractPayment.intervalType,
+            interval_days: contractPayment.intervalType === 'weekly' ? 7 : 30,
+            first_due_date: contractPayment.firstDueDate,
+          }
+        }
       }
 
       if (selectedChips.has('annual_renewal') && sourceRenewalCandidate) {
@@ -607,9 +719,11 @@ export function ServiceCombinerPage() {
     },
     onSuccess: (invoice) => {
       const hasInstallment =
-        (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
-        (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
-        activeFeeLines.some((line) => line.paymentTerm === 'installment')
+        collectionScope === 'contract'
+          ? contractPayment.paymentTerm === 'installment'
+          : (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
+            (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
+            activeFeeLines.some((line) => line.paymentTerm === 'installment')
       setLastInstallmentSale(hasInstallment)
       setLastInvoice(invoice)
       setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
@@ -691,6 +805,25 @@ export function ServiceCombinerPage() {
           )}
         </div>
 
+        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+          <p className="mb-xs text-sm text-on-surface-variant">التحصيل</p>
+          <div className="flex flex-wrap gap-sm">
+            {([
+              { id: 'contract', label: 'تحصيل على الإجمالي' },
+              { id: 'service', label: 'تحصيل على مستوى الخدمة' },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => handleCollectionScopeChange(option.id)}
+                className={posToggleBtn(collectionScope === option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {selectedChips.has('annual_renewal') && (
           <div className="space-y-md">
             <PosSubscriptionRenewalSection
@@ -713,6 +846,7 @@ export function ServiceCombinerPage() {
                 employees={employeesQuery.data ?? []}
                 employeesLoading={employeesQuery.isLoading}
                 showErrors={submitAttempted}
+                showPayment={collectionScope === 'service'}
                 lockedFromSource
                 annualRenewalOnly
               />
@@ -735,6 +869,7 @@ export function ServiceCombinerPage() {
             employees={employeesQuery.data ?? []}
             employeesLoading={employeesQuery.isLoading}
             showErrors={submitAttempted}
+            showPayment={collectionScope === 'service'}
             annualRenewalOnly
           />
         )}
@@ -752,9 +887,20 @@ export function ServiceCombinerPage() {
                 setFeeLines((prev) => ({ ...prev, [chip.id]: updated }))
               }
               onRemove={() => toggleChip(chip.id)}
+              showPayment={collectionScope === 'service'}
             />
           ),
         )}
+
+        {collectionScope === 'contract' && selectedChips.size > 0 ? (
+          <ServicePaymentSection
+            total={total}
+            payment={contractPayment}
+            onChange={handleContractPaymentChange}
+            minDownPercent={minDownPercent}
+            maxInstallmentCount={maxInstallmentCount}
+          />
+        ) : null}
 
         <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
           <label className="mb-xs block text-sm text-on-surface-variant">ملاحظات</label>

@@ -1082,6 +1082,7 @@ export interface CheckoutPayload {
   transportation_fee?: number
   invoice_date?: string
   notes?: string
+  collection_scope?: 'service' | 'contract'
   distributor_balance_amount?: number
   lines: {
     line_type?: 'device' | 'service'
