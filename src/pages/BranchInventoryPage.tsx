@@ -1,16 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { CustodyVoucher, PaginatedResponse, ProductUnit } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { DataTable } from '../components/DataTable'
+import { FilterBar } from '../components/FilterBar'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
-import { InventoryUnitTags } from '../components/inventory/InventoryUnitTags'
 import { SalesPageShell } from '../components/SalesPageShell'
-import { INVENTORY_BUCKET_SECTION_LABELS, productUnitDisplayCode } from '../lib/inventoryBuckets'
+import {
+  CUSTODY_BUCKET_OPTIONS,
+  inventoryBucketLabel,
+  productUnitDisplayCode,
+  productUnitStateLabel,
+} from '../lib/inventoryBuckets'
 import { formatDatetime12hDisplay } from '../lib/datetime12h'
 import { useAuthStore } from '../stores/authStore'
-
-const BUCKET_LABELS: Record<string, string> = INVENTORY_BUCKET_SECTION_LABELS
 
 type InventoryView = 'custody' | 'log'
 
@@ -22,10 +26,21 @@ interface BranchInventoryResponse {
   }
 }
 
+const PAGE_SIZE = 15
+
 function voucherTypeLabel(type?: string): string {
   if (type === 'receipt') return 'استلام'
   if (type === 'issuance') return 'صرف'
   return type ?? '—'
+}
+
+function voucherDateKey(createdAt?: string | null): string {
+  if (!createdAt) return ''
+  return createdAt.slice(0, 10)
+}
+
+function modelName(unit?: ProductUnit | null): string {
+  return unit?.product_model?.name_ar ?? unit?.product_model?.name ?? '—'
 }
 
 export function BranchInventoryPage() {
@@ -34,6 +49,15 @@ export function BranchInventoryPage() {
   const [view, setView] = useState<InventoryView>('custody')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [voucherMode, setVoucherMode] = useState<'receive' | 'issue'>('receive')
+
+  const [unitSearch, setUnitSearch] = useState('')
+  const [bucketFilter, setBucketFilter] = useState('')
+  const [employeeFilter, setEmployeeFilter] = useState('')
+
+  const [logSearch, setLogSearch] = useState('')
+  const [logTypeFilter, setLogTypeFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const query = useQuery({
     queryKey: ['branch-inventory', user?.branch_id],
@@ -49,7 +73,7 @@ export function BranchInventoryPage() {
   const vouchersQuery = useQuery({
     queryKey: ['custody-vouchers', user?.branch_id],
     queryFn: async () => {
-      const params: Record<string, number> = { per_page: 20 }
+      const params: Record<string, number> = { per_page: 100 }
       if (user?.branch_id) params.branch_id = user.branch_id
       const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
         params,
@@ -59,8 +83,57 @@ export function BranchInventoryPage() {
     enabled: Boolean(user),
   })
 
-  const byBucket = query.data?.grouped?.by_bucket ?? {}
+  const units = query.data?.units ?? []
   const vouchers = vouchersQuery.data ?? []
+
+  const employeeOptions = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const unit of units) {
+      if (unit.custody_employee?.id && unit.custody_employee.name) {
+        names.set(String(unit.custody_employee.id), unit.custody_employee.name)
+      }
+    }
+    return [
+      { value: '', label: 'الكل' },
+      ...[...names.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1], 'ar'))
+        .map(([value, label]) => ({ value, label })),
+    ]
+  }, [units])
+
+  const filteredUnits = useMemo(() => {
+    const q = unitSearch.trim().toLowerCase()
+    return units.filter((unit) => {
+      if (bucketFilter && unit.inventory_bucket !== bucketFilter) return false
+      if (employeeFilter && String(unit.custody_employee_id ?? unit.custody_employee?.id ?? '') !== employeeFilter) {
+        return false
+      }
+      if (!q) return true
+      const serial = productUnitDisplayCode(unit).toLowerCase()
+      const model = modelName(unit).toLowerCase()
+      const employee = (unit.custody_employee?.name ?? '').toLowerCase()
+      return serial.includes(q) || model.includes(q) || employee.includes(q)
+    })
+  }, [units, unitSearch, bucketFilter, employeeFilter])
+
+  const filteredVouchers = useMemo(() => {
+    const q = logSearch.trim().toLowerCase()
+    return vouchers.filter((voucher) => {
+      if (logTypeFilter && voucher.type !== logTypeFilter) return false
+      const dateKey = voucherDateKey(voucher.created_at)
+      if (dateFrom && dateKey && dateKey < dateFrom) return false
+      if (dateTo && dateKey && dateKey > dateTo) return false
+      if (!q) return true
+      const serial = voucher.product_unit ? productUnitDisplayCode(voucher.product_unit).toLowerCase() : ''
+      const number = (voucher.voucher_number ?? '').toLowerCase()
+      const employee = (voucher.employee?.name ?? voucher.creator?.name ?? '').toLowerCase()
+      const customer = (voucher.customer?.name ?? '').toLowerCase()
+      return serial.includes(q) || number.includes(q) || employee.includes(q) || customer.includes(q)
+    })
+  }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo])
+
+  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter)
+  const hasLogFilters = Boolean(logSearch || logTypeFilter || dateFrom || dateTo)
 
   return (
     <SalesPageShell
@@ -116,73 +189,161 @@ export function BranchInventoryPage() {
       </div>
 
       {view === 'custody' && (
-        <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-          <div className="space-y-6">
-            {Object.entries(byBucket).length === 0 && (
-              <p className="text-sm text-on-surface-variant">لا توجد وحدات مصنّفة في مخزون الفرع بعد.</p>
-            )}
-            {Object.entries(byBucket).map(([bucket, bucketUnits]) => (
-              <section key={bucket} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-                <h2 className="mb-3 font-semibold">{BUCKET_LABELS[bucket] ?? bucket}</h2>
-                <ul className="space-y-2 text-sm">
-                  {bucketUnits.map((unit) => (
-                    <li key={unit.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2">
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <span className="font-mono text-sm">{productUnitDisplayCode(unit)}</span>
-                        <InventoryUnitTags state={unit.state} inventoryBucket={unit.inventory_bucket} />
-                      </div>
-                      <span className="text-on-surface-variant">
-                        {unit.custody_employee?.name ?? '—'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        </AsyncState>
+        <>
+          <FilterBar
+            search={unitSearch}
+            onSearchChange={setUnitSearch}
+            searchPlaceholder="بحث بالسريال أو الموظف أو الموديل"
+            selects={[
+              {
+                id: 'bucket',
+                label: 'التصنيف',
+                value: bucketFilter,
+                options: [
+                  { value: '', label: 'الكل' },
+                  ...CUSTODY_BUCKET_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  })),
+                ],
+                onChange: setBucketFilter,
+              },
+              {
+                id: 'employee',
+                label: 'الموظف',
+                value: employeeFilter,
+                options: employeeOptions,
+                onChange: setEmployeeFilter,
+              },
+            ]}
+            showClear={hasCustodyFilters}
+            onClear={() => {
+              setUnitSearch('')
+              setBucketFilter('')
+              setEmployeeFilter('')
+            }}
+          />
+          <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
+              <DataTable<ProductUnit>
+                data={filteredUnits}
+                keyExtractor={(row) => row.id}
+                pageSize={PAGE_SIZE}
+                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}`}
+                striped={false}
+                emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
+                columns={[
+                  {
+                    key: 'serial',
+                    header: 'السريال',
+                    className: 'font-mono',
+                    render: (row) => productUnitDisplayCode(row),
+                  },
+                  {
+                    key: 'bucket',
+                    header: 'التصنيف',
+                    render: (row) => inventoryBucketLabel(row.inventory_bucket) ?? '—',
+                  },
+                  {
+                    key: 'state',
+                    header: 'الحالة',
+                    render: (row) => productUnitStateLabel(row.state) ?? '—',
+                  },
+                  {
+                    key: 'employee',
+                    header: 'الموظف',
+                    render: (row) => row.custody_employee?.name ?? '—',
+                  },
+                  {
+                    key: 'model',
+                    header: 'الموديل',
+                    render: (row) => modelName(row),
+                  },
+                ]}
+              />
+          </AsyncState>
+        </>
       )}
 
       {view === 'log' && (
-        <AsyncState
-          isLoading={vouchersQuery.isLoading}
-          isError={vouchersQuery.isError}
-          error={vouchersQuery.error}
-        >
-          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-            {vouchers.length === 0 && (
-              <p className="text-sm text-on-surface-variant">لا توجد أذون استلام أو صرف بعد.</p>
-            )}
-            {vouchers.length > 0 && (
-              <ul className="space-y-2 text-sm">
-                {vouchers.map((voucher) => (
-                  <li
-                    key={voucher.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {voucherTypeLabel(voucher.type)} {voucher.voucher_number}
-                      </p>
-                      <p className="font-mono text-xs text-on-surface-variant">
-                        {voucher.product_unit
-                          ? productUnitDisplayCode(voucher.product_unit)
-                          : '—'}
-                      </p>
-                      <p className="text-xs text-on-surface-variant">
-                        {voucher.creator?.name ?? voucher.employee?.name ?? '—'}
-                        {voucher.customer?.name ? ` → ${voucher.customer.name}` : ''}
-                      </p>
-                    </div>
-                    <span className="text-xs tabular-nums text-on-surface-variant">
-                      {formatDatetime12hDisplay(voucher.created_at)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </AsyncState>
+        <>
+          <FilterBar
+            search={logSearch}
+            onSearchChange={setLogSearch}
+            searchPlaceholder="بحث برقم الإذن أو السريال"
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            selects={[
+              {
+                id: 'voucher-type',
+                label: 'النوع',
+                value: logTypeFilter,
+                options: [
+                  { value: '', label: 'الكل' },
+                  { value: 'receipt', label: 'استلام' },
+                  { value: 'issuance', label: 'صرف' },
+                ],
+                onChange: setLogTypeFilter,
+              },
+            ]}
+            showClear={hasLogFilters}
+            onClear={() => {
+              setLogSearch('')
+              setLogTypeFilter('')
+              setDateFrom('')
+              setDateTo('')
+            }}
+          />
+          <AsyncState
+            isLoading={vouchersQuery.isLoading}
+            isError={vouchersQuery.isError}
+            error={vouchersQuery.error}
+          >
+              <DataTable<CustodyVoucher>
+                data={filteredVouchers}
+                keyExtractor={(row) => row.id}
+                pageSize={PAGE_SIZE}
+                pageKey={`${logSearch}|${logTypeFilter}|${dateFrom}|${dateTo}`}
+                striped={false}
+                emptyMessage={hasLogFilters ? 'لا توجد أذون مطابقة' : 'لا توجد أذون استلام أو صرف بعد.'}
+                columns={[
+                  {
+                    key: 'type',
+                    header: 'النوع',
+                    render: (row) => voucherTypeLabel(row.type),
+                  },
+                  {
+                    key: 'voucher_number',
+                    header: 'رقم الإذن',
+                    render: (row) => row.voucher_number ?? '—',
+                  },
+                  {
+                    key: 'serial',
+                    header: 'السريال',
+                    className: 'font-mono',
+                    render: (row) => (row.product_unit ? productUnitDisplayCode(row.product_unit) : '—'),
+                  },
+                  {
+                    key: 'employee',
+                    header: 'الموظف / المستلم',
+                    render: (row) => row.employee?.name ?? row.creator?.name ?? '—',
+                  },
+                  {
+                    key: 'customer',
+                    header: 'العميل',
+                    render: (row) => row.customer?.name ?? '—',
+                  },
+                  {
+                    key: 'created_at',
+                    header: 'التاريخ',
+                    className: 'tabular-nums',
+                    render: (row) => formatDatetime12hDisplay(row.created_at),
+                  },
+                ]}
+              />
+          </AsyncState>
+        </>
       )}
 
       <CustodyVoucherModal
