@@ -1347,16 +1347,22 @@
 }
 .service-receipt .ic-header {
   margin-bottom: 0;
+  border-bottom: none;
 }
 .sr-meta {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  direction: ltr;
   align-items: baseline;
-  font-size: 12pt;
-  font-weight: 700;
-  padding: 2mm 1mm 3mm;
-  border-bottom: 3.5px solid var(--ic-red);
-  margin-bottom: 4mm;
+  font-size: 13pt;
+  font-weight: 800;
+  padding: 1.5mm 1mm 3mm;
+  margin-bottom: 3mm;
+}
+.sr-meta-date {
+  direction: rtl;
+  font-weight: 800;
+  -webkit-text-stroke: 0.3px currentColor;
 }
 .sr-info-grid {
   display: grid;
@@ -1389,8 +1395,8 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-height: 92mm;
-  max-height: 118mm;
+  min-height: 72mm;
+  max-height: 110mm;
   border: 1.6px solid #111;
   padding: 4mm 3.5mm 5mm;
   margin-bottom: 5mm;
@@ -1499,8 +1505,9 @@
   vertical-align: middle;
 }
 .sr-sign {
-  margin-top: auto;
-  padding-top: 6mm;
+  margin-top: 4mm;
+  padding-top: 0;
+  margin-bottom: 10mm;
   text-align: start;
   font-size: 13pt;
   font-weight: 800;
@@ -1508,7 +1515,7 @@
 }
 .sr-sign-line {
   width: 48mm;
-  margin-top: 7mm;
+  margin-top: 5mm;
   border-bottom: 1.6px dotted #111;
 }
 
