@@ -29,7 +29,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   const [employeeId, setEmployeeId] = useState<number | ''>('')
   const [inventoryBucket, setInventoryBucket] = useState('custody_customer')
   const [notes, setNotes] = useState('')
-  const [registerSerial, setRegisterSerial] = useState('')
   const [recipientType, setRecipientType] = useState<RecipientType>('employee')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [customerSearch, setCustomerSearch] = useState('')
@@ -45,7 +44,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
     setEmployeeId('')
     setInventoryBucket('custody_customer')
     setNotes('')
-    setRegisterSerial('')
     setRecipientType('employee')
     setCustomerId('')
     setCustomerSearch('')
@@ -101,7 +99,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       const message = getErrorMessage(error)
       if (mode === 'receive') {
         setNeedsRegister(true)
-        setRegisterSerial(code)
         setLookupError(null)
       } else {
         setLookupError(message)
@@ -129,7 +126,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
           notes: notes || undefined,
         }
         if (needsRegister) {
-          const serial = registerSerial.trim() || serialCode
+          const serial = serialCode.trim()
           payload.register = {
             imei: serial,
             serial_number: serial,
@@ -161,7 +158,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
     },
   })
 
-  const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && registerSerial.trim())
+  const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && serialCode.trim())
   const recipientReady =
     mode === 'receive'
       ? Boolean(employeeId)
@@ -240,17 +237,9 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
         )}
 
         {mode === 'receive' && needsRegister && (
-          <div className="space-y-3 rounded-lg border border-outline-variant bg-surface-container-low p-3">
-            <p className="text-sm font-medium text-on-surface">الجهاز غير مسجل — أدخل بياناته</p>
-            <div>
-              <label className="mb-1 block text-xs text-on-surface-variant">السريال</label>
-              <input
-                type="text"
-                className="w-full rounded-lg border border-outline-variant px-3 py-2 font-mono text-sm"
-                value={registerSerial}
-                onChange={(e) => setRegisterSerial(normalizeScannedInput(e.target.value))}
-              />
-            </div>
+          <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3">
+            <p className="text-sm font-medium text-on-surface">الجهاز غير مسجل — سيتم تسجيله بالسريال الممسوح</p>
+            <p className="mt-1 font-mono text-sm">{serialCode.trim()}</p>
           </div>
         )}
 
