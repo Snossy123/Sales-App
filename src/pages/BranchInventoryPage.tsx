@@ -12,6 +12,8 @@ import { useAuthStore } from '../stores/authStore'
 
 const BUCKET_LABELS: Record<string, string> = INVENTORY_BUCKET_SECTION_LABELS
 
+type InventoryView = 'custody' | 'log'
+
 interface BranchInventoryResponse {
   units: ProductUnit[]
   grouped: {
@@ -29,6 +31,7 @@ function voucherTypeLabel(type?: string): string {
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
+  const [view, setView] = useState<InventoryView>('custody')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [voucherMode, setVoucherMode] = useState<'receive' | 'issue'>('receive')
 
@@ -62,62 +65,92 @@ export function BranchInventoryPage() {
   return (
     <SalesPageShell
       title="مخزون الفرع"
-      subtitle="جديدة · عهدة · حسب الموظف"
+      subtitle={view === 'custody' ? 'الأجهزة الحالية في العهدة' : 'سجل أذون الاستلام والصرف'}
       actions={
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
-            onClick={() => {
-              setVoucherMode('receive')
-              setVoucherOpen(true)
-            }}
-          >
-            إذن استلام
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary"
-            onClick={() => {
-              setVoucherMode('issue')
-              setVoucherOpen(true)
-            }}
-          >
-            إذن صرف
-          </button>
-        </div>
+        view === 'custody' ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
+              onClick={() => {
+                setVoucherMode('receive')
+                setVoucherOpen(true)
+              }}
+            >
+              إذن استلام
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary"
+              onClick={() => {
+                setVoucherMode('issue')
+                setVoucherOpen(true)
+              }}
+            >
+              إذن صرف
+            </button>
+          </div>
+        ) : undefined
       }
     >
-      <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        <div className="space-y-6">
-          {Object.entries(byBucket).length === 0 && (
-            <p className="text-sm text-on-surface-variant">لا توجد وحدات مصنّفة في مخزون الفرع بعد.</p>
-          )}
-          {Object.entries(byBucket).map(([bucket, bucketUnits]) => (
-            <section key={bucket} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-              <h2 className="mb-3 font-semibold">{BUCKET_LABELS[bucket] ?? bucket}</h2>
-              <ul className="space-y-2 text-sm">
-                {bucketUnits.map((unit) => (
-                  <li key={unit.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2">
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <span className="font-mono text-sm">{productUnitDisplayCode(unit)}</span>
-                      <InventoryUnitTags state={unit.state} inventoryBucket={unit.inventory_bucket} />
-                    </div>
-                    <span className="text-on-surface-variant">
-                      {unit.custody_employee?.name ?? '—'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+      <div className="mb-4 flex gap-2 border-b border-outline-variant">
+        {(
+          [
+            { id: 'custody' as const, label: 'العهدة' },
+            { id: 'log' as const, label: 'السجل' },
+          ]
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setView(tab.id)}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              view === tab.id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-on-surface-variant'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-            <h2 className="mb-3 font-semibold">سجل الاستلام والصرف</h2>
-            {vouchersQuery.isLoading && (
-              <p className="text-sm text-on-surface-variant">جاري تحميل الأذون…</p>
+      {view === 'custody' && (
+        <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
+          <div className="space-y-6">
+            {Object.entries(byBucket).length === 0 && (
+              <p className="text-sm text-on-surface-variant">لا توجد وحدات مصنّفة في مخزون الفرع بعد.</p>
             )}
-            {!vouchersQuery.isLoading && vouchers.length === 0 && (
+            {Object.entries(byBucket).map(([bucket, bucketUnits]) => (
+              <section key={bucket} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                <h2 className="mb-3 font-semibold">{BUCKET_LABELS[bucket] ?? bucket}</h2>
+                <ul className="space-y-2 text-sm">
+                  {bucketUnits.map((unit) => (
+                    <li key={unit.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="font-mono text-sm">{productUnitDisplayCode(unit)}</span>
+                        <InventoryUnitTags state={unit.state} inventoryBucket={unit.inventory_bucket} />
+                      </div>
+                      <span className="text-on-surface-variant">
+                        {unit.custody_employee?.name ?? '—'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </AsyncState>
+      )}
+
+      {view === 'log' && (
+        <AsyncState
+          isLoading={vouchersQuery.isLoading}
+          isError={vouchersQuery.isError}
+          error={vouchersQuery.error}
+        >
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+            {vouchers.length === 0 && (
               <p className="text-sm text-on-surface-variant">لا توجد أذون استلام أو صرف بعد.</p>
             )}
             {vouchers.length > 0 && (
@@ -149,8 +182,8 @@ export function BranchInventoryPage() {
               </ul>
             )}
           </section>
-        </div>
-      </AsyncState>
+        </AsyncState>
+      )}
 
       <CustodyVoucherModal
         open={voucherOpen}
