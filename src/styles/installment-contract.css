@@ -1346,13 +1346,12 @@
   flex: 1;
 }
 .service-receipt .ic-header {
-  margin-bottom: 0;
-  border-bottom: none;
+  margin-bottom: 4mm;
 }
 .sr-meta {
   display: flex;
   justify-content: flex-start;
-  direction: ltr;
+  direction: rtl;
   align-items: baseline;
   font-size: 13pt;
   font-weight: 800;
