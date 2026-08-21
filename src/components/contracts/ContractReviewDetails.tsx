@@ -232,8 +232,8 @@ function DeviceDetailCard({
     cells.push({ label: 'تاريخ التعاقد', value: contractDate })
   }
 
-  const renewalType = line.renewal_type ?? invoice.renewal_type
-  if (renewalType === 'annual') {
+  const subscriptionKind = line.renewal_type ?? invoice.renewal_type
+  if (subscriptionKind === 'annual') {
     const renewalDate = fmtContractDate(
       line.subscription_renewal_date ?? invoice.subscription_renewal_date,
     )
@@ -249,9 +249,9 @@ function DeviceDetailCard({
     cells.push({ label: 'طريقة الأقساط', value: installmentMethod })
   }
 
-  const renewalType = resolveRenewalTypeLabel(line, invoice)
-  if (renewalType && renewalType !== '—') {
-    cells.push({ label: 'نوع الاشتراك', value: renewalType })
+  const renewalTypeLabel = resolveRenewalTypeLabel(line, invoice)
+  if (renewalTypeLabel && renewalTypeLabel !== '—') {
+    cells.push({ label: 'نوع الاشتراك', value: renewalTypeLabel })
   }
 
   return (
