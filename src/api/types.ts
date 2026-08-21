@@ -120,6 +120,7 @@ export interface InventoryOverviewRow {
   branch_id?: number
   branch_name_ar?: string
   quantity: number
+  available: number
   reserved: number
   sold: number
   pending?: number

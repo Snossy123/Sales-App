@@ -116,7 +116,7 @@ export function InventoryPage() {
 
   const analyticsSummary = hasFilters
     ? `${filtered.length} نتيجة`
-    : '4 مؤشرات'
+    : '2 مؤشرات'
 
   const openDistribute = (departmentId: number) => {
     setDistributeDeptId(departmentId)
@@ -222,26 +222,22 @@ export function InventoryPage() {
       >
         {!overviewQuery.isLoading && overviewQuery.data && (
           <>
-            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="إجمالي الكمية" value={kpis.totalQuantity} icon="inventory" />
-              <KpiCard label="إجمالي المحجوز" value={kpis.totalReserved} icon="lock" />
-              <KpiCard label="إجمالي المباع" value={kpis.totalSold} icon="sell" />
+            <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2">
+              <KpiCard label="إجمالي المتاح للبيع" value={kpis.totalAvailable} icon="inventory" />
               <KpiCard label="إجمالي المعلق" value={kpis.totalPending} icon="pending" />
             </div>
 
             <div className="mb-md grid grid-cols-1 gap-md lg:grid-cols-2">
-              <ChartCard title="مخزون الفروع" subtitle="الكمية / المحجوز / المباع">
+              <ChartCard title="مخزون الفروع" subtitle="المتاح للبيع">
                 <StackedBarChartPanel
                   data={stackData}
                   xKey="name"
                   series={[
-                    { key: 'quantity', label: 'الكمية', color: 'var(--color-chart-1)' },
-                    { key: 'reserved', label: 'المحجوز', color: 'var(--color-chart-3)' },
-                    { key: 'sold', label: 'المباع', color: 'var(--color-chart-2)' },
+                    { key: 'available', label: 'المتاح للبيع', color: 'var(--color-chart-1)' },
                   ]}
                 />
               </ChartCard>
-              <ChartCard title="توزيع المخزون بين الإدارات">
+              <ChartCard title="توزيع المتاح للبيع بين الإدارات">
                 <DonutChartPanel data={donutData} />
               </ChartCard>
             </div>
@@ -317,33 +313,10 @@ export function InventoryPage() {
                 ),
             },
             {
-              key: 'quantity',
-              header: 'الكمية',
-              className: 'tabular-nums font-medium',
-              render: (row) => row.quantity,
-            },
-            {
-              key: 'reserved',
-              header: 'المحجوز',
-              className: 'tabular-nums',
-              render: (row) =>
-                row.row_type === 'department_pending' ? '—' : row.reserved,
-            },
-            {
               key: 'available',
-              header: 'المتاح',
+              header: 'المتاح للبيع',
               className: 'tabular-nums font-medium',
-              render: (row) =>
-                row.row_type === 'department_pending'
-                  ? row.quantity
-                  : row.quantity - row.reserved,
-            },
-            {
-              key: 'sold',
-              header: 'المباع',
-              className: 'tabular-nums',
-              render: (row) =>
-                row.row_type === 'department_pending' ? '—' : row.sold,
+              render: (row) => row.available,
             },
             {
               key: 'actions',
@@ -363,7 +336,7 @@ export function InventoryPage() {
                 if (row.row_type === 'branch') {
                   const deptId = row.department_id as number
                   const branchId = row.branch_id as number
-                  const available = (row.quantity as number) - (row.reserved as number)
+                  const available = row.available as number
                   return (
                     <div className="flex flex-wrap gap-sm">
                       {isAdmin && available > 0 && (

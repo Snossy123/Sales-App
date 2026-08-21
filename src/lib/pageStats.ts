@@ -22,9 +22,7 @@ export interface BranchKpis {
 }
 
 export interface InventoryKpis {
-  totalQuantity: number
-  totalReserved: number
-  totalSold: number
+  totalAvailable: number
   totalPending: number
 }
 
@@ -203,19 +201,23 @@ export function filterBranches(
   })
 }
 
+export function inventoryRowAvailable(row: InventoryOverviewRow): number {
+  if (typeof row.available === 'number') return row.available
+  if (row.row_type === 'department_pending') return row.quantity
+  return Math.max(0, row.quantity - row.reserved)
+}
+
 export function computeInventoryKpis(rows: InventoryOverviewRow[]): InventoryKpis {
   return rows.reduce(
     (acc, r) => {
       if (r.row_type === 'department_pending') {
-        acc.totalPending += r.quantity
+        acc.totalPending += inventoryRowAvailable(r)
       } else {
-        acc.totalQuantity += r.quantity
-        acc.totalReserved += r.reserved
-        acc.totalSold += r.sold
+        acc.totalAvailable += inventoryRowAvailable(r)
       }
       return acc
     },
-    { totalQuantity: 0, totalReserved: 0, totalSold: 0, totalPending: 0 },
+    { totalAvailable: 0, totalPending: 0 },
   )
 }
 
@@ -224,9 +226,7 @@ export function computeInventoryBranchStackData(rows: InventoryOverviewRow[]) {
     .filter((r) => r.row_type === 'branch')
     .map((r) => ({
       name: r.branch_name_ar || '—',
-      quantity: r.quantity,
-      reserved: r.reserved,
-      sold: r.sold,
+      available: inventoryRowAvailable(r),
     }))
 }
 
@@ -235,7 +235,7 @@ export function computeInventoryDeptDonutData(rows: InventoryOverviewRow[]): Don
   for (const r of rows) {
     if (r.row_type === 'department_pending') continue
     const name = r.department_name_ar
-    byDept.set(name, (byDept.get(name) ?? 0) + r.quantity)
+    byDept.set(name, (byDept.get(name) ?? 0) + inventoryRowAvailable(r))
   }
   return Array.from(byDept.entries()).map(([label, value], i) => ({
     label,
@@ -251,7 +251,7 @@ export function computeInventoryInsights(rows: InventoryOverviewRow[]): PageInsi
   if (rows.some((r) => r.row_type === 'department_pending')) {
     const pending = rows
       .filter((r) => r.row_type === 'department_pending')
-      .reduce((s, r) => s + r.quantity, 0)
+      .reduce((s, r) => s + inventoryRowAvailable(r), 0)
     insights.push({
       message: `يوجد ${pending} وحدة معلقة بانتظار التوزيع على الفروع`,
       variant: 'warning',
@@ -259,20 +259,12 @@ export function computeInventoryInsights(rows: InventoryOverviewRow[]): PageInsi
   }
 
   if (branchRows.length > 0) {
-    const topSold = [...branchRows].sort((a, b) => b.sold - a.sold)[0]
-    if (topSold.sold > 0) {
-      insights.push({
-        message: `أعلى مبيعات: ${topSold.branch_name_ar} — ${topSold.sold} وحدة مباعة`,
-        variant: 'success',
-      })
-    }
-
     const lowStock = [...branchRows].sort(
-      (a, b) => a.quantity - a.reserved - (b.quantity - b.reserved),
+      (a, b) => inventoryRowAvailable(a) - inventoryRowAvailable(b),
     )[0]
-    const available = lowStock.quantity - lowStock.reserved
+    const available = inventoryRowAvailable(lowStock)
     insights.push({
-      message: `أقل مخزون متاح: ${lowStock.branch_name_ar} — ${available} وحدة`,
+      message: `أقل مخزون متاح للبيع: ${lowStock.branch_name_ar} — ${available} وحدة`,
       variant: available < 10 ? 'error' : 'info',
     })
   }

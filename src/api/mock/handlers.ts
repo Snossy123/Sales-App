@@ -441,6 +441,7 @@ function buildInventoryOverview(
         department_id: dept.id,
         department_name_ar: dept.name_ar || dept.name,
         quantity: ds.pending,
+        available: ds.pending,
         reserved: 0,
         sold: 0,
         pending: ds.pending,
@@ -450,6 +451,8 @@ function buildInventoryOverview(
     const deptBranches = state.branches.filter((b) => b.department_id === dept.id)
     for (const branch of deptBranches) {
       const stock = getStockByBranch(state, branch.id)
+      const available = Math.max(0, (stock?.quantity ?? 0) - (stock?.reserved ?? 0))
+      if (available === 0) continue
       rows.push({
         row_type: 'branch',
         department_id: dept.id,
@@ -457,6 +460,7 @@ function buildInventoryOverview(
         branch_id: branch.id,
         branch_name_ar: branch.name_ar || branch.name,
         quantity: stock?.quantity ?? 0,
+        available,
         reserved: stock?.reserved ?? 0,
         sold: stock?.sold ?? 0,
       })

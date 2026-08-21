@@ -54,7 +54,7 @@ export function buildDepartmentDashboard(
   const soldTotal = branchInventory.reduce((sum, row) => sum + row.sold, 0)
   const reservedTotal = branchInventory.reduce((sum, row) => sum + row.reserved, 0)
   const branchAvailable = branchInventory.reduce(
-    (sum, row) => sum + Math.max(0, row.quantity - row.sold - row.reserved),
+    (sum, row) => sum + Math.max(0, row.available ?? row.quantity - row.sold - row.reserved),
     0,
   )
   const distributionRate = totalStock > 0 ? Math.round((distributed / totalStock) * 100) : 0
@@ -148,7 +148,7 @@ export function buildDepartmentDashboard(
     return {
       name: branch.name_ar || branch.name,
       sold,
-      available: Math.max(0, quantity - sold - reserved),
+      available: row?.available ?? Math.max(0, quantity - sold - reserved),
       reserved,
     }
   })
