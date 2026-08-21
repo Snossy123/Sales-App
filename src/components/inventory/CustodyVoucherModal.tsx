@@ -29,7 +29,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   const [employeeId, setEmployeeId] = useState<number | ''>('')
   const [inventoryBucket, setInventoryBucket] = useState('custody_customer')
   const [notes, setNotes] = useState('')
-  const [registerImei, setRegisterImei] = useState('')
   const [registerSerial, setRegisterSerial] = useState('')
   const [recipientType, setRecipientType] = useState<RecipientType>('employee')
   const [customerId, setCustomerId] = useState<number | ''>('')
@@ -46,7 +45,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
     setEmployeeId('')
     setInventoryBucket('custody_customer')
     setNotes('')
-    setRegisterImei('')
     setRegisterSerial('')
     setRecipientType('employee')
     setCustomerId('')
@@ -104,7 +102,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       if (mode === 'receive') {
         setNeedsRegister(true)
         setRegisterSerial(code)
-        setRegisterImei(code)
         setLookupError(null)
       } else {
         setLookupError(message)
@@ -132,9 +129,10 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
           notes: notes || undefined,
         }
         if (needsRegister) {
+          const serial = registerSerial.trim() || serialCode
           payload.register = {
-            imei: registerImei.trim(),
-            serial_number: registerSerial.trim() || serialCode,
+            imei: serial,
+            serial_number: serial,
             notes: notes || undefined,
           }
         }
@@ -163,7 +161,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
     },
   })
 
-  const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && registerImei.trim())
+  const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && registerSerial.trim())
   const recipientReady =
     mode === 'receive'
       ? Boolean(employeeId)
@@ -251,16 +249,6 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                 className="w-full rounded-lg border border-outline-variant px-3 py-2 font-mono text-sm"
                 value={registerSerial}
                 onChange={(e) => setRegisterSerial(normalizeScannedInput(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-on-surface-variant">IMEI</label>
-              <input
-                type="text"
-                className="w-full rounded-lg border border-outline-variant px-3 py-2 font-mono text-sm"
-                value={registerImei}
-                onChange={(e) => setRegisterImei(normalizeScannedInput(e.target.value))}
-                placeholder="رقم الـ IMEI"
               />
             </div>
           </div>
