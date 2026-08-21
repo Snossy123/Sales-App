@@ -62,9 +62,9 @@ export function InvoiceReviewPage() {
   const columns = useMemo(
     () =>
       buildContractListColumns({
-        renderActions: reviewOnlyContractListActions,
+        renderActions: (row) => reviewOnlyContractListActions(row, user),
       }),
-    [],
+    [user],
   )
 
   return (

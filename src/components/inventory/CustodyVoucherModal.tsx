@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
-import type { Customer, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
+import type { Customer, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { CUSTODY_BUCKET_OPTIONS, productUnitDisplayCode } from '../../lib/inventoryBuckets'
+import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 import { normalizeScannedInput } from '../../lib/scanner'
 import { Modal } from '../Modal'
 import { InventoryUnitTags } from './InventoryUnitTags'
@@ -33,6 +34,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   const [recipientType, setRecipientType] = useState<RecipientType>('employee')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
     setRecipientType('employee')
     setCustomerId('')
     setCustomerSearch('')
+    setSavedVoucher(null)
     const timer = window.setTimeout(() => serialRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
   }, [open, mode])
@@ -135,7 +138,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
             notes: notes || undefined,
           }
         }
-        const { data } = await api.post('/inventory/custody/receive', payload)
+        const { data } = await api.post<CustodyVoucher>('/inventory/custody/receive', payload)
         return data
       }
 
@@ -151,10 +154,13 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       } else {
         payload.customer_id = customerId
       }
-      const { data } = await api.post('/inventory/custody/issue', payload)
+      const { data } = await api.post<CustodyVoucher>('/inventory/custody/issue', payload)
       return data
     },
-    onSuccess: () => onSuccess?.(),
+    onSuccess: (voucher) => {
+      setSavedVoucher(voucher)
+      onSuccess?.()
+    },
   })
 
   const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && registerImei.trim())
@@ -172,6 +178,23 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       onClose={onClose}
       title={mode === 'receive' ? 'إذن استلام جهاز' : 'إذن صرف'}
     >
+      {savedVoucher ? (
+        <div className="space-y-3">
+          <p className="text-sm text-secondary">تم حفظ الإذن {savedVoucher.voucher_number}.</p>
+          <p className="text-sm tabular-nums">
+            تاريخ ووقت العملية: {formatDatetime12hDisplay(savedVoucher.created_at)}
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="rounded-lg bg-primary px-4 py-2 text-sm text-on-primary"
+              onClick={onClose}
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium">مسح السريال</label>
@@ -376,6 +399,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
           </button>
         </div>
       </div>
+      )}
     </Modal>
   )
 }

@@ -2527,6 +2527,44 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path.match(/^sales-invoices\/\d+\/contract-cancel-preview$/)) {
+    const id = Number(path.split('/')[1])
+    const invoice = state.invoices.find((i) => i.id === id)
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    const downPayments = state.paymentTransactions.filter(
+      (p) =>
+        p.sales_invoice_id === invoice.id &&
+        p.status !== 'refunded' &&
+        (p.payment_source === 'down_payment' ||
+          (p.payment_source === 'pos_cash' && String(p.notes ?? '').toLowerCase().includes('down payment'))),
+    )
+    const amount = downPayments.reduce((sum, p) => sum + Math.max(0, Number(p.amount)), 0)
+    return {
+      allowed: true,
+      down_payment_amount: amount,
+      payments: downPayments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        payment_method: p.payment_method ?? 'cash',
+        collection_payment_account: null,
+      })),
+    }
+  }
+
+  if (m === 'POST' && path === 'contract-cases') {
+    const body = (data ?? {}) as Record<string, unknown>
+    return {
+      id: Date.now(),
+      case_type: body.case_type,
+      status: 'open',
+      sales_invoice_id: body.sales_invoice_id,
+    }
+  }
+
+  if (m === 'POST' && path.match(/^contract-cases\/\d+\/complete-(return|exchange|support|cancel)$/)) {
+    return { id: Number(path.split('/')[1]), status: 'completed' }
+  }
+
   if (m === 'GET' && path.match(/^sales-invoices\/\d+\/ownership-transfer-contract$/)) {
     return mockContractPreviewHtml('ownership_transfer')
   }
@@ -3010,6 +3048,76 @@ export function handleMockRequest(
       }
     })
     return created
+  }
+
+  if (m === 'PUT' && path.match(/^sales-invoices\/\d+$/)) {
+    const id = Number(path.split('/')[1])
+    const body = data as CheckoutPayload
+      const perms = ctx.user?.permissions ?? []
+      const isAdmin = ctx.user?.demo_role === 'super_admin' || ctx.user?.demo_role === 'admin'
+      const canBefore = isAdmin || perms.includes('sales.invoices.edit_before_review')
+      const canAfter = isAdmin || perms.includes('review.edit_after_review')
+    let updated: SalesInvoice | undefined
+    mutateState((s) => {
+      const invoice = s.invoices.find((i) => i.id === id)
+      if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+
+      const status = invoice.review_status
+      if (
+        (status === 'pending' || status === 'rejected') &&
+        !canBefore
+      ) {
+        throw mockError(403, 'غير مصرح')
+      }
+      if (status === 'approved' && !canAfter) {
+        throw mockError(403, 'غير مصرح')
+      }
+
+      invoice.customer_id = body.customer_id
+      invoice.branch_id = body.branch_id ?? invoice.branch_id
+      invoice.warehouse_id = body.warehouse_id ?? invoice.warehouse_id
+      invoice.distributor_id = body.distributor_id ?? invoice.distributor_id
+      invoice.sales_user_id = body.sales_user_id ?? invoice.sales_user_id
+      invoice.contract_kind = body.contract_kind ?? invoice.contract_kind
+      invoice.notes = body.notes ?? invoice.notes
+      invoice.installation_fee = body.installation_fee ?? invoice.installation_fee
+      invoice.transportation_fee = body.transportation_fee ?? invoice.transportation_fee
+      invoice.discount_amount = body.discount_amount ?? invoice.discount_amount
+      if (body.invoice_date) invoice.invoice_date = body.invoice_date
+
+      invoice.lines = (body.lines ?? []).map((line, index) => {
+        const existing = invoice.lines?.[index]
+        return {
+          ...(existing ?? { id: invoice.id * 100 + index + 1, unit_price: 0 }),
+          product_unit_id: line.product_unit_id,
+          serial_number: line.serial_number ?? existing?.serial_number,
+          sim_number: line.sim_number ?? existing?.sim_number,
+          username: line.username ?? existing?.username,
+          unit_price: line.unit_price ?? existing?.unit_price ?? 0,
+          payment_term: line.payment_term ?? existing?.payment_term,
+          technician_id: line.technician_id ?? existing?.technician_id,
+          vehicle_type: line.vehicle_type ?? existing?.vehicle_type,
+          vehicle_plate_letters: line.vehicle_plate_letters ?? existing?.vehicle_plate_letters,
+          vehicle_plate_numbers: line.vehicle_plate_numbers ?? existing?.vehicle_plate_numbers,
+          chassis_number: line.chassis_number ?? existing?.chassis_number,
+          engine_number: line.engine_number ?? existing?.engine_number,
+          renewal_type: line.renewal_type ?? existing?.renewal_type,
+        }
+      })
+
+      if (status === 'rejected') {
+        invoice.review_status = 'pending'
+        invoice.rejection_reason = undefined
+      }
+
+      const customer = s.customers.find((c) => c.id === invoice.customer_id)
+      updated = {
+        ...invoice,
+        customer,
+        lines: invoice.lines,
+      }
+    })
+    return updated
   }
 
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/approve$/)) {
@@ -4370,9 +4478,9 @@ export function handleMockRequest(
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
       'device_movements.manage', 'stock.transfer',
-      'customers.manage', 'sales.pos', 'sales.invoices.view', 'sales.daily_mission',
+      'customers.manage', 'sales.pos', 'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
-      'review.approve', 'review.reject', 'review.print',
+      'review.edit_after_review', 'review.approve', 'review.reject', 'review.print',
       'review.manage_evaluation_questions', 'review.view_evaluation_queue',
       'review.view_subscription_renewals', 'review.record_evaluation',
       'review.view_collections', 'review.confirm_collections',
@@ -4795,6 +4903,37 @@ export function handleMockRequest(
   }
   if (m === 'GET' && path === 'support/tasks') {
     return paginate([], params)
+  }
+  if (m === 'GET' && path === 'inventory/custody/vouchers') {
+    return paginate([], params)
+  }
+  const uninstallDevicesMatch = path.match(/^sales-invoices\/(\d+)\/uninstall-devices$/)
+  if (m === 'GET' && uninstallDevicesMatch) {
+    return { units: [] }
+  }
+  const uninstallCustodyMatch = path.match(/^sales-invoices\/(\d+)\/uninstall-custody$/)
+  if (m === 'POST' && uninstallCustodyMatch) {
+    const body = (data ?? {}) as { customer_received?: boolean }
+    const now = new Date().toISOString()
+    return {
+      receipt: {
+        id: 1,
+        type: 'receipt',
+        voucher_number: 'CV-000001',
+        created_at: now,
+        created_by: ctx.user?.id,
+      },
+      issuance: body.customer_received
+        ? {
+            id: 2,
+            type: 'issuance',
+            voucher_number: 'CV-000002',
+            created_at: now,
+            created_by: ctx.user?.id,
+            recipient_type: 'customer',
+          }
+        : null,
+    }
   }
   if (m === 'GET' && path === 'contract-cases') {
     return paginate([], params)

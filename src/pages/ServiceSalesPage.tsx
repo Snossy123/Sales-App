@@ -17,7 +17,7 @@ import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
-import { SalesPageShell } from '../components/SalesPageShell'
+import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
 import {
   ServiceContractHeader,
   type TransactionSource,
@@ -87,6 +87,7 @@ export function ServiceSalesPage({
   const [selectedServiceId, setSelectedServiceId] = useState<number | ''>('')
   const [successMsg, setSuccessMsg] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
+  const [uninstallInvoice, setUninstallInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
 
@@ -351,6 +352,16 @@ export function ServiceSalesPage({
       setLastInstallmentSale(hasInstallment)
       setLastInvoice(invoice)
       setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
+      const hasUninstall =
+        invoice.lines?.some((line) => line.service?.category === 'uninstall') ||
+        lines.some(
+          (line) =>
+            catalogServices.find((service) => service.id === line.service_id)?.category ===
+            'uninstall',
+        )
+      if (hasUninstall) {
+        setUninstallInvoice(invoice)
+      }
       setNotes('')
       setLines(
         defaultLines.length > 0
@@ -606,6 +617,12 @@ export function ServiceSalesPage({
           </div>
         </div>
       </form>
+
+      <UninstallDeviceHandoverModal
+        open={uninstallInvoice !== null}
+        invoice={uninstallInvoice}
+        onClose={() => setUninstallInvoice(null)}
+      />
     </SalesPageShell>
   )
 }

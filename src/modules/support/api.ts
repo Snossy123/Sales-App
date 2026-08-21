@@ -34,10 +34,14 @@ export async function updateSupportTaskStatus(
   taskId: number,
   status: SupportTaskStatus,
   executedAt?: string,
+  customerReceived?: boolean,
 ) {
-  const body: { status: SupportTaskStatus; executed_at?: string } = { status }
+  const body: { status: SupportTaskStatus; executed_at?: string; customer_received?: boolean } = { status }
   if (status === 'completed' && executedAt) {
     body.executed_at = executedAt
+  }
+  if (status === 'completed' && customerReceived !== undefined) {
+    body.customer_received = customerReceived
   }
   const { data } = await api.patch<SupportTask>(`/support/tasks/${taskId}/status`, body)
   return data
@@ -58,4 +62,8 @@ export const SUPPORT_STATUS_TRANSITIONS: Record<SupportTaskStatus, SupportTaskSt
   in_progress: ['completed', 'cancelled'],
   completed: [],
   cancelled: ['pending'],
+}
+
+export function isInstallationTask(task?: { task_type?: string | null } | null): boolean {
+  return !task?.task_type || task.task_type === 'installation'
 }

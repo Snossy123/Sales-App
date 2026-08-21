@@ -105,15 +105,8 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
           aria-hidden="true"
           draggable={false}
         />
-        <img
-          className="sr-watermark"
-          src="/contract/logo.png"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-        />
 
-        <ContractPrintHeader title="بيان فك وتركيب" branchLabel={branchDisplay} />
+        <ContractPrintHeader title="بيان فك وتركيب" />
 
         <div className="sr-meta">
           <div className="sr-meta-branch">
@@ -143,31 +136,38 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
           </div>
         </div>
 
-        <div className="sr-work-title">ما تم طلبه من العميل وانجازة من فريق العمل</div>
-
-        <div className="sr-procedures">
-          {(procedures.length > PROCEDURE_LABELS.length
-            ? procedures.map((_, index) => `الاجراء ${index + 1}`)
-            : [...PROCEDURE_LABELS]
-          ).map((label, index) => {
-            const line = procedures[index]
-            const tech = line ? resolveTechnician(line, invoice) : ''
-            const notes = lineDescription(line)
-            const date = line ? fmtSlashDate(invoice.invoice_date) : ''
-            return (
-              <div key={`${label}-${index}`} className="sr-procedure">
-                <span className="sr-procedure-label">- {label}/</span>
-                <span className="sr-procedure-notes">{notes}</span>
-                <span className="sr-procedure-date">
-                  التاريخ {date || '/ / 202'}
-                </span>
-                <div className="sr-tech-box">
-                  <div className="sr-tech-box-label">اسم الفني</div>
-                  <div className="sr-tech-box-name">{tech}</div>
+        <div className="sr-work">
+          <img
+            className="sr-watermark"
+            src="/contract/logo.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+          <div className="sr-work-title">ما تم طلبه من العميل وانجازة من فريق العمل</div>
+          <div className="sr-procedures">
+            {PROCEDURE_LABELS.map((label, index) => {
+              const line = procedures[index]
+              const tech = line ? resolveTechnician(line, invoice) : ''
+              const notes = lineDescription(line)
+              const date = line ? fmtSlashDate(invoice.invoice_date) : ''
+              return (
+                <div key={label} className="sr-procedure">
+                  <div className="sr-procedure-main">
+                    <span className="sr-procedure-label">- {label}/</span>
+                    <span className="sr-procedure-notes">{notes}</span>
+                    <span className="sr-procedure-date">
+                      التاريخ {date || '/ / 202'}
+                    </span>
+                  </div>
+                  <div className="sr-tech-box">
+                    <div className="sr-tech-box-label">اسم الفني</div>
+                    <div className="sr-tech-box-name">{tech}</div>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
 
         <table className="sr-fees">

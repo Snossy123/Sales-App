@@ -10,6 +10,7 @@ export const contractCaseTypeLabels: Record<string, string> = {
   support: 'دعم فني',
   return: 'استرجاع',
   exchange: 'استبدال',
+  cancel: 'إلغاء تعاقد',
 }
 
 export const contractCaseStatusLabels: Record<string, string> = {

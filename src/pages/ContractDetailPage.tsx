@@ -14,6 +14,7 @@ import { useAuthStore } from '../stores/authStore'
 import { userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
+import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
@@ -88,6 +89,15 @@ export function ContractDetailPage() {
       }
       actions={
         <div className="flex flex-wrap items-center gap-sm">
+          {invoice && canEditContract(user, invoice) ? (
+            <Link
+              to={contractEditPath(invoice.id)}
+              className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
+            >
+              <Icon name="edit" size={18} />
+              تعديل العقد
+            </Link>
+          ) : null}
           {canTransferToProblems && invoice && (
             <button
               type="button"

@@ -13,6 +13,7 @@ import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
+import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
 const CONTRACT_DETAIL_INCLUDES =
@@ -68,13 +69,24 @@ export function InvoiceDetailPage() {
         ) : undefined
       }
       actions={
-        <Link
-          to="/invoices"
-          className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
-        >
-          <Icon name="arrow_forward" size={18} />
-          رجوع للقائمة
-        </Link>
+        <div className="flex flex-wrap items-center gap-sm">
+          {invoice && canEditContract(user, invoice) ? (
+            <Link
+              to={contractEditPath(invoice.id)}
+              className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
+            >
+              <Icon name="edit" size={18} />
+              تعديل العقد
+            </Link>
+          ) : null}
+          <Link
+            to="/invoices"
+            className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
+          >
+            <Icon name="arrow_forward" size={18} />
+            رجوع للقائمة
+          </Link>
+        </div>
       }
     >
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>

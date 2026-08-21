@@ -788,6 +788,7 @@ export function createSeedState(): DemoState {
         'customers.manage',
         'sales.pos',
         'sales.invoices.view',
+        'sales.invoices.edit_before_review',
         'sales.daily_mission',
         'inventory.manage',
         'device_movements.manage',
@@ -815,6 +816,7 @@ export function createSeedState(): DemoState {
       permissions: [
         'scope.branch',
         'review.view_queue',
+        'review.edit_after_review',
         'review.approve',
         'review.reject',
         'review.print',
@@ -1531,6 +1533,7 @@ export function createSeedState(): DemoState {
         { id: 20, name: 'sales.daily_mission' },
         { id: 21, name: 'customers.manage' },
         { id: 22, name: 'sales.invoices.view' },
+        { id: 23, name: 'sales.invoices.edit_before_review' },
       ],
     },
     {
@@ -1544,6 +1547,7 @@ export function createSeedState(): DemoState {
         { id: 303, name: 'review.view_queue' },
         { id: 304, name: 'review.view_contracts' },
         { id: 305, name: 'review.view_detail' },
+        { id: 314, name: 'review.edit_after_review' },
         { id: 306, name: 'review.approve' },
         { id: 307, name: 'review.reject' },
         { id: 308, name: 'review.print' },

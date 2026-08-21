@@ -7,9 +7,11 @@ import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatDate } from '../../../lib/accounting'
+import { formatDatetime12hDisplay } from '../../../lib/datetime12h'
 import {
   SUPPORT_STATUS_LABELS,
   SUPPORT_STATUS_TRANSITIONS,
+  isInstallationTask,
   listSupportTasks,
   updateSupportTaskStatus,
 } from '../api'
@@ -24,7 +26,8 @@ function forwardStatuses(status: SupportTaskStatus): SupportTaskStatus[] {
 
 export function MyTasksPage() {
   const queryClient = useQueryClient()
-  const [completeTaskId, setCompleteTaskId] = useState<number | null>(null)
+  const [completeTask, setCompleteTask] = useState<SupportTask | null>(null)
+  const [issueNotice, setIssueNotice] = useState('')
 
   const query = useQuery({
     queryKey: QUERY_KEY,
@@ -36,23 +39,30 @@ export function MyTasksPage() {
       id,
       status,
       executedAt,
+      customerReceived,
     }: {
       id: number
       status: SupportTaskStatus
       executedAt?: string
-    }) => updateSupportTaskStatus(id, status, executedAt),
-    onSuccess: () => {
+      customerReceived?: boolean
+    }) => updateSupportTaskStatus(id, status, executedAt, customerReceived),
+    onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY })
-      setCompleteTaskId(null)
+      setCompleteTask(null)
+      if (task.issuance_voucher) {
+        setIssueNotice(
+          `تم إنشاء إذن صرف ${task.issuance_voucher.voucher_number ?? ''} — ${formatDatetime12hDisplay(task.issuance_voucher.created_at)}`,
+        )
+      }
     },
   })
 
-  const handleStatusClick = (taskId: number, status: SupportTaskStatus) => {
+  const handleStatusClick = (task: SupportTask, status: SupportTaskStatus) => {
     if (status === 'completed') {
-      setCompleteTaskId(taskId)
+      setCompleteTask(task)
       return
     }
-    statusMutation.mutate({ id: taskId, status })
+    statusMutation.mutate({ id: task.id, status })
   }
 
   const rows = query.data?.data ?? []
@@ -60,6 +70,8 @@ export function MyTasksPage() {
   return (
     <div>
       <PageHeader title="مهامي" subtitle="مهام تركيب أجهزة التتبع المسندة إليك" />
+
+      {issueNotice && <p className="mb-sm text-sm text-secondary">{issueNotice}</p>}
 
       {statusMutation.isError && (
         <p className="mb-sm text-sm text-error">{getErrorMessage(statusMutation.error)}</p>
@@ -98,7 +110,7 @@ export function MyTasksPage() {
                       <button
                         key={status}
                         type="button"
-                        onClick={() => handleStatusClick(row.id, status)}
+                        onClick={() => handleStatusClick(row, status)}
                         disabled={statusMutation.isPending}
                         className="rounded-lg bg-primary px-md py-1.5 text-sm font-bold text-on-primary"
                       >
@@ -114,12 +126,18 @@ export function MyTasksPage() {
       </AsyncState>
 
       <CompleteTaskModal
-        open={completeTaskId !== null}
-        onClose={() => setCompleteTaskId(null)}
+        open={completeTask !== null}
+        onClose={() => setCompleteTask(null)}
         isPending={statusMutation.isPending}
-        onConfirm={(executedAt) => {
-          if (completeTaskId === null) return
-          statusMutation.mutate({ id: completeTaskId, status: 'completed', executedAt })
+        askCustomerReceived={isInstallationTask(completeTask)}
+        onConfirm={(executedAt, customerReceived) => {
+          if (!completeTask) return
+          statusMutation.mutate({
+            id: completeTask.id,
+            status: 'completed',
+            executedAt,
+            customerReceived,
+          })
         }}
       />
     </div>

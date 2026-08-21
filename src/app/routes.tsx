@@ -245,6 +245,7 @@ export function AppRoutes() {
             <Route path="review/evaluation-queue/:id" element={<EvaluationRecordPage />} />
             <Route path="review/subscription-renewals" element={<SubscriptionRenewalQueuePage />} />
             <Route path="review/evaluation-questions" element={<EvaluationQuestionsPage />} />
+            <Route path="invoices/:id/edit" element={<PosPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices/:id/ownership-transfer-contract" element={<OwnershipTransferContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />

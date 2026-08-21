@@ -30,7 +30,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/review/collections': 'review.view_collections',
   '/review/expenses': 'review.view_expenses',
   '/expenses/new': 'expenses.submit',
-  '/invoices': 'review.view_contracts',
+  '/invoices': ['review.view_contracts', 'sales.invoices.view'],
   '/review/evaluation-queue': 'review.view_evaluation_queue',
   '/review/subscription-renewals': 'review.view_subscription_renewals',
   '/review/evaluation-questions': 'review.manage_evaluation_questions',
@@ -94,6 +94,9 @@ export function resolveRoutePermissions(path: string): string[] | null {
   }
   if (normalized.startsWith('/inventory/movements')) {
     return ['device_movements.manage']
+  }
+  if (normalized.match(/^\/invoices\/\d+\/edit$/)) {
+    return ['sales.invoices.edit_before_review', 'review.edit_after_review']
   }
   if (normalized.match(/^\/invoices\/review\/\d+$/)) {
     return ['review.view_queue', 'review.view_detail']

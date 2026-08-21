@@ -136,7 +136,7 @@ export const navEntries: NavEntry[] = [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/collections', icon: 'payments', label: 'مراجعة التحصيلات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/expenses', icon: 'receipt', label: 'مراجعة المصروفات', roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer', 'sales'] },
         { to: '/review/evaluation-queue', icon: 'rate_review', label: 'تقييم العملاء', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/evaluation-questions', icon: 'quiz', label: 'أسئلة التقييم', roles: ['super_admin', 'admin', 'reviewer'] },
       ],
@@ -277,7 +277,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/services': ['super_admin', 'admin'],
   '/services/add': ['super_admin', 'admin'],
   '/contract-templates': ['super_admin', 'admin'],
-  '/invoices': ['super_admin', 'admin', 'reviewer'],
+  '/invoices': ['super_admin', 'admin', 'reviewer', 'sales'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/review/evaluation-queue': ['super_admin', 'admin', 'reviewer'],
   '/review/subscription-renewals': ['super_admin', 'admin', 'reviewer'],
@@ -366,7 +366,11 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
       return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
     }
     if (item.to === '/invoices') {
-      return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+      return (
+        userHasPermission(user, 'review.view_contracts') ||
+        userHasPermission(user, 'sales.invoices.view') ||
+        userHasReviewAccess(user)
+      )
     }
     if (item.to === '/review/evaluation-queue') {
       return userHasPermission(user, 'review.view_evaluation_queue') || userHasReviewAccess(user)
@@ -486,7 +490,11 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
 
   if (normalized === '/invoices') {
     if (routeRoles['/invoices']?.includes(role)) return true
-    return userHasPermission(user, 'review.view_contracts') || userHasReviewAccess(user)
+    return (
+      userHasPermission(user, 'review.view_contracts') ||
+      userHasPermission(user, 'sales.invoices.view') ||
+      userHasReviewAccess(user)
+    )
   }
 
   if (normalized === '/review/evaluation-queue') {

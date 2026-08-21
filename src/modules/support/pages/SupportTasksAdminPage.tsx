@@ -7,10 +7,12 @@ import { DataTable } from '../../../components/DataTable'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatDate } from '../../../lib/accounting'
+import { formatDatetime12hDisplay } from '../../../lib/datetime12h'
 import {
   SUPPORT_STATUS_LABELS,
   SUPPORT_STATUS_TRANSITIONS,
   assignSupportTask,
+  isInstallationTask,
   listSupportTasks,
   updateSupportTaskStatus,
 } from '../api'
@@ -22,7 +24,8 @@ export function SupportTasksAdminPage() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<SupportTaskStatus | ''>('')
   const [employeeFilter, setEmployeeFilter] = useState<number | ''>('')
-  const [completeTaskId, setCompleteTaskId] = useState<number | null>(null)
+  const [completeTask, setCompleteTask] = useState<SupportTask | null>(null)
+  const [issueNotice, setIssueNotice] = useState('')
 
   const queryKey = ['support-tasks', 'admin', statusFilter, employeeFilter] as const
 
@@ -54,23 +57,30 @@ export function SupportTasksAdminPage() {
       id,
       status,
       executedAt,
+      customerReceived,
     }: {
       id: number
       status: SupportTaskStatus
       executedAt?: string
-    }) => updateSupportTaskStatus(id, status, executedAt),
-    onSuccess: () => {
+      customerReceived?: boolean
+    }) => updateSupportTaskStatus(id, status, executedAt, customerReceived),
+    onSuccess: (task) => {
       invalidate()
-      setCompleteTaskId(null)
+      setCompleteTask(null)
+      if (task.issuance_voucher) {
+        setIssueNotice(
+          `تم إنشاء إذن صرف ${task.issuance_voucher.voucher_number ?? ''} — ${formatDatetime12hDisplay(task.issuance_voucher.created_at)}`,
+        )
+      }
     },
   })
 
-  const handleStatusClick = (taskId: number, status: SupportTaskStatus) => {
+  const handleStatusClick = (task: SupportTask, status: SupportTaskStatus) => {
     if (status === 'completed') {
-      setCompleteTaskId(taskId)
+      setCompleteTask(task)
       return
     }
-    statusMutation.mutate({ id: taskId, status })
+    statusMutation.mutate({ id: task.id, status })
   }
 
   const employees = employeesQuery.data ?? []
@@ -107,6 +117,8 @@ export function SupportTasksAdminPage() {
           ))}
         </select>
       </div>
+
+      {issueNotice && <p className="mb-sm text-sm text-secondary">{issueNotice}</p>}
 
       {mutationError && <p className="mb-sm text-sm text-error">{getErrorMessage(mutationError)}</p>}
 
@@ -163,7 +175,7 @@ export function SupportTasksAdminPage() {
                       <button
                         key={status}
                         type="button"
-                        onClick={() => handleStatusClick(row.id, status)}
+                        onClick={() => handleStatusClick(row, status)}
                         disabled={statusMutation.isPending}
                         className="rounded-lg border border-outline-variant px-sm py-1.5 text-sm hover:bg-surface-container"
                       >
@@ -179,12 +191,18 @@ export function SupportTasksAdminPage() {
       </AsyncState>
 
       <CompleteTaskModal
-        open={completeTaskId !== null}
-        onClose={() => setCompleteTaskId(null)}
+        open={completeTask !== null}
+        onClose={() => setCompleteTask(null)}
         isPending={statusMutation.isPending}
-        onConfirm={(executedAt) => {
-          if (completeTaskId === null) return
-          statusMutation.mutate({ id: completeTaskId, status: 'completed', executedAt })
+        askCustomerReceived={isInstallationTask(completeTask)}
+        onConfirm={(executedAt, customerReceived) => {
+          if (!completeTask) return
+          statusMutation.mutate({
+            id: completeTask.id,
+            status: 'completed',
+            executedAt,
+            customerReceived,
+          })
         }}
       />
     </div>

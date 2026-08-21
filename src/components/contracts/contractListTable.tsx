@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import type { SalesInvoice } from '../../api/types'
+import type { AuthUser, SalesInvoice } from '../../api/types'
 import type { Column } from '../DataTable'
 import { StatusBadge } from '../StatusBadge'
 import { Icon } from '../Icon'
@@ -12,12 +12,8 @@ import {
   invoiceContractSummary,
 } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
-import {
-  contractPrintPath,
-  distributorLabel,
-  reviewStatusForBadge,
-  reviewStatusLabel,
-} from '../../lib/sales'
+import { contractPrintPath, distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
+import { canEditContract, contractEditPath } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
   if (reviewStatus === 'pending') return 'bg-error/20'
@@ -162,7 +158,7 @@ export function buildContractListColumns(
   return columns
 }
 
-export function defaultContractListActions(row: SalesInvoice): ReactNode {
+export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | null): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
       <Link
@@ -171,6 +167,14 @@ export function defaultContractListActions(row: SalesInvoice): ReactNode {
       >
         تفاصيل
       </Link>
+      {canEditContract(user ?? null, row) && (
+        <Link
+          to={contractEditPath(row.id)}
+          className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+        >
+          تعديل
+        </Link>
+      )}
       {row.review_status === 'pending' && (
         <Link
           to={`/invoices/review/${row.id}`}
@@ -192,14 +196,24 @@ export function defaultContractListActions(row: SalesInvoice): ReactNode {
   )
 }
 
-export function reviewOnlyContractListActions(row: SalesInvoice): ReactNode {
+export function reviewOnlyContractListActions(row: SalesInvoice, user?: AuthUser | null): ReactNode {
   return (
-    <Link
-      to={`/invoices/review/${row.id}`}
-      className="text-sm font-medium text-error hover:underline whitespace-nowrap"
-    >
-      مراجعة
-    </Link>
+    <div className="flex flex-wrap items-center gap-sm">
+      {canEditContract(user ?? null, row) && (
+        <Link
+          to={contractEditPath(row.id)}
+          className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+        >
+          تعديل
+        </Link>
+      )}
+      <Link
+        to={`/invoices/review/${row.id}`}
+        className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+      >
+        مراجعة
+      </Link>
+    </div>
   )
 }
 

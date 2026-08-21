@@ -24,6 +24,7 @@ interface PosContractSummaryProps {
   submitDisabled: boolean
   submitPending: boolean
   submitInvalid?: boolean
+  actionLabel?: string
   distributorBalanceAvailable?: number
   distributorBalanceAmount?: number
   onDistributorBalanceAmountChange?: (value: number) => void
@@ -51,11 +52,12 @@ export function PosContractSummary({
   submitDisabled,
   submitPending,
   submitInvalid = false,
+  actionLabel = 'إتمام التعاقد',
   distributorBalanceAvailable = 0,
   distributorBalanceAmount = 0,
   onDistributorBalanceAmountChange,
 }: PosContractSummaryProps) {
-  const submitLabel = submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'
+  const submitLabel = submitPending ? 'جاري الحفظ...' : actionLabel
 
   return (
     <aside className="flex flex-col gap-md lg:sticky lg:top-4 lg:self-start">

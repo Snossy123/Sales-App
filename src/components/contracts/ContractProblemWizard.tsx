@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
-import type { Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
+import type { CollectionPaymentAccount, Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
 import { Icon } from '../Icon'
 
-type CaseType = 'support' | 'return' | 'exchange'
+type CaseType = 'support' | 'return' | 'exchange' | 'cancel'
 
 interface ReturnDebtBreakdown {
   uninstall_fee: number
@@ -23,6 +23,26 @@ interface ReturnPreview {
   breakdown?: ReturnDebtBreakdown
 }
 
+interface CancelPreviewPayment {
+  id: number
+  amount: number
+  payment_method: string
+  collection_payment_account?: {
+    id: number
+    payment_method: string
+    beneficiary_name: string
+    phone?: string | null
+    bank_name?: string | null
+    account_number?: string | null
+  } | null
+}
+
+interface CancelPreview {
+  allowed: boolean
+  down_payment_amount: number
+  payments: CancelPreviewPayment[]
+}
+
 interface ContractCaseRecord {
   id: number
   case_type: string
@@ -36,11 +56,31 @@ interface ContractProblemWizardProps {
   onComplete: () => void
 }
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'نقدي',
+  wallet: 'محفظة',
+  instapay: 'انستا',
+  bank_transfer: 'تحويل بنكي',
+  card: 'بطاقة',
+}
+
 const TYPE_OPTIONS: { value: CaseType; label: string; description: string }[] = [
   { value: 'support', label: 'دعم فني', description: 'إنشاء مهمة دعم للعقد' },
   { value: 'return', label: 'استرجاع', description: 'إرجاع الجهاز للمخزون وأمر دفع إن لزم' },
   { value: 'exchange', label: 'استبدال', description: 'استبدال الجهاز بآخر من مخزون الفرع' },
+  { value: 'cancel', label: 'إلغاء التعاقد', description: 'قبل تنفيذ الفني: إلغاء المهمة ورجوع الجهاز ورد المقدم' },
 ]
+
+function originalPaymentLabel(payment: CancelPreviewPayment): string {
+  const account = payment.collection_payment_account
+  if (account) {
+    const parts = [account.beneficiary_name, account.phone, account.bank_name, account.account_number].filter(
+      Boolean,
+    )
+    return parts.join(' — ') || PAYMENT_METHOD_LABELS[account.payment_method] || account.payment_method
+  }
+  return PAYMENT_METHOD_LABELS[payment.payment_method] ?? payment.payment_method ?? 'نقدي'
+}
 
 export function ContractProblemWizard({ invoice, open, onClose, onComplete }: ContractProblemWizardProps) {
   const [step, setStep] = useState(0)
@@ -53,6 +93,9 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
   const [disposition, setDisposition] = useState<'good' | 'faulty'>('faulty')
   const [employeeId, setEmployeeId] = useState<number | ''>('')
   const [scheduledAt, setScheduledAt] = useState('')
+  const [customerReceivedRefund, setCustomerReceivedRefund] = useState(false)
+  const [refundVia, setRefundVia] = useState<'cash' | 'account'>('cash')
+  const [refundAccountId, setRefundAccountId] = useState<number | ''>('')
 
   const deviceLine = invoice.lines?.find((l) => l.product_unit_id)
   const warehouseId = invoice.warehouse_id
@@ -69,6 +112,9 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       setDisposition('faulty')
       setEmployeeId('')
       setScheduledAt('')
+      setCustomerReceivedRefund(false)
+      setRefundVia('cash')
+      setRefundAccountId('')
     }
   }, [open])
 
@@ -85,6 +131,30 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       return data
     },
     enabled: open && step === 2 && caseType === 'return' && Boolean(openedCase),
+  })
+
+  const cancelPreviewQuery = useQuery({
+    queryKey: ['contract-cancel-preview', invoice.id],
+    queryFn: async () => {
+      const { data } = await api.get<CancelPreview>(`/sales-invoices/${invoice.id}/contract-cancel-preview`)
+      return data
+    },
+    enabled: open,
+  })
+
+  const visibleTypeOptions = useMemo(
+    () =>
+      TYPE_OPTIONS.filter((opt) => opt.value !== 'cancel' || cancelPreviewQuery.data?.allowed !== false),
+    [cancelPreviewQuery.data?.allowed],
+  )
+
+  const accountsQuery = useQuery({
+    queryKey: ['collection-accounts', 'active', 'cancel-refund'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CollectionPaymentAccount[] }>('/collection-accounts/active')
+      return data.data ?? []
+    },
+    enabled: open && step === 2 && caseType === 'cancel' && refundVia === 'account',
   })
 
   useEffect(() => {
@@ -174,19 +244,50 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
     onSuccess: onComplete,
   })
 
+  const completeCancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!openedCase) throw new Error('لم تُفتح الحالة')
+      const payload: Record<string, unknown> = {
+        notes: notes.trim() || undefined,
+      }
+      const downAmount = Number(cancelPreviewQuery.data?.down_payment_amount ?? 0)
+      if (downAmount > 0) {
+        payload.customer_received_refund = customerReceivedRefund
+        if (refundVia === 'cash') {
+          payload.refund_method = 'cash'
+        } else {
+          const account = (accountsQuery.data ?? []).find((a) => a.id === refundAccountId)
+          if (!account) throw new Error('اختر حساب التحصيل للرد')
+          payload.refund_method = account.payment_method
+          payload.collection_payment_account_id = account.id
+        }
+      }
+      const { data } = await api.post(`/contract-cases/${openedCase.id}/complete-cancel`, payload)
+      return data
+    },
+    onSuccess: onComplete,
+  })
+
   if (!open) return null
+
+  const downPaymentAmount = Number(cancelPreviewQuery.data?.down_payment_amount ?? 0)
+  const canCompleteCancel =
+    downPaymentAmount <= 0 ||
+    (customerReceivedRefund && (refundVia === 'cash' || Boolean(refundAccountId)))
 
   const pending =
     openCaseMutation.isPending ||
     completeReturnMutation.isPending ||
     completeExchangeMutation.isPending ||
-    completeSupportMutation.isPending
+    completeSupportMutation.isPending ||
+    completeCancelMutation.isPending
 
   const error =
     openCaseMutation.error ??
     completeReturnMutation.error ??
     completeExchangeMutation.error ??
-    completeSupportMutation.error
+    completeSupportMutation.error ??
+    completeCancelMutation.error
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-md">
@@ -205,7 +306,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
         {step === 0 && (
           <div className="space-y-sm">
             <p className="text-sm text-on-surface-variant">اختر نوع المشكلة:</p>
-            {TYPE_OPTIONS.map((opt) => (
+            {visibleTypeOptions.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -453,6 +554,113 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                 className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary disabled:opacity-50"
               >
                 {pending ? 'جاري الإنشاء…' : 'إنشاء مهمة الدعم'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && caseType === 'cancel' && (
+          <div className="space-y-md">
+            {cancelPreviewQuery.isLoading ? (
+              <p className="text-sm text-on-surface-variant">جاري حساب المقدم…</p>
+            ) : (
+              <>
+                <p className="text-sm text-on-surface-variant">
+                  سيتم إلغاء مهمة الفني وإرجاع الجهاز للمخزن وتغيير حالة العقد إلى ملغى.
+                </p>
+                {downPaymentAmount > 0 ? (
+                  <div className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-low p-sm text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">المقدم المستحق للرد</span>
+                      <span className="tabular-nums font-medium">
+                        {downPaymentAmount.toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs text-on-surface-variant">
+                      <p className="font-medium text-on-surface">طريقة الدفع الأصلية (للعلم)</p>
+                      {(cancelPreviewQuery.data?.payments ?? []).map((p) => (
+                        <p key={p.id}>
+                          {Number(p.amount).toLocaleString('ar-EG')} ج.م — {originalPaymentLabel(p)}
+                        </p>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="mb-xs text-on-surface-variant">وجهة رد المقدم</p>
+                      <div className="flex flex-wrap gap-sm">
+                        <label className="flex items-center gap-1 text-sm">
+                          <input
+                            type="radio"
+                            name="refundVia"
+                            checked={refundVia === 'cash'}
+                            onChange={() => {
+                              setRefundVia('cash')
+                              setRefundAccountId('')
+                            }}
+                          />
+                          نقدي
+                        </label>
+                        <label className="flex items-center gap-1 text-sm">
+                          <input
+                            type="radio"
+                            name="refundVia"
+                            checked={refundVia === 'account'}
+                            onChange={() => setRefundVia('account')}
+                          />
+                          حساب تحصيل
+                        </label>
+                      </div>
+                    </div>
+                    {refundVia === 'account' && (
+                      <select
+                        value={refundAccountId}
+                        onChange={(e) => setRefundAccountId(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
+                      >
+                        <option value="">اختر الحساب</option>
+                        {(accountsQuery.data ?? []).map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.beneficiary_name}
+                            {account.phone ? ` — ${account.phone}` : ''}
+                            {account.bank_name ? ` — ${account.bank_name}` : ''}
+                            {` (${PAYMENT_METHOD_LABELS[account.payment_method] ?? account.payment_method})`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <label className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={customerReceivedRefund}
+                        onChange={(e) => setCustomerReceivedRefund(e.target.checked)}
+                      />
+                      <span>
+                        أؤكد أن العميل استلم مبلغ المقدم{' '}
+                        {downPaymentAmount.toLocaleString('ar-EG')} ج.م عبر{' '}
+                        {refundVia === 'cash'
+                          ? 'نقدي'
+                          : (accountsQuery.data ?? []).find((a) => a.id === refundAccountId)?.beneficiary_name ??
+                            'الحساب المختار'}
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <p className="text-sm text-on-surface-variant">لا يوجد مقدم للرد على هذا العقد.</p>
+                )}
+              </>
+            )}
+            {error && <p className="text-sm text-error">{getErrorMessage(error)}</p>}
+            <div className="flex justify-between gap-sm">
+              <button type="button" onClick={onClose} className="rounded-lg border border-outline-variant px-md py-sm text-sm">
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={pending || !canCompleteCancel}
+                onClick={() => completeCancelMutation.mutate()}
+                className="rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error disabled:opacity-50"
+              >
+                {pending ? 'جاري الإلغاء…' : 'إكمال إلغاء التعاقد'}
               </button>
             </div>
           </div>

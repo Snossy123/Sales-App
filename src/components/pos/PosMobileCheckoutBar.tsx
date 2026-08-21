@@ -7,6 +7,7 @@ interface PosMobileCheckoutBarProps {
   submitDisabled: boolean
   submitPending: boolean
   submitInvalid?: boolean
+  actionLabel?: string
 }
 
 export function PosMobileCheckoutBar({
@@ -15,8 +16,9 @@ export function PosMobileCheckoutBar({
   submitDisabled,
   submitPending,
   submitInvalid = false,
+  actionLabel = 'إتمام التعاقد',
 }: PosMobileCheckoutBarProps) {
-  const submitLabel = submitPending ? 'جاري الحفظ...' : 'إتمام التعاقد'
+  const submitLabel = submitPending ? 'جاري الحفظ...' : actionLabel
   const showDueNow = Math.abs(paidAtCheckout - totalEstimate) > 0.009
 
   return createPortal(

@@ -203,6 +203,7 @@ export interface SupportTask {
   serial_number?: string | null
   vehicle_info?: string | null
   vehicle_type?: string | null
+  issuance_voucher?: CustodyVoucher | null
 }
 
 export type ServiceEvaluationAnswerType = 'text' | 'rating' | 'yes_no'
@@ -518,6 +519,25 @@ export interface ProductUnit {
   notes?: string | null
   product_model?: ProductModel
   warehouse?: Warehouse
+}
+
+export interface CustodyVoucher {
+  id: number
+  type: 'receipt' | 'issuance' | string
+  recipient_type?: 'employee' | 'customer' | string
+  voucher_number?: string
+  product_unit_id?: number
+  employee_id?: number | null
+  customer_id?: number | null
+  branch_id?: number
+  notes?: string | null
+  created_by?: number
+  created_at?: string | null
+  product_unit?: ProductUnit | null
+  employee?: { id: number; name: string } | null
+  customer?: { id: number; name: string; phone?: string } | null
+  creator?: { id: number; name: string } | null
+  branch?: Branch | null
 }
 
 export interface Customer {

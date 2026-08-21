@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { ProductUnit } from '../api/types'
+import type { CustodyVoucher, PaginatedResponse, ProductUnit } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
 import { InventoryUnitTags } from '../components/inventory/InventoryUnitTags'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { INVENTORY_BUCKET_SECTION_LABELS, productUnitDisplayCode } from '../lib/inventoryBuckets'
+import { formatDatetime12hDisplay } from '../lib/datetime12h'
 import { useAuthStore } from '../stores/authStore'
 
 const BUCKET_LABELS: Record<string, string> = INVENTORY_BUCKET_SECTION_LABELS
@@ -17,6 +18,12 @@ interface BranchInventoryResponse {
     new: ProductUnit[]
     by_bucket: Record<string, ProductUnit[]>
   }
+}
+
+function voucherTypeLabel(type?: string): string {
+  if (type === 'receipt') return 'استلام'
+  if (type === 'issuance') return 'صرف'
+  return type ?? '—'
 }
 
 export function BranchInventoryPage() {
@@ -36,7 +43,21 @@ export function BranchInventoryPage() {
     enabled: Boolean(user),
   })
 
+  const vouchersQuery = useQuery({
+    queryKey: ['custody-vouchers', user?.branch_id],
+    queryFn: async () => {
+      const params: Record<string, number> = { per_page: 20 }
+      if (user?.branch_id) params.branch_id = user.branch_id
+      const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
+        params,
+      })
+      return data.data ?? []
+    },
+    enabled: Boolean(user),
+  })
+
   const byBucket = query.data?.grouped?.by_bucket ?? {}
+  const vouchers = vouchersQuery.data ?? []
 
   return (
     <SalesPageShell
@@ -90,6 +111,44 @@ export function BranchInventoryPage() {
               </ul>
             </section>
           ))}
+
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+            <h2 className="mb-3 font-semibold">سجل الاستلام والصرف</h2>
+            {vouchersQuery.isLoading && (
+              <p className="text-sm text-on-surface-variant">جاري تحميل الأذون…</p>
+            )}
+            {!vouchersQuery.isLoading && vouchers.length === 0 && (
+              <p className="text-sm text-on-surface-variant">لا توجد أذون استلام أو صرف بعد.</p>
+            )}
+            {vouchers.length > 0 && (
+              <ul className="space-y-2 text-sm">
+                {vouchers.map((voucher) => (
+                  <li
+                    key={voucher.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {voucherTypeLabel(voucher.type)} {voucher.voucher_number}
+                      </p>
+                      <p className="font-mono text-xs text-on-surface-variant">
+                        {voucher.product_unit
+                          ? productUnitDisplayCode(voucher.product_unit)
+                          : '—'}
+                      </p>
+                      <p className="text-xs text-on-surface-variant">
+                        {voucher.creator?.name ?? voucher.employee?.name ?? '—'}
+                        {voucher.customer?.name ? ` → ${voucher.customer.name}` : ''}
+                      </p>
+                    </div>
+                    <span className="text-xs tabular-nums text-on-surface-variant">
+                      {formatDatetime12hDisplay(voucher.created_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </AsyncState>
 
@@ -100,7 +159,7 @@ export function BranchInventoryPage() {
         onClose={() => setVoucherOpen(false)}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['branch-inventory'] })
-          setVoucherOpen(false)
+          queryClient.invalidateQueries({ queryKey: ['custody-vouchers'] })
         }}
       />
     </SalesPageShell>

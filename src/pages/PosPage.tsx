@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -56,6 +56,8 @@ import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
 import { PosOwnershipTransferSection } from '../components/pos/PosOwnershipTransferSection'
 import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
+import { canEditContract } from '../lib/contractEdit'
+import { deviceDraftsFromInvoice } from '../lib/hydratePosFromInvoice'
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -66,8 +68,19 @@ function addDays(dateStr: string, days: number): string {
 export function PosPage() {
   usePageTour('pos')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const routeParams = useParams<{ id?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
+  const editInvoiceId = useMemo(() => {
+    const fromRoute = Number(routeParams.id)
+    if (Number.isFinite(fromRoute) && fromRoute > 0) return fromRoute
+    const fromQuery = Number(searchParams.get('edit'))
+    return Number.isFinite(fromQuery) && fromQuery > 0 ? fromQuery : null
+  }, [routeParams.id, searchParams])
+  const isEditMode = Boolean(editInvoiceId)
+  const hydratedEditRef = useRef<number | null>(null)
   const warehouseId = useAuthStore((s) => s.warehouseId)
+  const user = useAuthStore((s) => s.user)
   const contextBranchId = useAuthStore((s) => s.branchId)
   const contextDepartmentId = useAuthStore((s) => s.departmentId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
@@ -112,6 +125,66 @@ export function PosPage() {
   const hasAutoSelectedPromotion = useRef(false)
   const hydratedRenewalLineRef = useRef<number | null>(null)
 
+  const editInvoiceQuery = useQuery({
+    queryKey: ['sales-invoice', 'edit', editInvoiceId],
+    queryFn: async () => {
+      const { data } = await api.get<SalesInvoice>(`/sales-invoices/${editInvoiceId}`, {
+        params: {
+          include:
+            'customer.salesUser,customer.branch,customer.distributor,branch,distributor,salesUser,lines,lines.productUnit,lines.technician,lines.installmentPlan,sourceInvoice.customer',
+        },
+      })
+      return data
+    },
+    enabled: isEditMode,
+  })
+
+  useEffect(() => {
+    const invoice = editInvoiceQuery.data
+    if (!invoice || !editInvoiceId) return
+    if (hydratedEditRef.current === editInvoiceId) return
+    hydratedEditRef.current = editInvoiceId
+
+    const date = invoice.invoice_date?.slice(0, 10) || new Date().toISOString().split('T')[0]
+    setContractDate(date)
+    setContractKind((invoice.contract_kind as ContractKind) || 'new_contract')
+    if (invoice.customer) {
+      setSelectedCustomer(invoice.customer)
+      setCustomerSearch(invoice.customer.name)
+    }
+    if (invoice.sales_user) {
+      setTransactionSource('sales')
+      setSelectedSalesRep({
+        id: invoice.sales_user.id,
+        name: invoice.sales_user.name,
+        branch_id: invoice.sales_user.branch_id ?? invoice.branch_id ?? null,
+      } as SalesRep)
+      setSalesRepSearch(invoice.sales_user.name)
+    } else if (invoice.distributor) {
+      setTransactionSource('distributor')
+      setSelectedDistributor(invoice.distributor)
+      setDistributorSearch(invoice.distributor.name_ar || invoice.distributor.name || '')
+    } else if (invoice.branch) {
+      setTransactionSource('branch')
+      setSelectedBranch(invoice.branch)
+      setBranchSearch(invoice.branch.name_ar || invoice.branch.name || '')
+    }
+
+    const drafts = deviceDraftsFromInvoice(invoice, date)
+    setDeviceLines(drafts)
+    setQuantity(Math.max(1, drafts.length))
+    const installFee = Number(invoice.installation_fee ?? 0)
+    setApplyInstallationFee(installFee > 0)
+    setInstallationFee(installFee || defaultInstallationFee)
+    const transport = Number(invoice.transportation_fee ?? 0)
+    setApplyTransportationFee(transport > 0)
+    setTransportationFee(transport)
+    setFeeDiscountAmount(Number(invoice.discount_amount ?? 0))
+    if (invoice.source_invoice && invoice.contract_kind === 'ownership_transfer') {
+      setSourceTransferInvoice(invoice.source_invoice)
+    }
+  }, [editInvoiceQuery.data, editInvoiceId, defaultInstallationFee])
+
   const renewalLineIdFromUrl = useMemo(() => {
     const raw = searchParams.get('renewal_line_id')
     const id = Number(raw)
@@ -155,6 +228,7 @@ export function PosPage() {
   })
 
   useEffect(() => {
+    if (isEditMode) return
     const promos = activePromotionsQuery.data ?? []
     if (deviceLines.length === 0) {
       setSelectedPromotionId('')
@@ -167,7 +241,7 @@ export function PosPage() {
       setSelectedPromotionId(promos[0].id)
       hasAutoSelectedPromotion.current = true
     }
-  }, [activePromotionsQuery.data, deviceLines.length, selectedPromotionId])
+  }, [activePromotionsQuery.data, deviceLines.length, selectedPromotionId, isEditMode])
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -442,6 +516,7 @@ export function PosPage() {
           : available
 
   useEffect(() => {
+    if (isEditMode) return
     if (quantity <= 0) {
       setDeviceLines([])
       return
@@ -509,6 +584,7 @@ export function PosPage() {
     contractKind,
     manualDeviceEntry,
     productQuery.data,
+    isEditMode,
   ])
 
   useEffect(() => {
@@ -648,27 +724,38 @@ export function PosPage() {
   )
 
   useEffect(() => {
+    if (isEditMode) return
     setInstallationFee(defaultInstallationFee)
-  }, [defaultInstallationFee])
+  }, [defaultInstallationFee, isEditMode])
 
   const checkoutMutation = useMutation({
     mutationFn: async (payload: CheckoutPayload) => {
+      if (isEditMode && editInvoiceId) {
+        const { data } = await api.put<SalesInvoice>(`/sales-invoices/${editInvoiceId}`, payload)
+        return data
+      }
       const { data } = await api.post<SalesInvoice>('/sales-invoices/checkout', payload)
       return data
     },
     onSuccess: (invoice) => {
       setLastInvoice(invoice)
       setSubmitAttempted(false)
-      setSuccessMsg(
-        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
-      )
-      setQuantity(1)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'renewal-candidates'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-invoice'] })
+      if (isEditMode) {
+        setSuccessMsg(`تم حفظ تعديل التعاقد #${invoice.invoice_number ?? invoice.id}`)
+        navigate(`/invoices/${invoice.id}`)
+        return
+      }
+      setSuccessMsg(
+        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
+      )
+      setQuantity(1)
       setSourceRenewalCandidate(null)
     },
   })
@@ -690,8 +777,8 @@ export function PosPage() {
           ? Boolean(selectedDistributor)
           : Boolean(selectedSalesRep))
     if (!customerId || !sourceReady || deviceLines.length === 0) return
-    if (!manualDeviceEntry && !warehouseId) return
-    if (!manualDeviceEntry && !allowNegativeInventory && quantity > available) return
+    if (!manualDeviceEntry && !warehouseId && !isEditMode) return
+    if (!manualDeviceEntry && !allowNegativeInventory && !isEditMode && quantity > available) return
     if (!allLinesValid) return
     if (contractKind === 'ownership_transfer' && !sourceTransferInvoice) return
     if (isRenewal && !sourceRenewalCandidate) return
@@ -741,6 +828,22 @@ export function PosPage() {
       }
     })
 
+    if (isEditMode && editInvoiceQuery.data) {
+      for (const line of editInvoiceQuery.data.lines ?? []) {
+        if (!isServiceInvoiceLine(line)) continue
+        lines.push({
+          line_type: 'service',
+          service_id: line.service_id ?? undefined,
+          description: line.description ?? undefined,
+          quantity: line.quantity,
+          unit_price: Number(line.unit_price ?? 0),
+          payment_term: line.payment_term === 'installment' ? 'installment' : 'cash',
+          cash_schedule: line.cash_schedule ?? undefined,
+          technician_id: line.technician_id ?? undefined,
+        })
+      }
+    }
+
     if (
       !manualDeviceEntry &&
       !allowNegativeInventory &&
@@ -762,6 +865,8 @@ export function PosPage() {
 
     if (warehouseId) {
       payload.warehouse_id = warehouseId
+    } else if (isEditMode && editInvoiceQuery.data?.warehouse_id) {
+      payload.warehouse_id = editInvoiceQuery.data.warehouse_id
     }
 
     if (transactionSource === 'distributor' && selectedDistributor) {
@@ -883,15 +988,15 @@ export function PosPage() {
     deviceLines.length === 0 ||
     (contractKind === 'ownership_transfer' && !sourceTransferInvoice) ||
     (contractKind === 'subscription_renewal' && !sourceRenewalCandidate) ||
-    (!manualDeviceEntry && !warehouseId) ||
-    (!manualDeviceEntry && !allowNegativeInventory && quantity > available) ||
+    (!manualDeviceEntry && !warehouseId && !isEditMode) ||
+    (!manualDeviceEntry && !allowNegativeInventory && !isEditMode && quantity > available) ||
     !allLinesValid
 
   const submitInvalid = submitDisabled && !checkoutMutation.isPending
 
   return (
     <SalesPageShell
-      title="تعاقد جديد"
+      title={isEditMode ? 'تعديل التعاقد' : 'تعاقد جديد'}
       headerExtra={
         contractKind === 'subscription_renewal' ? (
           <div className="rounded-lg border border-primary/25 bg-primary/5 px-sm py-xs text-sm">
@@ -921,7 +1026,17 @@ export function PosPage() {
       }
       actions={<StartTourButton tourId="pos" />}
     >
-      <PosContractTypeTabs />
+      {isEditMode && editInvoiceQuery.isError ? (
+        <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">
+          تعذر تحميل التعاقد للتعديل.
+        </p>
+      ) : null}
+      {isEditMode && editInvoiceQuery.data && !canEditContract(user, editInvoiceQuery.data) ? (
+        <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">
+          لا توجد صلاحية لتعديل هذا التعاقد في حالته الحالية.
+        </p>
+      ) : null}
+      {isEditMode ? null : <PosContractTypeTabs />}
       <PosContractKindSelector
         value={contractKind}
         onChange={(kind) => {
@@ -946,7 +1061,7 @@ export function PosPage() {
           مدى الحياة (25% من كاش الاشتراك السنوي).
         </p>
       )}
-      {!manualDeviceEntry && !warehouseId && (
+      {!manualDeviceEntry && !warehouseId && !isEditMode && (
         <p
           className={`mb-md rounded-lg border p-sm text-sm ${
             submitAttempted
@@ -1146,6 +1261,7 @@ export function PosPage() {
             submitDisabled={submitDisabled}
             submitPending={checkoutMutation.isPending}
             submitInvalid={submitInvalid}
+            actionLabel={isEditMode ? 'حفظ التعديل' : 'إتمام التعاقد'}
             distributorBalanceAvailable={distributorBalanceAvailable}
             distributorBalanceAmount={distributorBalanceAmount}
             onDistributorBalanceAmountChange={setDistributorBalanceAmount}
@@ -1157,6 +1273,7 @@ export function PosPage() {
           submitDisabled={submitDisabled}
           submitPending={checkoutMutation.isPending}
           submitInvalid={submitInvalid}
+          actionLabel={isEditMode ? 'حفظ التعديل' : 'إتمام التعاقد'}
         />
       </form>
     </SalesPageShell>

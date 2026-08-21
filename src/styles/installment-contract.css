@@ -1348,20 +1348,6 @@
 .service-receipt .ic-header {
   margin-bottom: 0;
 }
-.sr-watermark {
-  position: absolute;
-  inset: 28% 12% 18%;
-  width: auto;
-  height: auto;
-  max-width: 76%;
-  max-height: 54%;
-  margin: auto;
-  object-fit: contain;
-  opacity: 0.07;
-  pointer-events: none;
-  z-index: 0;
-  user-select: none;
-}
 .sr-meta {
   display: flex;
   justify-content: space-between;
@@ -1373,9 +1359,13 @@
   border-bottom: 3.5px solid var(--ic-red);
   margin-bottom: 4mm;
 }
+.sr-meta-branch {
+  color: var(--ic-red);
+}
 .sr-meta-branch span {
   display: inline-block;
   min-width: 28mm;
+  color: var(--ic-ink);
   border-bottom: 1.5px dashed #111;
   text-align: center;
   padding: 0 2mm;
@@ -1406,8 +1396,39 @@
   border-bottom: 1.5px dashed #111;
   padding: 0 1.5mm 0.5mm;
 }
+.sr-work {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 118mm;
+  border: 1.6px solid #111;
+  padding: 4mm 3.5mm 5mm;
+  margin-bottom: 5mm;
+  overflow: hidden;
+}
+.sr-watermark {
+  position: absolute;
+  inset: 12% 10% 8%;
+  width: auto;
+  height: auto;
+  max-width: 70%;
+  max-height: 78%;
+  margin: auto;
+  object-fit: contain;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+.sr-work-title,
+.sr-procedures {
+  position: relative;
+  z-index: 1;
+}
 .sr-work-title {
-  margin: 1mm auto 6mm;
+  margin: 0 auto 6mm;
   width: fit-content;
   max-width: 92%;
   text-align: center;
@@ -1416,43 +1437,63 @@
   line-height: 1.45;
   padding: 2mm 7mm;
   border: 2.4px double #111;
+  background: #fff;
 }
 .sr-procedures {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
   gap: 5mm;
-  margin-bottom: 6mm;
 }
 .sr-procedure {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 2.5mm 3mm;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 3.5mm;
+  min-width: 0;
+}
+.sr-procedure-main {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 2.5mm;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .sr-procedure-label {
   font-size: 11.5pt;
   font-weight: 800;
   white-space: nowrap;
   padding-bottom: 0.5mm;
+  flex: 0 0 auto;
 }
 .sr-procedure-notes {
+  flex: 1 1 auto;
+  min-width: 8mm;
   min-height: 6.5mm;
   border-bottom: 1.5px dashed #111;
   font-size: 11pt;
   font-weight: 700;
   padding: 0 1mm 0.5mm;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sr-procedure-date {
   white-space: nowrap;
   font-size: 11pt;
   font-weight: 700;
   padding-bottom: 0.5mm;
+  flex: 0 0 auto;
 }
 .sr-tech-box {
+  flex: 0 0 32mm;
+  width: 32mm;
   border: 1.5px solid #111;
-  min-width: 32mm;
-  padding: 1mm 2.5mm 1.5mm;
+  padding: 1mm 2mm 1.5mm;
   text-align: center;
+  background: #fff;
 }
 .sr-tech-box-label {
   font-size: 8.5pt;
@@ -1469,7 +1510,8 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin: 2mm 0 4mm;
+  margin: 0 0 3mm;
+  flex: 0 0 auto;
   font-size: 12pt;
   font-weight: 700;
 }
@@ -1492,14 +1534,15 @@
 }
 .sr-sign {
   margin-top: auto;
-  padding-top: 10mm;
+  padding-top: 6mm;
   text-align: start;
   font-size: 13pt;
   font-weight: 800;
+  flex: 0 0 auto;
 }
 .sr-sign-line {
   width: 48mm;
-  margin-top: 10mm;
+  margin-top: 7mm;
   border-bottom: 1.6px dotted #111;
 }
 

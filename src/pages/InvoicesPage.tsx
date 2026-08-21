@@ -113,9 +113,9 @@ export function InvoicesPage() {
   const columns = useMemo(
     () =>
       buildContractListColumns({
-        renderActions: defaultContractListActions,
+        renderActions: (row) => defaultContractListActions(row, user),
       }),
-    [],
+    [user],
   )
 
   return (
