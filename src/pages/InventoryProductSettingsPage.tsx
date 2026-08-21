@@ -157,14 +157,12 @@ export function InventoryProductSettingsPage() {
   const debtBasePreview = useMemo(() => {
     const services = servicesQuery.data ?? []
     const uninstallFee = serviceCashPrice(services, 'uninstall')
-    const installationFee = serviceCashPrice(services, 'installation')
     const softwareFee = serviceCashPrice(services, 'software')
     const cashAnnual = Number(form.cash_annual_price || 0)
     const cashAnnualPortion = Math.round(cashAnnual * 0.25 * 100) / 100
-    const baseTotal = uninstallFee + installationFee + softwareFee + cashAnnualPortion
+    const baseTotal = uninstallFee + softwareFee + cashAnnualPortion
     return {
       uninstallFee,
-      installationFee,
       softwareFee,
       cashAnnualPortion,
       baseTotal,
@@ -353,7 +351,7 @@ export function InventoryProductSettingsPage() {
           <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
             <h3 className="text-sm font-bold text-on-surface">مديونية الجهاز</h3>
             <p className="text-xs text-on-surface-variant">
-              تُحسب عند الاسترجاع: رسوم فك + تركيب + سوفت + 25% من كاش الاشتراك السنوي + (قيمة
+              تُحسب عند الاسترجاع: رسوم فك + سوفت + 25% من كاش الاشتراك السنوي + (قيمة
               فائدة كل شهر × عدد الشهور من تاريخ تنفيذ التركيب).
             </p>
             <PriceField
@@ -367,7 +365,6 @@ export function InventoryProductSettingsPage() {
             <div className="space-y-1 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-sm py-sm text-xs text-on-surface-variant">
               <p className="font-medium text-on-surface">البنود الثابتة (بدون الفائدة الشهرية)</p>
               <p>رسوم فك: {debtBasePreview.uninstallFee.toLocaleString('ar-EG')} ج.م</p>
-              <p>رسوم تركيب: {debtBasePreview.installationFee.toLocaleString('ar-EG')} ج.م</p>
               <p>رسوم سوفت: {debtBasePreview.softwareFee.toLocaleString('ar-EG')} ج.م</p>
               <p>
                 25% من كاش اشتراك سنوي:{' '}
@@ -377,7 +374,7 @@ export function InventoryProductSettingsPage() {
                 الإجمالي الثابت: {debtBasePreview.baseTotal.toLocaleString('ar-EG')} ج.م
               </p>
               <p className="text-[11px]">
-                أسعار الفك/التركيب/السوفت تُسحب من أول خدمة مفعّلة لكل تصنيف في صفحة الخدمات.
+                أسعار الفك/السوفت تُسحب من أول خدمة مفعّلة لكل تصنيف في صفحة الخدمات.
               </p>
             </div>
           </section>

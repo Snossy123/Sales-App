@@ -8,7 +8,6 @@ type CaseType = 'support' | 'return' | 'exchange'
 
 interface ReturnDebtBreakdown {
   uninstall_fee: number
-  installation_fee: number
   software_fee: number
   cash_annual_portion: number
   monthly_interest_amount: number
@@ -286,11 +285,6 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                     <p>
                       رسوم فك:{' '}
                       {Number(previewQuery.data.breakdown.uninstall_fee).toLocaleString('ar-EG')} ج.م
-                    </p>
-                    <p>
-                      رسوم تركيب:{' '}
-                      {Number(previewQuery.data.breakdown.installation_fee).toLocaleString('ar-EG')}{' '}
-                      ج.م
                     </p>
                     <p>
                       رسوم سوفت:{' '}

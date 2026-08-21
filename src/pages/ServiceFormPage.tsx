@@ -168,7 +168,7 @@ export function ServiceFormPage() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-on-surface-variant">
-                فك / تركيب / سوفت وير تُستخدم تلقائياً في حساب مديونية الجهاز عند الاسترجاع.
+                فك / سوفت وير تُستخدم تلقائياً في حساب مديونية الجهاز عند الاسترجاع.
               </p>
             </div>
             <div>

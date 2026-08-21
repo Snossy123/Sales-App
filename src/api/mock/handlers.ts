@@ -2487,7 +2487,6 @@ export function handleMockRequest(
       state.gpsProduct.cash_annual_price ?? state.gpsProduct.cash_price ?? state.gpsProduct.sell_price ?? 0,
     )
     const uninstallFee = activeServiceCash('uninstall')
-    const installationFee = activeServiceCash('installation')
     const softwareFee = activeServiceCash('software')
     const cashAnnualPortion = Math.round(cashAnnual * 0.25 * 100) / 100
     const monthlyInterest = Number(state.gpsProduct.monthly_interest_amount ?? 0)
@@ -2495,7 +2494,7 @@ export function handleMockRequest(
     const interestTotal = Math.round(monthlyInterest * months * 100) / 100
     const calculatedDebt =
       Math.round(
-        (uninstallFee + installationFee + softwareFee + cashAnnualPortion + interestTotal) * 100,
+        (uninstallFee + softwareFee + cashAnnualPortion + interestTotal) * 100,
       ) / 100
 
     const overrideRaw = params.device_debt_amount
@@ -2513,7 +2512,6 @@ export function handleMockRequest(
       disbursement_amount: Math.max(0, Math.round((totalPaid - deviceDebt) * 100) / 100),
       breakdown: {
         uninstall_fee: uninstallFee,
-        installation_fee: installationFee,
         software_fee: softwareFee,
         cash_annual_portion: cashAnnualPortion,
         monthly_interest_amount: monthlyInterest,
