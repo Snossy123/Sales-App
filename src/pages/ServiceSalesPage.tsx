@@ -16,6 +16,7 @@ import type {
 import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
+import { SalesPageShell } from '../components/SalesPageShell'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
 import {
