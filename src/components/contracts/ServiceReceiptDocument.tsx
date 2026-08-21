@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
+import type { InstallmentItem, SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
   branchLabel,
   resolveInvoiceLine,
@@ -84,16 +84,40 @@ function dashedValue(value: string, opts?: { dir?: 'ltr' | 'rtl' }): ReactNode {
   )
 }
 
+function receiptTechnician(invoice: SalesInvoice): string {
+  const fromInvoice = resolveTechnician(undefined, invoice)
+  if (fromInvoice) return fromInvoice
+  const line = (invoice.lines ?? []).find((item) => item.technician?.name)
+  return resolveTechnician(line, invoice)
+}
+
+function receiptInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
+  const invoicePlan = invoice.installment_plan
+  if (invoicePlan?.items?.length) return [...invoicePlan.items]
+  const plans = invoice.installment_plans ?? []
+  return plans
+    .flatMap((plan) => plan.items ?? [])
+    .sort((a, b) => {
+      const seq = Number(a.sequence ?? a.installment_number ?? 0) - Number(b.sequence ?? b.installment_number ?? 0)
+      if (seq !== 0) return seq
+      return String(a.due_date).localeCompare(String(b.due_date))
+    })
+}
+
 export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocumentProps) {
   const customer = invoice.customer
   const invoiceScoped = lineId == null || !Number.isFinite(lineId) || lineId <= 0
   const focused = invoiceScoped ? undefined : resolveInvoiceLine(invoice, lineId)
   const identityLine = receiptIdentityLine(invoice, focused)
   const procedures = receiptProcedureLines(invoice, focused, invoiceScoped)
-  const feeRows = invoiceScoped ? procedures : focused ? [focused] : procedures
   const invoiceDate = fmtSlashDate(invoice.invoice_date)
   const branch = branchLabel(invoice)
   const branchDisplay = branch && branch !== '—' ? branch : ''
+  const technician = receiptTechnician(invoice)
+  const total = Number(invoice.total ?? 0)
+  const paidNow = Number(invoice.paid_amount ?? 0)
+  const balanceDue = Number(invoice.balance_due ?? Math.max(0, total - paidNow))
+  const installmentItems = receiptInstallmentItems(invoice)
 
   return (
     <article className="installment-contract service-receipt">
@@ -169,22 +193,47 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
             </tr>
           </thead>
           <tbody>
-            {(feeRows.length > 0 ? feeRows : [undefined]).map((line, index) => (
-              <tr key={line?.id ?? `fee-blank-${index}`}>
-                <td>{line ? resolveTechnician(line, invoice) : ''}</td>
-                <td>{line ? fmtFee(line.line_total ?? line.unit_price) : ''}</td>
-                <td>{line ? invoiceDate || '/ / 202' : '/ / 202'}</td>
-              </tr>
-            ))}
-            {feeRows.length <= 1 && (
-              <tr>
-                <td />
-                <td />
-                <td>/ / 202</td>
-              </tr>
-            )}
+            <tr>
+              <td>{technician}</td>
+              <td>{fmtFee(total)}</td>
+              <td>{invoiceDate || '/ / 202'}</td>
+            </tr>
           </tbody>
         </table>
+
+        <table className="sr-pay">
+          <tbody>
+            <tr>
+              <th>المدفوع الآن</th>
+              <td>{fmtFee(paidNow)}</td>
+            </tr>
+            <tr>
+              <th>الباقي</th>
+              <td>{fmtFee(balanceDue)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {installmentItems.length > 0 ? (
+          <table className="sr-installments">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الاستحقاق</th>
+                <th>المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {installmentItems.map((item, index) => (
+                <tr key={item.id ?? index}>
+                  <td>{item.sequence ?? item.installment_number ?? index + 1}</td>
+                  <td>{fmtSlashDate(item.due_date)}</td>
+                  <td>{fmtFee(item.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
 
         <div className="sr-sign">
           <div>توقيع المسؤول</div>

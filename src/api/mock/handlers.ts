@@ -2958,6 +2958,9 @@ export function handleMockRequest(
 
       const balanceDue = Math.max(0, subtotal - paidAmount)
       const invoiceId = s.counters.invoice++
+      const technician = body.technician_id
+        ? s.employees.find((emp) => emp.id === body.technician_id)
+        : undefined
       const invoiceLines = body.items.map((item, index) => {
         const lineId = invoiceId * 100 + index
         const lineTotal = Number(item.unit_price)
@@ -2971,6 +2974,8 @@ export function handleMockRequest(
           product_name_ar: item.description,
           description: item.description,
           payment_term: isContractScope ? contractTerm : (item.payment_term ?? 'cash'),
+          technician_id: technician?.id ?? null,
+          technician: technician ? { id: technician.id, name: technician.name } : null,
         }
 
         if (!isContractScope) {
@@ -3035,6 +3040,8 @@ export function handleMockRequest(
         paid_amount: paidAmount,
         balance_due: balanceDue,
         notes: body.notes ?? null,
+        technician_id: technician?.id ?? null,
+        technician_name: technician?.name ?? null,
         lines: invoiceLines,
       }
 

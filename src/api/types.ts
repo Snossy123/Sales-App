@@ -818,6 +818,7 @@ export interface SalesInvoice {
   notes?: string | null
   technician_name?: string | null
   technician_id?: number | null
+  technician?: { id: number; name: string; job_title?: string | null } | null
   vehicle_info?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
   vehicle_plate_letters?: string | null
@@ -1139,6 +1140,7 @@ export interface ServiceCheckoutPayload {
   distributor_balance_amount?: number
   collection_scope?: 'service' | 'contract'
   payment_term?: 'cash' | 'installment'
+  technician_id?: number
   down_payment?: number
   installment_plan?: {
     down_payment: number

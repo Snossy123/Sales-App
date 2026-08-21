@@ -52,13 +52,14 @@ import {
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
 import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
+import { SearchableSelect } from '../components/SearchableSelect'
 import {
   createDefaultServicePayment,
   ServicePaymentSection,
   validateServicePayment,
   type ServicePaymentState,
 } from '../components/services/ServicePaymentSection'
-import { posToggleBtn } from '../components/pos/posFormStyles'
+import { posRequiredWrap, posToggleBtn } from '../components/pos/posFormStyles'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
@@ -155,6 +156,8 @@ export function ServiceCombinerPage() {
   const [contractPayment, setContractPayment] = useState<ServicePaymentState>(() =>
     createDefaultServicePayment(0, minDownPercent),
   )
+  const [feeTechnician, setFeeTechnician] = useState<Employee | null>(null)
+  const [technicianSearch, setTechnicianSearch] = useState('')
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -326,6 +329,13 @@ export function ServiceCombinerPage() {
 
   const catalogServices = servicesQuery.data?.data ?? []
   const product = productQuery.data
+  const hasFeeChips = COMBINER_FEE_CHIPS.some((chip) => selectedChips.has(chip.id))
+  const filteredTechnicians = useMemo(() => {
+    const employees = employeesQuery.data ?? []
+    const q = technicianSearch.trim().toLowerCase()
+    if (!q) return employees
+    return employees.filter((employee) => employee.name.toLowerCase().includes(q))
+  }, [employeesQuery.data, technicianSearch])
   const annualRenewalPrice = Number(product?.annual_renewal_price ?? 0)
   const externalCashPrice = Number(
     product?.external_cash_annual_price ?? product?.cash_annual_price ?? product?.sell_price ?? 0,
@@ -608,7 +618,8 @@ export function ServiceCombinerPage() {
     externalValid &&
     feesValid &&
     contractPaymentValid &&
-    !missingFeeService
+    !missingFeeService &&
+    (!hasFeeChips || Boolean(feeTechnician))
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
@@ -643,6 +654,7 @@ export function ServiceCombinerPage() {
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
+          technician_id: feeTechnician?.id,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
           cash_schedule:
             collectionScope === 'service' && line.paymentTerm === 'cash'
@@ -734,6 +746,8 @@ export function ServiceCombinerPage() {
       setRenewalLine(null)
       setExternalLine(null)
       setFeeLines({})
+      setFeeTechnician(null)
+      setTechnicianSearch('')
       setSubmitAttempted(false)
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -874,6 +888,39 @@ export function ServiceCombinerPage() {
             annualRenewalOnly
           />
         )}
+
+        {hasFeeChips ? (
+          <div className={`rounded-lg border bg-surface-container-lowest p-md ${
+            submitAttempted && !feeTechnician
+              ? 'border-error/40'
+              : 'border-outline-variant'
+          }`}>
+            <div className={posRequiredWrap(submitAttempted && !feeTechnician)}>
+              <SearchableSelect
+                label="الفني"
+                options={filteredTechnicians}
+                value={feeTechnician}
+                onChange={setFeeTechnician}
+                onSearchChange={setTechnicianSearch}
+                getOptionValue={(emp) => emp.id}
+                getOptionLabel={(emp) =>
+                  `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+                }
+                placeholder="ابحث باسم الفني..."
+                loading={employeesQuery.isLoading}
+                emptyMessage="لا يوجد فني مطابق"
+                hasError={submitAttempted && !feeTechnician}
+              />
+              {submitAttempted && !feeTechnician ? (
+                <p className="mt-xs text-xs text-error">الفني مطلوب لكل خدمات الفك والتركيب والسوفت والبرمجة</p>
+              ) : (
+                <p className="mt-xs text-xs text-on-surface-variant">
+                  يُسند نفس الفني لكل خدمات الفك / التركيب / البرمجة / السوفت في هذا العقد
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {COMBINER_FEE_CHIPS.filter((chip) => selectedChips.has(chip.id) && feeLines[chip.id]).map(
           (chip) => (

@@ -23,7 +23,7 @@ export function ServiceContractPrintPage() {
     queryFn: async () => {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${invoiceId}`, {
         params: {
-          include: 'customer,branch,lines.service,lines.technician,lines.productUnit',
+          include: 'customer,branch,technician,lines.service,lines.technician,lines.productUnit,installmentPlan.items,installmentPlans.items',
         },
       })
       return data

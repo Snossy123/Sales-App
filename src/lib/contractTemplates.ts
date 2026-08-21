@@ -55,10 +55,11 @@ export function sampleServiceReceiptInvoice(): SalesInvoice {
     invoice_number: 'INV-000044',
     invoice_date: '2026-06-25',
     customer_id: 1,
-    payment_term: 'cash',
-    payment_status: 'paid',
+    payment_term: 'installment',
+    payment_status: 'partial',
     total: 700,
-    balance_due: 0,
+    paid_amount: 200,
+    balance_due: 500,
     technician_name: 'باسم مصطفى',
     notes: 'تم التركيب في فرع المعادي',
     customer: {
@@ -75,6 +76,34 @@ export function sampleServiceReceiptInvoice(): SalesInvoice {
       name_ar: 'المعادي',
       code: 'MAADI',
     },
+    installment_plan: {
+      id: 1,
+      down_payment: 200,
+      installment_count: 2,
+      installment_amount: 250,
+      interval_type: 'monthly',
+      interval_days: 30,
+      first_due_date: '2026-07-25',
+      status: 'active',
+      items: [
+        {
+          id: 1,
+          sequence: 1,
+          due_date: '2026-07-25',
+          amount: 250,
+          paid_amount: 0,
+          status: 'pending',
+        },
+        {
+          id: 2,
+          sequence: 2,
+          due_date: '2026-08-25',
+          amount: 250,
+          paid_amount: 0,
+          status: 'pending',
+        },
+      ],
+    },
     lines: [
       {
         id: 1,
@@ -84,7 +113,6 @@ export function sampleServiceReceiptInvoice(): SalesInvoice {
         quantity: 1,
         unit_price: 500,
         line_total: 500,
-        technician: { id: 1, name: 'باسم مصطفى' },
       },
       {
         id: 2,
@@ -94,7 +122,6 @@ export function sampleServiceReceiptInvoice(): SalesInvoice {
         quantity: 1,
         unit_price: 200,
         line_total: 200,
-        technician: { id: 1, name: 'باسم مصطفى' },
       },
     ],
   }

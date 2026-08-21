@@ -182,7 +182,8 @@ export function resolveUsername(line?: SalesInvoiceLine, customer?: Customer | n
 }
 
 export function resolveTechnician(line?: SalesInvoiceLine, invoice?: SalesInvoice): string {
-  const name = line?.technician?.name ?? invoice?.technician_name ?? ''
+  const name =
+    line?.technician?.name ?? invoice?.technician?.name ?? invoice?.technician_name ?? ''
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return parts.slice(0, 2).join(' ')
 }

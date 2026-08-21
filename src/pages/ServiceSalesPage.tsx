@@ -6,6 +6,7 @@ import type {
   Branch,
   Customer,
   Distributor,
+  Employee,
   PaginatedResponse,
   SalesInvoice,
   SalesRep,
@@ -19,6 +20,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
+import { SearchableSelect } from '../components/SearchableSelect'
 import { posToggleBtn } from '../components/pos/posFormStyles'
 import {
   createDefaultServicePayment,
@@ -102,6 +104,8 @@ export function ServiceSalesPage({
   const [uninstallInvoice, setUninstallInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
+  const [technician, setTechnician] = useState<Employee | null>(null)
+  const [technicianSearch, setTechnicianSearch] = useState('')
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -256,6 +260,27 @@ export function ServiceSalesPage({
     },
     enabled: useCatalog,
   })
+
+  const employeesQuery = useQuery({
+    queryKey: ['employees', 'service-sales'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
+        params: { per_page: 100, 'filter[status]': 'active' },
+      })
+      return data.data
+    },
+  })
+
+  const filteredTechnicians = useMemo(() => {
+    const employees = employeesQuery.data ?? []
+    const q = technicianSearch.trim().toLowerCase()
+    if (!q) return employees
+    return employees.filter((employee) => {
+      const name = employee.name.toLowerCase()
+      const title = (employee.job_title ?? '').toLowerCase()
+      return name.includes(q) || title.includes(q)
+    })
+  }, [employeesQuery.data, technicianSearch])
 
   const catalogServices = useMemo(() => {
     const rows = servicesQuery.data?.data ?? []
@@ -419,6 +444,10 @@ export function ServiceSalesPage({
         payload.distributor_balance_amount = distributorBalanceAmount
       }
 
+      if (technician) {
+        payload.technician_id = technician.id
+      }
+
       const { data } = await api.post<SalesInvoice>('/sales-invoices/service-checkout', payload)
       return data
     },
@@ -448,6 +477,8 @@ export function ServiceSalesPage({
       )
       setContractPayment(createDefaultServicePayment(0, minDownPercent))
       setSelectedServiceId('')
+      setTechnician(null)
+      setTechnicianSearch('')
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
@@ -538,6 +569,26 @@ export function ServiceSalesPage({
           contractDate={contractDate}
           onContractDateChange={setContractDate}
         />
+
+        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+          <SearchableSelect
+            label="الفني"
+            options={filteredTechnicians}
+            value={technician}
+            onChange={setTechnician}
+            onSearchChange={setTechnicianSearch}
+            getOptionValue={(emp) => emp.id}
+            getOptionLabel={(emp) =>
+              `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+            }
+            placeholder="ابحث باسم الفني..."
+            loading={employeesQuery.isLoading}
+            emptyMessage="لا يوجد فني مطابق"
+          />
+          <p className="mt-xs text-xs text-on-surface-variant">
+            فني واحد يُسند لكل خدمات هذا التعاقد
+          </p>
+        </div>
 
         <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
           <label className="mb-xs block text-sm text-on-surface-variant">ملاحظات</label>
