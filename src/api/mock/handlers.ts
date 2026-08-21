@@ -2904,10 +2904,16 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'sales-invoices/service-checkout') {
     const body = data as ServiceCheckoutPayload
-    for (const item of body.items) {
-      if (item.payment_term === 'installment' && !item.installment_plan) {
-        throw mockError(422, 'خطة التقسيط مطلوبة للبند')
+    const collectionScope = body.collection_scope ?? 'service'
+    const isContractScope = collectionScope === 'contract'
+    if (!isContractScope) {
+      for (const item of body.items) {
+        if (item.payment_term === 'installment' && !item.installment_plan) {
+          throw mockError(422, 'خطة التقسيط مطلوبة للبند')
+        }
       }
+    } else if (body.payment_term === 'installment' && !body.installment_plan) {
+      throw mockError(422, 'خطة التقسيط مطلوبة للتعاقد')
     }
     let created: SalesInvoice | undefined
     mutateState((s) => {
@@ -2918,24 +2924,36 @@ export function handleMockRequest(
       }
 
       const subtotal = body.items.reduce(
-        (sum, item) => sum + Number(item.unit_price),
+        (sum, item) => sum + Number(item.unit_price) * Number(item.quantity ?? 1),
         0,
       )
 
-      const lineTerms = body.items.map((item) => item.payment_term ?? 'cash')
-      const uniqueTerms = [...new Set(lineTerms)]
-      const paymentTerm =
-        uniqueTerms.length > 1 ? 'mixed' : (uniqueTerms[0] ?? 'cash')
+      const contractTerm = body.payment_term ?? 'cash'
+      const paymentTerm = isContractScope
+        ? contractTerm
+        : (() => {
+            const lineTerms = body.items.map((item) => item.payment_term ?? 'cash')
+            const uniqueTerms = [...new Set(lineTerms)]
+            return uniqueTerms.length > 1 ? 'mixed' : (uniqueTerms[0] ?? 'cash')
+          })()
 
       let paidAmount = 0
-      for (const item of body.items) {
-        const lineTotal = Number(item.unit_price)
-        const term = item.payment_term ?? 'cash'
+      if (isContractScope) {
         const down =
-          term === 'installment'
-            ? Number(item.installment_plan?.down_payment ?? 0)
-            : Number(item.down_payment ?? 0)
-        paidAmount += linePaidNow(term, item.cash_schedule, lineTotal, down)
+          contractTerm === 'installment'
+            ? Number(body.installment_plan?.down_payment ?? 0)
+            : Number(body.down_payment ?? 0)
+        paidAmount = linePaidNow(contractTerm, 'immediate', subtotal, down)
+      } else {
+        for (const item of body.items) {
+          const lineTotal = Number(item.unit_price) * Number(item.quantity ?? 1)
+          const term = item.payment_term ?? 'cash'
+          const down =
+            term === 'installment'
+              ? Number(item.installment_plan?.down_payment ?? 0)
+              : Number(item.down_payment ?? 0)
+          paidAmount += linePaidNow(term, item.cash_schedule, lineTotal, down)
+        }
       }
 
       const balanceDue = Math.max(0, subtotal - paidAmount)
@@ -2952,45 +2970,47 @@ export function handleMockRequest(
           line_total: lineTotal,
           product_name_ar: item.description,
           description: item.description,
-          payment_term: item.payment_term ?? 'cash',
+          payment_term: isContractScope ? contractTerm : (item.payment_term ?? 'cash'),
         }
 
-        if (item.payment_term === 'installment' && item.installment_plan) {
-          const plan: InstallmentPlan = {
-            id: lineId,
-            sales_invoice_line_id: lineId,
-            down_payment: Number(item.installment_plan.down_payment),
-            installment_count: Number(item.installment_plan.installment_count),
-            installment_amount: Number(item.installment_plan.installment_amount),
-            interval_days: item.installment_plan.interval_days ?? 30,
-            interval_type: item.installment_plan.interval_type ?? 'monthly',
-            first_due_date: item.installment_plan.first_due_date,
-            status: 'active',
-            items: [],
-          }
-          line.installment_plan = plan
-        } else if ((item.payment_term ?? 'cash') === 'cash') {
-          const down = Number(item.down_payment ?? 0)
-          const remainder = cashRemainder(lineTotal, down)
-          const schedule = (item.cash_schedule ?? 'immediate') as CashSchedule
-          const deferred = isDeferredCashSchedule(schedule)
-          if (remainder > 0 && (deferred || down > 0)) {
-            const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
-            const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
-            if (dueDate) {
-              const plan: InstallmentPlan = {
-                id: lineId,
-                sales_invoice_line_id: lineId,
-                down_payment: down,
-                installment_count: 1,
-                installment_amount: remainder,
-                interval_days: 30,
-                interval_type: 'monthly',
-                first_due_date: dueDate,
-                status: 'active',
-                items: [],
+        if (!isContractScope) {
+          if (item.payment_term === 'installment' && item.installment_plan) {
+            const plan: InstallmentPlan = {
+              id: lineId,
+              sales_invoice_line_id: lineId,
+              down_payment: Number(item.installment_plan.down_payment),
+              installment_count: Number(item.installment_plan.installment_count),
+              installment_amount: Number(item.installment_plan.installment_amount),
+              interval_days: item.installment_plan.interval_days ?? 30,
+              interval_type: item.installment_plan.interval_type ?? 'monthly',
+              first_due_date: item.installment_plan.first_due_date,
+              status: 'active',
+              items: [],
+            }
+            line.installment_plan = plan
+          } else if ((item.payment_term ?? 'cash') === 'cash') {
+            const down = Number(item.down_payment ?? 0)
+            const remainder = cashRemainder(lineTotal, down)
+            const schedule = (item.cash_schedule ?? 'immediate') as CashSchedule
+            const deferred = isDeferredCashSchedule(schedule)
+            if (remainder > 0 && (deferred || down > 0)) {
+              const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
+              const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
+              if (dueDate) {
+                const plan: InstallmentPlan = {
+                  id: lineId,
+                  sales_invoice_line_id: lineId,
+                  down_payment: down,
+                  installment_count: 1,
+                  installment_amount: remainder,
+                  interval_days: 30,
+                  interval_type: 'monthly',
+                  first_due_date: dueDate,
+                  status: 'active',
+                  items: [],
+                }
+                line.installment_plan = plan
               }
-              line.installment_plan = plan
             }
           }
         }
@@ -3022,16 +3042,34 @@ export function handleMockRequest(
         .map((line) => line.installment_plan)
         .filter((plan): plan is InstallmentPlan => Boolean(plan))
 
-      if (installmentPlans.length === 1 && paymentTerm !== 'mixed') {
-        invoice.installment_plan = installmentPlans[0]
-      }
-      if (installmentPlans.length > 0) {
-        invoice.installment_plans = installmentPlans
-      }
+      if (isContractScope && paymentTerm === 'installment' && body.installment_plan) {
+        const invoicePlan: InstallmentPlan = {
+          id: invoiceId,
+          sales_invoice_line_id: undefined,
+          down_payment: Number(body.installment_plan.down_payment),
+          installment_count: Number(body.installment_plan.installment_count),
+          installment_amount: Number(body.installment_plan.installment_amount),
+          interval_days: body.installment_plan.interval_days ?? 30,
+          interval_type: body.installment_plan.interval_type ?? 'monthly',
+          first_due_date: body.installment_plan.first_due_date,
+          status: 'active',
+          items: [],
+        }
+        invoice.installment_plan = invoicePlan
+        invoice.installment_plans = [invoicePlan]
+        generateInstallmentItems(s, invoice, undefined, invoicePlan)
+      } else {
+        if (installmentPlans.length === 1 && paymentTerm !== 'mixed') {
+          invoice.installment_plan = installmentPlans[0]
+        }
+        if (installmentPlans.length > 0) {
+          invoice.installment_plans = installmentPlans
+        }
 
-      for (const line of invoiceLines) {
-        if (line.installment_plan) {
-          generateInstallmentItems(s, invoice, line, line.installment_plan)
+        for (const line of invoiceLines) {
+          if (line.installment_plan) {
+            generateInstallmentItems(s, invoice, line, line.installment_plan)
+          }
         }
       }
 

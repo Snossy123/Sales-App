@@ -121,6 +121,7 @@ interface ServiceLineCardProps {
   onChange: (line: ServiceLineDraft) => void
   onRemove: () => void
   showErrors?: boolean
+  showPayment?: boolean
 }
 
 export function ServiceLineCard({
@@ -132,6 +133,7 @@ export function ServiceLineCard({
   onChange,
   onRemove,
   showErrors = false,
+  showPayment = true,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
   const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
@@ -195,7 +197,7 @@ export function ServiceLineCard({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-md p-sm sm:p-md lg:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-md p-sm sm:p-md${showPayment ? ' lg:grid-cols-2' : ''}`}>
         <div className="space-y-sm">
           <div className={posRequiredWrap(descriptionError)}>
             <label className={posLabelClass}>الوصف</label>
@@ -223,6 +225,7 @@ export function ServiceLineCard({
           </div>
         </div>
 
+        {showPayment ? (
         <div
           className={`flex flex-col gap-sm rounded-lg border p-sm ${
             showErrors && (!installmentValidation.valid || !cashValidation.valid)
@@ -351,6 +354,7 @@ export function ServiceLineCard({
             </div>
           )}
         </div>
+        ) : null}
       </div>
     </div>
   )

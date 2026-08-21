@@ -13,12 +13,19 @@ import type {
   ServiceCategory,
   ServiceCheckoutPayload,
 } from '../api/types'
-import { type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
+import { type ApiPaginated, computeInstallmentCount, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
+import { posToggleBtn } from '../components/pos/posFormStyles'
+import {
+  createDefaultServicePayment,
+  ServicePaymentSection,
+  validateServicePayment,
+  type ServicePaymentState,
+} from '../components/services/ServicePaymentSection'
 import {
   ServiceContractHeader,
   type TransactionSource,
@@ -81,9 +88,13 @@ export function ServiceSalesPage({
   const [lines, setLines] = useState<ServiceLineDraft[]>(() =>
     defaultLines.length > 0
       ? defaultLines.map((line) =>
-          createServiceLine(line, { contractDate, minDownPercent }),
+          createServiceLine(line, { contractDate, minDownPercent, paymentTerm: 'cash' }),
         )
       : [],
+  )
+  const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>('contract')
+  const [contractPayment, setContractPayment] = useState<ServicePaymentState>(() =>
+    createDefaultServicePayment(0, minDownPercent),
   )
   const [selectedServiceId, setSelectedServiceId] = useState<number | ''>('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -257,10 +268,14 @@ export function ServiceSalesPage({
     [lines],
   )
 
-  const paidNow = useMemo(
-    () => lines.reduce((sum, line) => sum + linePaidNow(line), 0),
-    [lines],
-  )
+  const paidNow = useMemo(() => {
+    if (collectionScope === 'contract') {
+      return contractPayment.paymentTerm === 'cash'
+        ? total
+        : Math.min(total, Math.max(0, contractPayment.downPayment))
+    }
+    return lines.reduce((sum, line) => sum + linePaidNow(line), 0)
+  }, [collectionScope, contractPayment, lines, total])
 
   const balanceDue = Math.max(0, total - paidNow)
 
@@ -280,11 +295,44 @@ export function ServiceSalesPage({
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
   const maxDistributorBalanceUse = Math.min(distributorBalanceAvailable, paidNow)
 
-  const allLinesValid = lines.every(
-    (line) =>
-      validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
-      validateServiceLineCash(line).valid,
-  )
+  const applyContractTermToLines = (
+    term: ServicePaymentState['paymentTerm'],
+    currentLines: ServiceLineDraft[],
+  ) =>
+    currentLines.map((line) => ({
+      ...line,
+      paymentTerm: term,
+      unit_price: term === 'installment' ? line.installmentPrice : line.cashPrice,
+    }))
+
+  const handleCollectionScopeChange = (scope: 'contract' | 'service') => {
+    setCollectionScope(scope)
+    if (scope === 'contract') {
+      setLines((prev) => applyContractTermToLines(contractPayment.paymentTerm, prev))
+    }
+  }
+
+  const handleContractPaymentChange = (patch: Partial<ServicePaymentState>) => {
+    setContractPayment((prev) => ({ ...prev, ...patch }))
+    if (patch.paymentTerm) {
+      const term = patch.paymentTerm
+      setLines((prev) => applyContractTermToLines(term, prev))
+    }
+  }
+
+  const allLinesValid =
+    collectionScope === 'contract'
+      ? validateServicePayment(
+          contractPayment,
+          total,
+          minDownPercent,
+          maxInstallmentCount,
+        ).valid
+      : lines.every(
+          (line) =>
+            validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
+            validateServiceLineCash(line).valid,
+        )
 
   const sourceReady =
     transactionSource === 'branch'
@@ -303,18 +351,23 @@ export function ServiceSalesPage({
         sale_category: saleCategory,
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
+        collection_scope: collectionScope,
         items: lines.map((line) => {
           const base = {
             service_id: line.service_id,
             description: line.description,
+            quantity: 1,
             unit_price: line.unit_price,
-            payment_term: line.paymentTerm,
-            cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
+          }
+
+          if (collectionScope === 'contract') {
+            return base
           }
 
           if (line.paymentTerm === 'installment') {
             return {
               ...base,
+              payment_term: line.paymentTerm,
               installment_plan: {
                 down_payment: line.downPayment,
                 installment_amount: line.installmentAmount,
@@ -328,9 +381,30 @@ export function ServiceSalesPage({
 
           return {
             ...base,
+            payment_term: line.paymentTerm,
+            cash_schedule: line.cashSchedule,
             down_payment: line.downPayment > 0 ? line.downPayment : undefined,
           }
         }),
+      }
+
+      if (collectionScope === 'contract') {
+        payload.payment_term = contractPayment.paymentTerm
+        if (contractPayment.paymentTerm === 'installment') {
+          payload.installment_plan = {
+            down_payment: contractPayment.downPayment,
+            installment_amount: contractPayment.installmentAmount,
+            installment_count: computeInstallmentCount(
+              total,
+              contractPayment.installmentAmount,
+              contractPayment.downPayment,
+              maxInstallmentCount,
+            ),
+            interval_type: contractPayment.intervalType,
+            interval_days: contractPayment.intervalType === 'weekly' ? 7 : 30,
+            first_due_date: contractPayment.firstDueDate,
+          }
+        }
       }
 
       if (transactionSource === 'distributor' && selectedDistributor) {
@@ -349,7 +423,10 @@ export function ServiceSalesPage({
       return data
     },
     onSuccess: (invoice) => {
-      const hasInstallment = lines.some((line) => line.paymentTerm === 'installment')
+      const hasInstallment =
+        collectionScope === 'contract'
+          ? contractPayment.paymentTerm === 'installment'
+          : lines.some((line) => line.paymentTerm === 'installment')
       setLastInstallmentSale(hasInstallment)
       setLastInvoice(invoice)
       setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
@@ -369,6 +446,7 @@ export function ServiceSalesPage({
           ? defaultLines.map((line) => createServiceLine(line, { contractDate, minDownPercent }))
           : [],
       )
+      setContractPayment(createDefaultServicePayment(0, minDownPercent))
       setSelectedServiceId('')
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -383,16 +461,21 @@ export function ServiceSalesPage({
 
     setLines((prev) => [
       ...prev,
-      createServiceLine(
-        {
-          service_id: service.id,
-          description: service.name_ar || service.name,
-          unit_price: Number(service.cash_price ?? service.default_price),
-          cashPrice: Number(service.cash_price ?? service.default_price),
-          installmentPrice: Number(service.installment_price ?? service.default_price),
-        },
-        { contractDate, minDownPercent },
-      ),
+          createServiceLine(
+            {
+              service_id: service.id,
+              description: service.name_ar || service.name,
+              unit_price: Number(service.cash_price ?? service.default_price),
+              cashPrice: Number(service.cash_price ?? service.default_price),
+              installmentPrice: Number(service.installment_price ?? service.default_price),
+            },
+            {
+              contractDate,
+              minDownPercent,
+              paymentTerm:
+                collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
+            },
+          ),
     ])
     setSelectedServiceId('')
   }
@@ -402,7 +485,11 @@ export function ServiceSalesPage({
       ...prev,
       createServiceLine(
         { description: '', unit_price: 0, cashPrice: 0, installmentPrice: 0 },
-        { contractDate, minDownPercent },
+        {
+          contractDate,
+          minDownPercent,
+          paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
+        },
       ),
     ])
   }
@@ -479,6 +566,25 @@ export function ServiceSalesPage({
               )}
             </div>
 
+            <div className="space-y-xs">
+              <p className="text-sm text-on-surface-variant">التحصيل</p>
+              <div className="flex gap-sm">
+                {([
+                  { id: 'contract', label: 'تحصيل على مستوى التعاقد' },
+                  { id: 'service', label: 'تحصيل على مستوى الخدمة' },
+                ] as const).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleCollectionScopeChange(option.id)}
+                    className={posToggleBtn(collectionScope === option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {useCatalog && (
               <div className="flex flex-wrap items-end gap-sm rounded-lg border border-outline-variant/60 bg-surface-container-low p-sm">
                 <div className="min-w-[200px] flex-1">
@@ -529,10 +635,21 @@ export function ServiceSalesPage({
                       setLines((prev) => prev.map((l) => (l.id === updated.id ? updated : l)))
                     }
                     onRemove={() => setLines((prev) => prev.filter((l) => l.id !== line.id))}
+                    showPayment={collectionScope === 'service'}
                   />
                 ))}
               </div>
             )}
+
+            {collectionScope === 'contract' && lines.length > 0 ? (
+              <ServicePaymentSection
+                total={total}
+                payment={contractPayment}
+                onChange={handleContractPaymentChange}
+                minDownPercent={minDownPercent}
+                maxInstallmentCount={maxInstallmentCount}
+              />
+            ) : null}
           </div>
 
           <div className="space-y-md">

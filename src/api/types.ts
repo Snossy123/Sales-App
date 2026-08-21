@@ -1136,6 +1136,17 @@ export interface ServiceCheckoutPayload {
   invoice_date?: string
   notes?: string
   distributor_balance_amount?: number
+  collection_scope?: 'service' | 'contract'
+  payment_term?: 'cash' | 'installment'
+  down_payment?: number
+  installment_plan?: {
+    down_payment: number
+    installment_amount: number
+    installment_count: number
+    interval_type?: 'monthly' | 'weekly'
+    interval_days?: number
+    first_due_date: string
+  }
   items: {
     service_id?: number
     description: string
