@@ -73,6 +73,7 @@ function deviceCheckoutLine(
   const base = {
     line_type: 'device' as const,
     line_contract_kind: kind,
+    description: kind === 'subscription_renewal' ? 'تجديد اشتراك سنوي' : 'جهاز خارج الشركة',
     unit_price: line.unitPrice,
     discount: line.discountAmount,
     serial_number: line.serialNumber.trim() || undefined,
@@ -706,7 +707,7 @@ export function ServiceCombinerPage() {
                 product={product}
                 cashPrice={annualRenewalPrice}
                 installmentPrice={annualRenewalPrice}
-                onChange={setRenewalLine}
+                onChange={(line) => setRenewalLine(line)}
                 minDownPercent={minDownPercent}
                 maxInstallmentCount={maxInstallmentCount}
                 employees={employeesQuery.data ?? []}
@@ -728,7 +729,7 @@ export function ServiceCombinerPage() {
             product={product}
             cashPrice={externalCashPrice}
             installmentPrice={externalInstallmentPrice}
-            onChange={setExternalLine}
+            onChange={(line) => setExternalLine(line)}
             minDownPercent={minDownPercent}
             maxInstallmentCount={maxInstallmentCount}
             employees={employeesQuery.data ?? []}

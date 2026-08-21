@@ -2628,7 +2628,7 @@ export function handleMockRequest(
 
   if (m === 'POST' && path === 'sales-invoices/checkout') {
     const body = data as CheckoutPayload & {
-      lines: { product_id?: number; quantity?: number; unit_price?: number }[]
+      lines: CheckoutPayload['lines']
     }
     let created: SalesInvoice | undefined
     mutateState((s) => {
