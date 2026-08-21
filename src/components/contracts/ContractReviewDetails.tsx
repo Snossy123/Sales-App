@@ -1,11 +1,11 @@
 import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
   displayValue,
+  fmtContractDate,
   fmtContractMoney,
   invoiceContractSummary,
   resolveInstallmentMethodLabel,
   resolveProductModelName,
-  resolveRenewalLabel,
   resolveRenewalTypeLabel,
   resolveSerial,
   resolveSim,
@@ -227,8 +227,20 @@ function DeviceDetailCard({
   const technician = resolveTechnician(line, invoice)
   if (technician) cells.push({ label: 'الفني', value: technician })
 
-  const renewal = resolveRenewalLabel(line, invoice)
-  if (renewal) cells.push({ label: 'تاريخ الاشتراك', value: renewal })
+  const contractDate = fmtContractDate(invoice.invoice_date)
+  if (contractDate && contractDate !== '—') {
+    cells.push({ label: 'تاريخ التعاقد', value: contractDate })
+  }
+
+  const renewalType = line.renewal_type ?? invoice.renewal_type
+  if (renewalType === 'annual') {
+    const renewalDate = fmtContractDate(
+      line.subscription_renewal_date ?? invoice.subscription_renewal_date,
+    )
+    if (renewalDate && renewalDate !== '—') {
+      cells.push({ label: 'تاريخ تجديد الاشتراك', value: renewalDate })
+    }
+  }
 
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(paymentTerm) })
 
