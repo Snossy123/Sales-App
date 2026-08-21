@@ -514,6 +514,8 @@ export interface ProductUnit {
   inventory_bucket?: string | null
   custody_employee_id?: number | null
   custody_employee?: { id: number; name: string } | null
+  custody_customer_id?: number | null
+  custody_customer?: { id: number; name: string } | null
   cost_price?: string | number | null
   sell_price?: string | number | null
   notes?: string | null

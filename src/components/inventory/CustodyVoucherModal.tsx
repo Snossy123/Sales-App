@@ -78,7 +78,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data ?? []
     },
-    enabled: open && mode === 'issue' && recipientType === 'customer',
+    enabled: open && ((mode === 'receive' && inventoryBucket === 'custody_customer') || (mode === 'issue' && recipientType === 'customer')),
   })
 
   const lookupUnit = async (raw: string) => {
@@ -133,6 +133,9 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
             notes: notes || undefined,
           }
         }
+        if (inventoryBucket === 'custody_customer') {
+          payload.customer_id = customerId
+        }
         const { data } = await api.post<CustodyVoucher>('/inventory/custody/receive', payload)
         return data
       }
@@ -159,9 +162,10 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   })
 
   const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && serialCode.trim())
+  const customerReady = inventoryBucket !== 'custody_customer' || Boolean(customerId)
   const recipientReady =
     mode === 'receive'
-      ? Boolean(employeeId)
+      ? Boolean(employeeId) && customerReady
       : recipientType === 'employee'
         ? Boolean(employeeId)
         : Boolean(customerId)
@@ -311,7 +315,13 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                           ? 'border-primary bg-primary text-on-primary'
                           : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/50'
                       }`}
-                      onClick={() => setInventoryBucket(option.value)}
+                      onClick={() => {
+                        setInventoryBucket(option.value)
+                        if (option.value !== 'custody_customer') {
+                          setCustomerId('')
+                          setCustomerSearch('')
+                        }
+                      }}
                     >
                       {option.label}
                     </button>
@@ -322,7 +332,8 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
           </>
         )}
 
-        {mode === 'issue' && recipientType === 'customer' && (
+        {(mode === 'receive' && inventoryBucket === 'custody_customer') ||
+        (mode === 'issue' && recipientType === 'customer') ? (
           <div className="space-y-2">
             <label className="mb-1 block text-sm">العميل</label>
             <input
@@ -344,9 +355,11 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                 </option>
               ))}
             </select>
-            <p className="text-xs text-on-surface-variant">سيتم إخراج الجهاز من عهدة الفرع وإرجاعه للعميل.</p>
+            {mode === 'issue' && (
+              <p className="text-xs text-on-surface-variant">سيتم إخراج الجهاز من عهدة الفرع وإرجاعه للعميل.</p>
+            )}
           </div>
-        )}
+        ) : null}
 
         <div>
           <label className="mb-1 block text-sm">ملاحظات</label>

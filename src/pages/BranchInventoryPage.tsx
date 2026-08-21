@@ -53,6 +53,7 @@ export function BranchInventoryPage() {
   const [unitSearch, setUnitSearch] = useState('')
   const [bucketFilter, setBucketFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
+  const [customerFilter, setCustomerFilter] = useState('')
 
   const [logSearch, setLogSearch] = useState('')
   const [logTypeFilter, setLogTypeFilter] = useState('')
@@ -101,6 +102,21 @@ export function BranchInventoryPage() {
     ]
   }, [units])
 
+  const customerOptions = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const unit of units) {
+      if (unit.custody_customer?.id && unit.custody_customer.name) {
+        names.set(String(unit.custody_customer.id), unit.custody_customer.name)
+      }
+    }
+    return [
+      { value: '', label: 'الكل' },
+      ...[...names.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1], 'ar'))
+        .map(([value, label]) => ({ value, label })),
+    ]
+  }, [units])
+
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase()
     return units.filter((unit) => {
@@ -108,13 +124,17 @@ export function BranchInventoryPage() {
       if (employeeFilter && String(unit.custody_employee_id ?? unit.custody_employee?.id ?? '') !== employeeFilter) {
         return false
       }
+      if (customerFilter && String(unit.custody_customer_id ?? unit.custody_customer?.id ?? '') !== customerFilter) {
+        return false
+      }
       if (!q) return true
       const serial = productUnitDisplayCode(unit).toLowerCase()
       const model = modelName(unit).toLowerCase()
       const employee = (unit.custody_employee?.name ?? '').toLowerCase()
-      return serial.includes(q) || model.includes(q) || employee.includes(q)
+      const customer = (unit.custody_customer?.name ?? '').toLowerCase()
+      return serial.includes(q) || model.includes(q) || employee.includes(q) || customer.includes(q)
     })
-  }, [units, unitSearch, bucketFilter, employeeFilter])
+  }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter])
 
   const filteredVouchers = useMemo(() => {
     const q = logSearch.trim().toLowerCase()
@@ -132,7 +152,7 @@ export function BranchInventoryPage() {
     })
   }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo])
 
-  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter)
+  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter || customerFilter)
   const hasLogFilters = Boolean(logSearch || logTypeFilter || dateFrom || dateTo)
 
   return (
@@ -193,7 +213,7 @@ export function BranchInventoryPage() {
           <FilterBar
             search={unitSearch}
             onSearchChange={setUnitSearch}
-            searchPlaceholder="بحث بالسريال أو الموظف أو الموديل"
+            searchPlaceholder="بحث بالسريال أو الموظف أو العميل أو الموديل"
             selects={[
               {
                 id: 'bucket',
@@ -215,12 +235,20 @@ export function BranchInventoryPage() {
                 options: employeeOptions,
                 onChange: setEmployeeFilter,
               },
+              {
+                id: 'customer',
+                label: 'العميل',
+                value: customerFilter,
+                options: customerOptions,
+                onChange: setCustomerFilter,
+              },
             ]}
             showClear={hasCustodyFilters}
             onClear={() => {
               setUnitSearch('')
               setBucketFilter('')
               setEmployeeFilter('')
+              setCustomerFilter('')
             }}
           />
           <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
@@ -228,7 +256,7 @@ export function BranchInventoryPage() {
                 data={filteredUnits}
                 keyExtractor={(row) => row.id}
                 pageSize={PAGE_SIZE}
-                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}`}
+                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}`}
                 striped={false}
                 emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
                 columns={[
@@ -252,6 +280,11 @@ export function BranchInventoryPage() {
                     key: 'employee',
                     header: 'الموظف',
                     render: (row) => row.custody_employee?.name ?? '—',
+                  },
+                  {
+                    key: 'customer',
+                    header: 'العميل',
+                    render: (row) => row.custody_customer?.name ?? '—',
                   },
                   {
                     key: 'model',
