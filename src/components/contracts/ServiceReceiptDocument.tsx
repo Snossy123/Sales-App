@@ -16,12 +16,12 @@ interface ServiceReceiptDocumentProps {
   lineId?: number
 }
 
-const PROCEDURE_LABELS = [
-  'الاجراء الاول',
-  'الاجراء الثاني',
-  'الاجراء الثالث',
-  'الاجراء الرابع',
-] as const
+const PROCEDURE_ORDINALS = ['الاول', 'الثاني', 'الثالث', 'الرابع'] as const
+
+function procedureLabel(index: number): string {
+  const ordinal = PROCEDURE_ORDINALS[index]
+  return ordinal ? `الاجراء ${ordinal}` : `الاجراء ${index + 1}`
+}
 
 function fmtSlashDate(value?: string | null): string {
   if (!value) return ''
@@ -106,12 +106,9 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
           draggable={false}
         />
 
-        <ContractPrintHeader title="بيان فك وتركيب" />
+        <ContractPrintHeader title="بيان فك وتركيب" branchLabel={branchDisplay} />
 
         <div className="sr-meta">
-          <div className="sr-meta-branch">
-            فرع ( <span>{branchDisplay}</span> )
-          </div>
           <div className="sr-meta-date">
             اليوم الموافق {invoiceDate || '/ / 202'}
           </div>
@@ -145,29 +142,22 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
             draggable={false}
           />
           <div className="sr-work-title">ما تم طلبه من العميل وانجازة من فريق العمل</div>
-          <div className="sr-procedures">
-            {PROCEDURE_LABELS.map((label, index) => {
-              const line = procedures[index]
-              const tech = line ? resolveTechnician(line, invoice) : ''
-              const notes = lineDescription(line)
-              const date = line ? fmtSlashDate(invoice.invoice_date) : ''
-              return (
-                <div key={label} className="sr-procedure">
-                  <div className="sr-procedure-main">
-                    <span className="sr-procedure-label">- {label}/</span>
-                    <span className="sr-procedure-notes">{notes}</span>
-                    <span className="sr-procedure-date">
-                      التاريخ {date || '/ / 202'}
-                    </span>
-                  </div>
-                  <div className="sr-tech-box">
-                    <div className="sr-tech-box-label">اسم الفني</div>
-                    <div className="sr-tech-box-name">{tech}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {procedures.length > 0 && (
+            <table className="sr-proc-table">
+              <tbody>
+                {procedures.map((line, index) => (
+                  <tr key={line.id ?? index}>
+                    <td className="sr-proc-cell">
+                      <div className="sr-proc-line">
+                        <span className="sr-procedure-label">- {procedureLabel(index)}/</span>
+                        <span className="sr-procedure-notes">{lineDescription(line)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <table className="sr-fees">
