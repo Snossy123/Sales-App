@@ -322,15 +322,26 @@ export function InventoryPage() {
               key: 'actions',
               header: 'إجراءات',
               render: (row) => {
-                if (row.row_type === 'department_pending' && isAdmin) {
+                if (row.row_type === 'department_pending') {
+                  const deptId = row.department_id as number
                   return (
-                    <button
-                      type="button"
-                      onClick={() => openDistribute(row.department_id as number)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      توزيع
-                    </button>
+                    <div className="flex flex-wrap gap-sm">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => openDistribute(deptId)}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          توزيع
+                        </button>
+                      )}
+                      <Link
+                        to={`/branches?department=${deptId}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        عرض الفروع
+                      </Link>
+                    </div>
                   )
                 }
                 if (row.row_type === 'branch') {
@@ -349,10 +360,10 @@ export function InventoryPage() {
                         </button>
                       )}
                       <Link
-                        to={`/branches?department=${deptId}`}
+                        to={`/branches/${branchId}`}
                         className="text-sm text-primary hover:underline"
                       >
-                        عرض الفروع
+                        عرض الفرع
                       </Link>
                     </div>
                   )
