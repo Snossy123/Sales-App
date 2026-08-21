@@ -51,6 +51,7 @@ import {
   DeviceLineCard,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
+import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
 import {
   createDefaultServicePayment,
   ServicePaymentSection,
