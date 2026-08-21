@@ -28,15 +28,20 @@ export const CONTRACT_KINDS: { value: ContractKind; label: string; description: 
 export const REVIEW_CONTRACT_KIND_OPTIONS = [
   { value: '', label: 'كل أنواع الخدمة' },
   ...CONTRACT_KINDS.map(({ value, label }) => ({ value, label })),
+  { value: 'mixed', label: 'خدمات مجمّعة' },
 ]
 
-const KIND_LABELS = CONTRACT_KINDS.reduce(
-  (acc, item) => ({ ...acc, [item.value]: item.label }),
-  {} as Record<ContractKind, string>,
-)
+const KIND_LABELS: Record<string, string> = {
+  ...CONTRACT_KINDS.reduce(
+    (acc, item) => ({ ...acc, [item.value]: item.label }),
+    {} as Record<string, string>,
+  ),
+  mixed: 'خدمات مجمّعة',
+}
 
 export function contractKindLabel(kind?: string | null): string {
   if (!kind) return KIND_LABELS.new_contract
+  if (kind === 'mixed') return 'خدمات مجمّعة'
   return KIND_LABELS[kind as ContractKind] ?? kind
 }
 
@@ -53,6 +58,9 @@ export function reviewApproveLabel(kind?: string | null): string {
   }
   if (kind === 'subscription_renewal') {
     return `اعتماد ${contractKindLabel(kind)}`
+  }
+  if (kind === 'mixed') {
+    return 'اعتماد خدمات مجمّعة'
   }
   return 'تأكيد وإرسال الأقساط'
 }

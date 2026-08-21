@@ -1,91 +1,79 @@
 import { useEffect, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
+import { api } from '../api/client'
+import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ServiceReceiptDocument } from '../components/contracts/ServiceReceiptDocument'
 import { Icon } from '../components/Icon'
-import { mockContractPreviewHtml } from '../lib/contractTemplates'
-
-async function fetchServiceLineContract(invoiceId: number, lineId: number): Promise<string> {
-  try {
-    const { data } = await api.get<string>(
-      `/sales-invoices/${invoiceId}/lines/${lineId}/contract`,
-      {
-        headers: { Accept: 'text/html' },
-        responseType: 'text',
-      },
-    )
-    return typeof data === 'string' ? data : mockContractPreviewHtml('service_receipt')
-  } catch {
-    return mockContractPreviewHtml('service_receipt')
-  }
-}
+import { printInstallmentContractElement } from '../lib/printInstallmentContract'
+import '../styles/installment-contract.css'
 
 export function ServiceContractPrintPage() {
-  const { id = '', lineId = '' } = useParams<{ id: string; lineId: string }>()
+  const { id = '', lineId = '' } = useParams<{ id: string; lineId?: string }>()
   const [searchParams] = useSearchParams()
   const autoPrint = searchParams.get('print') === '1'
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const contractRef = useRef<HTMLDivElement>(null)
+  const didAutoPrint = useRef(false)
   const invoiceId = Number(id)
   const line = Number(lineId)
 
   const query = useQuery({
-    queryKey: ['service-contract-print', invoiceId, line],
-    queryFn: () => fetchServiceLineContract(invoiceId, line),
-    enabled: Number.isFinite(invoiceId) && invoiceId > 0 && Number.isFinite(line) && line > 0,
+    queryKey: ['sales-invoice', 'service-contract-print', invoiceId],
+    queryFn: async () => {
+      const { data } = await api.get<SalesInvoice>(`/sales-invoices/${invoiceId}`, {
+        params: {
+          include: 'customer,branch,lines.service,lines.technician,lines.productUnit',
+        },
+      })
+      return data
+    },
+    enabled: Number.isFinite(invoiceId) && invoiceId > 0,
   })
 
   useEffect(() => {
-    if (query.data && iframeRef.current) {
-      iframeRef.current.srcdoc = query.data
-    }
-  }, [query.data])
-
-  useEffect(() => {
-    if (autoPrint && query.data && iframeRef.current?.contentWindow) {
-      const timer = window.setTimeout(() => {
-        iframeRef.current?.contentWindow?.print()
-      }, 500)
-      return () => window.clearTimeout(timer)
-    }
+    if (!autoPrint || !query.data || didAutoPrint.current) return
+    didAutoPrint.current = true
+    const timer = window.setTimeout(() => {
+      const el = contractRef.current?.querySelector('.installment-contract')
+      if (el instanceof HTMLElement) {
+        void printInstallmentContractElement(el)
+      }
+    }, 500)
+    return () => window.clearTimeout(timer)
   }, [autoPrint, query.data])
 
-  const handlePrint = () => {
-    iframeRef.current?.contentWindow?.print()
+  const handlePrint = async () => {
+    const el = contractRef.current?.querySelector('.installment-contract')
+    if (!(el instanceof HTMLElement)) return
+    await printInstallmentContractElement(el)
   }
 
   return (
-    <div className="min-h-screen bg-surface-container-low p-md">
-      <div className="mx-auto mb-md flex max-w-[210mm] items-center justify-between gap-sm">
+    <div className="installment-contract-page">
+      <div className="installment-contract-toolbar no-print">
         <Link
           to="/pos"
-          className="flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-sm text-sm"
+          className="flex items-center gap-1 rounded-lg border border-outline-variant bg-white px-md py-sm text-sm text-on-surface hover:bg-surface-container"
         >
           <Icon name="arrow_forward" size={18} />
           رجوع
         </Link>
-        <button
-          type="button"
-          onClick={handlePrint}
-          disabled={!query.data}
-          className="flex items-center gap-1 rounded-lg bg-secondary px-md py-sm text-sm font-bold text-on-secondary disabled:opacity-50"
-        >
+        <button type="button" onClick={() => void handlePrint()} disabled={!query.data}>
           <Icon name="print" size={18} />
           طباعة عقد الخدمة
         </button>
       </div>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        {query.isError && (
-          <p className="mx-auto mb-md max-w-[210mm] text-sm text-error">
-            {getErrorMessage(query.error)}
-          </p>
+        {query.data && (
+          <div ref={contractRef}>
+            <ServiceReceiptDocument
+              invoice={query.data}
+              lineId={Number.isFinite(line) && line > 0 ? line : undefined}
+            />
+          </div>
         )}
-        <iframe
-          ref={iframeRef}
-          title="عقد الخدمة"
-          className="mx-auto block min-h-[297mm] w-full max-w-[210mm] border-0 bg-white shadow-md"
-        />
       </AsyncState>
     </div>
   )

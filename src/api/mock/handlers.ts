@@ -2453,6 +2453,7 @@ export function handleMockRequest(
       ...invoice,
       lines,
       customer,
+      branch: state.branches.find((b) => b.id === invoice.branch_id),
       source_invoice: invoice.source_sales_invoice_id
         ? (() => {
             const source = state.invoices.find((i) => i.id === invoice.source_sales_invoice_id)
@@ -2658,7 +2659,7 @@ export function handleMockRequest(
         const isDeviceLine =
           line.line_type === 'device' ||
           (line.line_type !== 'service' && line.product_unit_id != null)
-        if (isDeviceLine && !line.technician_id) {
+        if (contractKind === 'new_contract' && isDeviceLine && !line.technician_id) {
           throw mockError(422, `جهاز ${index + 1}: الفني مطلوب`)
         }
       })
@@ -2697,6 +2698,7 @@ export function handleMockRequest(
         return {
           id: s.counters.invoice * 100 + index + 1,
           line_type: isServiceLine ? 'service' : 'device',
+          line_contract_kind: isServiceLine ? undefined : line.line_contract_kind,
           product_id: isServiceLine ? undefined : s.gpsProduct.id,
           product_unit_id: isServiceLine ? undefined : line.product_unit_id,
           service_id: isServiceLine ? line.service_id : undefined,

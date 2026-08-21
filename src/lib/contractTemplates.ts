@@ -1,4 +1,4 @@
-import type { ContractTemplate } from '../api/types'
+import type { ContractTemplate, SalesInvoice } from '../api/types'
 
 export const CONTRACT_TEMPLATES: ContractTemplate[] = [
   {
@@ -47,6 +47,57 @@ const TEMPLATE_LABELS = CONTRACT_TEMPLATES.reduce(
 export function contractTemplateLabel(key?: string | null): string {
   if (!key) return '—'
   return TEMPLATE_LABELS[key] ?? key
+}
+
+export function sampleServiceReceiptInvoice(): SalesInvoice {
+  return {
+    id: 44,
+    invoice_number: 'INV-000044',
+    invoice_date: '2026-06-25',
+    customer_id: 1,
+    payment_term: 'cash',
+    payment_status: 'paid',
+    total: 700,
+    balance_due: 0,
+    technician_name: 'باسم مصطفى',
+    notes: 'تم التركيب في فرع المعادي',
+    customer: {
+      id: 1,
+      name: 'ليلى منصور',
+      phone: '01022223333',
+      username: 'laila.gps',
+      device_serial: 'SN-889900',
+      status: 'active',
+    },
+    branch: {
+      id: 1,
+      name: 'المعادي',
+      name_ar: 'المعادي',
+      code: 'MAADI',
+    },
+    lines: [
+      {
+        id: 1,
+        line_type: 'service',
+        service_id: 1,
+        description: 'رسوم تركيب',
+        quantity: 1,
+        unit_price: 500,
+        line_total: 500,
+        technician: { id: 1, name: 'باسم مصطفى' },
+      },
+      {
+        id: 2,
+        line_type: 'service',
+        service_id: 2,
+        description: 'رسوم سوفت وير',
+        quantity: 1,
+        unit_price: 200,
+        line_total: 200,
+        technician: { id: 1, name: 'باسم مصطفى' },
+      },
+    ],
+  }
 }
 
 export function mockContractPreviewHtml(key: string): string {

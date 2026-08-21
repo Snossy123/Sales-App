@@ -1341,6 +1341,168 @@
   font-weight: 700;
 }
 
+/* ===== Service receipt — بيان فك وتركيب ===== */
+.service-receipt .ic-frame {
+  flex: 1;
+}
+.service-receipt .ic-header {
+  margin-bottom: 0;
+}
+.sr-watermark {
+  position: absolute;
+  inset: 28% 12% 18%;
+  width: auto;
+  height: auto;
+  max-width: 76%;
+  max-height: 54%;
+  margin: auto;
+  object-fit: contain;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+.sr-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4mm;
+  font-size: 12pt;
+  font-weight: 700;
+  padding: 2mm 1mm 3mm;
+  border-bottom: 3.5px solid var(--ic-red);
+  margin-bottom: 4mm;
+}
+.sr-meta-branch span {
+  display: inline-block;
+  min-width: 28mm;
+  border-bottom: 1.5px dashed #111;
+  text-align: center;
+  padding: 0 2mm;
+}
+.sr-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1.6px solid #111;
+  margin-bottom: 5mm;
+}
+.sr-info-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  padding: 3mm 3.5mm 2.5mm;
+  min-height: 11mm;
+  font-size: 11.5pt;
+  font-weight: 700;
+  border: 0.8px solid #111;
+}
+.sr-info-label {
+  white-space: nowrap;
+}
+.sr-dash {
+  flex: 1;
+  min-width: 0;
+  min-height: 5.5mm;
+  border-bottom: 1.5px dashed #111;
+  padding: 0 1.5mm 0.5mm;
+}
+.sr-work-title {
+  margin: 1mm auto 6mm;
+  width: fit-content;
+  max-width: 92%;
+  text-align: center;
+  font-size: 12.5pt;
+  font-weight: 800;
+  line-height: 1.45;
+  padding: 2mm 7mm;
+  border: 2.4px double #111;
+}
+.sr-procedures {
+  display: flex;
+  flex-direction: column;
+  gap: 5mm;
+  margin-bottom: 6mm;
+}
+.sr-procedure {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 2.5mm 3mm;
+}
+.sr-procedure-label {
+  font-size: 11.5pt;
+  font-weight: 800;
+  white-space: nowrap;
+  padding-bottom: 0.5mm;
+}
+.sr-procedure-notes {
+  min-height: 6.5mm;
+  border-bottom: 1.5px dashed #111;
+  font-size: 11pt;
+  font-weight: 700;
+  padding: 0 1mm 0.5mm;
+}
+.sr-procedure-date {
+  white-space: nowrap;
+  font-size: 11pt;
+  font-weight: 700;
+  padding-bottom: 0.5mm;
+}
+.sr-tech-box {
+  border: 1.5px solid #111;
+  min-width: 32mm;
+  padding: 1mm 2.5mm 1.5mm;
+  text-align: center;
+}
+.sr-tech-box-label {
+  font-size: 8.5pt;
+  font-weight: 800;
+  margin-bottom: 0.5mm;
+}
+.sr-tech-box-name {
+  min-height: 5.5mm;
+  border-bottom: 1px dashed #111;
+  font-size: 10pt;
+  font-weight: 700;
+}
+.sr-fees {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 2mm 0 4mm;
+  font-size: 12pt;
+  font-weight: 700;
+}
+.sr-fees th {
+  background: var(--ic-red);
+  color: #fff;
+  border: 1.4px solid #111;
+  padding: 2.2mm 2mm;
+  font-weight: 800;
+  text-align: center;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.sr-fees td {
+  border: 1.4px solid #111;
+  height: 11mm;
+  padding: 2mm;
+  text-align: center;
+  vertical-align: middle;
+}
+.sr-sign {
+  margin-top: auto;
+  padding-top: 10mm;
+  text-align: start;
+  font-size: 13pt;
+  font-weight: 800;
+}
+.sr-sign-line {
+  width: 48mm;
+  margin-top: 10mm;
+  border-bottom: 1.6px dotted #111;
+}
+
 @media print {
   @page {
     size: A4 portrait;

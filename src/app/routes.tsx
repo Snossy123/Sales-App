@@ -248,6 +248,7 @@ export function AppRoutes() {
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices/:id/ownership-transfer-contract" element={<OwnershipTransferContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />
+            <Route path="invoices/:id/service-contract" element={<ServiceContractPrintPage />} />
             <Route path="invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="contracts/:id" element={<ContractDetailPage />} />
             <Route path="invoices" element={<InvoicesPage />} />

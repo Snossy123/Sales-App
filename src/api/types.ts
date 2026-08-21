@@ -763,6 +763,7 @@ export type ContractKind =
   | 'subscription_renewal'
   | 'external_device'
   | 'ownership_transfer'
+  | 'mixed'
 
 export interface SalesInvoice {
   id: number
@@ -859,6 +860,7 @@ export interface SalesInvoiceLine {
   product_unit_id?: number
   product_model_id?: number | null
   service_id?: number | null
+  line_contract_kind?: 'subscription_renewal' | 'external_device' | null
   accessory_package_id?: number | null
   description?: string | null
   quantity?: number
@@ -1063,6 +1065,7 @@ export interface CheckoutPayload {
   distributor_balance_amount?: number
   lines: {
     line_type?: 'device' | 'service'
+    line_contract_kind?: 'subscription_renewal' | 'external_device'
     product_unit_id?: number
     product_id?: number
     service_id?: number

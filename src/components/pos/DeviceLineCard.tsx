@@ -228,6 +228,7 @@ interface DeviceLineCardProps {
   showErrors?: boolean
   hidePaymentSection?: boolean
   lockedFromSource?: boolean
+  annualRenewalOnly?: boolean
 }
 
 function priceForLine(
@@ -260,6 +261,7 @@ export function DeviceLineCard({
   showErrors = false,
   hidePaymentSection = false,
   lockedFromSource = false,
+  annualRenewalOnly = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -600,14 +602,18 @@ export function DeviceLineCard({
             )}
             <div>
               <label className={posLabelClass}>الاشتراك</label>
-              <select
-                value={line.renewalType}
-                onChange={(e) => handleRenewalTypeChange(e.target.value as RenewalType)}
-                className={posSelectClass}
-              >
-                <option value="annual">{renewalTypeLabels.annual}</option>
-                <option value="permanent">{renewalTypeLabels.permanent}</option>
-              </select>
+              {annualRenewalOnly ? (
+                <p className={posStaticFieldClass}>{renewalTypeLabels.annual}</p>
+              ) : (
+                <select
+                  value={line.renewalType}
+                  onChange={(e) => handleRenewalTypeChange(e.target.value as RenewalType)}
+                  className={posSelectClass}
+                >
+                  <option value="annual">{renewalTypeLabels.annual}</option>
+                  <option value="permanent">{renewalTypeLabels.permanent}</option>
+                </select>
+              )}
               {line.renewalType === 'annual' && renewalDate && (
                 <p className="mt-xs text-xs text-on-surface-variant">تاريخ تجديد الاشتراك: {renewalDate}</p>
               )}

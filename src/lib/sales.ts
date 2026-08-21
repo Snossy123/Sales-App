@@ -232,13 +232,16 @@ export function ownershipTransferContractPrintPath(
 
 export function serviceContractPrintPath(
   invoiceId: number,
-  lineId: number,
+  lineId?: number,
   options?: { autoPrint?: boolean },
 ): string {
   const params = new URLSearchParams()
   if (options?.autoPrint) params.set('print', '1')
   const qs = params.toString()
-  return `/invoices/${invoiceId}/service-contract/${lineId}${qs ? `?${qs}` : ''}`
+  if (lineId) {
+    return `/invoices/${invoiceId}/service-contract/${lineId}${qs ? `?${qs}` : ''}`
+  }
+  return `/invoices/${invoiceId}/service-contract${qs ? `?${qs}` : ''}`
 }
 
 export function isServiceInvoiceLine(line: {

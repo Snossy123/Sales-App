@@ -20,6 +20,7 @@ import {
   usesCashContractTemplate,
   vehicleTypeLabels,
 } from '../../lib/contractFields'
+import { ContractPrintHeader } from './ContractPrintHeader'
 import '../../styles/installment-contract.css'
 
 interface InstallmentContractDocumentProps {
@@ -309,29 +310,11 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
           aria-hidden="true"
           draggable={false}
         />
-        <header className="ic-header">
-          <div className="ic-head-ar">
-            <div className="ic-head-ar-top">مؤسسة</div>
-            <div className="ic-head-ar-main">العراقى للتجارة</div>
-            <div className="ic-head-ar-sub">{branchLabel(invoice)}</div>
-          </div>
-          <div className="ic-head-center">
-            <div className="ic-brandwords">
-              <span>Eleraqy</span>
-              <span>Trading</span>
-            </div>
-            <img className="ic-logo-img" src="/contract/logo.png" alt="Eleraqy Trading" />
-            <div className="ic-title-badge">{contractTitle}</div>
-            {isRenewal ? (
-              <div className="ic-renewal-mode">{renewalPaymentModeLabel}</div>
-            ) : null}
-          </div>
-          <div className="ic-head-en">
-            <div className="ic-head-en-top">Company</div>
-            <div className="ic-head-en-main">Eleraqy Trading</div>
-            <div className="ic-head-en-sub">Security Systems</div>
-          </div>
-        </header>
+        <ContractPrintHeader
+          title={contractTitle}
+          branchLabel={branchLabel(invoice)}
+          extra={isRenewal ? <div className="ic-renewal-mode">{renewalPaymentModeLabel}</div> : null}
+        />
 
         {isRenewal ? (
           <>
