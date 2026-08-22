@@ -104,7 +104,7 @@ export function GpsDeviceTable({
       {filtered.length > 0 && (
         <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-low p-lg">
           <p className="font-body-sm text-on-surface-variant">
-            عرض {filtered.length} من أصل {total.toLocaleString('ar-EG')} فرع
+            عرض {filtered.length} من أصل {total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} فرع
           </p>
         </div>
       )}

@@ -88,7 +88,7 @@ export function TrashPage() {
               key: 'deleted_at',
               header: 'تاريخ الحذف',
               render: (r) =>
-                r.deleted_at ? new Date(r.deleted_at).toLocaleString('ar-EG') : '—',
+                r.deleted_at ? new Date(r.deleted_at).toLocaleString('ar-EG', { numberingSystem: 'latn' }) : '—',
             },
             { key: 'deleted_by', header: 'حُذف بواسطة', render: (r) => r.deleted_by ?? '—' },
             {

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import { Modal } from '../Modal'
+import { TextArea } from '../ui/TextArea'
+import { NumericInput } from '../ui/NumericInput'
+
 
 export interface RefundPaymentTarget {
   id: number
@@ -62,9 +65,9 @@ export function RefundPaymentModal({
         <div className="space-y-sm">
           <p className="text-sm text-on-surface-variant">
             العملية: {payment.transaction_number ?? payment.id} — الحد الأقصى{' '}
-            {maxRefundable.toLocaleString('ar-EG')} ج.م
+            {maxRefundable.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
           </p>
-          <input
+          <NumericInput
             type="number"
             min={0.01}
             max={maxRefundable}
@@ -72,7 +75,8 @@ export function RefundPaymentModal({
             onChange={(e) => setRefundAmount(Number(e.target.value))}
             className="w-full rounded border border-outline-variant px-sm py-2"
           />
-          <textarea
+          <TextArea
+            mode="arabic"
             value={refundReason}
             onChange={(e) => setRefundReason(e.target.value)}
             placeholder="سبب الاسترداد..."

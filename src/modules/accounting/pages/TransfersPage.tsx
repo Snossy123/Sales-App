@@ -9,6 +9,8 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate, formatMoney } from '../../../lib/accounting'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 function getTransferAccounts(lines: AccountingAccTransMapping['lines']) {
   const debit = lines?.find((l) => l.type === 'debit')
@@ -284,7 +286,7 @@ export function TransfersPage() {
               </option>
             ))}
           </select>
-          <input
+          <NumericInput
             type="number"
             min="0.01"
             step="0.01"

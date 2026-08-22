@@ -1,5 +1,5 @@
 import type { ChangeEvent, InputHTMLAttributes } from 'react'
-import { normalizeDigits } from '../../lib/normalizeDigits'
+import { stripNonLatinNumber } from '../../lib/normalizeDigits'
 import { posControlHeightClass } from './posFormStyles'
 
 type PosMoneyInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
@@ -16,7 +16,7 @@ export function PosMoneyInput({
 }: PosMoneyInputProps) {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (!onChange) return
-    const normalized = normalizeDigits(e.target.value)
+    const normalized = stripNonLatinNumber(e.target.value)
     onChange({
       ...e,
       target: { ...e.target, value: normalized },

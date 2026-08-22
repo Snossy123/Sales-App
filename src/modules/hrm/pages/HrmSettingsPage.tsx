@@ -4,6 +4,8 @@ import { api, getErrorMessage } from '../../../api/client'
 import type { HrmSettings } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -61,7 +63,7 @@ export function HrmSettingsPage() {
             {graceFields.map((field) => (
               <div key={field.key}>
                 <label className="mb-1 block text-xs text-on-surface-variant">{field.label}</label>
-                <input
+                <NumericInput
                   type="number"
                   min={0}
                   value={form[field.key] ?? 0}

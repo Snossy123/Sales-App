@@ -1,3 +1,5 @@
+import { formatNumber } from './format'
+
 export const CHART_COLORS = [
   'var(--color-chart-1)',
   'var(--color-chart-2)',
@@ -8,5 +10,5 @@ export const CHART_COLORS = [
 ] as const
 
 export function formatArNumber(value: number) {
-  return value.toLocaleString('ar-EG')
+  return formatNumber(value)
 }

@@ -22,6 +22,8 @@ import {
   type DailyBranchReportFormState,
 } from '../lib/dailyBranchReport'
 import { useAuthStore } from '../stores/authStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 type Tab = 'transactions' | 'summary'
 
@@ -152,10 +154,10 @@ export function DailyBranchReportPage() {
           </label>
           <div className="rounded-lg bg-surface-container-lowest px-md py-2 text-sm">
             <span className="text-on-surface-variant">الإجمالي: </span>
-            <strong className="tabular-nums">{form.total_amount.toLocaleString('ar-EG')}</strong>
+            <strong className="tabular-nums">{form.total_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</strong>
             <span className="mx-sm text-on-surface-variant">|</span>
             <span className="text-on-surface-variant">الصافي: </span>
-            <strong className="tabular-nums">{form.net_amount.toLocaleString('ar-EG')}</strong>
+            <strong className="tabular-nums">{form.net_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</strong>
           </div>
         </div>
 
@@ -203,7 +205,7 @@ export function DailyBranchReportPage() {
                         }}
                         className={inputClass}
                       />
-                      <input
+                      <NumericInput
                         placeholder="المبلغ"
                         type="number"
                         min={0}
@@ -301,7 +303,7 @@ export function DailyBranchReportPage() {
                         }}
                         className={inputClass}
                       />
-                      <input
+                      <NumericInput
                         placeholder="مبلغ"
                         type="number"
                         min={0}
@@ -389,7 +391,7 @@ export function DailyBranchReportPage() {
                   ].map(([key, label]) => (
                     <label key={key} className="text-sm">
                       <span className="mb-xs block text-on-surface-variant">{label}</span>
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         value={form[key as keyof DailyBranchReportFormState] as number | ''}
@@ -473,7 +475,7 @@ export function DailyBranchReportPage() {
                       }}
                       className={inputClass}
                     />
-                    <input
+                    <NumericInput
                       placeholder="مبلغ"
                       type="number"
                       min={0}
@@ -492,7 +494,7 @@ export function DailyBranchReportPage() {
                 ))}
                 <p className="text-sm text-on-surface-variant">
                   إجمالي المصروفات:{' '}
-                  <strong>{form.expenses_total.toLocaleString('ar-EG')} ج.م</strong>
+                  <strong>{form.expenses_total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
                 </p>
               </section>
 

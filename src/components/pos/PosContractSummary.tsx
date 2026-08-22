@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import type { Promotion } from '../../api/types'
 import { Icon } from '../Icon'
+import { NumericInput } from '../ui/NumericInput'
+
 
 interface PosContractSummaryProps {
   branchLabel?: string
@@ -90,7 +92,7 @@ export function PosContractSummary({
                     {promo.name_ar}
                     {promo.promotion_type === 'percent'
                       ? ` (${promo.discount_value}%)`
-                      : ` (${Number(promo.discount_value).toLocaleString('ar-EG')} ج.م)`}
+                      : ` (${Number(promo.discount_value).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م)`}
                   </option>
                 ))}
               </select>
@@ -101,7 +103,7 @@ export function PosContractSummary({
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">قيمة الأجهزة (بعد الخصم)</span>
               <span className="shrink-0 font-medium text-on-surface">
-                {devicesSubtotal.toLocaleString('ar-EG')} ج.م
+                {devicesSubtotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           ) : null}
@@ -111,7 +113,7 @@ export function PosContractSummary({
                 رسوم التركيب ({deviceCount} × جهاز)
               </span>
               <span className="shrink-0 font-medium text-on-surface">
-                {netInstallationFeeTotal.toLocaleString('ar-EG')} ج.م
+                {netInstallationFeeTotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           ) : null}
@@ -119,7 +121,7 @@ export function PosContractSummary({
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">قيمة الخدمات</span>
               <span className="shrink-0 font-medium text-on-surface">
-                {servicesSubtotal.toLocaleString('ar-EG')} ج.م
+                {servicesSubtotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           ) : null}
@@ -129,18 +131,18 @@ export function PosContractSummary({
               <div className="flex items-center justify-between gap-sm tabular-nums">
                 <span className="font-bold text-on-surface">المطلوب عند التعاقد</span>
                 <span className="text-lg font-extrabold text-primary">
-                  {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+                  {paidAtCheckout.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                 </span>
               </div>
               {distributorBalanceAvailable > 0 && onDistributorBalanceAmountChange ? (
                 <div className="mt-sm border-t border-primary/15 pt-sm">
                   <p className="mb-xs text-xs text-on-surface-variant">
-                    رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG')} ج.م
+                    رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </p>
                   <label className="mb-xs block text-xs text-on-surface-variant">
                     استخدام من الرصيد
                   </label>
-                  <input
+                  <NumericInput
                     type="number"
                     min={0}
                     max={Math.min(distributorBalanceAvailable, paidAtCheckout)}
@@ -164,7 +166,7 @@ export function PosContractSummary({
           <div className="flex items-center justify-between gap-sm border-t border-outline-variant/60 pt-sm tabular-nums">
             <span className="font-bold text-on-surface">إجمالي التعاقد</span>
             <span className="text-lg font-extrabold text-on-surface">
-              {totalEstimate.toLocaleString('ar-EG')} ج.م
+              {totalEstimate.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
             </span>
           </div>
 
@@ -172,7 +174,7 @@ export function PosContractSummary({
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">رسوم التنقلات (خارج التعاقد)</span>
               <span className="shrink-0 font-medium text-on-surface">
-                {transportationFee.toLocaleString('ar-EG')} ج.م
+                {transportationFee.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           ) : null}

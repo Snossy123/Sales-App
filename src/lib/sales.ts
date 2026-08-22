@@ -1,6 +1,7 @@
 import type { Distributor, DistributorType, InstallmentItem, SalesInvoice } from '../api/types'
 import { formatDate as formatAccountingDate } from './accounting'
 import { customerAllPhoneNumbers } from './customerForm'
+import { formatNumber } from './format'
 
 export { formatDate } from './accounting'
 
@@ -206,7 +207,7 @@ export function distributorContractsCount(
 }
 
 export function formatDistributorAgreedAmount(value?: string | number | null): string {
-  return `${Number(value ?? 0).toLocaleString('ar-EG')} ج.م`
+  return `${formatNumber(value ?? 0)} ج.م`
 }
 
 export function contractPrintPath(

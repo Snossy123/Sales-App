@@ -4,6 +4,8 @@ import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { invalidateStockQueries } from './AddStockForm'
 import { Modal } from './Modal'
+import { NumericInput } from './ui/NumericInput'
+
 
 interface ReturnStockModalProps {
   open: boolean
@@ -98,7 +100,7 @@ export function ReturnStockModal({
             <option key={b.id} value={b.id}>{b.name_ar || b.name}</option>
           ))}
         </select>
-        <input
+        <NumericInput
           type="number"
           min={1}
           value={returnQty}

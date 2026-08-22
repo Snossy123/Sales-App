@@ -9,6 +9,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { type ApiPaginated } from '../lib/sales'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -108,7 +110,7 @@ function PriceField({
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-on-surface-variant">
         {label}
       </label>
-      <input
+      <NumericInput
         id={id}
         type="number"
         min={min}
@@ -364,14 +366,14 @@ export function InventoryProductSettingsPage() {
             />
             <div className="space-y-1 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-sm py-sm text-xs text-on-surface-variant">
               <p className="font-medium text-on-surface">البنود الثابتة (بدون الفائدة الشهرية)</p>
-              <p>رسوم فك: {debtBasePreview.uninstallFee.toLocaleString('ar-EG')} ج.م</p>
-              <p>رسوم سوفت: {debtBasePreview.softwareFee.toLocaleString('ar-EG')} ج.م</p>
+              <p>رسوم فك: {debtBasePreview.uninstallFee.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</p>
+              <p>رسوم سوفت: {debtBasePreview.softwareFee.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</p>
               <p>
                 25% من كاش اشتراك سنوي:{' '}
-                {debtBasePreview.cashAnnualPortion.toLocaleString('ar-EG')} ج.م
+                {debtBasePreview.cashAnnualPortion.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </p>
               <p className="pt-1 font-medium text-on-surface">
-                الإجمالي الثابت: {debtBasePreview.baseTotal.toLocaleString('ar-EG')} ج.م
+                الإجمالي الثابت: {debtBasePreview.baseTotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </p>
               <p className="text-[11px]">
                 أسعار الفك/السوفت تُسحب من أول خدمة مفعّلة لكل تصنيف في صفحة الخدمات.

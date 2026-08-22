@@ -2609,12 +2609,12 @@ export function handleMockRequest(
       <tbody>
         <tr>
           <td>${description}</td>
-          <td>${Number(line.unit_price).toLocaleString('ar-EG')} ج.م</td>
-          <td>${lineTotal.toLocaleString('ar-EG')} ج.م</td>
+          <td>${Number(line.unit_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</td>
+          <td>${lineTotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</td>
         </tr>
       </tbody>
     </table>
-    <p style="margin-top:1rem;"><strong>الإجمالي:</strong> ${lineTotal.toLocaleString('ar-EG')} ج.م</p>
+    <p style="margin-top:1rem;"><strong>الإجمالي:</strong> ${lineTotal.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</p>
     <p style="font-size:12px;color:#666;">نموذج: ${templateKey}</p>
   </article>
 </body>
@@ -4825,7 +4825,7 @@ export function handleMockRequest(
         const customer = customerById(s.customer_id)
         if (!customer) return null
         const time = s.start_datetime
-          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
           : ''
         return {
           customer_id: customer.id,
@@ -4850,7 +4850,7 @@ export function handleMockRequest(
         const customer = customerById(s.customer_id)
         if (!customer) return null
         const time = s.start_datetime
-          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          ? new Date(s.start_datetime).toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
           : ''
         return {
           customer_id: customer.id,

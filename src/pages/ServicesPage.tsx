@@ -122,14 +122,14 @@ export function ServicesPage() {
               header: 'كاش',
               className: 'tabular-nums',
               render: (row) =>
-                `${Number(row.cash_price ?? row.default_price).toLocaleString('ar-EG')} ج.م`,
+                `${Number(row.cash_price ?? row.default_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
             },
             {
               key: 'installment_price',
               header: 'قسط',
               className: 'tabular-nums',
               render: (row) =>
-                `${Number(row.installment_price ?? row.default_price).toLocaleString('ar-EG')} ج.م`,
+                `${Number(row.installment_price ?? row.default_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
             },
             {
               key: 'contract_template_key',

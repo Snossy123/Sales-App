@@ -3,6 +3,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { CollectionPaymentAccount, Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
 import { Icon } from '../Icon'
+import { NumericInput } from '../ui/NumericInput'
+
 
 type CaseType = 'support' | 'return' | 'exchange' | 'cancel'
 
@@ -377,7 +379,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">إجمالي المدفوع</dt>
                   <dd className="tabular-nums font-medium">
-                    {Number(previewQuery.data.total_paid).toLocaleString('ar-EG')} ج.م
+                    {Number(previewQuery.data.total_paid).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </dd>
                 </div>
                 {previewQuery.data.breakdown && (
@@ -385,11 +387,11 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                     <p className="font-medium text-on-surface">تفصيل المديونية المحسوبة</p>
                     <p>
                       رسوم فك:{' '}
-                      {Number(previewQuery.data.breakdown.uninstall_fee).toLocaleString('ar-EG')} ج.م
+                      {Number(previewQuery.data.breakdown.uninstall_fee).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </p>
                     <p>
                       رسوم سوفت:{' '}
-                      {Number(previewQuery.data.breakdown.software_fee).toLocaleString('ar-EG')} ج.م
+                      {Number(previewQuery.data.breakdown.software_fee).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </p>
                     <p>
                       25% من كاش اشتراك سنوي:{' '}
@@ -404,7 +406,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                         'ar-EG',
                       )}
                       ):{' '}
-                      {Number(previewQuery.data.breakdown.interest_total).toLocaleString('ar-EG')} ج.م
+                      {Number(previewQuery.data.breakdown.interest_total).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </p>
                     {previewQuery.data.breakdown.installation_executed_at ? (
                       <p>
@@ -420,7 +422,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                   <label className="mb-xs block text-on-surface-variant">
                     مديونية الجهاز (ج.م) — يمكن تعديلها يدوياً
                   </label>
-                  <input
+                  <NumericInput
                     type="number"
                     min={0}
                     value={deviceDebt}
@@ -433,7 +435,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                   <dd className="tabular-nums font-bold text-secondary">
                     {Number(
                       Math.max(0, Number(previewQuery.data.total_paid) - Number(deviceDebt || 0)),
-                    ).toLocaleString('ar-EG')}{' '}
+                    ).toLocaleString('ar-EG', { numberingSystem: 'latn' })}{' '}
                     ج.م
                   </dd>
                 </div>
@@ -573,14 +575,14 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">المقدم المستحق للرد</span>
                       <span className="tabular-nums font-medium">
-                        {downPaymentAmount.toLocaleString('ar-EG')} ج.م
+                        {downPaymentAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                       </span>
                     </div>
                     <div className="space-y-1 text-xs text-on-surface-variant">
                       <p className="font-medium text-on-surface">طريقة الدفع الأصلية (للعلم)</p>
                       {(cancelPreviewQuery.data?.payments ?? []).map((p) => (
                         <p key={p.id}>
-                          {Number(p.amount).toLocaleString('ar-EG')} ج.م — {originalPaymentLabel(p)}
+                          {Number(p.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م — {originalPaymentLabel(p)}
                         </p>
                       ))}
                     </div>
@@ -636,7 +638,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
                       />
                       <span>
                         أؤكد أن العميل استلم مبلغ المقدم{' '}
-                        {downPaymentAmount.toLocaleString('ar-EG')} ج.م عبر{' '}
+                        {downPaymentAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م عبر{' '}
                         {refundVia === 'cash'
                           ? 'نقدي'
                           : (accountsQuery.data ?? []).find((a) => a.id === refundAccountId)?.beneficiary_name ??

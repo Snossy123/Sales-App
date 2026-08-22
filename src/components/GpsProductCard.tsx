@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { GpsProduct } from '../api/types'
 import { Icon } from './Icon'
+import { NumericInput } from './ui/NumericInput'
+
 
 interface GpsProductCardProps {
   product: GpsProduct
@@ -61,7 +63,7 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
             <div className="flex flex-wrap items-center gap-sm">
               <label className="flex items-center gap-xs">
                 كاش:
-                <input
+                <NumericInput
                   type="number"
                   min={1}
                   value={cashPrice}
@@ -72,7 +74,7 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
               </label>
               <label className="flex items-center gap-xs">
                 قسط:
-                <input
+                <NumericInput
                   type="number"
                   min={1}
                   value={installmentPrice}
@@ -103,13 +105,13 @@ export function GpsProductCard({ product, canEditPrice = false }: GpsProductCard
               <span>
                 كاش:{' '}
                 <span className="font-medium text-on-surface tabular-nums">
-                  {displayCash.toLocaleString('ar-EG')} ج.م
+                  {displayCash.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                 </span>
               </span>
               <span>
                 قسط:{' '}
                 <span className="font-medium text-on-surface tabular-nums">
-                  {displayInstallment.toLocaleString('ar-EG')} ج.م
+                  {displayInstallment.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                 </span>
               </span>
               {canEditPrice && (

@@ -431,7 +431,7 @@ export function CustomerDetailPage() {
                   {
                     key: 'amount',
                     header: 'المبلغ',
-                    render: (r) => Number(r.amount).toLocaleString('ar-EG'),
+                    render: (r) => Number(r.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                   },
                   { key: 'status', header: 'الحالة' },
                 ]}

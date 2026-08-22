@@ -741,7 +741,7 @@ export function DeviceLineCard({
                     <span className="text-on-surface-variant">قيمة القسط: </span>
                     <strong className="text-on-surface">
                       {line.installmentAmount > 0
-                        ? line.installmentAmount.toLocaleString('ar-EG')
+                        ? line.installmentAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })
                         : '—'}{' '}
                       ج.م
                     </strong>
@@ -749,7 +749,7 @@ export function DeviceLineCard({
                   <div className="tabular-nums">
                     <span className="text-on-surface-variant">إجمالي بعد المقدم: </span>
                     <strong className="text-on-surface">
-                      {totalAfterDown.toLocaleString('ar-EG')} ج.م
+                      {totalAfterDown.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </strong>
                   </div>
                   <div className="tabular-nums" dir="ltr">
@@ -795,7 +795,7 @@ export function DeviceLineCard({
                     <p className="mt-xs text-xs text-on-surface-variant">
                       المتبقي:{' '}
                       <span className="font-medium tabular-nums text-on-surface">
-                        {cashRemainderAmount.toLocaleString('ar-EG')} ج.م
+                        {cashRemainderAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                       </span>
                     </p>
                   )}

@@ -203,15 +203,15 @@ export function ServicePaymentSection({
       <div className="grid gap-xs border-t border-outline-variant pt-sm text-sm">
         <div className="flex justify-between tabular-nums">
           <span className="text-on-surface-variant">الإجمالي</span>
-          <span className="font-bold">{total.toLocaleString('ar-EG')} ج.م</span>
+          <span className="font-bold">{total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
         </div>
         <div className="flex justify-between tabular-nums">
           <span className="text-on-surface-variant">المدفوع الآن</span>
-          <span>{paidNow.toLocaleString('ar-EG')} ج.م</span>
+          <span>{paidNow.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
         </div>
         <div className="flex justify-between tabular-nums">
           <span className="text-on-surface-variant">المتبقي</span>
-          <span className="font-semibold text-secondary">{balance.toLocaleString('ar-EG')} ج.م</span>
+          <span className="font-semibold text-secondary">{balance.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
         </div>
       </div>
     </div>

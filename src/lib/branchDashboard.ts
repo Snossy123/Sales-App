@@ -1,4 +1,5 @@
 import type { Branch, GpsStock } from '../api/types'
+import { formatNumber } from './format'
 import { formatMoney } from './theme'
 
 export interface BranchKpi {
@@ -40,7 +41,7 @@ export interface BranchDashboardOptions {
 }
 
 function formatCount(value: number): string {
-  return value.toLocaleString('ar-EG')
+  return formatNumber(value)
 }
 
 export function getStatusBadgeClass(status: BranchProduct['status']): string {

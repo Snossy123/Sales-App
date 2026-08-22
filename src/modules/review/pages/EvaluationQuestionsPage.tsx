@@ -7,6 +7,8 @@ import { DataTable } from '../../../components/DataTable'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 import {
   ANSWER_TYPE_LABELS,
   createEvaluationQuestion,
@@ -185,7 +187,7 @@ export function EvaluationQuestionsPage() {
           <div className="grid grid-cols-2 gap-md">
             <div>
               <label className="mb-1 block text-sm font-medium">الترتيب</label>
-              <input
+              <NumericInput
                 type="number"
                 min={0}
                 value={form.sort_order}

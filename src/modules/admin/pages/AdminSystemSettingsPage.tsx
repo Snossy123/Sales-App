@@ -20,6 +20,8 @@ import { LogoUploader } from '../components/LogoUploader'
 import { ModuleToggleCard } from '../components/ModuleToggleCard'
 import { SettingsField, SettingsSectionCard, settingsInputClass, settingsToggleClass } from '../components/SettingsSectionCard'
 import { SettingsTabNav } from '../components/SettingsTabNav'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 import {
   CURRENCY_OPTIONS,
   DEFAULT_GENERAL,
@@ -72,7 +74,7 @@ function buildForm(data: OrganizationSettings): FormState {
 
 function formatUpdatedAt(value?: string | null) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn', dateStyle: 'medium', timeStyle: 'short' })
 }
 
 const MESSAGE_TYPE_LABELS: Record<string, string> = {
@@ -426,7 +428,7 @@ export function AdminSystemSettingsPage() {
                       </select>
                     </SettingsField>
                     <SettingsField label="بداية السنة المالية (شهر)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={1}
                         max={12}
@@ -494,7 +496,7 @@ export function AdminSystemSettingsPage() {
                       </select>
                     </SettingsField>
                     <SettingsField label="أقصى عدد أقساط">
-                      <input
+                      <NumericInput
                         type="number"
                         min={1}
                         max={120}
@@ -507,7 +509,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="فترة القسط (بالأيام)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={1}
                         value={form.sales.installment_interval_days ?? 30}
@@ -519,7 +521,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="أيام السماح قبل التأخير">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         value={form.sales.overdue_grace_days ?? 3}
@@ -531,7 +533,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="غرامة التأخير (%)" hint="0 = بدون غرامة">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         max={100}
@@ -545,7 +547,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="غرامة يومية ثابتة (ج.م)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         step={0.01}
@@ -572,7 +574,7 @@ export function AdminSystemSettingsPage() {
                       </select>
                     </SettingsField>
                     <SettingsField label="حد أدنى للمقدم (%)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         max={100}
@@ -585,7 +587,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="رسوم التركيب الافتراضية (ج.م)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         step="0.01"
@@ -698,7 +700,7 @@ export function AdminSystemSettingsPage() {
 
                   <div className="mb-md grid gap-md sm:grid-cols-2">
                     <SettingsField label="أيام التذكير قبل الاستحقاق">
-                      <input
+                      <NumericInput
                         type="number"
                         min={0}
                         max={30}
@@ -842,7 +844,7 @@ export function AdminSystemSettingsPage() {
                 >
                   <div className="grid gap-md sm:grid-cols-2">
                     <SettingsField label="مدة الجلسة (دقيقة)" hint="خمول المستخدم قبل تسجيل الخروج">
-                      <input
+                      <NumericInput
                         type="number"
                         min={5}
                         max={1440}
@@ -855,7 +857,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="الحد الأدنى لطول كلمة المرور">
-                      <input
+                      <NumericInput
                         type="number"
                         min={6}
                         max={128}
@@ -868,7 +870,7 @@ export function AdminSystemSettingsPage() {
                       />
                     </SettingsField>
                     <SettingsField label="مدة الاحتفاظ بسجل التدقيق (يوم)">
-                      <input
+                      <NumericInput
                         type="number"
                         min={30}
                         max={3650}

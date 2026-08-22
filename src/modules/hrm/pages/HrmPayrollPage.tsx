@@ -12,6 +12,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
 import { useAuthStore } from '../../../stores/authStore'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 type PayrollRow = HrmPayrollRecord & Record<string, unknown>
 type Panel = 'create' | null
@@ -152,19 +154,19 @@ export function HrmPayrollPage() {
               key: 'rate',
               header: 'المعدل',
               className: 'tabular-nums',
-              render: (row) => Number(row.rate).toLocaleString('ar-EG'),
+              render: (row) => Number(row.rate).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'gross_total',
               header: 'الإجمالي',
               className: 'tabular-nums',
-              render: (row) => Number(row.gross_total).toLocaleString('ar-EG'),
+              render: (row) => Number(row.gross_total).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'final_total',
               header: 'الصافي',
               className: 'tabular-nums',
-              render: (row) => Number(row.final_total).toLocaleString('ar-EG'),
+              render: (row) => Number(row.final_total).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'payment_status',
@@ -209,7 +211,7 @@ export function HrmPayrollPage() {
               </option>
             ))}
           </select>
-          <input
+          <NumericInput
             type="number"
             min="0"
             step="0.01"
@@ -230,7 +232,7 @@ export function HrmPayrollPage() {
             <option value="day">يوم</option>
             <option value="hour">ساعة</option>
           </select>
-          <input
+          <NumericInput
             type="number"
             min="0"
             step="0.01"

@@ -1,4 +1,5 @@
 import { Icon } from '../Icon'
+import { TextInput } from '../ui/TextInput'
 import {
   DEFAULT_PHONE_COUNT,
   emptyPhoneEntry,
@@ -34,7 +35,8 @@ export function CustomerPhoneFields({ phones, onChange }: CustomerPhoneFieldsPro
             <span className="mb-xs block text-on-surface-variant">
               {index === 0 ? 'تبع مين *' : 'تبع مين'}
             </span>
-            <input
+            <TextInput
+              mode="arabic"
               value={entry.label ?? ''}
               onChange={(e) => updatePhone(index, { label: e.target.value })}
               placeholder="مثل: شخصي، زوجة، ابن..."
@@ -45,7 +47,8 @@ export function CustomerPhoneFields({ phones, onChange }: CustomerPhoneFieldsPro
             <span className="mb-xs block text-on-surface-variant">
               {index === 0 ? 'رقم الهاتف 1 *' : `رقم الهاتف ${index + 1}`}
             </span>
-            <input
+            <TextInput
+              mode="phone"
               value={entry.number}
               onChange={(e) => updatePhone(index, { number: e.target.value })}
               required={index === 0}

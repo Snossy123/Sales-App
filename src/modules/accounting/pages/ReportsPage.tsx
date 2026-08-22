@@ -22,6 +22,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StartTourButton } from '../../../components/tour/StartTourButton'
 import { usePageTour } from '../../../hooks/usePageTour'
 import { formatDate, formatMoney, primaryTypeLabels } from '../../../lib/accounting'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 type ReportTab =
   | 'trial-balance'
@@ -262,7 +264,7 @@ export function ReportsPage() {
         )}
 
         {tab === 'budget-variance' && (
-          <input
+          <NumericInput
             type="number"
             value={financialYear}
             onChange={(e) => setFinancialYear(e.target.value)}

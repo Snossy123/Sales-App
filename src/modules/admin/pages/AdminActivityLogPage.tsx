@@ -26,7 +26,7 @@ const inputClass = 'rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn', dateStyle: 'short', timeStyle: 'short' })
 }
 
 const ACTION_STYLES: Record<ActivityAction, string> = {

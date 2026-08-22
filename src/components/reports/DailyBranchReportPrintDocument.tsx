@@ -10,7 +10,7 @@ import '../../styles/daily-branch-report.css'
 
 function fmtMoney(value: number | string | null | undefined): string {
   if (value == null || value === '') return ''
-  return Number(value).toLocaleString('ar-EG')
+  return Number(value).toLocaleString('ar-EG', { numberingSystem: 'latn' })
 }
 
 interface Props {

@@ -66,7 +66,7 @@ export function HrDashboardPage() {
               className: 'tabular-nums',
               render: (row) =>
                 row.salary != null
-                  ? Number(row.salary).toLocaleString('ar-EG')
+                  ? Number(row.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' })
                   : '—',
             },
             {

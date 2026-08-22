@@ -7,6 +7,8 @@ import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { SERVICE_CATEGORIES } from '../lib/services'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 text-sm'
 
@@ -175,7 +177,7 @@ export function ServiceFormPage() {
               <label className="mb-xs block text-sm text-on-surface-variant">
                 سعر الكاش (ج.م)
               </label>
-              <input
+              <NumericInput
                 type="number"
                 min={0}
                 step="0.01"
@@ -188,7 +190,7 @@ export function ServiceFormPage() {
               <label className="mb-xs block text-sm text-on-surface-variant">
                 سعر القسط (ج.م)
               </label>
-              <input
+              <NumericInput
                 type="number"
                 min={0}
                 step="0.01"

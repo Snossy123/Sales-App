@@ -4,6 +4,8 @@ import { api, getErrorMessage } from '../../../api/client'
 import type { Employee, HrmUserSalesTarget, PaginatedResponse } from '../../../api/types'
 import { Modal } from '../../../components/Modal'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -111,7 +113,7 @@ export function SalesTargetFormModal({
           required
           className={inputClass}
         />
-        <input
+        <NumericInput
           type="number"
           min={1}
           placeholder="عدد التعاقدات المستهدف"
@@ -120,7 +122,7 @@ export function SalesTargetFormModal({
           required
           className={inputClass}
         />
-        <input
+        <NumericInput
           type="number"
           min={0}
           max={100}

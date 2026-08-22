@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Branch, Department, PaginatedResponse } from '../api/types'
 import { Modal } from './Modal'
+import { NumericInput } from './ui/NumericInput'
+
 
 interface DistributeStockModalProps {
   open: boolean
@@ -99,7 +101,7 @@ export function DistributeStockModal({
             <option key={b.id} value={b.id}>{b.name_ar || b.name}</option>
           ))}
         </select>
-        <input
+        <NumericInput
           type="number"
           min={1}
           value={distQty}

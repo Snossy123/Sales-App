@@ -64,8 +64,8 @@ export function BranchInventoryTable({ products }: BranchInventoryTableProps) {
                   <td className="px-md py-4 font-medium">{product.name}</td>
                   <td className="px-md py-4">{product.category}</td>
                   <td className="px-md py-4 text-left no-flip">{product.price}</td>
-                  <td className="px-md py-4 text-left no-flip">{product.stock.toLocaleString('ar-EG')}</td>
-                  <td className="px-md py-4 text-left no-flip">{product.sold.toLocaleString('ar-EG')}</td>
+                  <td className="px-md py-4 text-left no-flip">{product.stock.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</td>
+                  <td className="px-md py-4 text-left no-flip">{product.sold.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</td>
                   <td className="px-md py-4">
                     <span className={`rounded-full px-2 py-0.5 text-label-sm ${getStatusBadgeClass(product.status)}`}>
                       {product.statusLabel}

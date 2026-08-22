@@ -18,6 +18,8 @@ import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -264,7 +266,7 @@ export function AccessoriesSalesPage() {
       {lastInvoice && (
         <div className="mb-md rounded-lg border border-outline-variant bg-surface-container-low p-md text-sm">
           فاتورة: {lastInvoice.invoice_number} — الإجمالي{' '}
-          {Number(lastInvoice.total).toLocaleString('ar-EG')}
+          {Number(lastInvoice.total).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
           <Link to={`/invoices/${lastInvoice.id}`} className="mr-sm text-primary">
             عرض
           </Link>
@@ -362,7 +364,7 @@ export function AccessoriesSalesPage() {
                   >
                     <div className="font-medium">{product.name_ar || product.name}</div>
                     <div className="text-on-surface-variant">
-                      {Number(product.sell_price ?? 0).toLocaleString('ar-EG')} ج.م
+                      {Number(product.sell_price ?? 0).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                       {warehouseId !== '' && (
                         <span className="mr-sm">· متاح: {available ?? 0}</span>
                       )}
@@ -385,7 +387,7 @@ export function AccessoriesSalesPage() {
                 >
                   <div className="font-medium">{pkg.name_ar}</div>
                   <div className="text-on-surface-variant">
-                    {Number(pkg.sell_price).toLocaleString('ar-EG')} ج.م
+                    {Number(pkg.sell_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </div>
                   <div className="mt-1 text-xs text-on-surface-variant">
                     {(pkg.items ?? [])
@@ -415,8 +417,8 @@ export function AccessoriesSalesPage() {
                 <div>
                   <div className="font-medium">{line.name}</div>
                   <div className="text-on-surface-variant">
-                    {line.unit_price.toLocaleString('ar-EG')} ×
-                    <input
+                    {line.unit_price.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ×
+                    <NumericInput
                       type="number"
                       min={1}
                       className="mx-1 w-14 rounded border border-outline-variant px-1 py-0.5"
@@ -455,7 +457,7 @@ export function AccessoriesSalesPage() {
 
           <div className="flex items-center justify-between text-base font-medium">
             <span>الإجمالي</span>
-            <span>{total.toLocaleString('ar-EG')} ج.م</span>
+            <span>{total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
           </div>
 
           <button

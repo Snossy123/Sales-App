@@ -1918,21 +1918,21 @@ export function createSeedState(): DemoState {
     accessoryStocks: [
       {
         id: 1,
-        warehouse_id: warehouses[0]?.id ?? 1,
+        warehouse_id: warehouses.find((wh) => wh.is_central && wh.administration_id === 1)?.id ?? 4,
         product_model_id: 101,
         quantity: 50,
         reserved: 0,
       },
       {
         id: 2,
-        warehouse_id: warehouses[0]?.id ?? 1,
+        warehouse_id: warehouses.find((wh) => wh.is_central && wh.administration_id === 1)?.id ?? 4,
         product_model_id: 102,
         quantity: 40,
         reserved: 0,
       },
       {
         id: 3,
-        warehouse_id: warehouses[0]?.id ?? 1,
+        warehouse_id: warehouses.find((wh) => wh.is_central && wh.administration_id === 1)?.id ?? 4,
         product_model_id: 103,
         quantity: 25,
         reserved: 0,

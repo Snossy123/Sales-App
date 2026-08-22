@@ -20,7 +20,7 @@ const steps = [
 
 function formatDate(value?: string): string {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', {
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

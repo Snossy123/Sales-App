@@ -36,7 +36,7 @@ import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { useAuthStore } from '../stores/authStore'
 
 function formatDate(value: string, locale = 'ar-EG') {
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value))
+  return new Intl.DateTimeFormat(locale, { numberingSystem: 'latn', dateStyle: 'medium' }).format(new Date(value))
 }
 
 function daysOverdueFromRow(row: DashboardInstallmentSummary): number {
@@ -226,6 +226,7 @@ export function DashboardPage() {
   )
 
   const todayLabel = new Intl.DateTimeFormat('ar-EG', {
+    numberingSystem: 'latn',
     weekday: 'long',
     day: 'numeric',
     month: 'long',

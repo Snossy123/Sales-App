@@ -11,6 +11,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatMoney } from '../../../lib/theme'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const paymentMethodLabels: Record<string, string> = {
   wallet: 'محفظة',
@@ -282,7 +284,7 @@ export function CollectionAccountsPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm text-on-surface-variant">حد المبلغ (اختياري)</label>
-            <input
+            <NumericInput
               type="number"
               min={0.01}
               step={0.01}

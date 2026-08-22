@@ -87,7 +87,7 @@ export function CustomerComplaintsSection({ customerId }: CustomerComplaintsSect
                 )}
                 {Number(c.disbursement_amount ?? 0) > 0 && (
                   <p className="mt-1 text-secondary">
-                    أمر دفع: {Number(c.disbursement_amount).toLocaleString('ar-EG')} ج.م
+                    أمر دفع: {Number(c.disbursement_amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </p>
                 )}
                 {c.sales_invoice?.id && (

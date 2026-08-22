@@ -10,6 +10,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -117,12 +119,12 @@ export function PricingCatalogPage() {
             {
               key: 'base_price',
               header: 'سعر البيع',
-              render: (row) => Number(row.base_price).toLocaleString('ar-EG'),
+              render: (row) => Number(row.base_price).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'cost_price',
               header: 'التكلفة',
-              render: (row) => Number(row.cost_price ?? 0).toLocaleString('ar-EG'),
+              render: (row) => Number(row.cost_price ?? 0).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'is_active',
@@ -175,7 +177,7 @@ export function PricingCatalogPage() {
             required
             className={inputClass}
           />
-          <input
+          <NumericInput
             type="number"
             placeholder="سعر البيع"
             value={form.base_price}
@@ -183,7 +185,7 @@ export function PricingCatalogPage() {
             required
             className={inputClass}
           />
-          <input
+          <NumericInput
             type="number"
             placeholder="التكلفة"
             value={form.cost_price}

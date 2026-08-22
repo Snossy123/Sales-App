@@ -10,6 +10,9 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { NumericInput } from '../../../components/ui/NumericInput'
+import { TextInput } from '../../../components/ui/TextInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -86,7 +89,7 @@ export function HrmAllowancesPage() {
           columns={[
             { key: 'description', header: 'الوصف' },
             { key: 'type', header: 'النوع', render: (row) => row.type === 'allowance' ? 'بدل' : 'خصم' },
-            { key: 'amount', header: 'القيمة', className: 'tabular-nums', render: (row) => Number(row.amount).toLocaleString('ar-EG') },
+            { key: 'amount', header: 'القيمة', className: 'tabular-nums', render: (row) => Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }) },
             { key: 'employees', header: 'الموظفون', render: (row) => row.employees?.map((e) => e.name).join('، ') ?? '—' },
             {
               key: 'actions',
@@ -106,12 +109,12 @@ export function HrmAllowancesPage() {
 
       <Modal open={panelOpen} onClose={() => setPanelOpen(false)} title="بدل / خصم جديد">
         <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }} className="space-y-sm">
-          <input placeholder="الوصف" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required className={inputClass} />
+          <TextInput mode="arabic" placeholder="الوصف" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required className={inputClass} />
           <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'allowance' | 'deduction' })} className={inputClass}>
             <option value="allowance">بدل</option>
             <option value="deduction">خصم</option>
           </select>
-          <input type="number" min="0" step="0.01" placeholder="المبلغ" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className={inputClass} dir="ltr" />
+          <NumericInput type="number" min="0" step="0.01" placeholder="المبلغ" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className={inputClass} dir="ltr" />
           <div className="max-h-40 overflow-y-auto rounded border border-outline-variant p-sm">
             {(employeesQuery.data ?? []).map((emp) => (
               <label key={emp.id} className="flex cursor-pointer items-center gap-xs py-0.5 text-sm">

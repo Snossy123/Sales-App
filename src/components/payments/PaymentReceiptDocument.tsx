@@ -28,7 +28,7 @@ function formatPaidAt(value?: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('ar-EG', {
+  return date.toLocaleString('ar-EG', { numberingSystem: 'latn',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -143,7 +143,7 @@ export const PaymentReceiptDocument = forwardRef<HTMLElement, Props>(function Pa
       <div className="pr-amount-box">
         <p className="pr-amount-label">المبلغ المحصّل</p>
         <p className="pr-amount-value">
-          {Number(payment.amount).toLocaleString('ar-EG')} ج.م
+          {Number(payment.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
         </p>
       </div>
 

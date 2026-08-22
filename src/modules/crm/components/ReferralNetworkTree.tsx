@@ -5,7 +5,7 @@ import { CrmStatusPill } from './ui/CrmChip'
 
 function formatSales(value: number): string {
   if (!value) return '—'
-  return new Intl.NumberFormat('ar-EG', {
+  return new Intl.NumberFormat('ar-EG', { numberingSystem: 'latn',
     style: 'decimal',
     maximumFractionDigits: 0,
   }).format(value)

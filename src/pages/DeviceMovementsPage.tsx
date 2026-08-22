@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', {
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

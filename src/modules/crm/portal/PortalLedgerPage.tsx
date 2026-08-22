@@ -41,7 +41,7 @@ export function PortalLedgerPage() {
               header: 'التاريخ',
               className: 'tabular-nums',
               render: (row) =>
-                row.paid_at ? new Date(row.paid_at).toLocaleDateString('ar-EG') : '—',
+                row.paid_at ? new Date(row.paid_at).toLocaleDateString('ar-EG', { numberingSystem: 'latn' }) : '—',
             },
             {
               key: 'invoice',
@@ -52,7 +52,7 @@ export function PortalLedgerPage() {
               key: 'amount',
               header: 'المبلغ',
               className: 'tabular-nums',
-              render: (row) => Number(row.amount).toLocaleString('ar-EG'),
+              render: (row) => Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
           ]}
         />

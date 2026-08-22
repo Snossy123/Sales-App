@@ -14,6 +14,8 @@ import {
 } from '../lib/sales'
 import { getResolvedAdministrationId } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const emptyForm = {
   code: '',
@@ -206,7 +208,7 @@ export function DistributorAddPage() {
 
               <label className={labelClass}>
                 <span className={labelTextClass}>القيمة المتفق عليها</span>
-                <input
+                <NumericInput
                   type="number"
                   min={0}
                   step={0.01}

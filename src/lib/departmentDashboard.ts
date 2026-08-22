@@ -1,5 +1,6 @@
 import type { Administration, Branch, Department, InventoryOverviewRow } from '../api/types'
 import type { GpsDeviceRow } from '../data/enterpriseGpsMock'
+import { formatNumber } from './format'
 
 export interface DepartmentKpi {
   label: string
@@ -37,7 +38,7 @@ export interface DepartmentDashboardData {
 }
 
 function formatCount(value: number): string {
-  return value.toLocaleString('ar-EG')
+  return formatNumber(value)
 }
 
 export function buildDepartmentDashboard(

@@ -61,6 +61,7 @@ export function formatDatetime12hDisplay(value: string | null | undefined): stri
   if (Number.isNaN(d.getTime())) return value
 
   return d.toLocaleString('ar-EG', {
+    numberingSystem: 'latn',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

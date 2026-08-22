@@ -70,7 +70,7 @@ export function referralStatusMeta(status: ReferralLeadStatus | string) {
 
 export function formatReferralDateTime(value?: string | null): string {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', {
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn',
     dateStyle: 'short',
     timeStyle: 'short',
   })
@@ -95,13 +95,13 @@ export function formatReferralRelativeDue(value?: string | null): {
   }
   if (diffDays === 0) {
     return {
-      label: `اليوم ${date.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })}`,
+      label: `اليوم ${date.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: 'numeric', minute: '2-digit' })}`,
       overdue: false,
     }
   }
   if (diffDays === 1) {
     return {
-      label: `غداً ${date.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })}`,
+      label: `غداً ${date.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: 'numeric', minute: '2-digit' })}`,
       overdue: false,
     }
   }

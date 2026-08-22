@@ -73,6 +73,14 @@ function resolveStockRequirements(
   return { productModelId, packageId: null, requirements: new Map([[productModelId, quantity]]) }
 }
 
+function resolveHubWarehouse(state: DemoState, departmentId: number) {
+  return (
+    state.warehouses.find((wh) => wh.is_central && wh.administration_id === departmentId) ??
+    state.warehouses.find((wh) => wh.is_central && !wh.branch_id) ??
+    state.warehouses.find((wh) => wh.code === `WH-HQ-${departmentId}`)
+  )
+}
+
 function ensureStock(
   state: DemoState,
   warehouseId: number,
@@ -296,9 +304,7 @@ export function tryHandleAccessoryRequest(
   if (m === 'POST' && path === 'accessory-stock/add') {
     const body = data ?? {}
     const departmentId = Number(body.department_id)
-    const hub = state.warehouses.find(
-      (wh) => wh.administration_id === departmentId || wh.is_central,
-    ) ?? state.warehouses[0]
+    const hub = resolveHubWarehouse(state, departmentId) ?? state.warehouses[0]
     if (!hub) throw mockError(422, 'لا يوجد مخزن')
     const { productModelId, packageId, requirements } = resolveStockRequirements(state, body)
     mutateState((draft) => {
@@ -329,9 +335,7 @@ export function tryHandleAccessoryRequest(
     const body = data ?? {}
     const departmentId = Number(body.department_id)
     const branchId = Number(body.branch_id)
-    const hub =
-      state.warehouses.find((wh) => wh.administration_id === departmentId || wh.is_central) ??
-      state.warehouses[0]
+    const hub = resolveHubWarehouse(state, departmentId) ?? state.warehouses[0]
     const branchWh =
       state.warehouses.find((wh) => wh.branch_id === branchId && !wh.is_central) ??
       state.warehouses.find((wh) => wh.branch_id === branchId)

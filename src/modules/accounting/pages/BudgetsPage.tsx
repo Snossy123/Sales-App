@@ -11,6 +11,8 @@ import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatMoney } from '../../../lib/accounting'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const monthLabels = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -219,7 +221,7 @@ export function BudgetsPage() {
             {monthKeys.map((key, idx) => (
               <label key={key} className="text-xs">
                 <span className="mb-0.5 block text-on-surface-variant">{monthLabels[idx]}</span>
-                <input
+                <NumericInput
                   type="number"
                   min="0"
                   step="0.01"

@@ -10,6 +10,8 @@ import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -154,7 +156,7 @@ export function PromotionsPage() {
               render: (row) =>
                 row.promotion_type === 'percent'
                   ? `${row.discount_value}%`
-                  : `${Number(row.discount_value).toLocaleString('ar-EG')} ج.م`,
+                  : `${Number(row.discount_value).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
             },
             { key: 'start_date', header: 'من' },
             { key: 'end_date', header: 'إلى' },
@@ -208,7 +210,7 @@ export function PromotionsPage() {
             <option value="percent">نسبة خصم</option>
             <option value="fixed">مبلغ ثابت</option>
           </select>
-          <input
+          <NumericInput
             type="number"
             placeholder="قيمة الخصم"
             value={form.discount_value}

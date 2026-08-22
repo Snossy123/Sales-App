@@ -93,7 +93,7 @@ export function HrmPayrollGroupsPage() {
           pageSize={10}
           columns={[
             { key: 'name', header: 'الاسم' },
-            { key: 'gross_total', header: 'الإجمالي', className: 'tabular-nums', render: (row) => Number(row.gross_total ?? 0).toLocaleString('ar-EG') },
+            { key: 'gross_total', header: 'الإجمالي', className: 'tabular-nums', render: (row) => Number(row.gross_total ?? 0).toLocaleString('ar-EG', { numberingSystem: 'latn' }) },
             { key: 'status', header: 'الحالة', render: (row) => <StatusBadge status={row.status} /> },
             { key: 'payment_status', header: 'الدفع', render: (row) => (
               <StatusBadge status={String(row.payment_status ?? 'due')} label={row.payment_status === 'paid' ? 'مدفوع' : 'مستحق'} />
@@ -124,7 +124,7 @@ export function HrmPayrollGroupsPage() {
             {(payrollQuery.data ?? []).map((rec) => (
               <label key={rec.id} className="flex cursor-pointer items-center gap-xs py-0.5 text-sm">
                 <input type="checkbox" checked={form.payroll_record_ids.includes(rec.id)} onChange={() => toggleRecord(rec.id)} />
-                {rec.employee?.name ?? rec.ref_no} — {Number(rec.final_total).toLocaleString('ar-EG')}
+                {rec.employee?.name ?? rec.ref_no} — {Number(rec.final_total).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
               </label>
             ))}
           </div>

@@ -8,10 +8,4 @@ export function applyThemeColor(color?: string | null): void {
   root.style.setProperty('--color-chart-1', primary)
 }
 
-export function formatMoney(value: number, currency = 'EGP', locale = 'ar-EG'): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+export { formatMoney } from './format'

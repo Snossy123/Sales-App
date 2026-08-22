@@ -1006,7 +1006,7 @@ export function PosPage() {
                 : 'سعر التجديد السنوي: '}
             </span>
             <span className="font-bold tabular-nums text-primary">
-              {renewalReferencePrice.toLocaleString('ar-EG')} ج.م
+              {renewalReferencePrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
             </span>
           </div>
         ) : warehouseId ? (
@@ -1020,7 +1020,7 @@ export function PosPage() {
         ) : productQuery.data ? (
           <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low px-sm py-xs text-sm">
             <span className="text-on-surface-variant">كاش: </span>
-            <span className="font-bold tabular-nums">{cashPrice.toLocaleString('ar-EG')} ج.م</span>
+            <span className="font-bold tabular-nums">{cashPrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
           </div>
         ) : null
       }

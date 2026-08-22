@@ -7,6 +7,8 @@ import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -141,7 +143,7 @@ export function AccessoryPackagesPage() {
           </label>
           <label className="text-sm">
             سعر الباكدج
-            <input
+            <NumericInput
               type="number"
               min={0}
               step="0.01"
@@ -181,7 +183,7 @@ export function AccessoryPackagesPage() {
                   </option>
                 ))}
               </select>
-              <input
+              <NumericInput
                 type="number"
                 min={1}
                 className={inputClass}
@@ -249,7 +251,7 @@ export function AccessoryPackagesPage() {
             {
               key: 'price',
               header: 'السعر',
-              render: (row: AccessoryPackage) => Number(row.sell_price).toLocaleString('ar-EG'),
+              render: (row: AccessoryPackage) => Number(row.sell_price).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'items',

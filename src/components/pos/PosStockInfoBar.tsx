@@ -53,7 +53,7 @@ export function PosStockInfoBar({
           كاش
         </p>
         <p className="truncate text-xs font-bold leading-tight tabular-nums text-on-surface sm:text-sm">
-          {cashPrice.toLocaleString('ar-EG')}{' '}
+          {cashPrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })}{' '}
           <span className="text-[10px] font-medium sm:text-[11px]">ج.م</span>
         </p>
       </div>
@@ -62,7 +62,7 @@ export function PosStockInfoBar({
           تقسيط
         </p>
         <p className="truncate text-xs font-bold leading-tight tabular-nums text-on-surface sm:text-sm">
-          {installmentPrice.toLocaleString('ar-EG')}{' '}
+          {installmentPrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })}{' '}
           <span className="text-[10px] font-medium sm:text-[11px]">ج.م</span>
         </p>
       </div>

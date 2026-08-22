@@ -1,5 +1,7 @@
 import type { AccountingAccount } from '../../../api/types'
 import { formatMoney } from '../../../lib/accounting'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 export type JournalLineForm = {
   accounting_account_id: number | ''
@@ -79,7 +81,7 @@ export function JournalLineEditor({ lines, accounts, onChange }: JournalLineEdit
             <option value="debit">مدين</option>
             <option value="credit">دائن</option>
           </select>
-          <input
+          <NumericInput
             type="number"
             min="0.01"
             step="0.01"

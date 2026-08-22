@@ -190,7 +190,7 @@ export function ServiceLineCard({
           {line.description || '—'}
         </span>
         <span className="shrink-0 tabular-nums text-on-surface">
-          <strong>{total.toLocaleString('ar-EG')} ج.م</strong>
+          <strong>{total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
         </span>
         <button type="button" onClick={onRemove} className="shrink-0 text-error" aria-label="حذف">
           <Icon name="delete" size={20} />
@@ -339,7 +339,7 @@ export function ServiceLineCard({
                   <p className="mt-xs text-xs text-on-surface-variant">
                     المتبقي:{' '}
                     <span className="font-medium tabular-nums text-on-surface">
-                      {remainderAmount.toLocaleString('ar-EG')} ج.م
+                      {remainderAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </span>
                   </p>
                 )}

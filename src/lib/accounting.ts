@@ -1,4 +1,5 @@
 import type { AccountingAccount, AccountPrimaryType } from '../api/types'
+import { formatAccountingMoney, formatDate as formatDisplayDate } from './format'
 
 export const primaryTypeLabels: Record<AccountPrimaryType, string> = {
   asset: 'أصول',
@@ -9,18 +10,11 @@ export const primaryTypeLabels: Record<AccountPrimaryType, string> = {
 }
 
 export function formatMoney(value: string | number | null | undefined): string {
-  if (value == null || value === '') return '—'
-  return `${Number(value).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`
+  return formatAccountingMoney(value)
 }
 
 export function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const d = value.split('T')[0]
-  try {
-    return new Date(d).toLocaleDateString('ar-EG')
-  } catch {
-    return d
-  }
+  return formatDisplayDate(value)
 }
 
 export interface AccountTreeNode extends AccountingAccount {

@@ -45,6 +45,8 @@ import {
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 interface ServiceSalesPageProps {
   title: string
@@ -651,7 +653,7 @@ export function ServiceSalesPage({
                     {catalogServices.map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.name_ar || service.name} —{' '}
-                        {Number(service.default_price).toLocaleString('ar-EG')} ج.م
+                        {Number(service.default_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                       </option>
                     ))}
                   </select>
@@ -709,29 +711,29 @@ export function ServiceSalesPage({
               <dl className="space-y-sm text-sm">
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">الإجمالي</dt>
-                  <dd className="font-bold tabular-nums">{total.toLocaleString('ar-EG')} ج.م</dd>
+                  <dd className="font-bold tabular-nums">{total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">المدفوع الآن</dt>
                   <dd className="font-bold tabular-nums text-secondary">
-                    {paidNow.toLocaleString('ar-EG')} ج.م
+                    {paidNow.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </dd>
                 </div>
                 <div className="flex justify-between border-t border-outline-variant pt-sm">
                   <dt className="text-on-surface-variant">المتبقي</dt>
                   <dd className="font-bold tabular-nums text-error">
-                    {balanceDue.toLocaleString('ar-EG')} ج.م
+                    {balanceDue.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </dd>
                 </div>
                 {distributorBalanceAvailable > 0 && paidNow > 0 && (
                   <div className="rounded-lg border border-primary/25 bg-primary/5 p-sm">
                     <p className="mb-xs text-xs text-on-surface-variant">
-                      رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG')} ج.م
+                      رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                     </p>
                     <label className="mb-xs block text-xs text-on-surface-variant">
                       استخدام من الرصيد
                     </label>
-                    <input
+                    <NumericInput
                       type="number"
                       min={0}
                       max={maxDistributorBalanceUse}

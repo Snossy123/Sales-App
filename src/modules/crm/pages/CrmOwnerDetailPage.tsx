@@ -77,7 +77,7 @@ function formatDisplayDate(iso: string) {
 function formatDayLabel(iso: string) {
   const date = new Date(`${iso}T12:00:00`)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString('ar-EG', { numberingSystem: 'latn', day: 'numeric', month: 'short' })
 }
 
 function buildDailyActivity(data: OwnerDetailResponse) {

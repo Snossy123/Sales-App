@@ -18,6 +18,7 @@ import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { SearchableSelect } from '../../../components/SearchableSelect'
+import { TextArea } from '../../../components/ui/TextArea'
 import { ToastBanner } from '../../../components/ToastBanner'
 import {
   CRM_INPUT,
@@ -38,6 +39,8 @@ import {
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { downloadCsv } from '../lib/ownerReports'
 import { formatDatetime12hDisplay } from '../../../lib/datetime12h'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 import {
   CALL_NEXT_ACTION_OPTIONS,
   CALL_OUTCOME_OPTIONS,
@@ -149,7 +152,8 @@ function StatementFormFields({
       </div>
       <div>
         <label className="mb-1 block text-xs text-on-surface-variant">ملاحظة</label>
-        <textarea
+        <TextArea
+          mode="arabic"
           placeholder="تفاصيل إضافية…"
           value={value.notes ?? ''}
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
@@ -825,7 +829,7 @@ export function CrmCallLogsPage() {
               dir="ltr"
             />
           </div>
-          <input
+          <NumericInput
             type="number"
             placeholder="المدة بالثواني"
             value={form.duration}
@@ -934,7 +938,7 @@ export function CrmCallLogsPage() {
                 dir="ltr"
               />
             </div>
-            <input
+            <NumericInput
               type="number"
               placeholder="المدة بالثواني"
               value={form.duration}

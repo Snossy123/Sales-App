@@ -48,6 +48,7 @@ const LEAD_BREAKDOWN_ROWS: {
 function formatDateTime(value?: string | null) {
   if (!value) return '—'
   return new Intl.DateTimeFormat('ar-EG', {
+    numberingSystem: 'latn',
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
@@ -93,7 +94,7 @@ export function CrmCeoDashboardPage() {
   const locale = general?.default_locale === 'en' ? 'en-US' : 'ar-EG'
   const fmtMoney = (value: number) => formatMoney(value, currency, locale)
   const fmtAmount = (value: number) =>
-    new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value)
+    new Intl.NumberFormat(locale, { numberingSystem: 'latn', maximumFractionDigits: 0 }).format(value)
 
   const [period, setPeriod] = useState<CeoDashboardPeriod>('month')
   const [dateRange, setDateRange] = useState<CeoDateRange>(defaultCustomDateRange)

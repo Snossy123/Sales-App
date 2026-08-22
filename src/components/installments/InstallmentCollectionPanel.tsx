@@ -11,6 +11,9 @@ import { StatusBadge } from '../StatusBadge'
 import { collectionStatusOptions, type InstallmentCollectionRow } from '../../lib/collectionHelpers'
 import { normalizeScannedInput } from '../../lib/scanner'
 import { formatInvoiceDate } from '../../lib/sales'
+import { TextArea } from '../ui/TextArea'
+import { NumericInput } from '../ui/NumericInput'
+
 
 const paymentMethodOptions = [
   { value: 'cash', label: 'كاش' },
@@ -209,16 +212,16 @@ export function InstallmentCollectionPanel({
         <div className="mb-md rounded-xl border border-primary/20 bg-primary/5 p-md text-center">
           <p className="text-xs font-medium text-on-surface-variant">المتبقي للتحصيل</p>
           <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">
-            {totalDue.toLocaleString('ar-EG')} ج.م
+            {totalDue.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
           </p>
           {paidSoFar > 0 && (
             <p className="mt-1 text-xs tabular-nums text-secondary">
-              مدفوع سابقاً على هذا القسط: {paidSoFar.toLocaleString('ar-EG')} ج.م
+              مدفوع سابقاً على هذا القسط: {paidSoFar.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
             </p>
           )}
           {lateFee > 0 && (
             <p className="mt-1 text-xs tabular-nums text-error">
-              شامل غرامة تأخير: {lateFee.toLocaleString('ar-EG')} ج.م
+              شامل غرامة تأخير: {lateFee.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
             </p>
           )}
         </div>
@@ -378,7 +381,8 @@ export function InstallmentCollectionPanel({
             )}
 
             <label className="mb-xs block text-xs text-on-surface-variant">سبب التعليق</label>
-            <textarea
+            <TextArea
+              mode="arabic"
               value={suspendReason}
               onChange={(e) => setSuspendReason(e.target.value)}
               rows={2}
@@ -484,7 +488,7 @@ export function InstallmentCollectionPanel({
           <div className="flex items-end justify-between gap-sm">
             <div className="min-w-0 flex-1">
               <label className="mb-xs block text-xs text-on-surface-variant">مبلغ هذه الدفعة</label>
-              <input
+              <NumericInput
                 type="number"
                 min={0.01}
                 max={totalDue}
@@ -514,7 +518,7 @@ export function InstallmentCollectionPanel({
               >
                 {option.label}
                 <span className="ms-1 tabular-nums" dir="ltr">
-                  ({option.value.toLocaleString('ar-EG')})
+                  ({option.value.toLocaleString('ar-EG', { numberingSystem: 'latn' })})
                 </span>
               </button>
             ))}
@@ -524,7 +528,7 @@ export function InstallmentCollectionPanel({
             <p className="rounded-lg bg-tertiary/5 px-sm py-2 text-xs text-on-surface">
               دفع جزئي — بعد هذه الدفعة يتبقى{' '}
               <span className="font-bold tabular-nums text-tertiary">
-                {remainingAfterPay.toLocaleString('ar-EG')} ج.م
+                {remainingAfterPay.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>{' '}
               على نفس القسط
             </p>
@@ -538,10 +542,10 @@ export function InstallmentCollectionPanel({
             <div className="space-y-xs rounded-lg border border-primary/25 bg-primary/5 p-sm">
               <p className="text-xs text-on-surface-variant">
                 رصيد عمولة متاح:{' '}
-                {Number(distributorProfile.commission_balance).toLocaleString('ar-EG')} ج.م
+                {Number(distributorProfile.commission_balance).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </p>
               <label className="mb-xs block text-xs text-on-surface-variant">خصم من رصيد العمولة</label>
-              <input
+              <NumericInput
                 type="number"
                 min={0}
                 max={maxDistributorBalance}
@@ -567,7 +571,7 @@ export function InstallmentCollectionPanel({
               {adjustNextDueDate && (
                 <div>
                   <label className="mb-xs block text-xs text-on-surface-variant">عدد أيام التأجيل</label>
-                  <input
+                  <NumericInput
                     type="number"
                     min={1}
                     value={dueDateShiftDays}
@@ -631,7 +635,8 @@ export function InstallmentCollectionPanel({
             className="mb-sm"
           />
           <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
-          <textarea
+          <TextArea
+            mode="arabic"
             value={collectionNotes}
             onChange={(e) => onCollectionNotesChange(e.target.value)}
             rows={2}
@@ -712,8 +717,8 @@ export function InstallmentCollectionPanel({
               {(installmentPaymentsQuery.data ?? []).map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-2">
                   <span className="tabular-nums">
-                    {Number(p.amount).toLocaleString('ar-EG')} ج.م
-                    {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG')}` : ''}
+                    {Number(p.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                    {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })}` : ''}
                   </span>
                 </li>
               ))}
@@ -743,7 +748,8 @@ export function InstallmentCollectionPanel({
                 </option>
               ))}
             </select>
-            <textarea
+            <TextArea
+              mode="arabic"
               value={reconcileNotes}
               onChange={(e) => onReconcileNotesChange(e.target.value)}
               placeholder="ملاحظات التصالح..."

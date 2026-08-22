@@ -10,6 +10,8 @@ import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../../lib/sales'
 import { openPaymentReceiptPrint } from '../../../lib/paymentReceipt'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 type InstallmentRow = InstallmentItem & Record<string, unknown>
 
@@ -124,7 +126,7 @@ export function ExternalCollectionPage() {
               { key: 'invoice_number', header: 'فاتورة' },
               { key: 'customer_name', header: 'العميل', render: (row) => row.customer_name ?? '—' },
               { key: 'installment_number', header: 'قسط #' },
-              { key: 'amount', header: 'مبلغ القسط', render: (row) => Number(row.amount).toLocaleString('ar-EG') },
+              { key: 'amount', header: 'مبلغ القسط', render: (row) => Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }) },
               {
                 key: 'due_date',
                 header: 'الاستحقاق',
@@ -158,7 +160,7 @@ export function ExternalCollectionPage() {
                 <div className="flex justify-between">
                   <dt className="text-on-surface-variant">الإجمالي المستحق</dt>
                   <dd className="font-bold tabular-nums">
-                    {Number(selected.total_due ?? 0).toLocaleString('ar-EG')} ج.م
+                    {Number(selected.total_due ?? 0).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                   </dd>
                 </div>
               </dl>
@@ -212,7 +214,7 @@ export function ExternalCollectionPage() {
                 )}
 
                 <label className="block text-sm text-on-surface-variant">مبلغ التحصيل</label>
-                <input
+                <NumericInput
                   type="number"
                   min={1}
                   value={amount}

@@ -27,6 +27,9 @@ import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatRoleLabel } from '../../../lib/roleCatalog'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { useAuthStore } from '../../../stores/authStore'
+import { NumericInput } from '../../../components/ui/NumericInput'
+import { TextInput } from '../../../components/ui/TextInput'
+
 import {
   EmployeeAccountModeField,
   inferEmployeeAccountMode,
@@ -56,7 +59,7 @@ function employeeSearchHaystack(employee: Employee): string {
     employee.branch?.name_ar,
     employee.branch?.name,
     employee.salary != null ? String(employee.salary) : '',
-    employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG') : '',
+    employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' }) : '',
     employeeStatusSearchText(employee.status),
   ]
   return parts.filter(Boolean).join(' ').toLowerCase()
@@ -371,7 +374,8 @@ export function HrmEmployeesPage() {
         isLoading={linkableUsersQuery.isLoading}
       />
       {!usesLinkedUser && (
-        <input
+        <TextInput
+          mode="arabic"
           placeholder="الاسم"
           value={employeeForm.name}
           onChange={(e) => setEmployeeForm({ ...employeeForm, name: e.target.value })}
@@ -379,7 +383,8 @@ export function HrmEmployeesPage() {
           className={inputClass}
         />
       )}
-      <input
+      <TextInput
+        mode="phone"
         placeholder="الهاتف"
         value={employeeForm.phone}
         onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })}
@@ -396,7 +401,7 @@ export function HrmEmployeesPage() {
           <option key={job.id} value={job.id}>{job.name}</option>
         ))}
       </select>
-      <input
+      <NumericInput
         type="number"
         placeholder="الراتب"
         value={employeeForm.salary}
@@ -450,7 +455,8 @@ export function HrmEmployeesPage() {
 
   const userFormFields = (
     <>
-      <input
+      <TextInput
+        mode="arabic"
         placeholder="الاسم"
         value={userForm.name}
         onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
@@ -618,7 +624,7 @@ export function HrmEmployeesPage() {
             },
             { key: 'job_title', header: 'الوظيفة', render: (row) => row.job?.name ?? row.job_title ?? '—' },
             { key: 'branch', header: 'الفرع', render: (row) => row.branch?.name_ar ?? row.branch?.name ?? '—' },
-            { key: 'salary', header: 'الراتب', className: 'tabular-nums', render: (row) => row.salary != null ? Number(row.salary).toLocaleString('ar-EG') : '—' },
+            { key: 'salary', header: 'الراتب', className: 'tabular-nums', render: (row) => row.salary != null ? Number(row.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' }) : '—' },
             { key: 'status', header: 'الحالة', render: (row) => <StatusBadge status={row.status} /> },
             { key: 'actions', header: '', render: (row) => (
               <EntityRowActions

@@ -113,7 +113,7 @@ export function MyProfilePage() {
                   <dt className="text-sm text-on-surface-variant">الراتب</dt>
                   <dd className="tabular-nums">
                     {employeeQuery.data.salary != null
-                      ? Number(employeeQuery.data.salary).toLocaleString('ar-EG')
+                      ? Number(employeeQuery.data.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' })
                       : '—'}
                   </dd>
                 </div>

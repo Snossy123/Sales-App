@@ -10,6 +10,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -95,7 +97,7 @@ export function HrmLeaveTypesPage() {
       <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null) }} title={editId ? 'تعديل نوع إجازة' : 'نوع إجازة جديد'}>
         <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }} className="space-y-sm">
           <input placeholder="اسم النوع" value={form.leave_type} onChange={(e) => setForm({ ...form, leave_type: e.target.value })} required className={inputClass} />
-          <input type="number" placeholder="الحد الأقصى" value={form.max_leave_count} onChange={(e) => setForm({ ...form, max_leave_count: e.target.value })} className={inputClass} dir="ltr" />
+          <NumericInput type="number" placeholder="الحد الأقصى" value={form.max_leave_count} onChange={(e) => setForm({ ...form, max_leave_count: e.target.value })} className={inputClass} dir="ltr" />
           <select value={form.leave_count_interval} onChange={(e) => setForm({ ...form, leave_count_interval: e.target.value })} className={inputClass}>
             <option value="year">سنوي</option>
             <option value="month">شهري</option>

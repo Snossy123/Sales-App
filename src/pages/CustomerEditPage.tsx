@@ -8,6 +8,8 @@ import { CustomerPhoneFields } from '../components/customers/CustomerPhoneFields
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { TextArea } from '../components/ui/TextArea'
+import { TextInput } from '../components/ui/TextInput'
 import {
   customerToPhoneEntries,
   emptyGuarantorForm,
@@ -114,7 +116,8 @@ export function CustomerEditPage() {
               <div className="grid grid-cols-12 gap-sm">
                 <label className="col-span-12 block text-sm sm:col-span-4">
                   <span className="mb-xs block text-on-surface-variant">السيد *</span>
-                  <input
+                  <TextInput
+                    mode="arabic"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
@@ -123,7 +126,8 @@ export function CustomerEditPage() {
                 </label>
                 <label className="col-span-12 block text-sm sm:col-span-4">
                   <span className="mb-xs block text-on-surface-variant">الرقم القومي</span>
-                  <input
+                  <TextInput
+                    mode="phone"
                     value={form.national_id}
                     onChange={(e) => setForm({ ...form, national_id: e.target.value })}
                     dir="ltr"
@@ -132,7 +136,8 @@ export function CustomerEditPage() {
                 </label>
                 <label className="col-span-12 block text-sm sm:col-span-4">
                   <span className="mb-xs block text-on-surface-variant">العنوان</span>
-                  <input
+                  <TextInput
+                    mode="arabic"
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                     className={inputClass}
@@ -141,7 +146,8 @@ export function CustomerEditPage() {
                 <CustomerPhoneFields phones={phones} onChange={setPhones} />
                 <label className="col-span-12 block text-sm">
                   <span className="mb-xs block text-on-surface-variant">علامة مميزة بالتفصيل</span>
-                  <textarea
+                  <TextArea
+                    mode="arabic"
                     value={form.distinctive_mark}
                     onChange={(e) => setForm({ ...form, distinctive_mark: e.target.value })}
                     rows={3}
@@ -180,7 +186,8 @@ export function CustomerEditPage() {
                 <div className="grid grid-cols-12 gap-sm">
                   <label className="col-span-12 block text-sm sm:col-span-4">
                     <span className="mb-xs block text-on-surface-variant">الاسم *</span>
-                    <input
+                    <TextInput
+                      mode="arabic"
                       value={guarantor.name}
                       onChange={(e) => setGuarantor({ ...guarantor, name: e.target.value })}
                       required
@@ -189,7 +196,8 @@ export function CustomerEditPage() {
                   </label>
                   <label className="col-span-12 block text-sm sm:col-span-4">
                     <span className="mb-xs block text-on-surface-variant">الرقم القومي</span>
-                    <input
+                    <TextInput
+                      mode="phone"
                       value={guarantor.national_id}
                       onChange={(e) => setGuarantor({ ...guarantor, national_id: e.target.value })}
                       dir="ltr"
@@ -198,7 +206,8 @@ export function CustomerEditPage() {
                   </label>
                   <label className="col-span-12 block text-sm sm:col-span-4">
                     <span className="mb-xs block text-on-surface-variant">الصلة</span>
-                    <input
+                    <TextInput
+                      mode="arabic"
                       value={guarantor.relationship}
                       onChange={(e) => setGuarantor({ ...guarantor, relationship: e.target.value })}
                       className={inputClass}
@@ -206,7 +215,8 @@ export function CustomerEditPage() {
                   </label>
                   <label className="col-span-12 block text-sm sm:col-span-6">
                     <span className="mb-xs block text-on-surface-variant">العنوان</span>
-                    <input
+                    <TextInput
+                      mode="arabic"
                       value={guarantor.address}
                       onChange={(e) => setGuarantor({ ...guarantor, address: e.target.value })}
                       className={inputClass}
@@ -214,7 +224,8 @@ export function CustomerEditPage() {
                   </label>
                   <label className="col-span-12 block text-sm sm:col-span-6">
                     <span className="mb-xs block text-on-surface-variant">رقم الهاتف *</span>
-                    <input
+                    <TextInput
+                      mode="phone"
                       value={guarantor.phone}
                       onChange={(e) => setGuarantor({ ...guarantor, phone: e.target.value })}
                       required

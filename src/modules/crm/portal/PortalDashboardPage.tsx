@@ -48,7 +48,7 @@ export function PortalDashboardPage() {
         <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2">
           <KpiCard
             label="الرصيد المستحق"
-            value={`${balanceDue.toLocaleString('ar-EG')} ج.م`}
+            value={`${balanceDue.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`}
             icon="account_balance_wallet"
           />
           <KpiCard
@@ -76,20 +76,20 @@ export function PortalDashboardPage() {
               className: 'tabular-nums',
               render: (row) =>
                 row.invoice_date
-                  ? new Date(row.invoice_date).toLocaleDateString('ar-EG')
+                  ? new Date(row.invoice_date).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })
                   : '—',
             },
             {
               key: 'total',
               header: 'الإجمالي',
               className: 'tabular-nums',
-              render: (row) => Number(row.total).toLocaleString('ar-EG'),
+              render: (row) => Number(row.total).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'balance_due',
               header: 'المتبقي',
               className: 'tabular-nums',
-              render: (row) => Number(row.balance_due).toLocaleString('ar-EG'),
+              render: (row) => Number(row.balance_due).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
             },
             {
               key: 'payment_status',

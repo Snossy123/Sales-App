@@ -229,7 +229,7 @@ export function HrmZkDevicesPage() {
               header: 'آخر ظهور',
               render: (row) =>
                 row.last_seen_at
-                  ? new Date(row.last_seen_at).toLocaleString('ar-EG')
+                  ? new Date(row.last_seen_at).toLocaleString('ar-EG', { numberingSystem: 'latn' })
                   : '—',
             },
             {

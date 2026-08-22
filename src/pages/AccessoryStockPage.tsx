@@ -14,6 +14,8 @@ import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -117,6 +119,7 @@ export function AccessoryStockPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accessories'] })
+      queryClient.invalidateQueries({ queryKey: ['accessories', 'stocks'] })
       setQuantity('1')
       setError('')
       setSuccess(
@@ -281,7 +284,7 @@ export function AccessoryStockPage() {
 
         <label className="text-sm">
           الكمية
-          <input
+          <NumericInput
             type="number"
             min={1}
             className={inputClass}
@@ -333,8 +336,11 @@ export function AccessoryStockPage() {
             {
               key: 'warehouse',
               header: 'المخزن',
-              render: (row: AccessoryWarehouseStock) =>
-                row.warehouse?.name_ar || row.warehouse?.name || row.warehouse_id,
+              render: (row: AccessoryWarehouseStock) => {
+                const name = row.warehouse?.name_ar || row.warehouse?.name || row.warehouse_id
+                const kind = row.warehouse?.is_central ? 'إدارة' : 'فرع'
+                return `${name} (${kind})`
+              },
             },
             { key: 'qty', header: 'الكمية', render: (row: AccessoryWarehouseStock) => row.quantity },
             {

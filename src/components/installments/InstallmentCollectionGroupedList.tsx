@@ -202,7 +202,7 @@ function CurrentInstallmentCard({
         </InstallmentMetricCell>
 
         <InstallmentMetricCell label="المبلغ المستحق">
-          <span className="tabular-nums">{remaining.toLocaleString('ar-EG')} ج.م</span>
+          <span className="tabular-nums">{remaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</span>
         </InstallmentMetricCell>
 
         <InstallmentMetricCell label="تاريخ الاستحقاق" dir="ltr">
@@ -275,9 +275,9 @@ function InstallmentDetailsTable({
                 className={`border-b border-outline-variant/40 ${tierRowClass(String(row.display_tier ?? row.status), selected)}`}
               >
                 <td className="px-sm py-2 tabular-nums">{row.installment_number ?? row.sequence ?? '—'}</td>
-                <td className="px-sm py-2 tabular-nums">{Number(row.amount).toLocaleString('ar-EG')}</td>
+                <td className="px-sm py-2 tabular-nums">{Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</td>
                 <td className="px-sm py-2 tabular-nums font-medium">
-                  {isPaid ? '—' : rowRemaining(row).toLocaleString('ar-EG')}
+                  {isPaid ? '—' : rowRemaining(row).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
                 </td>
                 <td className="px-sm py-2 tabular-nums">{formatInvoiceDate(row.due_date)}</td>
                 <td className="px-sm py-2">
@@ -370,7 +370,7 @@ export function InstallmentCollectionGroupedList({
         <CollapsibleSection
           key={customer.customerKey}
           title={customer.customerName}
-          summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG')} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
+          summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
           defaultOpen={index === 0}
           actions={
             customer.customerId ? (
@@ -424,7 +424,7 @@ export function InstallmentCollectionGroupedList({
                     <div>
                       <p className="font-semibold text-on-surface">تعاقد {contract.invoiceNumber}</p>
                       <p className="text-xs text-on-surface-variant">
-                        {contract.installmentCount} قسط · {contract.totalRemaining.toLocaleString('ar-EG')} ج.م
+                        {contract.installmentCount} قسط · {contract.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                         {contract.collectionStatus && (
                           <> · {collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus}</>
                         )}

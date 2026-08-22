@@ -37,7 +37,7 @@ const QUICK_ACTIONS = [
 ]
 
 function todayLabel(): string {
-  return new Date().toLocaleDateString('ar-EG', {
+  return new Date().toLocaleDateString('ar-EG', { numberingSystem: 'latn',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -48,7 +48,7 @@ function todayLabel(): string {
 function weekdayLabel(dateStr: string): string {
   const parsed = new Date(dateStr)
   if (Number.isNaN(parsed.getTime())) return dateStr
-  return parsed.toLocaleDateString('ar-EG', { weekday: 'short' })
+  return parsed.toLocaleDateString('ar-EG', { numberingSystem: 'latn', weekday: 'short' })
 }
 
 async function fetchDashboard(user: AuthUser | null): Promise<DashboardResult> {
@@ -247,7 +247,7 @@ function EmployeesFallbackView({ employees }: { employees: Employee[] }) {
             header: 'الراتب',
             className: 'tabular-nums',
             render: (row) =>
-              row.salary != null ? Number(row.salary).toLocaleString('ar-EG') : '—',
+              row.salary != null ? Number(row.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' }) : '—',
           },
           {
             key: 'status',

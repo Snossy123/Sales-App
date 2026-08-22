@@ -4,6 +4,7 @@ import { api, getErrorMessage } from '../../api/client'
 import type { CollectionActionsSummary } from '../../api/types'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 import { Modal } from '../Modal'
+import { TextArea } from '../ui/TextArea'
 
 function summaryQueryKey(customerId: number) {
   return ['collection-actions-summary', customerId] as const
@@ -209,7 +210,8 @@ export function ContractCollectionActions({
           سيتم تسجيل إجراء يدوي لفقد إشارة الجهاز — بدون اتصال بمنصة التتبع حالياً.
         </p>
         <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات (اختياري)</label>
-        <textarea
+        <TextArea
+          mode="arabic"
           value={deviceNotes}
           onChange={(e) => setDeviceNotes(e.target.value)}
           rows={3}

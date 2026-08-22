@@ -20,7 +20,7 @@ function formatTime(value?: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
 }
 
 function attendanceSource(row: HrmAttendance): string {

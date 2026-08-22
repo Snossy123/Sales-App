@@ -8,6 +8,8 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { normalizeScannedInput } from '../lib/scanner'
 import { useAuthStore } from '../stores/authStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
@@ -450,7 +452,7 @@ export function DeviceMovementNewPage() {
                         <span className="mb-xs block text-on-surface-variant">
                           الكمية{productModelId ? ` (متاح: ${availableForModel})` : ''}
                         </span>
-                        <input
+                        <NumericInput
                           type="number"
                           min={1}
                           max={Math.max(availableForModel, 1)}

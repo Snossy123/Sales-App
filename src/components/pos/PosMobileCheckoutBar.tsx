@@ -34,7 +34,7 @@ export function PosMobileCheckoutBar({
                 إجمالي التعاقد
               </span>
               <span className="text-sm font-bold leading-tight text-on-surface">
-                {totalEstimate.toLocaleString('ar-EG')} ج.م
+                {totalEstimate.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           ) : null}
@@ -44,7 +44,7 @@ export function PosMobileCheckoutBar({
                 المطلوب عند التعاقد
               </span>
               <span className="text-base font-extrabold leading-tight text-primary sm:text-lg">
-                {paidAtCheckout.toLocaleString('ar-EG')} ج.م
+                {paidAtCheckout.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
           </div>

@@ -9,12 +9,14 @@ import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 function formatDate(value?: string | null): string {
   if (!value) return '—'
-  return new Date(value).toLocaleString('ar-EG', {
+  return new Date(value).toLocaleString('ar-EG', { numberingSystem: 'latn',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -148,7 +150,7 @@ export function InventoryTransfersPage() {
               <option key={b.id} value={b.id}>{b.name_ar || b.name}</option>
             ))}
           </select>
-          <input
+          <NumericInput
             type="number"
             min={1}
             max={500}

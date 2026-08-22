@@ -27,6 +27,8 @@ import { EmployeeAttachmentsSection } from '../components/EmployeeAttachmentsSec
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
 import { hrmLeaveTypeLabel } from '../lib/labels'
+import { NumericInput } from '../../../components/ui/NumericInput'
+
 
 type TabId = 'attendance' | 'leaves' | 'allowances' | 'payroll' | 'sales-targets' | 'debts'
 
@@ -80,7 +82,7 @@ function formatTime(value?: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
 }
 
 export function HrmEmployeeDetailPage() {
@@ -407,7 +409,7 @@ export function HrmEmployeeDetailPage() {
                 <div>
                   <dt className="text-sm text-on-surface-variant">الراتب</dt>
                   <dd className="tabular-nums">
-                    {employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG') : '—'}
+                    {employee.salary != null ? Number(employee.salary).toLocaleString('ar-EG', { numberingSystem: 'latn' }) : '—'}
                   </dd>
                 </div>
                 <div>
@@ -563,7 +565,7 @@ export function HrmEmployeeDetailPage() {
                       key: 'amount',
                       header: 'القيمة',
                       className: 'tabular-nums',
-                      render: (row) => Number(row.amount).toLocaleString('ar-EG'),
+                      render: (row) => Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                     },
                     { key: 'applicable_date', header: 'التاريخ', render: (row) => row.applicable_date ?? '—' },
                   ]}
@@ -593,13 +595,13 @@ export function HrmEmployeeDetailPage() {
                       key: 'gross_total',
                       header: 'الإجمالي',
                       className: 'tabular-nums',
-                      render: (row) => Number(row.gross_total).toLocaleString('ar-EG'),
+                      render: (row) => Number(row.gross_total).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                     },
                     {
                       key: 'final_total',
                       header: 'الصافي',
                       className: 'tabular-nums',
-                      render: (row) => Number(row.final_total).toLocaleString('ar-EG'),
+                      render: (row) => Number(row.final_total).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                     },
                     {
                       key: 'payment_status',
@@ -632,13 +634,13 @@ export function HrmEmployeeDetailPage() {
                       key: 'amount',
                       header: 'المبلغ',
                       className: 'tabular-nums',
-                      render: (row) => Number(row.amount).toLocaleString('ar-EG'),
+                      render: (row) => Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                     },
                     {
                       key: 'remaining_balance',
                       header: 'المتبقي',
                       className: 'tabular-nums',
-                      render: (row) => Number(row.remaining_balance).toLocaleString('ar-EG'),
+                      render: (row) => Number(row.remaining_balance).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
                     },
                     {
                       key: 'status',
@@ -788,7 +790,7 @@ export function HrmEmployeeDetailPage() {
               </option>
             ))}
           </select>
-          <input
+          <NumericInput
             type="number"
             placeholder="الراتب"
             value={form.salary}

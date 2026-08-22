@@ -24,6 +24,8 @@ import {
 } from '../lib/sales'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
+import { NumericInput } from '../components/ui/NumericInput'
+
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2 text-sm'
 
@@ -430,7 +432,7 @@ export function DistributorDetailPage() {
 
                   <label className="col-span-12 block text-sm sm:col-span-6">
                     <span className="mb-xs block text-on-surface-variant">عمولة ثابتة لكل عقد (ج.م)</span>
-                    <input
+                    <NumericInput
                       type="number"
                       min={0}
                       step={0.01}
@@ -488,12 +490,12 @@ export function DistributorDetailPage() {
                   {
                     key: 'amount',
                     header: 'المبلغ',
-                    render: (row) => `${Number(row.amount).toLocaleString('ar-EG')} ج.م`,
+                    render: (row) => `${Number(row.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
                   },
                   {
                     key: 'balance_after',
                     header: 'الرصيد بعد',
-                    render: (row) => `${Number(row.balance_after).toLocaleString('ar-EG')} ج.م`,
+                    render: (row) => `${Number(row.balance_after).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
                   },
                   {
                     key: 'notes',
@@ -560,7 +562,7 @@ export function DistributorDetailPage() {
                   {
                     key: 'total',
                     header: 'الإجمالي',
-                    render: (row) => `${Number(row.total).toLocaleString('ar-EG')} ج.م`,
+                    render: (row) => `${Number(row.total).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`,
                   },
                   {
                     key: 'status',

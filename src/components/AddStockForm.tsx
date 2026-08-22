@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Department } from '../api/types'
+import { NumericInput } from './ui/NumericInput'
+
 
 interface AddStockFormProps {
   departments: Department[]
@@ -88,7 +90,7 @@ export function AddStockForm({
         <label htmlFor="add-stock-quantity" className="mb-1 block text-sm font-medium text-on-surface-variant">
           عدد القطع
         </label>
-        <input
+        <NumericInput
           id="add-stock-quantity"
           type="number"
           min={1}

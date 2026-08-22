@@ -1,5 +1,6 @@
 import type { InstallmentItem, SalesInvoice } from '../api/types'
 import { resolveLinePlan } from './contractFields'
+import { formatNumber } from './format'
 import { formatInvoiceDate } from './sales'
 
 export type ContractStatusFilter = 'confirmed' | 'unconfirmed' | 'all'
@@ -123,7 +124,7 @@ export function installmentRemainingAmount(item: InstallmentItem): number {
 }
 
 export function formatContractMoney(value: number): string {
-  return `${value.toLocaleString('ar-EG')} ج.م`
+  return `${formatNumber(value)} ج.م`
 }
 
 export function buildContractSummaryLine(invoice: SalesInvoice): string {
