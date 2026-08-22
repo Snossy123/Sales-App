@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../stores/procedureDraftStore'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { AdminUser, Branch, CollectionPaymentAccount, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
@@ -36,6 +42,26 @@ interface BranchStats {
 }
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
+
+type InstallmentDraft = {
+  selectedBranchId: number | null
+  selectedId: number | null
+  amount: number
+  paymentMethod: string
+  accountId: number | ''
+  senderNumber: string
+  collectionStatus: string
+  collectionReminderAt: string
+  collectionNotes: string
+  deferDate: string
+  dueDateEdits: Record<number, string>
+  showReconcile: boolean
+  responsibleUserId: number | ''
+  reconcileNotes: string
+  adjustNextDueDate: boolean
+  dueDateShiftDays: number
+  distributorBalanceAmount: number
+}
 
 function BranchInstallmentCard({
   stats,
@@ -127,28 +153,43 @@ function BranchInstallmentCard({
 export function InstallmentCollectionPage() {
   const queryClient = useQueryClient()
   const authBranchId = useAuthStore((s) => s.branchId)
-  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const savedDraft = readProcedureDraft<InstallmentDraft>(PROCEDURE_DRAFT_IDS.installments, userId)
+  const restoredRef = useRef(false)
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(
+    () => savedDraft?.selectedBranchId ?? null,
+  )
   const [selected, setSelected] = useState<InstallmentRow | null>(null)
-  const [amount, setAmount] = useState(0)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [accountId, setAccountId] = useState<number | ''>('')
-  const [senderNumber, setSenderNumber] = useState('')
+  const [amount, setAmount] = useState(() => savedDraft?.amount ?? 0)
+  const [paymentMethod, setPaymentMethod] = useState(() => savedDraft?.paymentMethod ?? 'cash')
+  const [accountId, setAccountId] = useState<number | ''>(() => savedDraft?.accountId ?? '')
+  const [senderNumber, setSenderNumber] = useState(() => savedDraft?.senderNumber ?? '')
   const [statusFilter, setStatusFilter] = useState('')
   const [contractTierFilter, setContractTierFilter] = useState<ContractTierFilter>('all')
   const [collectionStatusFilter, setCollectionStatusFilter] = useState('')
   const [sortByReminder, setSortByReminder] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
-  const [collectionStatus, setCollectionStatus] = useState('')
-  const [collectionReminderAt, setCollectionReminderAt] = useState('')
-  const [collectionNotes, setCollectionNotes] = useState('')
-  const [deferDate, setDeferDate] = useState('')
-  const [dueDateEdits, setDueDateEdits] = useState<Record<number, string>>({})
-  const [showReconcile, setShowReconcile] = useState(false)
-  const [responsibleUserId, setResponsibleUserId] = useState<number | ''>('')
-  const [reconcileNotes, setReconcileNotes] = useState('')
-  const [adjustNextDueDate, setAdjustNextDueDate] = useState(false)
-  const [dueDateShiftDays, setDueDateShiftDays] = useState(0)
-  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
+  const [collectionStatus, setCollectionStatus] = useState(() => savedDraft?.collectionStatus ?? '')
+  const [collectionReminderAt, setCollectionReminderAt] = useState(
+    () => savedDraft?.collectionReminderAt ?? '',
+  )
+  const [collectionNotes, setCollectionNotes] = useState(() => savedDraft?.collectionNotes ?? '')
+  const [deferDate, setDeferDate] = useState(() => savedDraft?.deferDate ?? '')
+  const [dueDateEdits, setDueDateEdits] = useState<Record<number, string>>(
+    () => savedDraft?.dueDateEdits ?? {},
+  )
+  const [showReconcile, setShowReconcile] = useState(() => savedDraft?.showReconcile ?? false)
+  const [responsibleUserId, setResponsibleUserId] = useState<number | ''>(
+    () => savedDraft?.responsibleUserId ?? '',
+  )
+  const [reconcileNotes, setReconcileNotes] = useState(() => savedDraft?.reconcileNotes ?? '')
+  const [adjustNextDueDate, setAdjustNextDueDate] = useState(
+    () => savedDraft?.adjustNextDueDate ?? false,
+  )
+  const [dueDateShiftDays, setDueDateShiftDays] = useState(() => savedDraft?.dueDateShiftDays ?? 0)
+  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
+    () => savedDraft?.distributorBalanceAmount ?? 0,
+  )
 
   const selectedCustomerId = selected?.customer_id as number | undefined
 
@@ -274,6 +315,81 @@ export function InstallmentCollectionPage() {
       setSelectedBranchId(branchStats[0].branch.id)
     }
   }, [authBranchId, branchStats, selectedBranchId])
+
+  useEffect(() => {
+    if (restoredRef.current || !savedDraft?.selectedId) {
+      if (installmentsQuery.isSuccess || !savedDraft?.selectedId) restoredRef.current = true
+      return
+    }
+    const row = (installmentsQuery.data ?? []).find((item) => item.id === savedDraft.selectedId)
+    if (!row) {
+      if (installmentsQuery.isSuccess) restoredRef.current = true
+      return
+    }
+    setSelected(row)
+    if (savedDraft.selectedBranchId != null) {
+      setSelectedBranchId(savedDraft.selectedBranchId)
+    }
+    restoredRef.current = true
+  }, [installmentsQuery.data, installmentsQuery.isSuccess, savedDraft])
+
+  const installmentDraftSnapshot = useMemo<InstallmentDraft>(
+    () => ({
+      selectedBranchId,
+      selectedId: typeof selected?.id === 'number' ? selected.id : null,
+      amount,
+      paymentMethod,
+      accountId,
+      senderNumber,
+      collectionStatus,
+      collectionReminderAt,
+      collectionNotes,
+      deferDate,
+      dueDateEdits,
+      showReconcile,
+      responsibleUserId,
+      reconcileNotes,
+      adjustNextDueDate,
+      dueDateShiftDays,
+      distributorBalanceAmount,
+    }),
+    [
+      selectedBranchId,
+      selected?.id,
+      amount,
+      paymentMethod,
+      accountId,
+      senderNumber,
+      collectionStatus,
+      collectionReminderAt,
+      collectionNotes,
+      deferDate,
+      dueDateEdits,
+      showReconcile,
+      responsibleUserId,
+      reconcileNotes,
+      adjustNextDueDate,
+      dueDateShiftDays,
+      distributorBalanceAmount,
+    ],
+  )
+
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.installments,
+    userId,
+    titleAr: 'تحصيل أقساط',
+    resumePath: '/installments',
+    snapshot: installmentDraftSnapshot,
+    isMeaningful: Boolean(
+      selected?.id ||
+        amount > 0 ||
+        senderNumber.trim() ||
+        collectionNotes.trim() ||
+        deferDate ||
+        showReconcile ||
+        distributorBalanceAmount > 0,
+    ),
+  })
 
   const branchRows = useMemo(() => {
     if (!selectedBranchId) return []

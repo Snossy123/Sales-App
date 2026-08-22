@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useCallback, useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
@@ -29,12 +29,13 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
-import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import { isDeviceContractDraftMeaningful } from '../lib/procedureDrafts'
+import { PROCEDURE_DRAFT_IDS, useProcedureDraftStore } from '../stores/procedureDraftStore'
 import {
   readDeviceDraft,
-  useSalesDraftStore,
   type DeviceContractDraft,
 } from '../stores/salesDraftStore'
 import {
@@ -221,14 +222,15 @@ export function PosPage() {
     ],
   )
 
-  const saveDeviceDraft = useCallback(
-    (draft: DeviceContractDraft) => {
-      useSalesDraftStore.getState().setDeviceDraft(draftUserId, draft)
-    },
-    [draftUserId],
-  )
-
-  useDebouncedDraftSync(deviceDraftSnapshot, saveDeviceDraft, !isEditMode)
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.posDevice,
+    userId: draftUserId,
+    titleAr: 'تعاقد أجهزة',
+    resumePath: '/pos',
+    snapshot: deviceDraftSnapshot,
+    isMeaningful: isDeviceContractDraftMeaningful(deviceDraftSnapshot),
+    enabled: !isEditMode,
+  })
 
   const resetDeviceForm = () => {
     setContractKind('new_contract')
@@ -258,7 +260,7 @@ export function PosPage() {
     setSuccessMsg('')
     setLastInvoice(null)
     hasAutoSelectedPromotion.current = false
-    useSalesDraftStore.getState().clearDeviceDraft()
+    useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId)
   }
 
   const editInvoiceQuery = useQuery({
@@ -897,11 +899,6 @@ export function PosPage() {
       )
       setQuantity(1)
       setSourceRenewalCandidate(null)
-      useSalesDraftStore.getState().setDeviceDraft(draftUserId, {
-        ...deviceDraftSnapshot,
-        quantity: 1,
-        sourceRenewalCandidate: null,
-      })
     },
   })
 

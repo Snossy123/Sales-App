@@ -26,13 +26,13 @@ export const useOrgSettingsStore = create<OrgSettingsState>()((set) => ({
 
   setFromApi: ({ organization, settings }) => {
     applyThemeColor(settings.general.theme_color)
-    set({
+    set((state) => ({
       organization,
       general: settings.general,
-      sales: settings.sales ?? DEFAULT_SALES,
+      sales: settings.sales ?? state.sales ?? DEFAULT_SALES,
       security: settings.security,
       loaded: true,
-    })
+    }))
   },
 
   updateGeneral: (general) => {

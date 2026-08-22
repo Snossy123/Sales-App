@@ -126,6 +126,7 @@ export function AdminSystemSettingsPage() {
         organization: query.data.organization,
         settings: {
           general: mergeSettings(DEFAULT_GENERAL, query.data.settings?.general),
+          sales: mergeSettings(DEFAULT_SALES, query.data.settings?.sales),
           security: mergeSettings(DEFAULT_SECURITY, query.data.settings?.security),
         },
       })
@@ -158,6 +159,7 @@ export function AdminSystemSettingsPage() {
         organization: data.organization,
         settings: {
           general: mergeSettings(DEFAULT_GENERAL, data.settings?.general),
+          sales: mergeSettings(DEFAULT_SALES, data.settings?.sales),
           security: mergeSettings(DEFAULT_SECURITY, data.settings?.security),
         },
       })

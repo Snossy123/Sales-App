@@ -277,13 +277,17 @@ export function computeInstallmentCount(
   total: number,
   installmentAmount: number,
   downPayment: number,
-  maxCount = 24,
 ): number {
   if (installmentAmount <= 0 || total <= 0) return 0
   const financed = Math.max(0, total - downPayment)
   if (financed <= 0) return 0
   const count = Math.ceil((financed - 0.001) / installmentAmount)
-  return Math.min(maxCount, Math.max(1, count))
+  return Math.max(1, count)
+}
+
+export function installmentCountExceedsMaxMessage(count: number, maxCount: number): string | null {
+  if (count <= 0 || count <= maxCount) return null
+  return `عدد الأقساط المحسوب ${count} أكبر من الأقصى ${maxCount} — راجع الأدمن في إعدادات النظام`
 }
 
 export function computeMinDownPayment(total: number, minPercent = 10): number {

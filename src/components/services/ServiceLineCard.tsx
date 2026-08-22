@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
+  installmentCountExceedsMaxMessage,
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import {
@@ -52,13 +53,12 @@ export function lineTotal(line: ServiceLineDraft): number {
 
 export function lineInstallmentCount(
   line: ServiceLineDraft,
-  maxInstallmentCount: number,
+  _maxInstallmentCount?: number,
 ): number {
   return computeInstallmentCount(
     lineTotal(line),
     line.installmentAmount,
     line.downPayment,
-    maxInstallmentCount,
   )
 }
 
@@ -102,6 +102,10 @@ export function validateServiceLineInstallment(
   }
   if (count <= 0) {
     errors.push('عدد الأقساط غير صالح')
+  }
+  const exceedsMax = installmentCountExceedsMaxMessage(count, maxInstallmentCount)
+  if (exceedsMax) {
+    errors.push(exceedsMax)
   }
 
   return { valid: errors.length === 0, errors }

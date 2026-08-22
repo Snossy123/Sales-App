@@ -425,7 +425,6 @@ export function ServiceSalesPage({
               total,
               contractPayment.installmentAmount,
               contractPayment.downPayment,
-              maxInstallmentCount,
             ),
             interval_type: contractPayment.intervalType,
             interval_days: contractPayment.intervalType === 'weekly' ? 7 : 30,

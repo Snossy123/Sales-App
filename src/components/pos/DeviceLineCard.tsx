@@ -9,6 +9,7 @@ import { normalizeScannedInput } from '../../lib/scanner'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
+  installmentCountExceedsMaxMessage,
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import { renewalTypeLabels } from '../../lib/contractFields'
@@ -104,14 +105,13 @@ export function lineNetTotal(line: DeviceLineDraft): number {
 
 export function lineInstallmentCount(
   line: DeviceLineDraft,
-  maxInstallmentCount: number,
+  _maxInstallmentCount?: number,
 ): number {
   const net = lineNetTotal(line)
   return computeInstallmentCount(
     net,
     line.installmentAmount,
     line.downPayment,
-    maxInstallmentCount,
   )
 }
 
@@ -153,6 +153,10 @@ export function validateInstallmentLine(
   }
   if (count < 1 && line.installmentAmount > 0 && line.downPayment < net) {
     errors.push('لا يمكن حساب عدد أقساط صالح')
+  }
+  const exceedsMax = installmentCountExceedsMaxMessage(count, maxInstallmentCount)
+  if (exceedsMax) {
+    errors.push(exceedsMax)
   }
 
   return { valid: errors.length === 0, errors }

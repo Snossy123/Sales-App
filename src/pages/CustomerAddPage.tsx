@@ -1,8 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Customer } from '../api/types'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
+import { useAuthStore } from '../stores/authStore'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../stores/procedureDraftStore'
 import {
   CustomerAttachmentsSection,
   uploadCustomerAttachments,
@@ -19,17 +26,51 @@ import {
   hasGuarantorData,
   phoneEntriesToPayload,
   type CustomerPhoneEntry,
+  type GuarantorFormState,
 } from '../lib/customerForm'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
+type CustomerCreateDraft = {
+  form: { name: string; national_id: string; address: string; distinctive_mark: string }
+  phones: CustomerPhoneEntry[]
+  withGuarantor: boolean
+  guarantor: GuarantorFormState
+}
+
+const emptyCustomerFields = { name: '', national_id: '', address: '', distinctive_mark: '' }
+
 export function CustomerAddPage() {
   const navigate = useNavigate()
-  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
-  const [form, setForm] = useState({ name: '', national_id: '', address: '', distinctive_mark: '' })
-  const [withGuarantor, setWithGuarantor] = useState(false)
-  const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const saved = readProcedureDraft<CustomerCreateDraft>(PROCEDURE_DRAFT_IDS.customerCreate, userId)
+  const [phones, setPhones] = useState<CustomerPhoneEntry[]>(() => saved?.phones ?? defaultPhoneEntries())
+  const [form, setForm] = useState(() => saved?.form ?? emptyCustomerFields)
+  const [withGuarantor, setWithGuarantor] = useState(() => saved?.withGuarantor ?? false)
+  const [guarantor, setGuarantor] = useState(() => saved?.guarantor ?? emptyGuarantorForm)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
+
+  const customerDraftSnapshot = useMemo<CustomerCreateDraft>(
+    () => ({ form, phones, withGuarantor, guarantor }),
+    [form, phones, withGuarantor, guarantor],
+  )
+  const isCustomerDraftMeaningful = Boolean(
+    form.name.trim() ||
+      form.national_id.trim() ||
+      form.address.trim() ||
+      form.distinctive_mark.trim() ||
+      phones.some((phone) => phone.number.trim()) ||
+      withGuarantor,
+  )
+
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.customerCreate,
+    userId,
+    titleAr: 'إضافة عميل',
+    resumePath: '/customers/add',
+    snapshot: customerDraftSnapshot,
+    isMeaningful: isCustomerDraftMeaningful,
+  })
 
   const handleGuarantorModeChange = (next: boolean) => {
     setWithGuarantor(next)
@@ -58,6 +99,7 @@ export function CustomerAddPage() {
       return data
     },
     onSuccess: (customer) => {
+      useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.customerCreate, userId)
       navigate(`/customers/${customer.id}`)
     },
   })

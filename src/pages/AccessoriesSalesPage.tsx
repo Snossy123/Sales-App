@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -18,12 +18,13 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { ToastBanner } from '../components/ToastBanner'
-import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
+import { isAccessoriesDraftMeaningful } from '../lib/procedureDrafts'
+import { PROCEDURE_DRAFT_IDS, useProcedureDraftStore } from '../stores/procedureDraftStore'
 import {
   readAccessoriesDraft,
-  useSalesDraftStore,
   type AccessoriesCartLine,
   type AccessoriesDraft,
 } from '../stores/salesDraftStore'
@@ -131,14 +132,14 @@ export function AccessoriesSalesPage() {
     [customerSearch, selectedCustomer, branchId, warehouseId, cart, notes],
   )
 
-  const saveAccessoriesDraft = useCallback(
-    (draft: AccessoriesDraft) => {
-      useSalesDraftStore.getState().setAccessoriesDraft(draftUserId, draft)
-    },
-    [draftUserId],
-  )
-
-  useDebouncedDraftSync(accessoriesDraftSnapshot, saveAccessoriesDraft, true)
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.accessories,
+    userId: draftUserId,
+    titleAr: 'بيع إكسسوار',
+    resumePath: '/sales/accessories',
+    snapshot: accessoriesDraftSnapshot,
+    isMeaningful: isAccessoriesDraftMeaningful(accessoriesDraftSnapshot),
+  })
 
   const resetAccessoriesForm = () => {
     setCustomerSearch('')
@@ -150,7 +151,7 @@ export function AccessoriesSalesPage() {
     setError('')
     setSuccess('')
     setLastInvoice(null)
-    useSalesDraftStore.getState().clearAccessoriesDraft()
+    useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.accessories, draftUserId)
   }
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -322,14 +323,6 @@ export function AccessoriesSalesPage() {
       setLastInvoice(invoice)
       setError('')
       setSuccess(`تم إنشاء فاتورة ${invoice.invoice_number}`)
-      useSalesDraftStore.getState().setAccessoriesDraft(draftUserId, {
-        customerSearch,
-        selectedCustomer,
-        branchId,
-        warehouseId,
-        cart: [],
-        notes: '',
-      })
     },
     onError: (err) => setError(getErrorMessage(err)),
   })

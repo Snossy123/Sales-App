@@ -19,6 +19,12 @@ import { getDataScopeLabel } from '../lib/dataScope'
 import { resolvePublicStorageUrl } from '../lib/storageUrl'
 import { ChatWidget } from '../modules/chat/components/ChatWidget'
 import { ChatbotWidget } from '../components/help/ChatbotWidget'
+import { IncompleteProceduresBanner } from '../components/IncompleteProceduresBanner'
+import {
+  PROCEDURE_DRAFT_IDS,
+  selectUserDrafts,
+  useProcedureDraftStore,
+} from '../stores/procedureDraftStore'
 
 export function AppShell() {
   useContextData()
@@ -34,6 +40,15 @@ export function AppShell() {
   const role = getUserRole(user)
   const dataScopeLabel = getDataScopeLabel(user)
   const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
+  const procedureDrafts = useProcedureDraftStore((s) => s.drafts)
+  const posDraftIds = new Set<string>([
+    PROCEDURE_DRAFT_IDS.posDevice,
+    PROCEDURE_DRAFT_IDS.posService,
+    PROCEDURE_DRAFT_IDS.accessories,
+  ])
+  const hasPosDraft = selectUserDrafts(procedureDrafts, user?.id ?? null).some((draft) =>
+    posDraftIds.has(draft.id),
+  )
   const queryClient = useQueryClient()
   const [showNotifications, setShowNotifications] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -137,12 +152,15 @@ export function AppShell() {
           {showPosShortcut && (
             <NavLink
               to="/pos"
-              className={`mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90 ${
+              className={`relative mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90 ${
                 sidebarCollapsed ? 'px-sm' : ''
               }`}
             >
               <Icon name="edit_document" className="no-flip" />
               {!sidebarCollapsed && <span className="text-sm">تعاقد جديد</span>}
+              {hasPosDraft && (
+                <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-on-primary" title="مسودة غير مكتملة" />
+              )}
             </NavLink>
           )}
         </div>
@@ -273,6 +291,7 @@ export function AppShell() {
         </header>
 
         <div className="flex-grow p-margin pb-20 md:pb-margin print:p-0">
+          <IncompleteProceduresBanner />
           <Outlet />
         </div>
         <div className="print:hidden">

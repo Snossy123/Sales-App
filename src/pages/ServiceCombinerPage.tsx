@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -67,13 +67,14 @@ import {
   type ServicePaymentState,
 } from '../components/services/ServicePaymentSection'
 import { posRequiredWrap, posSourceToggle } from '../components/pos/posFormStyles'
-import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import { isServiceContractDraftMeaningful } from '../lib/procedureDrafts'
+import { PROCEDURE_DRAFT_IDS, useProcedureDraftStore } from '../stores/procedureDraftStore'
 import {
   readServiceDraft,
-  useSalesDraftStore,
   type ServiceContractDraft,
 } from '../stores/salesDraftStore'
 import { NumericInput } from '../components/ui/NumericInput'
@@ -279,14 +280,14 @@ export function ServiceCombinerPage() {
     ],
   )
 
-  const saveServiceDraft = useCallback(
-    (draft: ServiceContractDraft) => {
-      useSalesDraftStore.getState().setServiceDraft(draftUserId, draft)
-    },
-    [draftUserId],
-  )
-
-  useDebouncedDraftSync(serviceDraftSnapshot, saveServiceDraft, true)
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.posService,
+    userId: draftUserId,
+    titleAr: 'تعاقد خدمات',
+    resumePath: '/pos/services',
+    snapshot: serviceDraftSnapshot,
+    isMeaningful: isServiceContractDraftMeaningful(serviceDraftSnapshot),
+  })
 
   const resetServiceForm = () => {
     setSelectedChips(new Set())
@@ -319,7 +320,7 @@ export function ServiceCombinerPage() {
     setContractPayment(createDefaultServicePayment(0, minDownPercent))
     setFeeTechnician(null)
     setTechnicianSearch('')
-    useSalesDraftStore.getState().clearServiceDraft()
+    useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posService, draftUserId)
   }
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
@@ -957,7 +958,6 @@ export function ServiceCombinerPage() {
               total,
               contractPayment.installmentAmount,
               contractPayment.downPayment,
-              maxInstallmentCount,
             ),
             interval_type: contractPayment.intervalType,
             interval_days: contractPayment.intervalType === 'weekly' ? 7 : 30,
@@ -1013,21 +1013,6 @@ export function ServiceCombinerPage() {
       setFeeTechnician(null)
       setTechnicianSearch('')
       setSubmitAttempted(false)
-      useSalesDraftStore.getState().setServiceDraft(draftUserId, {
-        ...serviceDraftSnapshot,
-        selectedChips: [],
-        notes: '',
-        selectedCustomerDevice: null,
-        manualDeviceEntry: false,
-        contractSerial: '',
-        contractSim: '',
-        contractUsername: '',
-        renewalLine: null,
-        externalLine: null,
-        feeLines: {},
-        feeTechnician: null,
-        technicianSearch: '',
-      })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })

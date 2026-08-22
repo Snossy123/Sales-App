@@ -1,4 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useProcedureDraft } from '../../hooks/useProcedureDraft'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../../stores/procedureDraftStore'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Branch, Distributor, Employee, PaginatedResponse } from '../../api/types'
@@ -20,14 +26,46 @@ interface ExpenseRequestFormProps {
   onSuccess?: () => void
 }
 
+type ExpenseDraft = {
+  expenseType: string
+  amount: string
+  notes: string
+  branchId: number | ''
+  distributorId: number | ''
+  employeeId: number | ''
+}
+
 export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
   const user = useAuthStore((s) => s.user)
-  const [expenseType, setExpenseType] = useState('petty_cash')
-  const [amount, setAmount] = useState('')
-  const [notes, setNotes] = useState('')
-  const [branchId, setBranchId] = useState<number | ''>(user?.branch_id ?? '')
-  const [distributorId, setDistributorId] = useState<number | ''>('')
-  const [employeeId, setEmployeeId] = useState<number | ''>('')
+  const userId = user?.id ?? null
+  const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
+  const [expenseType, setExpenseType] = useState(() => saved?.expenseType ?? 'petty_cash')
+  const [amount, setAmount] = useState(() => saved?.amount ?? '')
+  const [notes, setNotes] = useState(() => saved?.notes ?? '')
+  const [branchId, setBranchId] = useState<number | ''>(() => saved?.branchId ?? user?.branch_id ?? '')
+  const [distributorId, setDistributorId] = useState<number | ''>(() => saved?.distributorId ?? '')
+  const [employeeId, setEmployeeId] = useState<number | ''>(() => saved?.employeeId ?? '')
+
+  const expenseDraftSnapshot = useMemo<ExpenseDraft>(
+    () => ({ expenseType, amount, notes, branchId, distributorId, employeeId }),
+    [expenseType, amount, notes, branchId, distributorId, employeeId],
+  )
+
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.expense,
+    userId,
+    titleAr: 'طلب مصروف',
+    resumePath: '/expenses/new',
+    snapshot: expenseDraftSnapshot,
+    isMeaningful: Boolean(
+      amount.trim() ||
+        notes.trim() ||
+        distributorId ||
+        employeeId ||
+        expenseType !== 'petty_cash',
+    ),
+    enabled: open,
+  })
 
   const branchesQuery = useQuery({
     queryKey: ['branches', 'expense-form'],
@@ -71,6 +109,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       return data
     },
     onSuccess: () => {
+      useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
       onSuccess?.()
       onClose()
     },

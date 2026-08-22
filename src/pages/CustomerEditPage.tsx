@@ -1,8 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { Customer } from '../api/types'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
+import { useAuthStore } from '../stores/authStore'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../stores/procedureDraftStore'
 import { CustomerAttachmentsSection } from '../components/customers/CustomerAttachmentsSection'
 import { CustomerPhoneFields } from '../components/customers/CustomerPhoneFields'
 import { AsyncState } from '../components/AsyncState'
@@ -17,13 +24,39 @@ import {
   hasGuarantorData,
   phoneEntriesToPayload,
   type CustomerPhoneEntry,
+  type GuarantorFormState,
 } from '../lib/customerForm'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
+type CustomerEditDraft = {
+  form: { name: string; national_id: string; address: string; distinctive_mark: string }
+  phones: CustomerPhoneEntry[]
+  withGuarantor: boolean
+  guarantor: GuarantorFormState
+}
+
+function snapshotFromCustomer(customer: Customer): CustomerEditDraft {
+  const existingGuarantor = customer.guarantors?.[0]
+  return {
+    form: {
+      name: customer.name ?? '',
+      national_id: customer.national_id ?? '',
+      address: customer.address ?? '',
+      distinctive_mark: customer.distinctive_mark ?? '',
+    },
+    phones: customerToPhoneEntries(customer),
+    withGuarantor: Boolean(existingGuarantor),
+    guarantor: guarantorToForm(existingGuarantor),
+  }
+}
+
 export function CustomerEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const draftId = id ? PROCEDURE_DRAFT_IDS.customerEdit(id) : ''
+  const restoredRef = useRef(false)
   const [form, setForm] = useState({ name: '', national_id: '', address: '', distinctive_mark: '' })
   const [phones, setPhones] = useState<CustomerPhoneEntry[]>([])
   const [withGuarantor, setWithGuarantor] = useState(false)
@@ -42,18 +75,45 @@ export function CustomerEditPage() {
 
   useEffect(() => {
     const customer = customerQuery.data
-    if (!customer) return
-    setForm({
-      name: customer.name ?? '',
-      national_id: customer.national_id ?? '',
-      address: customer.address ?? '',
-      distinctive_mark: customer.distinctive_mark ?? '',
-    })
-    setPhones(customerToPhoneEntries(customer))
-    const existingGuarantor = customer.guarantors?.[0]
-    setWithGuarantor(Boolean(existingGuarantor))
-    setGuarantor(guarantorToForm(existingGuarantor))
-  }, [customerQuery.data])
+    if (!customer || !id) return
+    if (!restoredRef.current) {
+      const saved = readProcedureDraft<CustomerEditDraft>(PROCEDURE_DRAFT_IDS.customerEdit(id), userId)
+      restoredRef.current = true
+      if (saved) {
+        setForm(saved.form)
+        setPhones(saved.phones)
+        setWithGuarantor(saved.withGuarantor)
+        setGuarantor(saved.guarantor)
+        return
+      }
+    } else if (readProcedureDraft<CustomerEditDraft>(PROCEDURE_DRAFT_IDS.customerEdit(id), userId)) {
+      return
+    }
+    const baseline = snapshotFromCustomer(customer)
+    setForm(baseline.form)
+    setPhones(baseline.phones)
+    setWithGuarantor(baseline.withGuarantor)
+    setGuarantor(baseline.guarantor)
+  }, [customerQuery.data, id, userId])
+
+  const customerDraftSnapshot = useMemo<CustomerEditDraft>(
+    () => ({ form, phones, withGuarantor, guarantor }),
+    [form, phones, withGuarantor, guarantor],
+  )
+  const serverSnapshot = customerQuery.data ? snapshotFromCustomer(customerQuery.data) : null
+  const isCustomerEditDirty = Boolean(
+    serverSnapshot && JSON.stringify(customerDraftSnapshot) !== JSON.stringify(serverSnapshot),
+  )
+
+  useProcedureDraft({
+    id: draftId,
+    userId,
+    titleAr: customerQuery.data?.name ? `تعديل عميل — ${customerQuery.data.name}` : 'تعديل عميل',
+    resumePath: id ? `/customers/${id}/edit` : '/customers',
+    snapshot: customerDraftSnapshot,
+    isMeaningful: isCustomerEditDirty,
+    enabled: Boolean(id && customerQuery.data),
+  })
 
   const handleGuarantorModeChange = (next: boolean) => {
     setWithGuarantor(next)
@@ -79,6 +139,7 @@ export function CustomerEditPage() {
       return data
     },
     onSuccess: (customer) => {
+      if (draftId) useProcedureDraftStore.getState().clearDraft(draftId, userId)
       navigate(`/customers/${customer.id}`)
     },
   })

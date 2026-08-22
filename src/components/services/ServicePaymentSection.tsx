@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
+  installmentCountExceedsMaxMessage,
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import { PosMoneyInput } from '../pos/PosMoneyInput'
@@ -60,7 +61,6 @@ export function validateServicePayment(
     total,
     payment.installmentAmount,
     payment.downPayment,
-    maxInstallmentCount,
   )
 
   if (payment.installmentAmount <= 0) {
@@ -74,6 +74,10 @@ export function validateServicePayment(
   }
   if (count <= 0) {
     errors.push('عدد الأقساط غير صالح')
+  }
+  const exceedsMax = installmentCountExceedsMaxMessage(count, maxInstallmentCount)
+  if (exceedsMax) {
+    errors.push(exceedsMax)
   }
 
   return { valid: errors.length === 0, errors }
@@ -100,9 +104,12 @@ export function ServicePaymentSection({
         total,
         payment.installmentAmount,
         payment.downPayment,
-        maxInstallmentCount,
       ),
-    [total, payment.installmentAmount, payment.downPayment, maxInstallmentCount],
+    [total, payment.installmentAmount, payment.downPayment],
+  )
+  const exceedsMaxMessage = installmentCountExceedsMaxMessage(
+    installmentCount,
+    maxInstallmentCount,
   )
 
   const paidNow =
@@ -197,6 +204,9 @@ export function ServicePaymentSection({
               </div>
             </div>
           </div>
+          {exceedsMaxMessage && (
+            <p className="text-xs text-error">{exceedsMaxMessage}</p>
+          )}
         </div>
       )}
 

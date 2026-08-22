@@ -1,4 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useProcedureDraft } from '../hooks/useProcedureDraft'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../stores/procedureDraftStore'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -14,6 +20,18 @@ import { NumericInput } from '../components/ui/NumericInput'
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 type MovementKind = 'customer' | 'stock'
+
+type DeviceMovementDraft = {
+  fromWarehouseId: number | ''
+  toWarehouseId: number | ''
+  recipientUserId: number | ''
+  notes: string
+  kind: MovementKind
+  selectedUnitIds: number[]
+  selectedUnits: ProductUnit[]
+  productModelId: number | ''
+  quantity: number
+}
 
 function isSellableStock(unit: ProductUnit): boolean {
   return (
@@ -34,15 +52,70 @@ export function DeviceMovementNewPage() {
     role === 'super_admin' ||
     role === 'admin'
 
-  const [fromWarehouseId, setFromWarehouseId] = useState<number | ''>('')
-  const [toWarehouseId, setToWarehouseId] = useState<number | ''>('')
-  const [recipientUserId, setRecipientUserId] = useState<number | ''>('')
-  const [notes, setNotes] = useState('')
-  const [kind, setKind] = useState<MovementKind>('customer')
-  const [selectedUnitIds, setSelectedUnitIds] = useState<number[]>([])
-  const [selectedUnits, setSelectedUnits] = useState<ProductUnit[]>([])
-  const [productModelId, setProductModelId] = useState<number | ''>('')
-  const [quantity, setQuantity] = useState(1)
+  const movementDraft = readProcedureDraft<DeviceMovementDraft>(
+    PROCEDURE_DRAFT_IDS.deviceMovement,
+    userId ?? null,
+  )
+  const [fromWarehouseId, setFromWarehouseId] = useState<number | ''>(
+    () => movementDraft?.fromWarehouseId ?? '',
+  )
+  const [toWarehouseId, setToWarehouseId] = useState<number | ''>(() => movementDraft?.toWarehouseId ?? '')
+  const [recipientUserId, setRecipientUserId] = useState<number | ''>(
+    () => movementDraft?.recipientUserId ?? '',
+  )
+  const [notes, setNotes] = useState(() => movementDraft?.notes ?? '')
+  const [kind, setKind] = useState<MovementKind>(() => movementDraft?.kind ?? 'customer')
+  const [selectedUnitIds, setSelectedUnitIds] = useState<number[]>(
+    () => movementDraft?.selectedUnitIds ?? [],
+  )
+  const [selectedUnits, setSelectedUnits] = useState<ProductUnit[]>(
+    () => movementDraft?.selectedUnits ?? [],
+  )
+  const [productModelId, setProductModelId] = useState<number | ''>(
+    () => movementDraft?.productModelId ?? '',
+  )
+  const [quantity, setQuantity] = useState(() => movementDraft?.quantity ?? 1)
+  const movementDraftSnapshot = useMemo<DeviceMovementDraft>(
+    () => ({
+      fromWarehouseId,
+      toWarehouseId,
+      recipientUserId,
+      notes,
+      kind,
+      selectedUnitIds,
+      selectedUnits,
+      productModelId,
+      quantity,
+    }),
+    [
+      fromWarehouseId,
+      toWarehouseId,
+      recipientUserId,
+      notes,
+      kind,
+      selectedUnitIds,
+      selectedUnits,
+      productModelId,
+      quantity,
+    ],
+  )
+
+  useProcedureDraft({
+    id: PROCEDURE_DRAFT_IDS.deviceMovement,
+    userId: userId ?? null,
+    titleAr: 'حركة أجهزة',
+    resumePath: '/inventory/movements/new',
+    snapshot: movementDraftSnapshot,
+    isMeaningful: Boolean(
+      fromWarehouseId ||
+        toWarehouseId ||
+        recipientUserId ||
+        notes.trim() ||
+        selectedUnitIds.length > 0 ||
+        productModelId,
+    ),
+  })
+
   const [serialCode, setSerialCode] = useState('')
   const [scanError, setScanError] = useState<string | null>(null)
   const [isLookingUp, setIsLookingUp] = useState(false)
@@ -192,6 +265,7 @@ export function DeviceMovementNewPage() {
       return data
     },
     onSuccess: (movement) => {
+      useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.deviceMovement, userId ?? null)
       queryClient.invalidateQueries({ queryKey: ['device-movements'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       navigate(`/inventory/movements/${movement.id}`)

@@ -1,5 +1,5 @@
-import { Link, useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
@@ -24,7 +24,14 @@ export function ContractDetailPage() {
   const user = useAuthStore((s) => s.user)
   const canManageCases = userHasPermission(user, 'contract_cases.manage')
   const canPrint = userHasPermission(user, 'review.print')
+  const [searchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('resume') === 'problem') {
+      setWizardOpen(true)
+    }
+  }, [searchParams])
 
   const query = useQuery({
     queryKey: ['sales-invoice', 'contract-detail', id],

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
+import { useProcedureDraft } from '../../hooks/useProcedureDraft'
+import { useAuthStore } from '../../stores/authStore'
+import {
+  PROCEDURE_DRAFT_IDS,
+  readProcedureDraft,
+  useProcedureDraftStore,
+} from '../../stores/procedureDraftStore'
 import type { CollectionPaymentAccount, Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
 import { Icon } from '../Icon'
 import { NumericInput } from '../ui/NumericInput'
@@ -84,7 +91,58 @@ function originalPaymentLabel(payment: CancelPreviewPayment): string {
   return PAYMENT_METHOD_LABELS[payment.payment_method] ?? payment.payment_method ?? 'نقدي'
 }
 
+type WizardDraft = {
+  step: number
+  caseType: CaseType | null
+  reason: string
+  notes: string
+  openedCase: ContractCaseRecord | null
+  deviceDebt: string
+  newUnitId: number | ''
+  disposition: 'good' | 'faulty'
+  employeeId: number | ''
+  scheduledAt: string
+  customerReceivedRefund: boolean
+  refundVia: 'cash' | 'account'
+  refundAccountId: number | ''
+}
+
+function applyWizardDraft(
+  draft: WizardDraft,
+  setters: {
+    setStep: (value: number) => void
+    setCaseType: (value: CaseType | null) => void
+    setReason: (value: string) => void
+    setNotes: (value: string) => void
+    setOpenedCase: (value: ContractCaseRecord | null) => void
+    setDeviceDebt: (value: string) => void
+    setNewUnitId: (value: number | '') => void
+    setDisposition: (value: 'good' | 'faulty') => void
+    setEmployeeId: (value: number | '') => void
+    setScheduledAt: (value: string) => void
+    setCustomerReceivedRefund: (value: boolean) => void
+    setRefundVia: (value: 'cash' | 'account') => void
+    setRefundAccountId: (value: number | '') => void
+  },
+) {
+  setters.setStep(draft.step)
+  setters.setCaseType(draft.caseType)
+  setters.setReason(draft.reason)
+  setters.setNotes(draft.notes)
+  setters.setOpenedCase(draft.openedCase)
+  setters.setDeviceDebt(draft.deviceDebt)
+  setters.setNewUnitId(draft.newUnitId)
+  setters.setDisposition(draft.disposition)
+  setters.setEmployeeId(draft.employeeId)
+  setters.setScheduledAt(draft.scheduledAt)
+  setters.setCustomerReceivedRefund(draft.customerReceivedRefund)
+  setters.setRefundVia(draft.refundVia)
+  setters.setRefundAccountId(draft.refundAccountId)
+}
+
 export function ContractProblemWizard({ invoice, open, onClose, onComplete }: ContractProblemWizardProps) {
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const draftId = PROCEDURE_DRAFT_IDS.contractProblem(invoice.id)
   const [step, setStep] = useState(0)
   const [caseType, setCaseType] = useState<CaseType | null>(null)
   const [reason, setReason] = useState('')
@@ -103,22 +161,90 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
   const warehouseId = invoice.warehouse_id
 
   useEffect(() => {
-    if (!open) {
-      setStep(0)
-      setCaseType(null)
-      setReason('')
-      setNotes('')
-      setOpenedCase(null)
-      setDeviceDebt('')
-      setNewUnitId('')
-      setDisposition('faulty')
-      setEmployeeId('')
-      setScheduledAt('')
-      setCustomerReceivedRefund(false)
-      setRefundVia('cash')
-      setRefundAccountId('')
+    if (!open) return
+    const saved = readProcedureDraft<WizardDraft>(draftId, userId)
+    if (saved) {
+      applyWizardDraft(saved, {
+        setStep,
+        setCaseType,
+        setReason,
+        setNotes,
+        setOpenedCase,
+        setDeviceDebt,
+        setNewUnitId,
+        setDisposition,
+        setEmployeeId,
+        setScheduledAt,
+        setCustomerReceivedRefund,
+        setRefundVia,
+        setRefundAccountId,
+      })
+      return
     }
-  }, [open])
+    setStep(0)
+    setCaseType(null)
+    setReason('')
+    setNotes('')
+    setOpenedCase(null)
+    setDeviceDebt('')
+    setNewUnitId('')
+    setDisposition('faulty')
+    setEmployeeId('')
+    setScheduledAt('')
+    setCustomerReceivedRefund(false)
+    setRefundVia('cash')
+    setRefundAccountId('')
+  }, [draftId, open, userId])
+
+  const wizardDraftSnapshot = useMemo<WizardDraft>(
+    () => ({
+      step,
+      caseType,
+      reason,
+      notes,
+      openedCase,
+      deviceDebt,
+      newUnitId,
+      disposition,
+      employeeId,
+      scheduledAt,
+      customerReceivedRefund,
+      refundVia,
+      refundAccountId,
+    }),
+    [
+      step,
+      caseType,
+      reason,
+      notes,
+      openedCase,
+      deviceDebt,
+      newUnitId,
+      disposition,
+      employeeId,
+      scheduledAt,
+      customerReceivedRefund,
+      refundVia,
+      refundAccountId,
+    ],
+  )
+
+  useProcedureDraft({
+    id: draftId,
+    userId,
+    titleAr: invoice.customer?.name
+      ? `مشكلة عقد — ${invoice.customer.name}`
+      : `مشكلة عقد #${invoice.invoice_number ?? invoice.id}`,
+    resumePath: `/contracts/${invoice.id}?resume=problem`,
+    snapshot: wizardDraftSnapshot,
+    isMeaningful: Boolean(caseType || reason.trim() || notes.trim() || openedCase),
+    enabled: open,
+  })
+
+  const finishWizard = () => {
+    useProcedureDraftStore.getState().clearDraft(draftId, userId)
+    onComplete()
+  }
 
   const previewQuery = useQuery({
     queryKey: ['contract-return-preview', invoice.id, deviceDebt],
@@ -217,7 +343,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       })
       return data
     },
-    onSuccess: onComplete,
+    onSuccess: finishWizard,
   })
 
   const completeExchangeMutation = useMutation({
@@ -230,7 +356,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       })
       return data
     },
-    onSuccess: onComplete,
+    onSuccess: finishWizard,
   })
 
   const completeSupportMutation = useMutation({
@@ -243,7 +369,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       })
       return data
     },
-    onSuccess: onComplete,
+    onSuccess: finishWizard,
   })
 
   const completeCancelMutation = useMutation({
@@ -267,7 +393,7 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       const { data } = await api.post(`/contract-cases/${openedCase.id}/complete-cancel`, payload)
       return data
     },
-    onSuccess: onComplete,
+    onSuccess: finishWizard,
   })
 
   if (!open) return null
