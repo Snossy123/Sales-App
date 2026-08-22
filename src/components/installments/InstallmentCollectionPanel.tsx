@@ -13,6 +13,8 @@ import { normalizeScannedInput } from '../../lib/scanner'
 import { formatInvoiceDate } from '../../lib/sales'
 import { TextArea } from '../ui/TextArea'
 import { NumericInput } from '../ui/NumericInput'
+import { userCanPerform } from '../../lib/access'
+import { useAuthStore } from '../../stores/authStore'
 
 
 const paymentMethodOptions = [
@@ -166,6 +168,9 @@ export function InstallmentCollectionPanel({
   suspendMutation,
   resumeMutation,
 }: InstallmentCollectionPanelProps) {
+  const user = useAuthStore((s) => s.user)
+  const canCollectPayment = userCanPerform(user, 'installments.collect')
+  const canReconcile = userCanPerform(user, 'installments.reconcile')
   const serialRef = useRef<HTMLInputElement>(null)
   const [suspendMode, setSuspendMode] = useState<'not_installed' | 'receive_device' | 'vehicle_impounded'>(
     'not_installed',
@@ -195,6 +200,7 @@ export function InstallmentCollectionPanel({
   const remainingAfterPay = roundMoney(Math.max(0, totalDue - amount))
   const isPartialPayment = amount > 0 && amount < totalDue - 0.009
   const canCollect =
+    canCollectPayment &&
     !collectMutation.isPending &&
     amount > 0 &&
     !selected.is_suspended &&
@@ -300,7 +306,7 @@ export function InstallmentCollectionPanel({
           </div>
         )}
 
-        {!selected.is_suspended && (
+        {canCollectPayment && !selected.is_suspended && (
           <CollapsibleSection
             title="تعليق التعاقد"
             icon="block"
@@ -597,7 +603,7 @@ export function InstallmentCollectionPanel({
             {collectMutation.isPending ? 'جاري التحصيل...' : isPartialPayment ? 'تأكيد الدفع الجزئي' : 'تأكيد التحصيل'}
           </button>
 
-          {selected.has_open_reconciliation && selected.open_reconciliation_id != null ? (
+          {canReconcile && selected.has_open_reconciliation && selected.open_reconciliation_id != null ? (
             <button
               type="button"
               onClick={() => closeReconcileMutation.mutate(selected.open_reconciliation_id!)}
@@ -645,14 +651,14 @@ export function InstallmentCollectionPanel({
           <button
             type="button"
             onClick={() => metadataMutation.mutate()}
-            disabled={metadataMutation.isPending}
+            disabled={metadataMutation.isPending || !canCollectPayment}
             className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
           >
             {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
           </button>
         </CollapsibleSection>
 
-        {selectedIsOverdueContract && (
+        {canCollectPayment && selectedIsOverdueContract && (
           <CollapsibleSection
             title="ترحيل الأقساط"
             icon="event_repeat"
@@ -699,7 +705,7 @@ export function InstallmentCollectionPanel({
           <button
             type="button"
             onClick={() => dueDatesMutation.mutate()}
-            disabled={dueDatesMutation.isPending}
+            disabled={dueDatesMutation.isPending || !canCollectPayment}
             className="w-full rounded-lg border border-outline-variant py-2 text-sm"
           >
             {dueDatesMutation.isPending ? 'جاري الحفظ…' : 'حفظ التواريخ'}
@@ -726,7 +732,7 @@ export function InstallmentCollectionPanel({
           </CollapsibleSection>
         )}
 
-        {showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
+        {canReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
           <CollapsibleSection
             title="تصالح — تسجيل حالة مفتوحة"
             icon="handshake"

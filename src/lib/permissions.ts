@@ -259,6 +259,7 @@ export const navEntries: NavEntry[] = [
         { to: '/admin/activity-log', icon: 'history', label: 'سجل التدقيق', roles: ['super_admin', 'admin'] },
         { to: '/admin/trash', icon: 'delete', label: 'سلة المهملات', roles: ['super_admin', 'admin'] },
         { to: '/admin/faq', icon: 'quiz', label: 'إدارة الأسئلة', roles: ['super_admin', 'admin'] },
+        { to: '/admin/feedback', icon: 'rate_review', label: 'ملاحظات المستخدمين', roles: ['super_admin', 'admin'] },
         { to: '/admin/settings', icon: 'settings', label: 'إعدادات النظام', roles: ['super_admin'] },
         { to: '/help/faq', icon: 'help', label: 'المساعدة', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
         { to: '/messages', icon: 'chat', label: 'الرسائل', roles: ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'] },
@@ -306,6 +307,12 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/feedback': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
   '/admin/trash': ['super_admin', 'admin'],
   '/admin/faq': ['super_admin', 'admin'],
+  '/admin/feedback': ['super_admin', 'admin'],
+  '/messages': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
+  '/review/collections': ['super_admin', 'admin', 'reviewer'],
+  '/review/expenses': ['super_admin', 'admin', 'reviewer'],
+  '/expenses/new': ['super_admin', 'admin'],
+  '/inventory/branch': ['super_admin', 'admin', 'sales'],
   '/call-center/collections': ['super_admin', 'admin', 'call_center'],
   '/admin/collection-accounts': ['super_admin', 'admin'],
   '/daily-reports': ['super_admin', 'admin', 'sales', 'reviewer', 'collector'],
@@ -368,64 +375,17 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
   const role = getUserRole(user)
   const roleAllowed = item.roles.includes(role)
 
-  if (!roleAllowed) {
-    if (item.to.startsWith('/accounting') && userHasPermission(user, 'accounting.access_accounting_module')) {
-      return true
-    }
-    if (item.to.startsWith('/hrm') && userHasPermission(user, 'hr.employees.manage')) {
-      return true
-    }
-    if (item.to.startsWith('/admin') && userHasPermission(user, 'users.manage')) {
-      return true
-    }
-    if (item.to === '/') {
-      return userHasPermission(user, 'dashboard.view')
-    }
-    if (item.to === '/invoices/review') {
-      return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
-    }
-    if (item.to === '/invoices') {
-      return (
-        userHasPermission(user, 'review.view_contracts') ||
-        userHasPermission(user, 'sales.invoices.view') ||
-        userHasReviewAccess(user)
-      )
-    }
-    if (item.to === '/review/evaluation-queue') {
-      return userHasPermission(user, 'review.view_evaluation_queue') || userHasReviewAccess(user)
-    }
-    if (item.to === '/review/subscription-renewals') {
-      return userHasPermission(user, 'review.view_subscription_renewals') || userHasReviewAccess(user)
-    }
-    if (item.to === '/review/evaluation-questions') {
-      return userHasPermission(user, 'review.manage_evaluation_questions') || userHasReviewAccess(user)
-    }
-    if (item.to === '/support/my-tasks') {
-      return userHasPermission(user, 'support.view_assigned_tasks')
-    }
-    if (item.to === '/support/tasks') {
-      return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
-    }
-    if (item.to === '/problems') {
-      return userHasPermission(user, 'contract_cases.manage')
-    }
-    if (item.to === '/inventory/movements') {
-      return userHasPermission(user, 'device_movements.manage') || userHasPermission(user, 'inventory.manage')
-    }
-    return false
-  }
-
   // Admin / super_admin are already gated by item.roles. Their API permission
   // lists are often incomplete (e.g. Admin only has users/roles/settings),
   // so don't hide the rest of the sidebar behind that list.
-  if (role === 'super_admin' || role === 'admin') return true
+  if (role === 'super_admin' || role === 'admin') return roleAllowed
 
-  const path = item.dynamicTo && user ? item.dynamicTo(user) ?? item.to : item.to
+  const path = item.dynamicTo ? item.dynamicTo(user) ?? item.to : item.to
   const requiredPerms = resolveRoutePermissions(path)
   const permAccess = userCanAccessByPermissions(user.permissions, requiredPerms)
   if (permAccess !== null) return permAccess
 
-  return true
+  return roleAllowed
 }
 
 function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
@@ -548,14 +508,16 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   if (normalized.startsWith('/accounting')) {
     const allowed = routeRoles[normalized] ?? routeRoles['/accounting']
     if (allowed?.includes(role)) return true
-    return userHasPermission(user, 'accounting.access_accounting_module')
+    const accountingPerms = resolveRoutePermissions(normalized)
+    return userCanAccessByPermissions(user?.permissions, accountingPerms) === true
   }
 
   if (normalized.startsWith('/hrm')) {
     const hrmRoute = normalized === '/hrm' ? '/hrm' : (normalized.match(/^\/hrm\/[^/]+/)?.[0] ?? '/hrm')
     const allowed = routeRoles[hrmRoute] ?? routeRoles['/hrm']
     if (allowed?.includes(role)) return true
-    return userHasPermission(user, 'hr.employees.manage')
+    const hrmPerms = resolveRoutePermissions(normalized)
+    return userCanAccessByPermissions(user?.permissions, hrmPerms) === true
   }
 
   if (normalized.startsWith('/admin')) {

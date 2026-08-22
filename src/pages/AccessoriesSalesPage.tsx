@@ -318,10 +318,8 @@ export function AccessoriesSalesPage() {
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['accessories'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
-      setCart([])
-      setNotes('')
+      resetAccessoriesForm()
       setLastInvoice(invoice)
-      setError('')
       setSuccess(`تم إنشاء فاتورة ${invoice.invoice_number}`)
     },
     onError: (err) => setError(getErrorMessage(err)),

@@ -14,6 +14,7 @@ import {
 import { contractKindLabel } from '../../lib/contractKinds'
 import { contractPrintPath, distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
 import { userHasPermission } from '../../lib/access'
+import { canTransferContractToProblems } from '../../lib/contractCases'
 import { canEditContract, contractEditPath } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
@@ -159,7 +160,11 @@ export function buildContractListColumns(
   return columns
 }
 
-export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | null): ReactNode {
+export function defaultContractListActions(
+  row: SalesInvoice,
+  user?: AuthUser | null,
+  onOpenProblems?: (invoice: SalesInvoice) => void,
+): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
       <Link
@@ -190,6 +195,15 @@ export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | 
         >
           مراجعة
         </Link>
+      )}
+      {onOpenProblems && canTransferContractToProblems(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onOpenProblems(row)}
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          تحويل للمشاكل
+        </button>
       )}
       <Link
         to={contractPrintPath(row.id)}

@@ -54,6 +54,22 @@ type MockCollectionActionLog = {
 }
 
 const mockCollectionActionLogs: MockCollectionActionLog[] = []
+const mockRegisteredDevices: Array<{
+  customer_id: number
+  device: {
+    id: string
+    product_unit_id: number
+    origin: 'legacy' | 'external'
+    owner_customer_id: number
+    serial_number: string
+    sim_number?: string | null
+    username?: string | null
+    sales_invoice_id?: number | null
+    sales_invoice_line_id?: number | null
+    invoice_number?: string | null
+    product_model?: null
+  }
+}> = []
 import {
   cashDueDate,
   cashRemainder,
@@ -2044,6 +2060,8 @@ export function handleMockRequest(
           .map((line) => ({
             id: line.product_unit_id ? `unit:${line.product_unit_id}` : `line:${line.id}`,
             product_unit_id: line.product_unit_id ?? null,
+            origin: 'company_stock' as const,
+            owner_customer_id: customerId,
             sales_invoice_id: inv.id,
             sales_invoice_line_id: line.id,
             invoice_number: inv.invoice_number,
@@ -2058,7 +2076,56 @@ export function handleMockRequest(
             product_model: line.product_unit?.product_model ?? null,
           })),
       )
-    return { data: devices }
+    const registered = mockRegisteredDevices
+      .filter((entry) => entry.customer_id === customerId)
+      .map((entry) => entry.device)
+    const merged = [...registered]
+    for (const device of devices) {
+      if (merged.some((item) => item.serial_number && item.serial_number === device.serial_number)) {
+        continue
+      }
+      merged.push(device)
+    }
+    return { data: merged }
+  }
+
+  if (m === 'POST' && path.match(/^customers\/\d+\/devices$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    const body = (config.data ? JSON.parse(config.data as string) : {}) as {
+      origin?: 'legacy' | 'external'
+      serial_number?: string
+      sim_number?: string
+      username?: string
+    }
+    const serial = String(body.serial_number ?? '').trim()
+    if (!serial) throw mockError(422, 'السريال مطلوب لتسجيل الجهاز.')
+    const origin = body.origin === 'external' ? 'external' : 'legacy'
+    const existing = mockRegisteredDevices.find(
+      (entry) => entry.device.serial_number === serial && entry.customer_id !== customerId,
+    )
+    if (existing) throw mockError(422, 'هذا الجهاز مسجل لعميل آخر. استخدم نقل الملكية.')
+    const own = mockRegisteredDevices.find(
+      (entry) => entry.device.serial_number === serial && entry.customer_id === customerId,
+    )
+    if (own) return { data: own.device }
+    const productUnitId = 90000 + mockRegisteredDevices.length + 1
+    const device = {
+      id: `unit:${productUnitId}`,
+      product_unit_id: productUnitId,
+      origin,
+      owner_customer_id: customerId,
+      serial_number: serial,
+      sim_number: body.sim_number ?? null,
+      username: body.username ?? serial,
+      sales_invoice_id: null,
+      sales_invoice_line_id: null,
+      invoice_number: null,
+      product_model: null,
+    }
+    mockRegisteredDevices.push({ customer_id: customerId, device })
+    return { data: device }
   }
 
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {
@@ -4632,6 +4699,35 @@ export function handleMockRequest(
       grouped[group].push(perm)
     }
     return grouped
+  }
+
+  if (m === 'POST' && path === 'feedback') {
+    const body = data as { page_context?: string; rating?: number; message?: string }
+    return {
+      id: Date.now(),
+      page_context: body.page_context ?? null,
+      rating: body.rating ?? null,
+      message: body.message ?? '',
+      status: 'new',
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  if (m === 'GET' && path === 'admin/feedback') {
+    return paginate(
+      [
+        {
+          id: 1,
+          page_context: '/installments',
+          rating: 4,
+          message: 'واجهة التحصيل واضحة',
+          status: 'new',
+          created_at: new Date().toISOString(),
+          user: { id: 1, name: 'مستخدم تجريبي' },
+        },
+      ],
+      params,
+    )
   }
 
   if (m === 'GET' && path === 'admin/activity-log') {

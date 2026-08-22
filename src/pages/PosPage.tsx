@@ -880,8 +880,6 @@ export function PosPage() {
       return data
     },
     onSuccess: (invoice) => {
-      setLastInvoice(invoice)
-      setSubmitAttempted(false)
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
@@ -894,11 +892,10 @@ export function PosPage() {
         navigate(`/invoices/${invoice.id}`)
         return
       }
-      setSuccessMsg(
-        `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`,
-      )
-      setQuantity(1)
-      setSourceRenewalCandidate(null)
+      const successMessage = `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`
+      resetDeviceForm()
+      setLastInvoice(invoice)
+      setSuccessMsg(successMessage)
     },
   })
 

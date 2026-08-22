@@ -5,6 +5,7 @@ import type { CustodyVoucher, PaginatedResponse, ProductUnit } from '../api/type
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
+import { KpiCard } from '../components/KpiCard'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
@@ -86,6 +87,19 @@ export function BranchInventoryPage() {
 
   const units = query.data?.units ?? []
   const vouchers = vouchersQuery.data ?? []
+
+  const bucketCounts = useMemo(() => {
+    const counts = Object.fromEntries(CUSTODY_BUCKET_OPTIONS.map((option) => [option.value, 0])) as Record<
+      string,
+      number
+    >
+    for (const unit of units) {
+      if (unit.inventory_bucket && unit.inventory_bucket in counts) {
+        counts[unit.inventory_bucket] += 1
+      }
+    }
+    return counts
+  }, [units])
 
   const employeeOptions = useMemo(() => {
     const names = new Map<string, string>()
@@ -210,6 +224,21 @@ export function BranchInventoryPage() {
 
       {view === 'custody' && (
         <>
+          <div className="mb-md grid grid-cols-2 gap-md lg:grid-cols-4">
+            {CUSTODY_BUCKET_OPTIONS.map((option) => {
+              const selected = bucketFilter === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`rounded-lg text-start ${selected ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setBucketFilter(selected ? '' : option.value)}
+                >
+                  <KpiCard label={option.label} value={bucketCounts[option.value] ?? 0} icon="inventory" />
+                </button>
+              )
+            })}
+          </div>
           <FilterBar
             search={unitSearch}
             onSearchChange={setUnitSearch}

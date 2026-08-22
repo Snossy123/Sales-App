@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { InstallmentItem, SalesInvoice } from '../../api/types'
+import { canTransferContractToProblems } from '../../lib/contractCases'
+import { useAuthStore } from '../../stores/authStore'
+import { ContractProblemWizard } from '../contracts/ContractProblemWizard'
 import { contractKindLabel } from '../../lib/contractKinds'
 import {
   buildContractSummary,
@@ -38,7 +42,10 @@ function showInvoiceStatusBadge(filter: ContractStatusFilter): boolean {
 }
 
 export function CustomerContractsSection({ invoices }: CustomerContractsSectionProps) {
+  const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
   const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('confirmed')
+  const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
 
   const filteredInvoices = useMemo(
     () => filterContracts(invoices, statusFilter),
@@ -169,6 +176,16 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <Icon name="print" size={18} />
                       طباعة العقد
                     </Link>
+                    {canTransferContractToProblems(user, invoice) && (
+                      <button
+                        type="button"
+                        onClick={() => setProblemInvoice(invoice)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+                      >
+                        <Icon name="report_problem" size={18} />
+                        تحويل للمشاكل
+                      </button>
+                    )}
                   </div>
 
                   {invoice.payment_term === 'installment' && installmentItems.length > 0 && (
@@ -241,6 +258,19 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
             )
           })}
         </div>
+      )}
+
+      {problemInvoice && (
+        <ContractProblemWizard
+          invoice={problemInvoice}
+          open
+          onClose={() => setProblemInvoice(null)}
+          onComplete={() => {
+            setProblemInvoice(null)
+            queryClient.invalidateQueries({ queryKey: ['customer'] })
+            queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+          }}
+        />
       )}
     </section>
   )

@@ -8,8 +8,6 @@ import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
-import { EntityRowActions } from '../../../components/crud/EntityRowActions'
-import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
 import { formatDate, formatMoney } from '../../../lib/accounting'
 import {
   JournalLineEditor,
@@ -17,6 +15,8 @@ import {
   isJournalBalanced,
   type JournalLineForm,
 } from '../components/JournalLineEditor'
+import { userCanPerform } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 
 function sumLines(lines: AccountingAccTransMapping['lines'], type: 'debit' | 'credit'): number {
   return (lines ?? [])
@@ -39,6 +39,10 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 export function JournalEntriesPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canAddJournal = userCanPerform(user, 'accounting.add_journal')
+  const canEditJournal = userCanPerform(user, 'accounting.edit_journal')
+  const canDeleteJournal = userCanPerform(user, 'accounting.delete_journal')
   const [panel, setPanel] = useState<Panel>(null)
   const [selected, setSelected] = useState<AccountingAccTransMapping | null>(null)
   const [operationDate, setOperationDate] = useState(new Date().toISOString().split('T')[0])
@@ -49,7 +53,6 @@ export function JournalEntriesPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [subTypeFilter, setSubTypeFilter] = useState('')
-  const crudConfig = getEntityCrudConfig('journalEntries')
 
   const query = useQuery({
     queryKey: ['accounting', 'journal-entries', startDate, endDate, subTypeFilter],
@@ -169,14 +172,16 @@ export function JournalEntriesPage() {
         title="قيود اليومية"
         subtitle="سجل القيود المحاسبية اليدوية"
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-          >
-            <Icon name="add" size={18} />
-            قيد جديد
-          </button>
+          canAddJournal ? (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            >
+              <Icon name="add" size={18} />
+              قيد جديد
+            </button>
+          ) : undefined
         }
       />
 
@@ -245,13 +250,26 @@ export function JournalEntriesPage() {
                   >
                     عرض
                   </button>
-                  <EntityRowActions
-                    row={row as AccountingAccTransMapping}
-                    config={crudConfig}
-                    queryKeys={[['accounting']]}
-                    onEdit={openEdit}
-                    showView={false}
-                  />
+                  {canEditJournal ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(row as AccountingAccTransMapping)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      تعديل
+                    </button>
+                  ) : null}
+                  {canDeleteJournal ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('حذف هذا القيد؟')) deleteMutation.mutate(row.id)
+                      }}
+                      className="text-xs text-error hover:underline"
+                    >
+                      حذف
+                    </button>
+                  ) : null}
                 </div>
               ),
             },
@@ -322,22 +340,26 @@ export function JournalEntriesPage() {
               ))}
             </ul>
             <div className="flex gap-sm pt-sm">
-              <button
-                type="button"
-                onClick={() => openEdit(selected)}
-                className="rounded-lg bg-primary px-md py-2 text-sm text-on-primary"
-              >
-                تعديل
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('حذف هذا القيد؟')) deleteMutation.mutate(selected.id)
-                }}
-                className="rounded-lg border border-error px-md py-2 text-sm text-error"
-              >
-                حذف
-              </button>
+              {canEditJournal ? (
+                <button
+                  type="button"
+                  onClick={() => openEdit(selected)}
+                  className="rounded-lg bg-primary px-md py-2 text-sm text-on-primary"
+                >
+                  تعديل
+                </button>
+              ) : null}
+              {canDeleteJournal ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('حذف هذا القيد؟')) deleteMutation.mutate(selected.id)
+                  }}
+                  className="rounded-lg border border-error px-md py-2 text-sm text-error"
+                >
+                  حذف
+                </button>
+              ) : null}
             </div>
           </div>
         )}

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
 import {
   buildContractListColumns,
   contractDateFilterParams,
@@ -29,7 +30,9 @@ import { useAuthStore } from '../stores/authStore'
 
 export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   usePageTour('invoices')
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -114,7 +117,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const columns = useMemo(
     () =>
       buildContractListColumns({
-        renderActions: (row) => defaultContractListActions(row, user),
+        renderActions: (row) => defaultContractListActions(row, user, setProblemInvoice),
       }),
     [user],
   )
@@ -197,6 +200,18 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
           )}
         </AsyncState>
       </div>
+      {problemInvoice && (
+        <ContractProblemWizard
+          invoice={problemInvoice}
+          open
+          onClose={() => setProblemInvoice(null)}
+          onComplete={() => {
+            setProblemInvoice(null)
+            queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+            queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+          }}
+        />
+      )}
     </SalesPageShell>
   )
 }

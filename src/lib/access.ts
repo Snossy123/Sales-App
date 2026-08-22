@@ -73,6 +73,19 @@ export function isAnyAdmin(user: AuthUser | null): boolean {
   return role === 'super_admin' || role === 'admin'
 }
 
+/** Manager denylist keys — DemoRole admin must not bypass these on the client. */
+const STRICT_ACTION_PERMISSIONS = new Set(['payments.refund', 'roles.manage'])
+
+/** In-page actions: super_admin always; admin unless the key is denylisted; others need the key. */
+export function userCanPerform(user: AuthUser | null, permission: string): boolean {
+  if (isSuperAdmin(user)) return true
+  if (STRICT_ACTION_PERMISSIONS.has(permission)) {
+    return userHasPermission(user, permission)
+  }
+  if (isAnyAdmin(user)) return true
+  return userHasPermission(user, permission)
+}
+
 /** null = unrestricted (super admin) */
 export function getUserAdministrationId(user: AuthUser | null): number | null {
   return user?.administration_id ?? user?.department_id ?? null

@@ -12,6 +12,8 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { TextArea } from '../../../components/ui/TextArea'
 import { hrmLeaveTypeLabel } from '../lib/labels'
+import { userCanPerform } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 
 type LeaveRow = HrmLeave & Record<string, unknown>
 
@@ -25,6 +27,8 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 export function HrmLeavesPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canApproveLeave = userCanPerform(user, 'hrm.leave.approve')
   const [statusFilter, setStatusFilter] = useState('pending')
   const [successToast, setSuccessToast] = useState('')
   const [actionError, setActionError] = useState('')
@@ -164,7 +168,7 @@ export function HrmLeavesPage() {
               key: 'actions',
               header: 'إجراءات',
               render: (row) =>
-                row.status === 'pending' ? (
+                row.status === 'pending' && canApproveLeave ? (
                   <div className="flex gap-2">
                     <button type="button" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ id: row.id, action: 'approve' })} className="text-sm text-secondary hover:underline disabled:opacity-50">اعتماد</button>
                     <button type="button" disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ id: row.id, action: 'reject' })} className="text-sm text-error hover:underline disabled:opacity-50">رفض</button>

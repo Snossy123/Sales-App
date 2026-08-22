@@ -14,6 +14,11 @@ import { useAuthStore } from '../stores/authStore'
 import { userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
+import {
+  CONTRACT_CASES_MANAGE_PERMISSION,
+  canTransferContractToProblems,
+  isContractEligibleForProblems,
+} from '../lib/contractCases'
 import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
@@ -22,7 +27,7 @@ export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const canManageCases = userHasPermission(user, 'contract_cases.manage')
+  const canManageCases = userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
   const canPrint = userHasPermission(user, 'review.print')
   const [searchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -48,15 +53,8 @@ export function ContractDetailPage() {
   })
 
   const invoice = query.data
-  const canTransferToProblems =
-    canManageCases &&
-    invoice?.review_status === 'approved' &&
-    (!invoice.contract_status || invoice.contract_status === 'active')
-
-  const showProblemsPermissionHint =
-    !canManageCases &&
-    invoice?.review_status === 'approved' &&
-    (!invoice.contract_status || invoice.contract_status === 'active')
+  const canTransferToProblems = canTransferContractToProblems(user, invoice)
+  const showProblemsPermissionHint = !canManageCases && isContractEligibleForProblems(invoice)
 
   const handleWizardComplete = () => {
     setWizardOpen(false)

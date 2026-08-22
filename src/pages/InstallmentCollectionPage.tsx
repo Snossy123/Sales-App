@@ -3,6 +3,7 @@ import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import {
   PROCEDURE_DRAFT_IDS,
   readProcedureDraft,
+  useProcedureDraftStore,
 } from '../stores/procedureDraftStore'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -390,6 +391,26 @@ export function InstallmentCollectionPage() {
     ),
   })
 
+  const resetInstallmentProcedure = () => {
+    setSelected(null)
+    setAmount(0)
+    setPaymentMethod('cash')
+    setAccountId('')
+    setSenderNumber('')
+    setCollectionStatus('')
+    setCollectionReminderAt('')
+    setCollectionNotes('')
+    setDeferDate('')
+    setDueDateEdits({})
+    setShowReconcile(false)
+    setResponsibleUserId('')
+    setReconcileNotes('')
+    setAdjustNextDueDate(false)
+    setDueDateShiftDays(0)
+    setDistributorBalanceAmount(0)
+    useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.installments, userId)
+  }
+
   const branchRows = useMemo(() => {
     if (!selectedBranchId) return []
     return installmentsByBranch.get(selectedBranchId) ?? []
@@ -478,14 +499,7 @@ export function InstallmentCollectionPage() {
       if (data?.id) {
         openPaymentReceiptPrint(Number(data.id))
       }
-      setSelected(null)
-      setAmount(0)
-      setPaymentMethod('cash')
-      setAccountId('')
-      setSenderNumber('')
-      setDistributorBalanceAmount(0)
-      setAdjustNextDueDate(false)
-      setDueDateShiftDays(0)
+      resetInstallmentProcedure()
     },
   })
 
@@ -540,8 +554,7 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setDeferDate('')
-      setSelected(null)
+      resetInstallmentProcedure()
     },
   })
 

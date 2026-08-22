@@ -10,6 +10,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate, formatMoney } from '../../../lib/accounting'
 import { NumericInput } from '../../../components/ui/NumericInput'
+import { userCanPerform } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 
 
 function getTransferAccounts(lines: AccountingAccTransMapping['lines']) {
@@ -30,6 +32,10 @@ type Panel = 'create' | 'edit' | null
 
 export function TransfersPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canAddTransfer = userCanPerform(user, 'accounting.add_transfer')
+  const canEditTransfer = userCanPerform(user, 'accounting.edit_transfer')
+  const canDeleteTransfer = userCanPerform(user, 'accounting.delete_transfer')
   const [panel, setPanel] = useState<Panel>(null)
   const [selected, setSelected] = useState<AccountingAccTransMapping | null>(null)
   const [fromAccountId, setFromAccountId] = useState<number | ''>('')
@@ -157,14 +163,16 @@ export function TransfersPage() {
         title="التحويلات"
         subtitle="تحويلات بين الحسابات"
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-          >
-            <Icon name="add" size={18} />
-            تحويل جديد
-          </button>
+          canAddTransfer ? (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            >
+              <Icon name="add" size={18} />
+              تحويل جديد
+            </button>
+          ) : undefined
         }
       />
 
@@ -221,22 +229,27 @@ export function TransfersPage() {
               header: 'إجراءات',
               render: (row) => (
                 <div className="flex gap-xs">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(row)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    تعديل
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm('حذف هذا التحويل؟')) deleteMutation.mutate(row.id)
-                    }}
-                    className="text-xs text-error hover:underline"
-                  >
-                    حذف
-                  </button>
+                  {canEditTransfer ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(row)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      تعديل
+                    </button>
+                  ) : null}
+                  {canDeleteTransfer ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('حذف هذا التحويل؟')) deleteMutation.mutate(row.id)
+                      }}
+                      className="text-xs text-error hover:underline"
+                    >
+                      حذف
+                    </button>
+                  ) : null}
+                  {!canEditTransfer && !canDeleteTransfer ? '—' : null}
                 </div>
               ),
             },

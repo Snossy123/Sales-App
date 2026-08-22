@@ -45,16 +45,17 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/sections': 'branches.manage',
   '/gps/management': 'branches.manage',
   '/admin/users': 'users.manage',
-  '/admin/roles': 'users.manage',
+  '/admin/roles': 'roles.manage',
   '/admin/activity-log': 'audit.view',
   '/admin/trash': 'trash.view',
   '/admin/faq': 'faq.manage',
+  '/admin/feedback': 'feedback.view',
   '/admin/settings': 'settings.manage',
   '/help/faq': 'dashboard.view',
   '/messages': 'dashboard.view',
   '/feedback': 'dashboard.view',
   '/crm': 'crm.access_own_leads',
-  '/crm/ceo': 'crm.access_own_leads',
+  '/crm/ceo': 'crm.access_all_leads',
   '/crm/referrals': 'crm.access_own_leads',
   '/crm/referrals/add': 'crm.access_own_leads',
   '/crm/referrals/list': 'crm.access_own_leads',
@@ -63,23 +64,47 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/crm/reports/leaderboard': 'crm.access_all_leads',
   '/crm/reports/owner-detail': 'crm.access_all_leads',
   '/crm/reports/owner-pipeline': 'crm.access_all_leads',
-  '/crm/activities': 'crm.access_own_leads',
-  '/crm/call-logs': 'crm.view_own_call_log',
+  '/crm/activities': ['crm.activities.manage', 'crm.access_own_leads'],
+  '/crm/call-logs': ['crm.view_own_call_log', 'crm.view_all_call_log'],
   '/crm/reports': 'crm.access_all_leads',
-  '/crm/tasks': 'crm.access_own_leads',
+  '/crm/tasks': ['crm.access_own_schedule', 'crm.access_all_schedule'],
   '/support/my-tasks': 'support.view_assigned_tasks',
   '/support/tasks': ['support.view_all_tasks', 'support.assign_tasks'],
   '/problems': 'contract_cases.manage',
   '/accounting': 'accounting.access_accounting_module',
+  '/accounting/chart-of-accounts': 'accounting.manage_accounts',
+  '/accounting/journal-entries': 'accounting.view_journal',
+  '/accounting/transfers': 'accounting.view_transfer',
+  '/accounting/transactions': 'accounting.map_transactions',
+  '/accounting/reports': 'accounting.view_reports',
+  '/accounting/budgets': 'accounting.manage_budget',
+  '/accounting/settings': 'accounting.access_accounting_module',
   '/hrm': 'hr.employees.manage',
+  '/hrm/employees': 'hr.employees.manage',
+  '/hrm/jobs': 'hr.employees.manage',
+  '/hrm/leaves': 'hrm.leave.manage',
+  '/hrm/leave-types': 'hrm.leave.manage',
+  '/hrm/attendance': 'hrm.attendance.manage',
+  '/hrm/zk-devices': 'hrm.attendance.manage',
+  '/hrm/shifts': 'hrm.shift.manage',
+  '/hrm/holidays': 'hrm.holiday.manage',
+  '/hrm/allowances': 'hrm.allowance.manage',
+  '/hrm/payroll': 'hrm.payroll.manage',
+  '/hrm/payroll-groups': 'hrm.payroll.manage',
+  '/hrm/sales-targets': 'hrm.sales_target.manage',
+  '/hrm/settings': ['settings.manage', 'hr.employees.manage'],
+}
+
+function asPermissionList(value: string | string[] | undefined): string[] | null {
+  if (!value) return null
+  return Array.isArray(value) ? value : [value]
 }
 
 export function resolveRoutePermissions(path: string): string[] | null {
   const normalized = path.replace(/\/$/, '') || '/'
 
   if (ROUTE_PERMISSIONS[normalized]) {
-    const value = ROUTE_PERMISSIONS[normalized]
-    return Array.isArray(value) ? value : [value]
+    return asPermissionList(ROUTE_PERMISSIONS[normalized])
   }
 
   if (normalized.startsWith('/customers/')) return ['customers.manage']
@@ -97,6 +122,12 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.startsWith('/inventory/movements')) {
     return ['device_movements.manage']
   }
+  if (normalized.match(/^\/payments\/\d+\/receipt$/)) {
+    return ['payments.view']
+  }
+  if (normalized.startsWith('/daily-reports')) {
+    return ['dashboard.view']
+  }
   if (normalized.match(/^\/invoices\/\d+\/edit$/)) {
     return ['sales.invoices.edit_before_review', 'review.edit_after_review']
   }
@@ -112,13 +143,25 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.match(/^\/invoices\/\d+/)) {
     return ['review.view_contracts', 'sales.invoices.view', 'review.view_detail']
   }
-  if (normalized.startsWith('/accounting/')) return ['accounting.access_accounting_module']
-  if (normalized.startsWith('/hrm/')) return ['hr.employees.manage']
+  if (normalized.startsWith('/accounting/chart-of-accounts')) {
+    return ['accounting.manage_accounts']
+  }
+  if (normalized.startsWith('/accounting/')) {
+    const accountingRoute = normalized.match(/^\/accounting\/[^/]+/)?.[0] ?? '/accounting'
+    return asPermissionList(ROUTE_PERMISSIONS[accountingRoute] ?? ROUTE_PERMISSIONS['/accounting'])
+  }
+  if (normalized.startsWith('/hrm/employees')) {
+    return ['hr.employees.manage']
+  }
+  if (normalized.startsWith('/hrm/')) {
+    const hrmRoute = normalized.match(/^\/hrm\/[^/]+/)?.[0] ?? '/hrm'
+    return asPermissionList(ROUTE_PERMISSIONS[hrmRoute] ?? ROUTE_PERMISSIONS['/hrm'])
+  }
   if (normalized.startsWith('/admin/')) {
     const adminRoute = normalized.match(/^\/admin\/[^/]+/)?.[0] ?? '/admin/users'
     const value = ROUTE_PERMISSIONS[adminRoute]
     if (!value) return ['users.manage']
-    return Array.isArray(value) ? value : [value]
+    return asPermissionList(value)
   }
   if (normalized.startsWith('/crm/reports/employees')) {
     return ['crm.access_all_leads']
@@ -130,7 +173,7 @@ export function resolveRoutePermissions(path: string): string[] | null {
     const crmRoute = normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm'
     const value = ROUTE_PERMISSIONS[crmRoute] ?? ROUTE_PERMISSIONS['/crm']
     if (!value) return ['crm.access_own_leads']
-    return Array.isArray(value) ? value : [value]
+    return asPermissionList(value)
   }
 
   return null

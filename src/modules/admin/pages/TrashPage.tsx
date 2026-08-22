@@ -5,6 +5,8 @@ import { DataTable } from '../../../components/DataTable'
 import { FilterBar } from '../../../components/FilterBar'
 import { PageHeader } from '../../../components/PageHeader'
 import { useState } from 'react'
+import { userCanPerform } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 
 interface TrashRow {
   type: string
@@ -24,6 +26,9 @@ const typeLabels: Record<string, string> = {
 
 export function TrashPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canRestore = userCanPerform(user, 'trash.restore')
+  const canForceDelete = userCanPerform(user, 'trash.force_delete')
   const [typeFilter, setTypeFilter] = useState('')
 
   const trashQuery = useQuery({
@@ -96,26 +101,31 @@ export function TrashPage() {
               header: '',
               render: (r) => (
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => restoreMutation.mutate({ type: r.type, id: r.id })}
-                    disabled={restoreMutation.isPending}
-                    className="text-sm text-secondary hover:underline"
-                  >
-                    استرجاع
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm('حذف نهائي؟ لا يمكن التراجع.')) {
-                        forceDeleteMutation.mutate({ type: r.type, id: r.id })
-                      }
-                    }}
-                    disabled={forceDeleteMutation.isPending}
-                    className="text-sm text-error hover:underline"
-                  >
-                    حذف نهائي
-                  </button>
+                  {canRestore ? (
+                    <button
+                      type="button"
+                      onClick={() => restoreMutation.mutate({ type: r.type, id: r.id })}
+                      disabled={restoreMutation.isPending}
+                      className="text-sm text-secondary hover:underline"
+                    >
+                      استرجاع
+                    </button>
+                  ) : null}
+                  {canForceDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('حذف نهائي؟ لا يمكن التراجع.')) {
+                          forceDeleteMutation.mutate({ type: r.type, id: r.id })
+                        }
+                      }}
+                      disabled={forceDeleteMutation.isPending}
+                      className="text-sm text-error hover:underline"
+                    >
+                      حذف نهائي
+                    </button>
+                  ) : null}
+                  {!canRestore && !canForceDelete ? '—' : null}
                 </div>
               ),
             },

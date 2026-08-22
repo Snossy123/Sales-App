@@ -505,18 +505,24 @@ export interface AccessoryCheckoutPayload {
   }[]
 }
 
+export type DeviceOrigin = 'company_stock' | 'legacy' | 'external'
+
 export interface ProductUnit {
   id: number
   product_model_id: number
-  warehouse_id: number
+  warehouse_id?: number | null
   imei: string
   serial_number?: string | null
+  sim_number?: string | null
+  username?: string | null
   state: string
+  origin?: DeviceOrigin | null
   inventory_bucket?: string | null
   custody_employee_id?: number | null
   custody_employee?: { id: number; name: string } | null
   custody_customer_id?: number | null
   custody_customer?: { id: number; name: string } | null
+  owner_customer_id?: number | null
   cost_price?: string | number | null
   sell_price?: string | number | null
   notes?: string | null
@@ -546,8 +552,10 @@ export interface CustodyVoucher {
 export interface CustomerContractDevice {
   id: string
   product_unit_id?: number | null
+  origin?: DeviceOrigin | null
+  owner_customer_id?: number | null
   sales_invoice_id?: number | null
-  sales_invoice_line_id?: number
+  sales_invoice_line_id?: number | null
   invoice_number?: string | null
   serial_number?: string | null
   sim_number?: string | null

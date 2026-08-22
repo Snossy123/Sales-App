@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CustomerContractDevice } from '../../api/types'
+import type { CustomerContractDevice, DeviceOrigin } from '../../api/types'
 import { normalizeScannedInput } from '../../lib/scanner'
 import type { DeviceLineDraft } from '../pos/DeviceLineCard'
 import { SearchableSelect } from '../SearchableSelect'
@@ -11,17 +11,25 @@ import {
 } from '../pos/posFormStyles'
 
 export const MANUAL_CONTRACT_DEVICE_ID = 'manual'
+export const REGISTER_CONTRACT_DEVICE_ID = 'register'
+
+export const DEVICE_ORIGIN_LABELS: Record<DeviceOrigin, string> = {
+  company_stock: 'مخزن الشركة',
+  legacy: 'قديم من الشركة',
+  external: 'خارج الشركة',
+}
 
 export type ContractDeviceOption =
   | CustomerContractDevice
-  | { id: typeof MANUAL_CONTRACT_DEVICE_ID }
+  | { id: typeof MANUAL_CONTRACT_DEVICE_ID | typeof REGISTER_CONTRACT_DEVICE_ID }
 
 export function contractDeviceLabel(device: CustomerContractDevice): string {
   const serial = device.serial_number?.trim() || 'بدون سريال'
   const sim = device.sim_number?.trim()
   const invoice = device.invoice_number?.trim()
   const model = device.product_model?.name_ar || device.product_model?.name
-  return [serial, sim, model, invoice].filter(Boolean).join(' — ')
+  const origin = device.origin ? DEVICE_ORIGIN_LABELS[device.origin] : null
+  return [serial, sim, origin, model, invoice].filter(Boolean).join(' — ')
 }
 
 export function applyContractDeviceIdentity(
@@ -77,6 +85,14 @@ export function identityFromCustomerDevice(device: CustomerContractDevice): {
   }
 }
 
+export interface RegisterCustomerDevicePayload {
+  origin: 'legacy' | 'external'
+  serial_number: string
+  sim_number?: string
+  username?: string
+  imei?: string
+}
+
 interface CustomerContractDevicePickerProps {
   devices: CustomerContractDevice[]
   loading?: boolean
@@ -94,9 +110,14 @@ interface CustomerContractDevicePickerProps {
   showIdentityFields: boolean
   identityLocked: boolean
   showErrors?: boolean
+  registerOrigin?: 'legacy' | 'external'
+  onRegisterOriginChange?: (origin: 'legacy' | 'external') => void
+  onRegister?: (payload: RegisterCustomerDevicePayload) => void
+  registering?: boolean
+  registerError?: string | null
 }
 
-const MANUAL_OPTION: ContractDeviceOption = { id: MANUAL_CONTRACT_DEVICE_ID }
+const REGISTER_OPTION: ContractDeviceOption = { id: REGISTER_CONTRACT_DEVICE_ID }
 
 export function CustomerContractDevicePicker({
   devices,
@@ -115,6 +136,11 @@ export function CustomerContractDevicePicker({
   showIdentityFields,
   identityLocked,
   showErrors = false,
+  registerOrigin = 'legacy',
+  onRegisterOriginChange,
+  onRegister,
+  registering = false,
+  registerError,
 }: CustomerContractDevicePickerProps) {
   const [search, setSearch] = useState('')
   const options = useMemo<ContractDeviceOption[]>(() => {
@@ -122,9 +148,9 @@ export function CustomerContractDevicePicker({
     const listed = q
       ? devices.filter((device) => contractDeviceLabel(device).toLowerCase().includes(q))
       : devices
-    return [...listed, MANUAL_OPTION]
+    return [...listed, REGISTER_OPTION]
   }, [devices, search])
-  const selected = manual ? MANUAL_OPTION : selectedDevice
+  const selected = manual ? REGISTER_OPTION : selectedDevice
   const serialError = showErrors && !serialNumber.trim()
   const simError = showErrors && !simNumber.trim()
   const usernameError = showErrors && !username.trim()
@@ -140,7 +166,7 @@ export function CustomerContractDevicePicker({
             onClear?.()
             return
           }
-          if (option.id === MANUAL_CONTRACT_DEVICE_ID) {
+          if (option.id === REGISTER_CONTRACT_DEVICE_ID || option.id === MANUAL_CONTRACT_DEVICE_ID) {
             onManual()
             return
           }
@@ -149,20 +175,52 @@ export function CustomerContractDevicePicker({
         onSearchChange={setSearch}
         getOptionValue={(option) => option.id}
         getOptionLabel={(option) =>
-          option.id === MANUAL_CONTRACT_DEVICE_ID
-            ? 'جهاز غير مسجل — إدخال يدوي'
+          option.id === REGISTER_CONTRACT_DEVICE_ID || option.id === MANUAL_CONTRACT_DEVICE_ID
+            ? 'تسجيل جهاز غير موجود في السيستم'
             : contractDeviceLabel(option)
         }
-        placeholder={devices.length ? 'اختر جهازًا أو أدخل السريال يدويًا' : 'لا توجد أجهزة مسجلة'}
+        placeholder={devices.length ? 'اختر جهازًا أو سجّل جهازًا جديدًا' : 'لا توجد أجهزة — سجّل الجهاز'}
         loading={loading}
         emptyMessage={search.trim() ? 'لا يوجد جهاز مطابق' : 'لا توجد أجهزة'}
         hasError={showErrors && !manual && !selectedDevice}
       />
 
-      {devices.length === 0 && !loading && (
+      {selectedDevice && !manual && (
         <p className="text-xs text-on-surface-variant">
-          لا توجد أجهزة مسجلة لهذا العميل — أدخل السريال والشريحة يدويًا
+          المصدر: {DEVICE_ORIGIN_LABELS[selectedDevice.origin ?? 'company_stock']}
         </p>
+      )}
+
+      {devices.length === 0 && !loading && !manual && (
+        <p className="text-xs text-on-surface-variant">
+          لا توجد أجهزة مسجلة لهذا العميل — سجّل الجهاز قبل عمل الخدمة
+        </p>
+      )}
+
+      {manual && (
+        <div className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-sm">
+          <p className="text-sm font-medium">مصدر الجهاز</p>
+          <div className="flex flex-wrap gap-sm">
+            <label className="flex items-center gap-xs text-sm">
+              <input
+                type="radio"
+                name="device-origin"
+                checked={registerOrigin === 'legacy'}
+                onChange={() => onRegisterOriginChange?.('legacy')}
+              />
+              جهاز قديم من الشركة
+            </label>
+            <label className="flex items-center gap-xs text-sm">
+              <input
+                type="radio"
+                name="device-origin"
+                checked={registerOrigin === 'external'}
+                onChange={() => onRegisterOriginChange?.('external')}
+              />
+              جهاز خارج الشركة
+            </label>
+          </div>
+        </div>
       )}
 
       {showIdentityFields && (
@@ -210,6 +268,27 @@ export function CustomerContractDevicePicker({
             />
             {usernameError && <p className="mt-xs text-xs text-error">اسم المستخدم مطلوب</p>}
           </div>
+        </div>
+      )}
+
+      {manual && onRegister && (
+        <div className="space-y-xs">
+          <button
+            type="button"
+            disabled={registering || !serialNumber.trim()}
+            onClick={() =>
+              onRegister({
+                origin: registerOrigin,
+                serial_number: serialNumber.trim(),
+                sim_number: simNumber.trim() || undefined,
+                username: username.trim() || undefined,
+              })
+            }
+            className="rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-50"
+          >
+            {registering ? 'جاري التسجيل…' : 'تسجيل الجهاز وربطه بالعميل'}
+          </button>
+          {registerError && <p className="text-sm text-error">{registerError}</p>}
         </div>
       )}
     </div>

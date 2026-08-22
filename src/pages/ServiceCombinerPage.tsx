@@ -58,6 +58,7 @@ import {
   applyContractDeviceIdentity,
   CustomerContractDevicePicker,
   identityFromCustomerDevice,
+  type RegisterCustomerDevicePayload,
 } from '../components/services/CustomerContractDevicePicker'
 import { SearchableSelect } from '../components/SearchableSelect'
 import {
@@ -191,6 +192,7 @@ export function ServiceCombinerPage() {
   const [manualDeviceEntry, setManualDeviceEntry] = useState(
     () => serviceDraft?.manualDeviceEntry ?? false,
   )
+  const [registerOrigin, setRegisterOrigin] = useState<'legacy' | 'external'>('legacy')
   const [contractSerial, setContractSerial] = useState(() => serviceDraft?.contractSerial ?? '')
   const [contractSim, setContractSim] = useState(() => serviceDraft?.contractSim ?? '')
   const [contractUsername, setContractUsername] = useState(() => serviceDraft?.contractUsername ?? '')
@@ -558,8 +560,9 @@ export function ServiceCombinerPage() {
   const customerDevices = customerDevicesQuery.data ?? []
   const hasDeviceChip =
     selectedChips.has('annual_renewal') || selectedChips.has('external_device')
-  const showDeviceIdentityFields = !hasDeviceChip || !manualDeviceEntry
-  const listedDeviceSelected = Boolean(selectedCustomerDevice) && !manualDeviceEntry
+  const showDeviceIdentityFields = true
+  const listedDeviceSelected =
+    Boolean(selectedCustomerDevice?.product_unit_id) && !manualDeviceEntry
 
   const currentDeviceIdentity = () =>
     selectedCustomerDevice && !manualDeviceEntry
@@ -599,6 +602,21 @@ export function ServiceCombinerPage() {
     })
   }
 
+  const registerDeviceMutation = useMutation({
+    mutationFn: async (payload: RegisterCustomerDevicePayload) => {
+      if (!selectedCustomer) throw new Error('العميل مطلوب')
+      const { data } = await api.post<{ data: CustomerContractDevice }>(
+        `/customers/${selectedCustomer.id}/devices`,
+        payload,
+      )
+      return data.data
+    },
+    onSuccess: (device) => {
+      queryClient.invalidateQueries({ queryKey: ['customers', selectedCustomer?.id, 'devices'] })
+      handleSelectCustomerDevice(device)
+    },
+  })
+
   const currentIdentityPatch = (patch: {
     serialNumber?: string
     simNumber?: string
@@ -631,7 +649,6 @@ export function ServiceCombinerPage() {
   useEffect(() => {
     if (!selectedCustomer?.id || !customerDevicesQuery.isSuccess) return
     if (customerDevicesQuery.data.length === 0) {
-      setManualDeviceEntry(true)
       setSelectedCustomerDevice(null)
     }
   }, [selectedCustomer?.id, customerDevicesQuery.isSuccess, customerDevicesQuery.data])
@@ -818,7 +835,7 @@ export function ServiceCombinerPage() {
         : Boolean(selectedSalesRep)
 
   const contractDeviceReady =
-    (listedDeviceSelected || manualDeviceEntry) &&
+    listedDeviceSelected &&
     Boolean(contractSerial.trim()) &&
     Boolean(contractSim.trim()) &&
     Boolean(contractUsername.trim())
@@ -989,9 +1006,6 @@ export function ServiceCombinerPage() {
           : (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
             (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
             activeFeeLines.some((line) => line.paymentTerm === 'installment')
-      setLastInstallmentSale(hasInstallment)
-      setLastInvoice(invoice)
-      setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
       const uninstallFee = feeLines.uninstall
       const hasUninstall =
         selectedChips.has('uninstall') ||
@@ -1001,21 +1015,19 @@ export function ServiceCombinerPage() {
             catalogServices.find((service) => service.id === uninstallFee.service_id)?.category ===
               'uninstall',
         )
+      const customerId = selectedCustomer?.id
+      const successMessage = `تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`
+      resetServiceForm()
+      setLastInvoice(invoice)
+      setSuccessMsg(successMessage)
+      setLastInstallmentSale(hasInstallment)
       if (hasUninstall) {
         setUninstallInvoice(invoice)
       }
-      setNotes('')
-      setSelectedChips(new Set())
-      resetContractDevice()
-      setRenewalLine(null)
-      setExternalLine(null)
-      setFeeLines({})
-      setFeeTechnician(null)
-      setTechnicianSearch('')
-      setSubmitAttempted(false)
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['customers', customerId, 'devices'] })
     },
   })
 
@@ -1078,7 +1090,7 @@ export function ServiceCombinerPage() {
             <PosSectionCard
               number={2}
               title="جهاز العميل"
-              subtitle="اختار جهازًا مسجلًا أو أدخل السريال والشريحة يدويًا"
+              subtitle="اختار جهازًا مسجلًا أو سجّل جهازًا قديمًا / خارجيًا"
               highlighted={submitAttempted && !contractDeviceReady}
             >
               <CustomerContractDevicePicker
@@ -1093,9 +1105,7 @@ export function ServiceCombinerPage() {
                 onManual={handleManualDevice}
                 onClear={() => {
                   setSelectedCustomerDevice(null)
-                  if (customerDevices.length > 0) {
-                    setManualDeviceEntry(false)
-                  }
+                  setManualDeviceEntry(false)
                 }}
                 onSerialChange={handleContractSerialChange}
                 onSimChange={handleContractSimChange}
@@ -1103,6 +1113,15 @@ export function ServiceCombinerPage() {
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
                 showErrors={submitAttempted}
+                registerOrigin={registerOrigin}
+                onRegisterOriginChange={setRegisterOrigin}
+                onRegister={(payload) => registerDeviceMutation.mutate(payload)}
+                registering={registerDeviceMutation.isPending}
+                registerError={
+                  registerDeviceMutation.isError
+                    ? getErrorMessage(registerDeviceMutation.error)
+                    : null
+                }
               />
             </PosSectionCard>
           )}

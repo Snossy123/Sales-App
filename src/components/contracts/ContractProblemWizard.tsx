@@ -9,6 +9,7 @@ import {
   useProcedureDraftStore,
 } from '../../stores/procedureDraftStore'
 import type { CollectionPaymentAccount, Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
+import { userCanPerform } from '../../lib/access'
 import { Icon } from '../Icon'
 import { NumericInput } from '../ui/NumericInput'
 
@@ -270,10 +271,17 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
     enabled: open,
   })
 
+  const user = useAuthStore((s) => s.user)
+  const canDisburse = userCanPerform(user, 'contract_cases.disburse')
+
   const visibleTypeOptions = useMemo(
     () =>
-      TYPE_OPTIONS.filter((opt) => opt.value !== 'cancel' || cancelPreviewQuery.data?.allowed !== false),
-    [cancelPreviewQuery.data?.allowed],
+      TYPE_OPTIONS.filter((opt) => {
+        if (opt.value === 'cancel' && cancelPreviewQuery.data?.allowed === false) return false
+        if ((opt.value === 'return' || opt.value === 'cancel') && !canDisburse) return false
+        return true
+      }),
+    [cancelPreviewQuery.data?.allowed, canDisburse],
   )
 
   const accountsQuery = useQuery({

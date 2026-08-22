@@ -16,6 +16,8 @@ import {
   updateSupportTaskStatus,
 } from '../api'
 import { CompleteTaskModal } from '../components/CompleteTaskModal'
+import { userCanPerform } from '../../../lib/access'
+import { useAuthStore } from '../../../stores/authStore'
 
 const QUERY_KEY = ['support-tasks', 'mine']
 
@@ -26,6 +28,8 @@ function forwardStatuses(status: SupportTaskStatus): SupportTaskStatus[] {
 
 export function MyTasksPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canUpdateStatus = userCanPerform(user, 'support.update_assigned_tasks')
   const [completeTask, setCompleteTask] = useState<SupportTask | null>(null)
   const [issueNotice, setIssueNotice] = useState('')
 
@@ -102,6 +106,7 @@ export function MyTasksPage() {
               key: 'actions',
               header: '',
               render: (row) => {
+                if (!canUpdateStatus) return <span className="text-on-surface-variant">—</span>
                 const next = forwardStatuses(row.status)
                 if (next.length === 0) return <span className="text-on-surface-variant">—</span>
                 return (

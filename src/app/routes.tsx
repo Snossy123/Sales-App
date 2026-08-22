@@ -97,6 +97,7 @@ import { AdminActivityLogPage } from '../modules/admin/pages/AdminActivityLogPag
 import { AdminFaqPage } from '../modules/admin/pages/AdminFaqPage'
 import { TrashPage } from '../modules/admin/pages/TrashPage'
 import { AdminSystemSettingsPage } from '../modules/admin/pages/AdminSystemSettingsPage'
+import { AdminFeedbackPage } from '../modules/admin/pages/AdminFeedbackPage'
 import { CrmActivitiesPage } from '../modules/crm/pages/CrmActivitiesPage'
 import { CrmCallLogsPage } from '../modules/crm/pages/CrmCallLogsPage'
 import { CrmReportsPage } from '../modules/crm/pages/CrmReportsPage'
@@ -294,6 +295,7 @@ export function AppRoutes() {
             <Route path="admin/activity-log" element={<AdminActivityLogPage />} />
             <Route path="admin/trash" element={<TrashPage />} />
             <Route path="admin/faq" element={<AdminFaqPage />} />
+            <Route path="admin/feedback" element={<AdminFeedbackPage />} />
             <Route path="admin/settings" element={<AdminSystemSettingsPage />} />
             <Route path="crm" element={<Navigate to="/crm/referrals" replace />} />
             <Route path="crm/ceo" element={<CrmCeoDashboardPage />} />

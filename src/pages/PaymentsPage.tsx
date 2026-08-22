@@ -6,7 +6,10 @@ import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
+import { userCanPerform } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 export interface PaymentTransactionRow {
   id: number
@@ -33,8 +36,11 @@ const sourceLabels: Record<string, string> = {
 type SourceFilter = '' | 'all_payments' | 'contract_disbursement'
 
 export function PaymentsPage() {
+  const user = useAuthStore((s) => s.user)
+  const canRefund = userCanPerform(user, 'payments.refund')
   const [statusFilter, setStatusFilter] = useState('active')
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all_payments')
+  const [refundTarget, setRefundTarget] = useState<RefundPaymentTarget | null>(null)
 
   const paymentsQuery = useQuery({
     queryKey: ['payment-transactions', statusFilter, sourceFilter],
@@ -106,22 +112,38 @@ export function PaymentsPage() {
             {
               key: 'actions',
               header: '',
-              render: (r) =>
-                r.status === 'active' && Number(r.amount) !== 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => openPaymentReceiptPrint(r.id)}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    طباعة
-                  </button>
-                ) : (
-                  '—'
-                ),
+              render: (r) => (
+                <div className="flex flex-wrap gap-2">
+                  {r.status === 'active' && Number(r.amount) !== 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => openPaymentReceiptPrint(r.id)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      طباعة
+                    </button>
+                  ) : null}
+                  {canRefund && r.status === 'active' && Number(r.amount) > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setRefundTarget(r)}
+                      className="text-sm text-error hover:underline"
+                    >
+                      استرداد
+                    </button>
+                  ) : null}
+                </div>
+              ),
             },
           ]}
         />
       </AsyncState>
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        open={refundTarget !== null}
+        onClose={() => setRefundTarget(null)}
+      />
     </SalesPageShell>
   )
 }

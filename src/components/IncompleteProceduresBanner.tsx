@@ -11,7 +11,9 @@ export function IncompleteProceduresBanner() {
   const drafts = useProcedureDraftStore((s) => s.drafts)
   const clearDraft = useProcedureDraftStore((s) => s.clearDraft)
   const { pathname } = useLocation()
-  const items = selectUserDrafts(drafts, userId)
+  const items = selectUserDrafts(drafts, userId).filter(
+    (draft) => pathname !== draft.resumePath.split('?')[0],
+  )
 
   if (items.length === 0) return null
 
@@ -25,7 +27,6 @@ export function IncompleteProceduresBanner() {
       </div>
       <ul className="space-y-xs">
         {items.map((draft) => {
-          const isCurrent = pathname === draft.resumePath.split('?')[0]
           return (
             <li
               key={draft.id}
@@ -33,16 +34,12 @@ export function IncompleteProceduresBanner() {
             >
               <span className="text-sm text-on-surface">{draft.titleAr}</span>
               <div className="flex items-center gap-xs">
-                {isCurrent ? (
-                  <span className="text-xs text-on-surface-variant">الصفحة الحالية</span>
-                ) : (
-                  <Link
-                    to={draft.resumePath}
-                    className="rounded-lg bg-primary px-sm py-1 text-xs font-bold text-on-primary hover:opacity-90"
-                  >
-                    متابعة
-                  </Link>
-                )}
+                <Link
+                  to={draft.resumePath}
+                  className="rounded-lg bg-primary px-sm py-1 text-xs font-bold text-on-primary hover:opacity-90"
+                >
+                  متابعة
+                </Link>
                 <button
                   type="button"
                   onClick={() => {
