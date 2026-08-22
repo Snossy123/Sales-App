@@ -4369,6 +4369,7 @@ export function handleMockRequest(
     const id = Number(path.split('/')[2])
     const body = data as { name?: string; name_ar?: string; permissions?: string[] }
     const scope = getApiDepartmentScope(ctx)
+    const canWriteAdminOverride = ctx.user?.data_scope === 'administration'
     const protectedSlugs = new Set([
       'Admin', 'AdministrationManager', 'BranchManager', 'Reviewer', 'Sales', 'Collector',
       'CallCenter', 'Accountant', 'HrManager', 'CrmSpecialist', 'SupportEmployee', 'Super Admin',
@@ -4378,7 +4379,17 @@ export function handleMockRequest(
       const role = s.adminRoles.find((r) => r.id === id)
       if (!role) throw mockError(404, 'الدور غير موجود')
       if (scope != null && protectedSlugs.has(role.name)) {
-        throw mockError(403, 'غير مسموح')
+        if (!canWriteAdminOverride) throw mockError(403, 'غير مسموح')
+        if (!role.baseline_permissions) {
+          role.baseline_permissions = role.permissions?.map((p) => p.name) ?? []
+        }
+        if (body.permissions) {
+          role.permissions = body.permissions.map((name, idx) => ({ id: 200 + idx, name }))
+          role.permissions_count = role.permissions.length
+        }
+        role.is_administration_override = true
+        updated = role
+        return
       }
       if (body.name_ar) role.name_ar = body.name_ar
       if (body.name) role.name = body.name
@@ -4386,6 +4397,22 @@ export function handleMockRequest(
         role.permissions = body.permissions.map((name, idx) => ({ id: 200 + idx, name }))
         role.permissions_count = role.permissions.length
       }
+      updated = role
+    })
+    return updated
+  }
+
+  if (m === 'DELETE' && path.match(/^admin\/roles\/\d+\/administration-permissions$/)) {
+    const id = Number(path.split('/')[2])
+    if (ctx.user?.data_scope !== 'administration') throw mockError(403, 'غير مسموح')
+    let updated: (typeof state.adminRoles)[0] | undefined
+    mutateState((s) => {
+      const role = s.adminRoles.find((r) => r.id === id)
+      if (!role) throw mockError(404, 'الدور غير موجود')
+      const baseline = role.baseline_permissions ?? role.permissions?.map((p) => p.name) ?? []
+      role.permissions = baseline.map((name, idx) => ({ id: 300 + idx, name }))
+      role.permissions_count = role.permissions.length
+      role.is_administration_override = false
       updated = role
     })
     return updated

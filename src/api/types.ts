@@ -2276,6 +2276,8 @@ export interface AdminRole {
   name_ar?: string | null
   permissions?: { id: number; name: string }[]
   permissions_count?: number
+  is_administration_override?: boolean
+  baseline_permissions?: string[]
 }
 
 export type PermissionGroups = Record<string, string[]>

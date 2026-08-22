@@ -14,6 +14,7 @@ export function AdminRolesPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const orgWide = isSuperAdmin(user)
+  const canManageAdminOverride = user?.data_scope === 'administration'
 
   const rolesQuery = useQuery({
     queryKey: ['admin', 'roles'],
@@ -27,7 +28,13 @@ export function AdminRolesPage() {
     <div>
       <PageHeader
         title="الأدوار والصلاحيات"
-        subtitle={orgWide ? 'تعريف الأدوار وربط الصلاحيات' : 'عرض الأدوار المتاحة وإنشاء أدوار مخصصة لموظفي إدارتك'}
+        subtitle={
+          orgWide
+            ? 'تعريف الأدوار وربط الصلاحيات'
+            : canManageAdminOverride
+              ? 'تعديل صلاحيات الأدوار لموظفي إدارتك دون تغيير تعريف الشركة'
+              : 'عرض الأدوار المتاحة وإنشاء أدوار مخصصة لموظفي إدارتك'
+        }
         actions={
           <button
             type="button"
@@ -45,7 +52,20 @@ export function AdminRolesPage() {
           keyExtractor={(row) => row.id}
           pageSize={10}
           columns={[
-            { key: 'name', header: 'الدور', render: (row) => formatRoleLabel(row) },
+            {
+              key: 'name',
+              header: 'الدور',
+              render: (row) => (
+                <span className="inline-flex flex-wrap items-center gap-xs">
+                  {formatRoleLabel(row)}
+                  {row.is_administration_override && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      تجاوز الإدارة
+                    </span>
+                  )}
+                </span>
+              ),
+            },
             {
               key: 'count',
               header: 'عدد الصلاحيات',
@@ -55,14 +75,15 @@ export function AdminRolesPage() {
               key: 'actions',
               header: '',
               render: (row) => {
-                const readOnly = !orgWide && isProtectedRoleSlug(row.name)
+                const readOnly = !orgWide && !canManageAdminOverride && isProtectedRoleSlug(row.name)
+                const adminOverride = !orgWide && canManageAdminOverride && isProtectedRoleSlug(row.name)
                 return (
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/roles/${row.id}/permissions`)}
                     className="text-xs font-medium text-primary hover:underline"
                   >
-                    {readOnly ? 'عرض الصلاحيات' : 'تعديل الصلاحيات'}
+                    {readOnly ? 'عرض الصلاحيات' : adminOverride ? 'تعديل صلاحيات الإدارة' : 'تعديل الصلاحيات'}
                   </button>
                 )
               },

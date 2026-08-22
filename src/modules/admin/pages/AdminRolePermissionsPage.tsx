@@ -22,6 +22,7 @@ export function AdminRolePermissionsPage() {
   const authUser = useAuthStore((s) => s.user)
   const isNew = roleId === 'new'
   const orgWide = isSuperAdmin(authUser)
+  const canManageAdminOverride = authUser?.data_scope === 'administration'
 
   const [roleNameAr, setRoleNameAr] = useState('')
   const [roleSlug, setRoleSlug] = useState<string | undefined>()
@@ -70,11 +71,34 @@ export function AdminRolePermissionsPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.delete<AdminRole>(`/admin/roles/${roleId}/administration-permissions`)
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'roles'] })
+      setPermissions(data.permissions?.map((p) => p.name) ?? [])
+      setToast('تمت استعادة صلاحيات الشركة لهذا الدور')
+    },
+    onError: (err) => setToast(getErrorMessage(err)),
+  })
+
   const apiKeys = permissionsQuery.data ? flattenPermissionGroups(permissionsQuery.data) : undefined
-  const canEdit = isNew || orgWide || (roleSlug ? !isProtectedRoleSlug(roleSlug) : false)
+  const isProtected = roleSlug ? isProtectedRoleSlug(roleSlug) : false
+  const isAdminOverrideEdit = !isNew && !orgWide && canManageAdminOverride && isProtected
+  const canEdit = isNew || orgWide || canManageAdminOverride || (roleSlug ? !isProtected : false)
+  const canRename = isNew || (orgWide && !isProtected) || (!orgWide && !isProtected)
   const isLoading = (!isNew && roleQuery.isLoading) || permissionsQuery.isLoading
   const isError = roleQuery.isError || permissionsQuery.isError
   const error = roleQuery.error ?? permissionsQuery.error
+  const hasOverride = Boolean(roleQuery.data?.is_administration_override)
+
+  const subtitle = isAdminOverrideEdit
+    ? 'هذه التعديلات تطبق على موظفي إدارتك فقط ولا تغيّر الدور على مستوى الشركة'
+    : canEdit
+      ? 'تحديد الصلاحيات الممنوحة لهذا الدور'
+      : 'عرض صلاحيات دور نظامي — لا يمكن تعديله من هذا الحساب'
 
   return (
     <div>
@@ -90,9 +114,7 @@ export function AdminRolePermissionsPage() {
           <h1 className="text-2xl font-bold text-on-surface">
             {isNew ? 'دور جديد' : `صلاحيات: ${roleNameAr || '...'}`}
           </h1>
-          <p className="text-sm text-on-surface-variant">
-            {canEdit ? 'تحديد الصلاحيات الممنوحة لهذا الدور' : 'عرض صلاحيات دور نظامي — لا يمكن تعديله من مدير الإدارة'}
-          </p>
+          <p className="text-sm text-on-surface-variant">{subtitle}</p>
         </div>
         <div className="flex items-center gap-sm">
           <Link
@@ -101,6 +123,16 @@ export function AdminRolePermissionsPage() {
           >
             {canEdit ? 'إلغاء' : 'رجوع'}
           </Link>
+          {isAdminOverrideEdit && hasOverride && (
+            <button
+              type="button"
+              onClick={() => resetMutation.mutate()}
+              disabled={resetMutation.isPending}
+              className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-high disabled:opacity-60"
+            >
+              {resetMutation.isPending ? 'جاري الاستعادة...' : 'استعادة صلاحيات الشركة'}
+            </button>
+          )}
           {canEdit && (
             <button
               type="button"
@@ -124,7 +156,7 @@ export function AdminRolePermissionsPage() {
           selected={permissions}
           apiPermissionKeys={apiKeys}
           onChange={setPermissions}
-          onRoleNameArChange={setRoleNameAr}
+          onRoleNameArChange={canRename ? setRoleNameAr : undefined}
           isNew={isNew}
           readOnly={!canEdit}
         />
