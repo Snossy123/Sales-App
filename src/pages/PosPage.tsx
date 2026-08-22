@@ -24,6 +24,7 @@ import {
   resolveCustomerTransactionSource,
 } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
+import { MyContractsButton } from '../components/contracts/MyContractsButton'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
@@ -1024,7 +1025,12 @@ export function PosPage() {
           </div>
         ) : null
       }
-      actions={<StartTourButton tourId="pos" />}
+      actions={
+        <>
+          {!isEditMode ? <MyContractsButton /> : null}
+          <StartTourButton tourId="pos" />
+        </>
+      }
     >
       {isEditMode && editInvoiceQuery.isError ? (
         <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">

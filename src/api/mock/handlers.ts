@@ -2024,6 +2024,39 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path.match(/^customers\/\d+\/devices$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    const devices = state.invoices
+      .filter((inv) => {
+        if (inv.customer_id !== customerId || inv.status !== 'confirmed') return false
+        const contractStatus = String(inv.contract_status ?? 'active')
+        return contractStatus === 'active' || contractStatus === 'in_problem'
+      })
+      .flatMap((inv) =>
+        (inv.lines ?? [])
+          .filter((line) => !line.service_id && (line.product_unit_id || line.serial_number || line.sim_number))
+          .map((line) => ({
+            id: line.product_unit_id ? `unit:${line.product_unit_id}` : `line:${line.id}`,
+            product_unit_id: line.product_unit_id ?? null,
+            sales_invoice_id: inv.id,
+            sales_invoice_line_id: line.id,
+            invoice_number: inv.invoice_number,
+            serial_number: line.serial_number ?? line.product_unit?.serial_number ?? line.product_unit?.imei ?? null,
+            sim_number: line.sim_number ?? null,
+            username: line.username ?? null,
+            vehicle_type: line.vehicle_type ?? null,
+            vehicle_plate_letters: line.vehicle_plate_letters ?? null,
+            vehicle_plate_numbers: line.vehicle_plate_numbers ?? null,
+            chassis_number: line.chassis_number ?? null,
+            engine_number: line.engine_number ?? null,
+            product_model: line.product_unit?.product_model ?? null,
+          })),
+      )
+    return { data: devices }
+  }
+
   if (m === 'GET' && path.match(/^customers\/\d+$/)) {
     const id = Number(path.split('/')[1])
     const customer = state.customers.find((c) => c.id === id)
@@ -2417,6 +2450,11 @@ export function handleMockRequest(
     const contractKindFilter = params['filter[contract_kind]']
     if (contractKindFilter) {
       items = items.filter((i) => (i.contract_kind ?? 'new_contract') === contractKindFilter)
+    }
+    const mineFilter = params['filter[mine]']
+    if (mineFilter === '1' || mineFilter === 'true') {
+      const userId = ctx.user?.id
+      items = items.filter((i) => (i.user_id ?? i.created_by) === userId)
     }
     const dateFrom = params['filter[invoice_date_from]']
     if (dateFrom) items = items.filter((i) => String(i.invoice_date) >= String(dateFrom))
@@ -2827,7 +2865,8 @@ export function handleMockRequest(
         installation_fee: installationFee,
         transportation_fee: transportationFee,
         lines: invoiceLines,
-        created_by: 2,
+        created_by: ctx.user?.id ?? 2,
+        user_id: ctx.user?.id ?? 2,
       }
 
       body.lines.forEach((lineInput, index) => {
@@ -3031,6 +3070,8 @@ export function handleMockRequest(
         customer_id: body.customer_id,
         distributor_id: body.distributor_id ?? null,
         sales_user_id: body.sales_user_id ?? null,
+        user_id: ctx.user?.id ?? null,
+        created_by: ctx.user?.id,
         status: 'confirmed',
         sale_category: body.sale_category,
         payment_term: paymentTerm,

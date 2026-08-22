@@ -278,6 +278,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/services/add': ['super_admin', 'admin'],
   '/contract-templates': ['super_admin', 'admin'],
   '/invoices': ['super_admin', 'admin', 'reviewer', 'sales'],
+  '/invoices/mine': ['super_admin', 'admin', 'reviewer', 'sales'],
   '/invoices/review': ['super_admin', 'admin', 'reviewer'],
   '/review/evaluation-queue': ['super_admin', 'admin', 'reviewer'],
   '/review/subscription-renewals': ['super_admin', 'admin', 'reviewer'],
@@ -488,8 +489,8 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     return userHasPermission(user, 'review.view_queue') || userHasReviewAccess(user)
   }
 
-  if (normalized === '/invoices') {
-    if (routeRoles['/invoices']?.includes(role)) return true
+  if (normalized === '/invoices' || normalized === '/invoices/mine') {
+    if (routeRoles[normalized]?.includes(role) || routeRoles['/invoices']?.includes(role)) return true
     return (
       userHasPermission(user, 'review.view_contracts') ||
       userHasPermission(user, 'sales.invoices.view') ||

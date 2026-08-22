@@ -542,6 +542,28 @@ export interface CustodyVoucher {
   branch?: Branch | null
 }
 
+export interface CustomerContractDevice {
+  id: string
+  product_unit_id?: number | null
+  sales_invoice_id?: number | null
+  sales_invoice_line_id?: number
+  invoice_number?: string | null
+  serial_number?: string | null
+  sim_number?: string | null
+  username?: string | null
+  vehicle_type?: string | null
+  vehicle_plate_letters?: string | null
+  vehicle_plate_numbers?: string | null
+  chassis_number?: string | null
+  engine_number?: string | null
+  product_model?: {
+    id: number
+    name: string
+    name_ar?: string | null
+    model_code?: string | null
+  } | null
+}
+
 export interface Customer {
   id: number
   branch_id?: number | null
@@ -810,6 +832,7 @@ export interface SalesInvoice {
   customer_id: number
   distributor_id?: number | null
   sales_user_id?: number | null
+  user_id?: number | null
   customer?: Customer
   distributor?: Distributor
   sales_user?: { id: number; name: string; branch_id?: number | null }

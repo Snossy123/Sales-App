@@ -13,6 +13,7 @@ import {
 } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
 import { contractPrintPath, distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
+import { userHasPermission } from '../../lib/access'
 import { canEditContract, contractEditPath } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
@@ -175,7 +176,8 @@ export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | 
           تعديل
         </Link>
       )}
-      {row.review_status === 'pending' && (
+      {row.review_status === 'pending' &&
+        userHasPermission(user ?? null, 'review.view_queue') && (
         <Link
           to={`/invoices/review/${row.id}`}
           className="text-sm font-medium text-error hover:underline whitespace-nowrap"

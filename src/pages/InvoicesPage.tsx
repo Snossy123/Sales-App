@@ -27,7 +27,7 @@ import {
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
-export function InvoicesPage() {
+export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   usePageTour('invoices')
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getListScopeQueryKey(user)
@@ -41,7 +41,7 @@ export function InvoicesPage() {
   const query = useQuery({
     queryKey: [
       'sales-invoices',
-      'all',
+      mine ? 'mine' : 'all',
       listScopeKey,
       statusFilter,
       paymentStatusFilter,
@@ -56,6 +56,7 @@ export function InvoicesPage() {
         include: 'customer,distributor,branch,lines',
         ...contractDateFilterParams(dateFrom, dateTo),
       })
+      if (mine) params['filter[mine]'] = '1'
       if (statusFilter) params['filter[review_status]'] = statusFilter
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
 
@@ -120,8 +121,12 @@ export function InvoicesPage() {
 
   return (
     <SalesPageShell
-      title="كل التعاقدات"
-      subtitle="عرض وتصفية جميع تعاقدات المبيعات"
+      title={mine ? 'تعاقداتي' : 'كل التعاقدات'}
+      subtitle={
+        mine
+          ? 'التعاقدات التي أنشأتها — يمكن التعديل قبل اعتماد المراجعة'
+          : 'عرض وتصفية جميع تعاقدات المبيعات'
+      }
       actions={
         <>
           <StartTourButton tourId="invoices" />
@@ -172,7 +177,13 @@ export function InvoicesPage() {
               keyExtractor={(row) => row.id}
               striped={false}
               rowClassName={(row) => contractReviewRowClass(row.review_status)}
-              emptyMessage={hasFilters ? 'لا توجد تعاقدات مطابقة' : 'لا توجد تعاقدات'}
+              emptyMessage={
+                hasFilters
+                  ? 'لا توجد تعاقدات مطابقة'
+                  : mine
+                    ? 'لا توجد تعاقدات أنشأتها بعد'
+                    : 'لا توجد تعاقدات'
+              }
               columns={columns}
             />
           </div>

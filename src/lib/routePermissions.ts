@@ -31,6 +31,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/review/expenses': 'review.view_expenses',
   '/expenses/new': 'expenses.submit',
   '/invoices': ['review.view_contracts', 'sales.invoices.view'],
+  '/invoices/mine': ['review.view_contracts', 'sales.invoices.view'],
   '/review/evaluation-queue': 'review.view_evaluation_queue',
   '/review/subscription-renewals': 'review.view_subscription_renewals',
   '/review/evaluation-questions': 'review.manage_evaluation_questions',

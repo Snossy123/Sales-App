@@ -37,6 +37,7 @@ export interface ServiceContractHeaderProps {
   customersLoading: boolean
   contractDate: string
   onContractDateChange: (date: string) => void
+  plain?: boolean
 }
 
 export function ServiceContractHeader({
@@ -64,6 +65,7 @@ export function ServiceContractHeader({
   customersLoading,
   contractDate,
   onContractDateChange,
+  plain = false,
 }: ServiceContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
   const sourceToggleOptions = customerLinkedToSalesRep
@@ -74,12 +76,20 @@ export function ServiceContractHeader({
       ]
 
   return (
-    <section className="w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-      <div className="p-md">
-        <div className="mb-md flex items-center gap-xs">
-          <Icon name="description" className="text-primary" size={20} />
-          <h2 className={posSectionTitleClass}>بيانات التعاقد</h2>
-        </div>
+    <section
+      className={
+        plain
+          ? 'w-full'
+          : 'w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm'
+      }
+    >
+      <div className={plain ? '' : 'p-md'}>
+        {!plain && (
+          <div className="mb-md flex items-center gap-xs">
+            <Icon name="description" className="text-primary" size={20} />
+            <h2 className={posSectionTitleClass}>بيانات التعاقد</h2>
+          </div>
+        )}
 
         <div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
           <div>

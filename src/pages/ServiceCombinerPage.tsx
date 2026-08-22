@@ -13,9 +13,9 @@ import type {
   SalesInvoice,
   SalesRep,
   Service,
-  SubscriptionRenewalCandidate,
+  CustomerContractDevice,
 } from '../api/types'
-import { computeInstallmentCount, type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
+import { computeInstallmentCount, distributorLabel, type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { linePaidNow } from '../lib/cashSchedule'
 import { resolveGpsUnitPrice } from '../lib/gpsProductPricing'
@@ -27,7 +27,9 @@ import {
   type CombinerChipId,
 } from '../lib/serviceCombiner'
 import { Icon } from '../components/Icon'
+import { MyContractsButton } from '../components/contracts/MyContractsButton'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
+import { PosSectionCard } from '../components/pos/PosSectionCard'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   ServiceContractHeader,
@@ -51,7 +53,11 @@ import {
   DeviceLineCard,
   type DeviceLineDraft,
 } from '../components/pos/DeviceLineCard'
-import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
+import {
+  applyContractDeviceIdentity,
+  CustomerContractDevicePicker,
+  identityFromCustomerDevice,
+} from '../components/services/CustomerContractDevicePicker'
 import { SearchableSelect } from '../components/SearchableSelect'
 import {
   createDefaultServicePayment,
@@ -59,12 +65,22 @@ import {
   validateServicePayment,
   type ServicePaymentState,
 } from '../components/services/ServicePaymentSection'
-import { posRequiredWrap, posToggleBtn } from '../components/pos/posFormStyles'
+import { posRequiredWrap, posSourceToggle } from '../components/pos/posFormStyles'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { NumericInput } from '../components/ui/NumericInput'
+import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
 
+
+const CHIP_ICONS: Record<CombinerChipId, string> = {
+  annual_renewal: 'event_repeat',
+  external_device: 'devices_other',
+  uninstall: 'handyman',
+  installation: 'home_repair_service',
+  programming: 'memory',
+  software: 'tune',
+}
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
@@ -86,6 +102,7 @@ function deviceCheckoutLine(
     description: kind === 'subscription_renewal' ? 'تجديد اشتراك سنوي' : 'جهاز خارج الشركة',
     unit_price: line.unitPrice,
     discount: line.discountAmount,
+    product_unit_id: line.productUnitId,
     serial_number: line.serialNumber.trim() || undefined,
     sim_number: line.simNumber.trim() || undefined,
     username: line.username.trim() || undefined,
@@ -144,14 +161,18 @@ export function ServiceCombinerPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
-  const [sourceRenewalCandidate, setSourceRenewalCandidate] =
-    useState<SubscriptionRenewalCandidate | null>(null)
+  const [selectedCustomerDevice, setSelectedCustomerDevice] =
+    useState<CustomerContractDevice | null>(null)
+  const [manualDeviceEntry, setManualDeviceEntry] = useState(false)
+  const [contractSerial, setContractSerial] = useState('')
+  const [contractSim, setContractSim] = useState('')
   const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(null)
   const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(null)
   const [feeLines, setFeeLines] = useState<Record<string, ServiceLineDraft>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
+  const [uninstallInvoice, setUninstallInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
   const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>('contract')
@@ -172,9 +193,17 @@ export function ServiceCombinerPage() {
         ? (selectedDistributor?.branch_id ?? '')
         : (selectedSalesRep?.branch_id ?? contextBranchId ?? '')
 
+  const resetContractDevice = () => {
+    setSelectedCustomerDevice(null)
+    setManualDeviceEntry(false)
+    setContractSerial('')
+    setContractSim('')
+  }
+
   const handleCustomerChange = (customer: Customer | null) => {
     setSelectedCustomer(customer)
     setDistributorBalanceAmount(0)
+    resetContractDevice()
 
     if (!customer) {
       setSelectedBranch(null)
@@ -289,6 +318,17 @@ export function ServiceCombinerPage() {
     },
   })
 
+  const customerDevicesQuery = useQuery({
+    queryKey: ['customers', selectedCustomer?.id, 'devices'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CustomerContractDevice[] }>(
+        `/customers/${selectedCustomer!.id}/devices`,
+      )
+      return data.data ?? []
+    },
+    enabled: Boolean(selectedCustomer?.id),
+  })
+
   const salesRepsQuery = useQuery({
     queryKey: ['sales-reps', 'service-combiner', debouncedSalesRepSearch],
     queryFn: async () => {
@@ -373,6 +413,77 @@ export function ServiceCombinerPage() {
     })
   }, [catalogServices, selectedChips, contractDate, minDownPercent])
 
+  const customerDevices = customerDevicesQuery.data ?? []
+  const hasDeviceChip =
+    selectedChips.has('annual_renewal') || selectedChips.has('external_device')
+  const showDeviceIdentityFields = !hasDeviceChip || !manualDeviceEntry
+  const listedDeviceSelected = Boolean(selectedCustomerDevice) && !manualDeviceEntry
+
+  const currentDeviceIdentity = () =>
+    selectedCustomerDevice && !manualDeviceEntry
+      ? identityFromCustomerDevice(selectedCustomerDevice)
+      : {
+          productUnitId: undefined,
+          serialNumber: contractSerial,
+          simNumber: contractSim,
+        }
+
+  const applyIdentityToDeviceLines = (
+    identity: Parameters<typeof applyContractDeviceIdentity>[1],
+  ) => {
+    setRenewalLine((line) => (line ? applyContractDeviceIdentity(line, identity) : line))
+    setExternalLine((line) => (line ? applyContractDeviceIdentity(line, identity) : line))
+  }
+
+  const handleSelectCustomerDevice = (device: CustomerContractDevice) => {
+    const identity = identityFromCustomerDevice(device)
+    setSelectedCustomerDevice(device)
+    setManualDeviceEntry(false)
+    setContractSerial(identity.serialNumber)
+    setContractSim(identity.simNumber)
+    applyIdentityToDeviceLines(identity)
+  }
+
+  const handleManualDevice = () => {
+    setSelectedCustomerDevice(null)
+    setManualDeviceEntry(true)
+    applyIdentityToDeviceLines({
+      productUnitId: undefined,
+      serialNumber: contractSerial,
+      simNumber: contractSim,
+    })
+  }
+
+  const handleContractSerialChange = (value: string) => {
+    setContractSerial(value)
+    applyIdentityToDeviceLines({
+      productUnitId: selectedCustomerDevice && !manualDeviceEntry
+        ? selectedCustomerDevice.product_unit_id ?? undefined
+        : undefined,
+      serialNumber: value,
+      simNumber: contractSim,
+    })
+  }
+
+  const handleContractSimChange = (value: string) => {
+    setContractSim(value)
+    applyIdentityToDeviceLines({
+      productUnitId: selectedCustomerDevice && !manualDeviceEntry
+        ? selectedCustomerDevice.product_unit_id ?? undefined
+        : undefined,
+      serialNumber: contractSerial,
+      simNumber: value,
+    })
+  }
+
+  useEffect(() => {
+    if (!selectedCustomer?.id || !customerDevicesQuery.isSuccess) return
+    if (customerDevicesQuery.data.length === 0) {
+      setManualDeviceEntry(true)
+      setSelectedCustomerDevice(null)
+    }
+  }, [selectedCustomer?.id, customerDevicesQuery.isSuccess, customerDevicesQuery.data])
+
   const toggleChip = (id: CombinerChipId) => {
     setSelectedChips((prev) => {
       const next = new Set(prev)
@@ -380,9 +491,24 @@ export function ServiceCombinerPage() {
       if (enabling) next.add(id)
       else next.delete(id)
 
-      if (id === 'annual_renewal' && !enabling) {
-        setSourceRenewalCandidate(null)
-        setRenewalLine(null)
+      if (id === 'annual_renewal') {
+        if (enabling) {
+          const price = product
+            ? resolveGpsUnitPrice(product, {
+                contractKind: 'subscription_renewal',
+                paymentTerm: 'cash',
+                renewalType: 'annual',
+              })
+            : annualRenewalPrice
+          setRenewalLine(
+            applyContractDeviceIdentity(
+              createDeviceLine(price, undefined, { contractDate, minDownPercent }),
+              currentDeviceIdentity(),
+            ),
+          )
+        } else {
+          setRenewalLine(null)
+        }
       }
 
       if (id === 'external_device') {
@@ -395,7 +521,10 @@ export function ServiceCombinerPage() {
               })
             : externalCashPrice
           setExternalLine(
-            createDeviceLine(price, undefined, { contractDate, minDownPercent }),
+            applyContractDeviceIdentity(
+              createDeviceLine(price, undefined, { contractDate, minDownPercent }),
+              currentDeviceIdentity(),
+            ),
           )
         } else {
           setExternalLine(null)
@@ -430,47 +559,6 @@ export function ServiceCombinerPage() {
       }
 
       return next
-    })
-  }
-
-  const handleRenewalCandidateChange = (candidate: SubscriptionRenewalCandidate | null) => {
-    setSourceRenewalCandidate(candidate)
-    if (!candidate) {
-      setRenewalLine(null)
-      return
-    }
-
-    const price = product
-      ? resolveGpsUnitPrice(product, {
-          contractKind: 'subscription_renewal',
-          paymentTerm: 'cash',
-          renewalType: 'annual',
-        })
-      : annualRenewalPrice
-
-    if (candidate.customer_id) {
-      setSelectedCustomer({
-        id: candidate.customer_id,
-        name: candidate.customer_name ?? '',
-        phone: candidate.customer_phone ?? '',
-        phone_2: candidate.customer_phone_2 ?? null,
-      } as Customer)
-    }
-
-    const base = createDeviceLine(price, undefined, { contractDate, minDownPercent })
-    setRenewalLine({
-      ...base,
-      paymentTerm: 'cash',
-      downPayment: 0,
-      serialNumber: candidate.serial_number ?? '',
-      simNumber: candidate.sim_number ?? '',
-      username: candidate.username ?? '',
-      vehicleType: (candidate.vehicle_type as DeviceLineDraft['vehicleType']) || 'other',
-      vehiclePlateLetters: candidate.vehicle_plate_letters ?? '',
-      vehiclePlateNumbers: candidate.vehicle_plate_numbers ?? '',
-      chassisNumber: candidate.chassis_number ?? '',
-      engineNumber: candidate.engine_number ?? '',
-      renewalType: 'annual',
     })
   }
 
@@ -577,10 +665,14 @@ export function ServiceCombinerPage() {
         ? Boolean(selectedDistributor)
         : Boolean(selectedSalesRep)
 
+  const contractDeviceReady =
+    (listedDeviceSelected || manualDeviceEntry) &&
+    Boolean(contractSerial.trim()) &&
+    Boolean(contractSim.trim())
+
   const renewalValid =
     !selectedChips.has('annual_renewal') ||
-    (Boolean(sourceRenewalCandidate) &&
-      Boolean(renewalLine) &&
+    (Boolean(renewalLine) &&
       validateDeviceLine(renewalLine!, minDownPercent, maxInstallmentCount, {
         requireTechnician: false,
         skipPayment: skipLinePayment,
@@ -590,6 +682,7 @@ export function ServiceCombinerPage() {
     !selectedChips.has('external_device') ||
     (Boolean(externalLine) &&
       validateDeviceLine(externalLine!, minDownPercent, maxInstallmentCount, {
+        requireTechnician: !listedDeviceSelected,
         skipPayment: skipLinePayment,
       }).valid)
 
@@ -616,6 +709,7 @@ export function ServiceCombinerPage() {
     sourceReady &&
     selectedChips.size > 0 &&
     total > 0 &&
+    contractDeviceReady &&
     renewalValid &&
     externalValid &&
     feesValid &&
@@ -657,6 +751,9 @@ export function ServiceCombinerPage() {
           description: line.description,
           unit_price: line.unit_price,
           technician_id: feeTechnician?.id,
+          product_unit_id: selectedCustomerDevice?.product_unit_id ?? undefined,
+          serial_number: contractSerial.trim() || undefined,
+          sim_number: contractSim.trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
           cash_schedule:
             collectionScope === 'service' && line.paymentTerm === 'cash'
@@ -716,8 +813,8 @@ export function ServiceCombinerPage() {
         }
       }
 
-      if (selectedChips.has('annual_renewal') && sourceRenewalCandidate) {
-        payload.source_sales_invoice_id = sourceRenewalCandidate.sales_invoice_id
+      if (selectedChips.has('annual_renewal') && selectedCustomerDevice?.sales_invoice_id) {
+        payload.source_sales_invoice_id = selectedCustomerDevice.sales_invoice_id
       }
       if (transactionSource === 'distributor' && selectedDistributor) {
         payload.distributor_id = selectedDistributor.id
@@ -742,6 +839,18 @@ export function ServiceCombinerPage() {
       setLastInstallmentSale(hasInstallment)
       setLastInvoice(invoice)
       setSuccessMsg(`تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`)
+      const uninstallFee = feeLines.uninstall
+      const hasUninstall =
+        selectedChips.has('uninstall') ||
+        invoice.lines?.some((line) => line.service?.category === 'uninstall') ||
+        Boolean(
+          uninstallFee?.service_id &&
+            catalogServices.find((service) => service.id === uninstallFee.service_id)?.category ===
+              'uninstall',
+        )
+      if (hasUninstall) {
+        setUninstallInvoice(invoice)
+      }
       setNotes('')
       setSelectedChips(new Set())
       setSourceRenewalCandidate(null)
@@ -764,284 +873,398 @@ export function ServiceCombinerPage() {
     checkoutMutation.mutate()
   }
 
+  const summaryBranchLabel =
+    transactionSource === 'distributor' && selectedDistributor
+      ? distributorLabel(selectedDistributor)
+      : selectedBranch?.name_ar || selectedBranch?.name || undefined
+
   return (
-    <SalesPageShell title="تعاقد خدمات" subtitle="خدمة واحدة أو أكتر في نفس العقد">
+    <SalesPageShell
+      title="تعاقد خدمات"
+      subtitle="خدمة واحدة أو أكتر في نفس العقد"
+      actions={<MyContractsButton />}
+    >
       <PosContractTypeTabs />
-      <form onSubmit={handleSubmit} className="space-y-md">
-        <ServiceContractHeader
-          transactionSource={transactionSource}
-          onTransactionSourceChange={handleTransactionSourceChange}
-          selectedBranch={selectedBranch}
-          onBranchChange={setSelectedBranch}
-          onBranchSearchChange={setBranchSearch}
-          filteredBranches={filteredBranches}
-          branchesLoading={branchesQuery.isLoading}
-          selectedDistributor={selectedDistributor}
-          onDistributorChange={setSelectedDistributor}
-          onDistributorSearchChange={setDistributorSearch}
-          distributors={distributorsQuery.data ?? []}
-          distributorsLoading={distributorsQuery.isLoading}
-          selectedSalesRep={selectedSalesRep}
-          onSalesRepChange={setSelectedSalesRep}
-          onSalesRepSearchChange={setSalesRepSearch}
-          salesReps={salesRepsQuery.data ?? []}
-          salesRepsLoading={salesRepsQuery.isLoading}
-          selectedCustomer={selectedCustomer}
-          onCustomerChange={handleCustomerChange}
-          onCustomerSearchChange={setCustomerSearch}
-          customers={customersQuery.data ?? []}
-          customersLoading={customersQuery.isLoading}
-          contractDate={contractDate}
-          onContractDateChange={setContractDate}
-        />
-
-        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-          <p className="mb-sm text-sm font-bold text-on-surface">الخدمات على هذا العقد</p>
-          <div className="flex flex-wrap gap-xs">
-            {COMBINER_CHIPS.map((chip) => {
-              const active = selectedChips.has(chip.id)
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  onClick={() => toggleChip(chip.id)}
-                  className={`${posToggleBtn(active)} px-md`}
-                >
-                  {chip.label}
-                </button>
-              )
-            })}
-          </div>
-          {submitAttempted && selectedChips.size === 0 && (
-            <p className="mt-sm text-sm text-error">اختر خدمة واحدة على الأقل</p>
-          )}
-          {missingFeeService && (
-            <p className="mt-sm text-sm text-error">
-              خدمة الكتالوج غير موجودة — راجع صفحة الخدمات (فك / تركيب / برمجة / سوفت)
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-          <p className="mb-xs text-sm text-on-surface-variant">التحصيل</p>
-          <div className="flex flex-wrap gap-sm">
-            {([
-              { id: 'contract', label: 'تحصيل على الإجمالي' },
-              { id: 'service', label: 'تحصيل على مستوى الخدمة' },
-            ] as const).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => handleCollectionScopeChange(option.id)}
-                className={posToggleBtn(collectionScope === option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selectedChips.has('annual_renewal') && (
-          <div className="space-y-md">
-            <PosSubscriptionRenewalSection
-              selectedCandidate={sourceRenewalCandidate}
-              onCandidateChange={handleRenewalCandidateChange}
-              submitAttempted={submitAttempted}
-            />
-            {renewalLine && (
-              <DeviceLineCard
-                index={0}
-                line={renewalLine}
-                contractDate={contractDate}
-                contractKind="subscription_renewal"
-                product={product}
-                cashPrice={annualRenewalPrice}
-                installmentPrice={annualRenewalPrice}
-                onChange={(line) => setRenewalLine(line)}
-                minDownPercent={minDownPercent}
-                maxInstallmentCount={maxInstallmentCount}
-                employees={employeesQuery.data ?? []}
-                employeesLoading={employeesQuery.isLoading}
-                showErrors={submitAttempted}
-                showPayment={collectionScope === 'service'}
-                lockedFromSource
-                annualRenewalOnly
-              />
-            )}
-          </div>
-        )}
-
-        {selectedChips.has('external_device') && externalLine && (
-          <DeviceLineCard
-            index={0}
-            line={externalLine}
-            contractDate={contractDate}
-            contractKind="external_device"
-            product={product}
-            cashPrice={externalCashPrice}
-            installmentPrice={externalInstallmentPrice}
-            onChange={(line) => setExternalLine(line)}
-            minDownPercent={minDownPercent}
-            maxInstallmentCount={maxInstallmentCount}
-            employees={employeesQuery.data ?? []}
-            employeesLoading={employeesQuery.isLoading}
-            showErrors={submitAttempted}
-            showPayment={collectionScope === 'service'}
-            annualRenewalOnly
-          />
-        )}
-
-        {hasFeeChips ? (
-          <div className={`rounded-lg border bg-surface-container-lowest p-md ${
-            submitAttempted && !feeTechnician
-              ? 'border-error/40'
-              : 'border-outline-variant'
-          }`}>
-            <div className={posRequiredWrap(submitAttempted && !feeTechnician)}>
-              <SearchableSelect
-                label="الفني"
-                options={filteredTechnicians}
-                value={feeTechnician}
-                onChange={setFeeTechnician}
-                onSearchChange={setTechnicianSearch}
-                getOptionValue={(emp) => emp.id}
-                getOptionLabel={(emp) =>
-                  `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
-                }
-                placeholder="ابحث باسم الفني..."
-                loading={employeesQuery.isLoading}
-                emptyMessage="لا يوجد فني مطابق"
-                hasError={submitAttempted && !feeTechnician}
-              />
-              {submitAttempted && !feeTechnician ? (
-                <p className="mt-xs text-xs text-error">الفني مطلوب لكل خدمات الفك والتركيب والسوفت والبرمجة</p>
-              ) : (
-                <p className="mt-xs text-xs text-on-surface-variant">
-                  يُسند نفس الفني لكل خدمات الفك / التركيب / البرمجة / السوفت في هذا العقد
-                </p>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {COMBINER_FEE_CHIPS.filter((chip) => selectedChips.has(chip.id) && feeLines[chip.id]).map(
-          (chip) => (
-            <ServiceLineCard
-              key={chip.id}
-              line={feeLines[chip.id]}
-              index={0}
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"
+      >
+        <div className="space-y-md">
+          <PosSectionCard number={1} title="بيانات التعاقد" subtitle="العميل والمصدر وتاريخ العقد">
+            <ServiceContractHeader
+              plain
+              transactionSource={transactionSource}
+              onTransactionSourceChange={handleTransactionSourceChange}
+              selectedBranch={selectedBranch}
+              onBranchChange={setSelectedBranch}
+              onBranchSearchChange={setBranchSearch}
+              filteredBranches={filteredBranches}
+              branchesLoading={branchesQuery.isLoading}
+              selectedDistributor={selectedDistributor}
+              onDistributorChange={setSelectedDistributor}
+              onDistributorSearchChange={setDistributorSearch}
+              distributors={distributorsQuery.data ?? []}
+              distributorsLoading={distributorsQuery.isLoading}
+              selectedSalesRep={selectedSalesRep}
+              onSalesRepChange={setSelectedSalesRep}
+              onSalesRepSearchChange={setSalesRepSearch}
+              salesReps={salesRepsQuery.data ?? []}
+              salesRepsLoading={salesRepsQuery.isLoading}
+              selectedCustomer={selectedCustomer}
+              onCustomerChange={handleCustomerChange}
+              onCustomerSearchChange={setCustomerSearch}
+              customers={customersQuery.data ?? []}
+              customersLoading={customersQuery.isLoading}
               contractDate={contractDate}
+              onContractDateChange={setContractDate}
+            />
+          </PosSectionCard>
+
+          {selectedCustomer && (
+            <PosSectionCard
+              number={2}
+              title="جهاز العميل"
+              subtitle="اختار جهازًا مسجلًا أو أدخل السريال والشريحة يدويًا"
+              highlighted={submitAttempted && !contractDeviceReady}
+            >
+              <CustomerContractDevicePicker
+                devices={customerDevices}
+                loading={customerDevicesQuery.isLoading}
+                selectedDevice={selectedCustomerDevice}
+                manual={manualDeviceEntry}
+                serialNumber={contractSerial}
+                simNumber={contractSim}
+                onSelectDevice={handleSelectCustomerDevice}
+                onManual={handleManualDevice}
+                onClear={() => {
+                  setSelectedCustomerDevice(null)
+                  if (customerDevices.length > 0) {
+                    setManualDeviceEntry(false)
+                  }
+                }}
+                onSerialChange={handleContractSerialChange}
+                onSimChange={handleContractSimChange}
+                showIdentityFields={showDeviceIdentityFields}
+                identityLocked={listedDeviceSelected}
+                showErrors={submitAttempted}
+              />
+            </PosSectionCard>
+          )}
+
+          <PosSectionCard
+            number={2}
+            title="الخدمات على هذا العقد"
+            subtitle="اختر خدمة أو أكثر لنفس العميل"
+            highlighted={submitAttempted && selectedChips.size === 0}
+          >
+            <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
+              {COMBINER_CHIPS.map((chip) => {
+                const active = selectedChips.has(chip.id)
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => toggleChip(chip.id)}
+                    className={`flex min-h-16 flex-col items-center justify-center gap-xs rounded-xl border px-sm py-sm text-center text-sm font-bold transition-colors ${
+                      active
+                        ? 'border-primary bg-primary text-on-primary shadow-sm'
+                        : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
+                    }`}
+                  >
+                    <Icon name={CHIP_ICONS[chip.id]} size={22} filled={active} />
+                    {chip.label}
+                  </button>
+                )
+              })}
+            </div>
+            {submitAttempted && selectedChips.size === 0 && (
+              <p className="mt-sm text-sm text-error">اختر خدمة واحدة على الأقل</p>
+            )}
+            {missingFeeService && (
+              <p className="mt-sm text-sm text-error">
+                خدمة الكتالوج غير موجودة — راجع صفحة الخدمات (فك / تركيب / برمجة / سوفت)
+              </p>
+            )}
+          </PosSectionCard>
+
+          {selectedChips.has('annual_renewal') && renewalLine && (
+            <DeviceLineCard
+              index={0}
+              line={renewalLine}
+              contractDate={contractDate}
+              contractKind="subscription_renewal"
+              product={product}
+              cashPrice={annualRenewalPrice}
+              installmentPrice={annualRenewalPrice}
+              onChange={(line) => {
+                setRenewalLine(line)
+                if (manualDeviceEntry) {
+                  setContractSerial(line.serialNumber)
+                  setContractSim(line.simNumber)
+                  setExternalLine((prev) =>
+                    prev
+                      ? applyContractDeviceIdentity(prev, {
+                          serialNumber: line.serialNumber,
+                          simNumber: line.simNumber,
+                        })
+                      : prev,
+                  )
+                }
+              }}
               minDownPercent={minDownPercent}
               maxInstallmentCount={maxInstallmentCount}
-              onChange={(updated) =>
-                setFeeLines((prev) => ({ ...prev, [chip.id]: updated }))
-              }
-              onRemove={() => toggleChip(chip.id)}
+              employees={employeesQuery.data ?? []}
+              employeesLoading={employeesQuery.isLoading}
+              showErrors={submitAttempted}
               showPayment={collectionScope === 'service'}
+              lockedFromSource={listedDeviceSelected}
+              annualRenewalOnly
             />
-          ),
-        )}
+          )}
 
-        {collectionScope === 'contract' && selectedChips.size > 0 ? (
-          <ServicePaymentSection
-            total={total}
-            payment={contractPayment}
-            onChange={handleContractPaymentChange}
-            minDownPercent={minDownPercent}
-            maxInstallmentCount={maxInstallmentCount}
-          />
-        ) : null}
+          {selectedChips.has('external_device') && externalLine && (
+            <DeviceLineCard
+              index={0}
+              line={externalLine}
+              contractDate={contractDate}
+              contractKind="external_device"
+              product={product}
+              cashPrice={externalCashPrice}
+              installmentPrice={externalInstallmentPrice}
+              onChange={(line) => {
+                setExternalLine(line)
+                if (manualDeviceEntry) {
+                  setContractSerial(line.serialNumber)
+                  setContractSim(line.simNumber)
+                  setRenewalLine((prev) =>
+                    prev
+                      ? applyContractDeviceIdentity(prev, {
+                          serialNumber: line.serialNumber,
+                          simNumber: line.simNumber,
+                        })
+                      : prev,
+                  )
+                }
+              }}
+              minDownPercent={minDownPercent}
+              maxInstallmentCount={maxInstallmentCount}
+              employees={employeesQuery.data ?? []}
+              employeesLoading={employeesQuery.isLoading}
+              showErrors={submitAttempted}
+              showPayment={collectionScope === 'service'}
+              lockedFromSource={listedDeviceSelected}
+              annualRenewalOnly
+            />
+          )}
 
-        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-          <label className="mb-xs block text-sm text-on-surface-variant">ملاحظات</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-        </div>
-
-        <div className="grid gap-md lg:grid-cols-[1fr_minmax(240px,320px)]">
-          <div />
-          <div className="space-y-md">
-            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-              <dl className="space-y-xs text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-on-surface-variant">الإجمالي</dt>
-                  <dd className="font-bold tabular-nums">{total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-on-surface-variant">المدفوع الآن</dt>
-                  <dd className="font-bold tabular-nums text-secondary">
-                    {paidNow.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                  </dd>
-                </div>
-                <div className="flex justify-between border-t border-outline-variant pt-sm">
-                  <dt className="text-on-surface-variant">المتبقي</dt>
-                  <dd className="font-bold tabular-nums text-error">
-                    {balanceDue.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                  </dd>
-                </div>
-                {distributorBalanceAvailable > 0 && paidNow > 0 && (
-                  <div className="rounded-lg border border-primary/25 bg-primary/5 p-sm">
-                    <p className="mb-xs text-xs text-on-surface-variant">
-                      رصيد عمولة: {distributorBalanceAvailable.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                    </p>
-                    <label className="mb-xs block text-xs text-on-surface-variant">
-                      استخدام من الرصيد
-                    </label>
-                    <NumericInput
-                      type="number"
-                      min={0}
-                      max={maxDistributorBalanceUse}
-                      value={distributorBalanceAmount}
-                      onChange={(e) =>
-                        setDistributorBalanceAmount(
-                          Math.min(Number(e.target.value), maxDistributorBalanceUse),
-                        )
-                      }
-                      className="w-full rounded border border-outline-variant px-sm py-1.5 text-sm tabular-nums"
-                    />
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            {checkoutMutation.isError && (
-              <p className="text-sm text-error">{getErrorMessage(checkoutMutation.error)}</p>
-            )}
-            {successMsg && lastInvoice && (
-              <div className="space-y-sm rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
-                <p>{successMsg}</p>
-                <Link
-                  to={serviceContractPrintPath(lastInvoice.id, undefined, { autoPrint: false })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                >
-                  <Icon name="print" size={18} />
-                  طباعة العقد
-                </Link>
-                {lastInstallmentSale && (
-                  <Link to="/installments" className="inline-flex items-center gap-1 font-bold text-primary">
-                    <Icon name="payments" size={18} />
-                    الذهاب لتحصيل الأقساط
-                  </Link>
+          {hasFeeChips ? (
+            <div
+              className={`rounded-xl border bg-surface-container-lowest p-md shadow-sm ${
+                submitAttempted && !feeTechnician ? 'border-error/40' : 'border-outline-variant'
+              }`}
+            >
+              <div className={posRequiredWrap(submitAttempted && !feeTechnician)}>
+                <SearchableSelect
+                  label="الفني"
+                  options={filteredTechnicians}
+                  value={feeTechnician}
+                  onChange={setFeeTechnician}
+                  onSearchChange={setTechnicianSearch}
+                  getOptionValue={(emp) => emp.id}
+                  getOptionLabel={(emp) =>
+                    `${emp.name}${emp.job_title ? ` — ${emp.job_title}` : ''}`
+                  }
+                  placeholder="ابحث باسم الفني..."
+                  loading={employeesQuery.isLoading}
+                  emptyMessage="لا يوجد فني مطابق"
+                  hasError={submitAttempted && !feeTechnician}
+                />
+                {submitAttempted && !feeTechnician ? (
+                  <p className="mt-xs text-xs text-error">
+                    الفني مطلوب لكل خدمات الفك والتركيب والسوفت والبرمجة
+                  </p>
+                ) : (
+                  <p className="mt-xs text-xs text-on-surface-variant">
+                    يُسند نفس الفني لكل خدمات الفك / التركيب / البرمجة / السوفت في هذا العقد
+                  </p>
                 )}
               </div>
-            )}
-            <button
-              type="submit"
-              disabled={checkoutMutation.isPending || (submitAttempted && !canSubmit)}
-              className="flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-4 text-base font-bold text-on-primary disabled:opacity-50"
-            >
-              <Icon name="save" />
-              {checkoutMutation.isPending ? 'جاري الحفظ...' : 'تسجيل العملية'}
-            </button>
-          </div>
+            </div>
+          ) : null}
+
+          {COMBINER_FEE_CHIPS.filter((chip) => selectedChips.has(chip.id) && feeLines[chip.id]).map(
+            (chip) => (
+              <ServiceLineCard
+                key={chip.id}
+                line={feeLines[chip.id]}
+                index={0}
+                contractDate={contractDate}
+                minDownPercent={minDownPercent}
+                maxInstallmentCount={maxInstallmentCount}
+                onChange={(updated) =>
+                  setFeeLines((prev) => ({ ...prev, [chip.id]: updated }))
+                }
+                onRemove={() => toggleChip(chip.id)}
+                showPayment={collectionScope === 'service'}
+              />
+            ),
+          )}
+
+          <PosSectionCard number={3} title="التحصيل" subtitle="كيف يُحسب الدفع لهذا العقد">
+            <div className="flex h-11 gap-xs">
+              {([
+                { id: 'contract', label: 'تحصيل على الإجمالي' },
+                { id: 'service', label: 'تحصيل على مستوى الخدمة' },
+              ] as const).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleCollectionScopeChange(option.id)}
+                  className={posSourceToggle(collectionScope === option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </PosSectionCard>
+
+          {collectionScope === 'contract' && selectedChips.size > 0 ? (
+            <ServicePaymentSection
+              total={total}
+              payment={contractPayment}
+              onChange={handleContractPaymentChange}
+              minDownPercent={minDownPercent}
+              maxInstallmentCount={maxInstallmentCount}
+            />
+          ) : null}
+
+          <PosSectionCard number={4} title="ملاحظات">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="اختياري"
+              className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </PosSectionCard>
         </div>
+
+        <aside className="flex flex-col gap-md lg:sticky lg:top-4 lg:self-start">
+          <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+            <div className="border-b border-outline-variant/60 px-sm py-sm sm:px-md">
+              <h2 className="text-[16px] font-extrabold text-on-surface">ملخص التعاقد</h2>
+              <div className="mt-xs flex flex-wrap gap-x-sm gap-y-0.5 text-[12px] text-on-surface-variant">
+                {summaryBranchLabel ? <span>{summaryBranchLabel}</span> : null}
+                {summaryBranchLabel ? <span aria-hidden>·</span> : null}
+                <span className="tabular-nums" dir="ltr">
+                  {contractDate}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-sm px-sm py-sm text-sm sm:px-md">
+              <div className="flex justify-between gap-sm tabular-nums">
+                <span className="text-on-surface-variant">الإجمالي</span>
+                <span className="font-bold">
+                  {total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                </span>
+              </div>
+              {paidNow > 0 ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/8 px-sm py-sm">
+                  <div className="flex items-center justify-between gap-sm tabular-nums">
+                    <span className="font-bold text-on-surface">المدفوع الآن</span>
+                    <span className="text-lg font-extrabold text-primary">
+                      {paidNow.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                    </span>
+                  </div>
+                  {distributorBalanceAvailable > 0 && (
+                    <div className="mt-sm border-t border-primary/15 pt-sm">
+                      <p className="mb-xs text-xs text-on-surface-variant">
+                        رصيد عمولة:{' '}
+                        {distributorBalanceAvailable.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                      </p>
+                      <label className="mb-xs block text-xs text-on-surface-variant">
+                        استخدام من الرصيد
+                      </label>
+                      <NumericInput
+                        type="number"
+                        min={0}
+                        max={maxDistributorBalanceUse}
+                        value={distributorBalanceAmount}
+                        onChange={(e) =>
+                          setDistributorBalanceAmount(
+                            Math.min(Number(e.target.value), maxDistributorBalanceUse),
+                          )
+                        }
+                        className="w-full rounded-lg border border-outline-variant px-sm py-1.5 text-sm tabular-nums"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex justify-between gap-sm tabular-nums">
+                  <span className="text-on-surface-variant">المدفوع الآن</span>
+                  <span className="font-bold text-secondary">0 ج.م</span>
+                </div>
+              )}
+              <div className="flex justify-between gap-sm border-t border-outline-variant/60 pt-sm tabular-nums">
+                <span className="font-bold text-on-surface">المتبقي</span>
+                <span className="text-lg font-extrabold text-error">
+                  {balanceDue.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                </span>
+              </div>
+            </div>
+            <div
+              className="h-3 bg-surface-container-lowest"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, var(--color-surface-container-low) 33.33%, transparent 33.33%, transparent 50%, var(--color-surface-container-low) 50%, var(--color-surface-container-low) 83.33%, transparent 83.33%, transparent 100%)',
+                backgroundSize: '12px 12px',
+              }}
+              aria-hidden
+            />
+          </div>
+
+          {checkoutMutation.isError && (
+            <p className="rounded-lg border border-error/30 bg-error/5 p-sm text-sm text-error">
+              {getErrorMessage(checkoutMutation.error)}
+            </p>
+          )}
+          {successMsg && lastInvoice && (
+            <div className="space-y-sm rounded-lg border border-secondary/25 bg-secondary/10 p-sm text-sm text-secondary">
+              <p>{successMsg}</p>
+              <Link
+                to={serviceContractPrintPath(lastInvoice.id, undefined, { autoPrint: false })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+              >
+                <Icon name="print" size={18} />
+                طباعة العقد
+              </Link>
+              {lastInstallmentSale && (
+                <Link to="/installments" className="inline-flex items-center gap-1 font-bold text-primary">
+                  <Icon name="payments" size={18} />
+                  الذهاب لتحصيل الأقساط
+                </Link>
+              )}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={checkoutMutation.isPending || (submitAttempted && !canSubmit)}
+            className="flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-4 text-base font-bold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon name="check_circle" />
+            {checkoutMutation.isPending ? 'جاري الحفظ...' : 'تسجيل العملية'}
+          </button>
+        </aside>
       </form>
+
+      <UninstallDeviceHandoverModal
+        open={uninstallInvoice !== null}
+        invoice={uninstallInvoice}
+        onClose={() => setUninstallInvoice(null)}
+      />
     </SalesPageShell>
   )
 }
