@@ -11,6 +11,7 @@ import { formatDatetime12hDisplay } from '../../../lib/datetime12h'
 import {
   SUPPORT_STATUS_LABELS,
   SUPPORT_STATUS_TRANSITIONS,
+  installationDevicesFromTask,
   isInstallationTask,
   listSupportTasks,
   updateSupportTaskStatus,
@@ -43,13 +44,13 @@ export function MyTasksPage() {
       id,
       status,
       executedAt,
-      customerReceived,
+      payload,
     }: {
       id: number
       status: SupportTaskStatus
       executedAt?: string
-      customerReceived?: boolean
-    }) => updateSupportTaskStatus(id, status, executedAt, customerReceived),
+      payload?: { customerReceived?: boolean; items?: Array<{ product_unit_id: number; customer_received: boolean }> }
+    }) => updateSupportTaskStatus(id, status, executedAt, payload),
     onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY })
       setCompleteTask(null)
@@ -135,13 +136,14 @@ export function MyTasksPage() {
         onClose={() => setCompleteTask(null)}
         isPending={statusMutation.isPending}
         askCustomerReceived={isInstallationTask(completeTask)}
-        onConfirm={(executedAt, customerReceived) => {
+        devices={installationDevicesFromTask(completeTask)}
+        onConfirm={(executedAt, payload) => {
           if (!completeTask) return
           statusMutation.mutate({
             id: completeTask.id,
             status: 'completed',
             executedAt,
-            customerReceived,
+            payload,
           })
         }}
       />

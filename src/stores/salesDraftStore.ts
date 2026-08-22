@@ -11,9 +11,8 @@ import type {
 } from '../api/types'
 import type { DeviceLineDraft } from '../components/pos/DeviceLineCard'
 import type { TransactionSource } from '../components/pos/PosContractHeader'
-import type { ServiceLineDraft } from '../components/services/ServiceLineCard'
 import type { ServicePaymentState } from '../components/services/ServicePaymentSection'
-import type { CombinerChipId } from '../lib/serviceCombiner'
+import type { CombinerChipId, FeeLineInstance } from '../lib/serviceCombiner'
 import { PROCEDURE_DRAFT_IDS, readProcedureDraft } from './procedureDraftStore'
 
 export interface DeviceContractDraft {
@@ -62,7 +61,7 @@ export interface ServiceContractDraft {
   contractUsername: string
   renewalLine: DeviceLineDraft | null
   externalLine: DeviceLineDraft | null
-  feeLines: Record<string, ServiceLineDraft>
+  feeLines: FeeLineInstance[]
   distributorBalanceAmount: number
   collectionScope: 'contract' | 'service'
   contractPayment: ServicePaymentState

@@ -204,6 +204,8 @@ export interface SupportTask {
   vehicle_info?: string | null
   vehicle_type?: string | null
   issuance_voucher?: CustodyVoucher | null
+  sales_invoice?: SalesInvoice | null
+  sales_invoice_line?: SalesInvoiceLine | null
 }
 
 export type ServiceEvaluationAnswerType = 'text' | 'rating' | 'yes_no'

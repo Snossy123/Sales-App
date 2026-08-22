@@ -30,7 +30,7 @@ function formatDaysUntil(days: number | null | undefined): string {
 
 export function SubscriptionRenewalQueuePage() {
   const user = useAuthStore((s) => s.user)
-  const canRenew = userHasPermission(user, 'sales.pos')
+  const canRenew = userHasPermission(user, 'sales.pos.new') || userHasPermission(user, 'sales.pos')
   const [dueStatusFilter, setDueStatusFilter] = useState<'overdue' | 'upcoming' | 'all'>('overdue')
 
   const query = useQuery({

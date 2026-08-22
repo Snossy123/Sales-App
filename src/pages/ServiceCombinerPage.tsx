@@ -24,7 +24,11 @@ import {
   COMBINER_FEE_CHIPS,
   deriveCombinerContractKind,
   findCombinerService,
+  newFeeLineKey,
+  normalizeFeeLineInstances,
   type CombinerChipId,
+  type CombinerFeeChipId,
+  type FeeLineInstance,
 } from '../lib/serviceCombiner'
 import { Icon } from '../components/Icon'
 import { MyContractsButton } from '../components/contracts/MyContractsButton'
@@ -44,7 +48,6 @@ import {
   ServiceLineCard,
   validateServiceLineCash,
   validateServiceLineInstallment,
-  type ServiceLineDraft,
 } from '../components/services/ServiceLineCard'
 import {
   createDeviceLine,
@@ -202,8 +205,8 @@ export function ServiceCombinerPage() {
   const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(
     () => serviceDraft?.externalLine ?? null,
   )
-  const [feeLines, setFeeLines] = useState<Record<string, ServiceLineDraft>>(
-    () => serviceDraft?.feeLines ?? {},
+  const [feeLines, setFeeLines] = useState<FeeLineInstance[]>(() =>
+    normalizeFeeLineInstances(serviceDraft?.feeLines),
   )
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
@@ -311,7 +314,7 @@ export function ServiceCombinerPage() {
     setContractUsername('')
     setRenewalLine(null)
     setExternalLine(null)
-    setFeeLines({})
+    setFeeLines([])
     setSubmitAttempted(false)
     setSuccessMsg('')
     setLastInvoice(null)
@@ -515,7 +518,7 @@ export function ServiceCombinerPage() {
 
   const catalogServices = servicesQuery.data?.data ?? []
   const product = productQuery.data
-  const hasFeeChips = COMBINER_FEE_CHIPS.some((chip) => selectedChips.has(chip.id))
+  const hasFeeChips = feeLines.length > 0 || COMBINER_FEE_CHIPS.some((chip) => selectedChips.has(chip.id))
   const filteredTechnicians = useMemo(() => {
     const employees = employeesQuery.data ?? []
     const q = technicianSearch.trim().toLowerCase()
@@ -533,29 +536,42 @@ export function ServiceCombinerPage() {
       externalCashPrice,
   )
 
-  useEffect(() => {
-    setFeeLines((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const chip of COMBINER_FEE_CHIPS) {
-        if (!selectedChips.has(chip.id) || next[chip.id]) continue
-        const service = findCombinerService(catalogServices, chip)
-        if (!service) continue
-        next[chip.id] = createServiceLine(
-          {
-            service_id: service.id,
-            description: service.name_ar || service.name,
-            unit_price: Number(service.cash_price ?? service.default_price),
-            cashPrice: Number(service.cash_price ?? service.default_price),
-            installmentPrice: Number(service.installment_price ?? service.default_price),
-          },
-          { contractDate, minDownPercent },
-        )
-        changed = true
-      }
-      return changed ? next : prev
-    })
-  }, [catalogServices, selectedChips, contractDate, minDownPercent])
+  const defaultFeeProductUnitId = selectedCustomerDevice?.product_unit_id ?? undefined
+
+  const appendFeeLine = (chipId: CombinerFeeChipId) => {
+    const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === chipId)
+    if (!feeChip) return false
+    const service = findCombinerService(catalogServices, feeChip)
+    if (!service) return false
+    const term = collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash'
+    const line = createServiceLine(
+      {
+        service_id: service.id,
+        description: service.name_ar || service.name,
+        unit_price:
+          term === 'installment'
+            ? Number(service.installment_price ?? service.default_price)
+            : Number(service.cash_price ?? service.default_price),
+        cashPrice: Number(service.cash_price ?? service.default_price),
+        installmentPrice: Number(service.installment_price ?? service.default_price),
+      },
+      { contractDate, minDownPercent },
+    )
+    setFeeLines((prev) => [
+      ...prev,
+      {
+        key: newFeeLineKey(),
+        chipId,
+        line: {
+          ...line,
+          paymentTerm: term,
+          unit_price: term === 'installment' ? line.installmentPrice : line.cashPrice,
+        },
+        productUnitId: defaultFeeProductUnitId,
+      },
+    ])
+    return true
+  }
 
   const customerDevices = customerDevicesQuery.data ?? []
   const showDeviceIdentityFields = true
@@ -587,6 +603,11 @@ export function ServiceCombinerPage() {
     setContractSim(identity.simNumber)
     setContractUsername(identity.username)
     applyIdentityToDeviceLines(identity)
+    setFeeLines((prev) =>
+      prev.map((item) =>
+        item.productUnitId ? item : { ...item, productUnitId: identity.productUnitId },
+      ),
+    )
   }
 
   const handleManualDevice = () => {
@@ -652,6 +673,15 @@ export function ServiceCombinerPage() {
   }, [selectedCustomer?.id, customerDevicesQuery.isSuccess, customerDevicesQuery.data])
 
   const toggleChip = (id: CombinerChipId) => {
+    const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === id)
+    if (feeChip) {
+      const created = appendFeeLine(feeChip.id)
+      if (created || feeLines.every((item) => item.chipId !== feeChip.id)) {
+        setSelectedChips((prev) => new Set(prev).add(id))
+      }
+      return
+    }
+
     setSelectedChips((prev) => {
       const next = new Set(prev)
       const enabling = !next.has(id)
@@ -698,40 +728,24 @@ export function ServiceCombinerPage() {
         }
       }
 
-      const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === id)
-      if (feeChip) {
-        if (enabling) {
-          const service = findCombinerService(catalogServices, feeChip)
-          if (service) {
-            setFeeLines((lines) => ({
-              ...lines,
-              [feeChip.id]: createServiceLine(
-                {
-                  service_id: service.id,
-                  description: service.name_ar || service.name,
-                  unit_price: Number(service.cash_price ?? service.default_price),
-                  cashPrice: Number(service.cash_price ?? service.default_price),
-                  installmentPrice: Number(service.installment_price ?? service.default_price),
-                },
-                { contractDate, minDownPercent },
-              ),
-            }))
-          }
-        } else {
-          setFeeLines((lines) => {
-            const { [feeChip.id]: _, ...rest } = lines
-            return rest
-          })
-        }
-      }
-
       return next
     })
   }
 
-  const activeFeeLines = COMBINER_FEE_CHIPS.filter((chip) => selectedChips.has(chip.id)).map(
-    (chip) => feeLines[chip.id],
-  ).filter(Boolean)
+  const removeFeeLine = (key: string) => {
+    const remaining = feeLines.filter((item) => item.key !== key)
+    setFeeLines(remaining)
+    const removed = feeLines.find((item) => item.key === key)
+    if (removed && remaining.every((item) => item.chipId !== removed.chipId)) {
+      setSelectedChips((prev) => {
+        const next = new Set(prev)
+        next.delete(removed.chipId)
+        return next
+      })
+    }
+  }
+
+  const activeFeeLines = feeLines.map((item) => item.line)
 
   const devicesSubtotal =
     (renewalLine && selectedChips.has('annual_renewal') ? lineNetTotal(renewalLine) : 0) +
@@ -795,18 +809,16 @@ export function ServiceCombinerPage() {
         unitPrice: term === 'installment' ? externalInstallmentPrice : externalCashPrice,
       })
     }
-    setFeeLines((prev) => {
-      const next = { ...prev }
-      for (const id of Object.keys(next)) {
-        const line = next[id]
-        next[id] = {
-          ...line,
+    setFeeLines((prev) =>
+      prev.map((item) => ({
+        ...item,
+        line: {
+          ...item.line,
           paymentTerm: term,
-          unit_price: term === 'installment' ? line.installmentPrice : line.cashPrice,
-        }
-      }
-      return next
-    })
+          unit_price: term === 'installment' ? item.line.installmentPrice : item.line.cashPrice,
+        },
+      })),
+    )
   }
 
   const handleCollectionScopeChange = (scope: 'contract' | 'service') => {
@@ -854,13 +866,14 @@ export function ServiceCombinerPage() {
         skipPayment: skipLinePayment,
       }).valid)
 
-  const feesValid = activeFeeLines.every(
-    (line) =>
+  const feesValid = feeLines.every(
+    (item) =>
       (skipLinePayment ||
-        (validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
-          validateServiceLineCash(line).valid)) &&
-      line.description.trim() &&
-      line.unit_price > 0,
+        (validateServiceLineInstallment(item.line, minDownPercent, maxInstallmentCount).valid &&
+          validateServiceLineCash(item.line).valid)) &&
+      item.line.description.trim() &&
+      item.line.unit_price > 0 &&
+      (customerDevices.length === 0 || Boolean(item.productUnitId)),
   )
 
   const contractPaymentValid =
@@ -869,7 +882,7 @@ export function ServiceCombinerPage() {
     validateServicePayment(contractPayment, total, minDownPercent, maxInstallmentCount).valid
 
   const missingFeeService = COMBINER_FEE_CHIPS.some(
-    (chip) => selectedChips.has(chip.id) && !feeLines[chip.id],
+    (chip) => selectedChips.has(chip.id) && feeLines.every((item) => item.chipId !== chip.id),
   )
 
   const canSubmit =
@@ -912,17 +925,24 @@ export function ServiceCombinerPage() {
           ),
         )
       }
-      for (const line of activeFeeLines) {
+      for (const item of feeLines) {
+        const line = item.line
+        const device =
+          customerDevices.find((entry) => entry.product_unit_id === item.productUnitId) ??
+          (item.productUnitId === selectedCustomerDevice?.product_unit_id
+            ? selectedCustomerDevice
+            : null)
+        const identity = device ? identityFromCustomerDevice(device) : currentDeviceIdentity()
         const base = {
           line_type: 'service' as const,
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
           technician_id: feeTechnician?.id,
-          product_unit_id: selectedCustomerDevice?.product_unit_id ?? undefined,
-          serial_number: contractSerial.trim() || undefined,
-          sim_number: contractSim.trim() || undefined,
-          username: contractUsername.trim() || undefined,
+          product_unit_id: item.productUnitId ?? identity.productUnitId,
+          serial_number: identity.serialNumber.trim() || undefined,
+          sim_number: identity.simNumber.trim() || undefined,
+          username: identity.username.trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
           cash_schedule:
             collectionScope === 'service' && line.paymentTerm === 'cash'
@@ -1004,15 +1024,10 @@ export function ServiceCombinerPage() {
           : (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
             (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
             activeFeeLines.some((line) => line.paymentTerm === 'installment')
-      const uninstallFee = feeLines.uninstall
       const hasUninstall =
         selectedChips.has('uninstall') ||
-        invoice.lines?.some((line) => line.service?.category === 'uninstall') ||
-        Boolean(
-          uninstallFee?.service_id &&
-            catalogServices.find((service) => service.id === uninstallFee.service_id)?.category ===
-              'uninstall',
-        )
+        feeLines.some((item) => item.chipId === 'uninstall') ||
+        invoice.lines?.some((line) => line.service?.category === 'uninstall')
       const customerId = selectedCustomer?.id
       const successMessage = `تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`
       resetServiceForm()
@@ -1132,18 +1147,24 @@ export function ServiceCombinerPage() {
           >
             <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
               {COMBINER_CHIPS.map((chip) => {
-                const active = selectedChips.has(chip.id)
+                const feeCount = feeLines.filter((item) => item.chipId === chip.id).length
+                const active = selectedChips.has(chip.id) || feeCount > 0
                 return (
                   <button
                     key={chip.id}
                     type="button"
                     onClick={() => toggleChip(chip.id)}
-                    className={`flex min-h-16 flex-col items-center justify-center gap-xs rounded-xl border px-sm py-sm text-center text-sm font-bold transition-colors ${
+                    className={`relative flex min-h-16 flex-col items-center justify-center gap-xs rounded-xl border px-sm py-sm text-center text-sm font-bold transition-colors ${
                       active
                         ? 'border-primary bg-primary text-on-primary shadow-sm'
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
                     }`}
                   >
+                    {feeCount > 1 ? (
+                      <span className="absolute start-2 top-2 rounded-full bg-on-primary/20 px-1.5 text-[11px] font-extrabold tabular-nums">
+                        {feeCount}
+                      </span>
+                    ) : null}
                     <Icon name={CHIP_ICONS[chip.id]} size={22} filled={active} />
                     {chip.label}
                   </button>
@@ -1265,23 +1286,35 @@ export function ServiceCombinerPage() {
             </div>
           ) : null}
 
-          {COMBINER_FEE_CHIPS.filter((chip) => selectedChips.has(chip.id) && feeLines[chip.id]).map(
-            (chip) => (
+          {feeLines.map((item, index) => (
               <ServiceLineCard
-                key={chip.id}
-                line={feeLines[chip.id]}
-                index={0}
+                key={item.key}
+                line={item.line}
+                index={index}
                 contractDate={contractDate}
                 minDownPercent={minDownPercent}
                 maxInstallmentCount={maxInstallmentCount}
                 onChange={(updated) =>
-                  setFeeLines((prev) => ({ ...prev, [chip.id]: updated }))
+                  setFeeLines((prev) =>
+                    prev.map((entry) => (entry.key === item.key ? { ...entry, line: updated } : entry)),
+                  )
                 }
-                onRemove={() => toggleChip(chip.id)}
+                onRemove={() => removeFeeLine(item.key)}
                 showPayment={collectionScope === 'service'}
+                showErrors={submitAttempted}
+                devices={customerDevices}
+                productUnitId={item.productUnitId}
+                onSelectDevice={(device) =>
+                  setFeeLines((prev) =>
+                    prev.map((entry) =>
+                      entry.key === item.key
+                        ? { ...entry, productUnitId: device?.product_unit_id ?? undefined }
+                        : entry,
+                    ),
+                  )
+                }
               />
-            ),
-          )}
+          ))}
 
           <PosSectionCard number={3} title="التحصيل" subtitle="كيف يُحسب الدفع لهذا العقد">
             <div className="flex h-11 gap-xs">

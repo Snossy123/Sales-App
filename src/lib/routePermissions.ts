@@ -1,12 +1,12 @@
 /** Maps app routes to required permission keys (any one match grants access). */
 export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/': 'dashboard.view',
-  '/pos': 'sales.pos',
-  '/pos/services': 'sales.pos',
-  '/pricing/catalog': 'sales.pos',
+  '/pos': ['sales.pos.new', 'sales.pos'],
+  '/pos/services': ['sales.pos.services', 'sales.pos'],
+  '/pricing/catalog': ['sales.pos.catalog', 'sales.pos'],
   '/pricing/promotions': 'promotions.view',
-  '/sales/accessories': 'sales.pos',
-  '/sales/maintenance': 'sales.pos',
+  '/sales/accessories': ['sales.pos.accessories', 'sales.pos'],
+  '/sales/maintenance': ['sales.pos.services', 'sales.pos'],
   '/sales/mission': 'sales.daily_mission',
   '/inventory': 'inventory.manage',
   '/inventory/branch': 'inventory.manage',

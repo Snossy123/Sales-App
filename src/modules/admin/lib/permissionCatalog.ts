@@ -186,10 +186,15 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'accessory_packages.add', module: 'accessory_packages', category: 'add', label: 'إضافة باكدج', description: 'إنشاء باكدج إكسسوارات' },
   { key: 'accessory_packages.edit', module: 'accessory_packages', category: 'edit', label: 'تعديل باكدج', description: 'تعديل باكدج الإكسسوارات' },
   { key: 'accessory_packages.delete', module: 'accessory_packages', category: 'delete', label: 'حذف باكدج', description: 'حذف باكدج الإكسسوارات' },
-  { key: 'sales.pos', module: 'sales', category: 'other', label: 'نقطة البيع والتعاقدات', description: 'تنفيذ التعاقدات، الأسعار، العروض، والإكسسوارات' },
+  { key: 'sales.pos.new', module: 'sales', category: 'add', label: 'تعاقد جديد', description: 'تنفيذ تعاقد GPS جديد من نقطة البيع' },
+  { key: 'sales.pos.services', module: 'sales', category: 'add', label: 'تعاقد خدمات', description: 'تنفيذ تعاقد خدمات من نقطة البيع' },
+  { key: 'sales.pos.accessories', module: 'sales', category: 'add', label: 'بيع إكسسوارات', description: 'بيع الإكسسوارات من قسم التعاقدات' },
+  { key: 'sales.pos.catalog', module: 'sales', category: 'view', label: 'دليل الأسعار', description: 'استعراض دليل أسعار التعاقدات' },
   { key: 'sales.invoices.view', module: 'sales', category: 'view', label: 'عرض الفواتير', description: 'استعراض فواتير المبيعات وتفاصيلها' },
   { key: 'sales.invoices.edit_before_review', module: 'sales', category: 'edit', label: 'تعديل العقد قبل المراجعة', description: 'تعديل بيانات التعاقد والأجهزة والأقساط قبل اعتماد المراجعة' },
   { key: 'sales.daily_mission', module: 'sales', category: 'view', label: 'مهمة اليوم', description: 'عرض بطاقات مهمة اليوم لموظف المبيعات' },
+  { key: 'review.view_subscription_renewals', module: 'sales', category: 'view', label: 'تجديد الاشتراكات', description: 'استعراض العملاء الذين يحتاجون تجديد اشتراكهم السنوي' },
+  { key: 'expenses.submit', module: 'sales', category: 'add', label: 'طلب مصروف', description: 'إنشاء طلبات مصروفات تشغيل أو نثرية أو مديونية موظف' },
   { key: 'review.view_queue', module: 'review', category: 'view', label: 'عرض قائمة المراجعة', description: 'استعراض التعاقدات بانتظار المراجعة' },
   { key: 'review.view_contracts', module: 'review', category: 'view', label: 'عرض كل التعاقدات', description: 'استعراض جميع التعاقدات وحالاتها' },
   { key: 'review.view_detail', module: 'review', category: 'view', label: 'عرض تفاصيل المراجعة', description: 'فتح تفاصيل التعاقد لمراجعته' },
@@ -199,13 +204,11 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'review.print', module: 'review', category: 'other', label: 'طباعة العقد', description: 'طباعة نسخة العقد المعتمد' },
   { key: 'review.manage_evaluation_questions', module: 'review', category: 'edit', label: 'إدارة أسئلة التقييم', description: 'إضافة وتعديل أسئلة تقييم العملاء بعد الخدمة' },
   { key: 'review.view_evaluation_queue', module: 'review', category: 'view', label: 'عرض قائمة تقييم العملاء', description: 'استعراض العملاء الذين يحتاجون تقييم بعد التركيب' },
-  { key: 'review.view_subscription_renewals', module: 'review', category: 'view', label: 'عرض قائمة تجديد الاشتراكات', description: 'استعراض العملاء الذين يحتاجون تجديد اشتراكهم السنوي' },
   { key: 'review.record_evaluation', module: 'review', category: 'other', label: 'تسجيل تقييم العميل', description: 'تسجيل إجابات العميل بعد الاتصال به' },
   { key: 'review.view_collections', module: 'review', category: 'view', label: 'عرض مراجعة التحصيلات', description: 'استعراض العقود التي تم تحصيل أقساط عليها' },
   { key: 'review.confirm_collections', module: 'review', category: 'other', label: 'تأكيد مراجعة التحصيل', description: 'تأكيد صحة التحصيل دون صلاحية التحصيل نفسها' },
   { key: 'review.view_expenses', module: 'review', category: 'view', label: 'عرض مراجعة المصروفات', description: 'استعراض طلبات المصروفات بانتظار الاعتماد' },
   { key: 'review.approve_expenses', module: 'review', category: 'other', label: 'اعتماد المصروفات', description: 'الموافقة على أو رفض طلبات المصروفات' },
-  { key: 'expenses.submit', module: 'review', category: 'add', label: 'تسجيل طلب مصروف', description: 'إنشاء طلبات مصروفات تشغيل أو نثرية أو مديونية موظف' },
   { key: 'installments.collect', module: 'installments', category: 'other', label: 'تحصيل الأقساط', description: 'تسجيل تحصيل الأقساط من العملاء' },
   { key: 'installments.view', module: 'installments', category: 'view', label: 'عرض الأقساط', description: 'استعراض جداول الأقساط والمتأخرات' },
   { key: 'installments.reconcile', module: 'installments', category: 'other', label: 'تصالح الأقساط', description: 'فتح وإغلاق تصالح الأقساط المتأخرة' },
@@ -273,6 +276,9 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'accounting.view_reports', module: 'accounting', category: 'view', label: 'تقارير المحاسبة', description: 'عرض ميزان المراجعة والقوائم المالية' },
 ]
 
+/** Legacy umbrella key: kept in the API/DB as an alias, hidden from the admin UI. */
+const HIDDEN_PERMISSION_KEYS = new Set(['sales.pos'])
+
 const catalogByKey = new Map(PERMISSIONS.map((p) => [p.key, p]))
 
 export function inferCategory(key: string): PermissionCategory {
@@ -309,7 +315,7 @@ export function getAllPermissions(apiKeys?: string[]): PermissionDefinition[] {
     ? [...new Set([...PERMISSIONS.map((p) => p.key), ...apiKeys])]
     : PERMISSIONS.map((p) => p.key)
 
-  return keys.map(getPermissionDefinition)
+  return keys.filter((key) => !HIDDEN_PERMISSION_KEYS.has(key)).map(getPermissionDefinition)
 }
 
 export interface ModuleGroup {

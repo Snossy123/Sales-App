@@ -223,7 +223,7 @@ function ensureEmployeeUser(state: DemoState, employee: Employee): void {
     demo_role: 'sales',
     data_scope: 'branch',
     data_scope_label: 'فرع',
-    permissions: ['scope.branch', 'sales.pos'],
+    permissions: ['scope.branch', 'sales.pos', 'sales.pos.new', 'sales.pos.services', 'sales.pos.accessories', 'sales.pos.catalog'],
   })
 
   employee.user_id = userId

@@ -1,4 +1,5 @@
 import type { CheckoutPayload, Service, ServiceCategory } from '../api/types'
+import type { ServiceLineDraft } from '../components/services/ServiceLineCard'
 
 export type CombinerChipId =
   | 'annual_renewal'
@@ -17,8 +18,44 @@ export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'software', label: 'سوفت' },
 ]
 
+export type CombinerFeeChipId = Exclude<CombinerChipId, 'annual_renewal' | 'external_device'>
+
+export interface FeeLineInstance {
+  key: string
+  chipId: CombinerFeeChipId
+  line: ServiceLineDraft
+  productUnitId?: number
+}
+
+export function normalizeFeeLineInstances(raw: unknown): FeeLineInstance[] {
+  if (Array.isArray(raw)) {
+    return raw.filter(
+      (item): item is FeeLineInstance =>
+        Boolean(item && typeof item === 'object' && 'key' in item && 'chipId' in item && 'line' in item),
+    )
+  }
+  if (raw && typeof raw === 'object') {
+    return Object.entries(raw as Record<string, ServiceLineDraft>).flatMap(([chipId, line]) => {
+      if (!COMBINER_FEE_CHIPS.some((chip) => chip.id === chipId) || !line) return []
+      return [
+        {
+          key: chipId,
+          chipId: chipId as CombinerFeeChipId,
+          line,
+          productUnitId: undefined,
+        },
+      ]
+    })
+  }
+  return []
+}
+
+export function newFeeLineKey(): string {
+  return `fee-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export const COMBINER_FEE_CHIPS: {
-  id: Exclude<CombinerChipId, 'annual_renewal' | 'external_device'>
+  id: CombinerFeeChipId
   label: string
   code: string
   category: ServiceCategory

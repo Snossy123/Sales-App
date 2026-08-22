@@ -4658,7 +4658,8 @@ export function handleMockRequest(
       'accessories.view', 'accessories.add', 'accessories.edit', 'accessories.delete',
       'accessory_packages.view', 'accessory_packages.add', 'accessory_packages.edit', 'accessory_packages.delete',
       'collection_accounts.view', 'collection_accounts.add', 'collection_accounts.edit', 'collection_accounts.delete',
-      'sales.pos', 'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
+      'sales.pos', 'sales.pos.new', 'sales.pos.services', 'sales.pos.accessories', 'sales.pos.catalog',
+      'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.edit_after_review', 'review.approve', 'review.reject', 'review.print',
       'review.manage_evaluation_questions', 'review.view_evaluation_queue',
@@ -5120,30 +5121,47 @@ export function handleMockRequest(
   }
   const uninstallDevicesMatch = path.match(/^sales-invoices\/(\d+)\/uninstall-devices$/)
   if (m === 'GET' && uninstallDevicesMatch) {
-    return { units: [] }
+    const invoiceId = Number(uninstallDevicesMatch[1])
+    const invoice = state.invoices.find((row) => row.id === invoiceId)
+    const units = (invoice?.lines ?? [])
+      .filter((line) => line.service?.category === 'uninstall')
+      .map((line) => line.product_unit)
+      .filter((unit): unit is NonNullable<typeof unit> => Boolean(unit))
+    const unique = units.filter((unit, index) => units.findIndex((item) => item.id === unit.id) === index)
+    return { units: unique }
   }
   const uninstallCustodyMatch = path.match(/^sales-invoices\/(\d+)\/uninstall-custody$/)
   if (m === 'POST' && uninstallCustodyMatch) {
-    const body = (data ?? {}) as { customer_received?: boolean }
+    const body = (data ?? {}) as {
+      customer_received?: boolean
+      items?: Array<{ customer_received?: boolean }>
+    }
     const now = new Date().toISOString()
-    return {
+    const items = (body.items?.length
+      ? body.items
+      : [{ customer_received: body.customer_received }])
+    const results = items.map((item, index) => ({
       receipt: {
-        id: 1,
+        id: index * 2 + 1,
         type: 'receipt',
-        voucher_number: 'CV-000001',
+        voucher_number: `CV-${String(index * 2 + 1).padStart(6, '0')}`,
         created_at: now,
         created_by: ctx.user?.id,
       },
-      issuance: body.customer_received
+      issuance: item.customer_received
         ? {
-            id: 2,
+            id: index * 2 + 2,
             type: 'issuance',
-            voucher_number: 'CV-000002',
+            voucher_number: `CV-${String(index * 2 + 2).padStart(6, '0')}`,
             created_at: now,
             created_by: ctx.user?.id,
             recipient_type: 'customer',
           }
         : null,
+    }))
+    return {
+      ...results[0],
+      items: results,
     }
   }
   if (m === 'GET' && path === 'contract-cases') {

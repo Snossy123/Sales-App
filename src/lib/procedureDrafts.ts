@@ -33,7 +33,7 @@ export function isServiceContractDraftMeaningful(draft: ServiceContractDraft): b
       draft.contractUsername.trim() ||
       draft.renewalLine ||
       draft.externalLine ||
-      Object.keys(draft.feeLines).length > 0 ||
+      draft.feeLines.length > 0 ||
       draft.selectedDistributor ||
       draft.selectedSalesRep ||
       draft.distributorBalanceAmount > 0 ||

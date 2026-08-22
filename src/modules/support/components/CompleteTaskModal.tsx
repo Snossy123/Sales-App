@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../../../components/Modal'
 
+export interface InstallationHandoverDevice {
+  productUnitId: number
+  label: string
+}
+
+export interface InstallationHandoverItem {
+  product_unit_id: number
+  customer_received: boolean
+}
+
 interface CompleteTaskModalProps {
   open: boolean
   onClose: () => void
-  onConfirm: (executedAt: string, customerReceived?: boolean) => void
+  onConfirm: (
+    executedAt: string,
+    payload?: { customerReceived?: boolean; items?: InstallationHandoverItem[] },
+  ) => void
   isPending?: boolean
   askCustomerReceived?: boolean
+  devices?: InstallationHandoverDevice[]
 }
 
 export function CompleteTaskModal({
@@ -15,30 +29,42 @@ export function CompleteTaskModal({
   onConfirm,
   isPending,
   askCustomerReceived = false,
+  devices = [],
 }: CompleteTaskModalProps) {
   const [executedAt, setExecutedAt] = useState(() => new Date().toISOString().split('T')[0])
-  const [customerReceived, setCustomerReceived] = useState<boolean | null>(null)
+  const [receivedByUnitId, setReceivedByUnitId] = useState<Record<number, boolean>>({})
+  const [customerReceived, setCustomerReceived] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setExecutedAt(new Date().toISOString().split('T')[0])
-    setCustomerReceived(null)
-  }, [open])
+    setCustomerReceived(false)
+    setReceivedByUnitId(Object.fromEntries(devices.map((device) => [device.productUnitId, false])))
+  }, [open, devices.map((device) => device.productUnitId).join(',')])
 
   const handleClose = () => {
     setExecutedAt(new Date().toISOString().split('T')[0])
-    setCustomerReceived(null)
+    setCustomerReceived(false)
+    setReceivedByUnitId({})
     onClose()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!executedAt) return
-    if (askCustomerReceived && customerReceived === null) return
-    onConfirm(executedAt, askCustomerReceived ? Boolean(customerReceived) : undefined)
+    if (askCustomerReceived && devices.length > 0) {
+      onConfirm(executedAt, {
+        items: devices.map((device) => ({
+          product_unit_id: device.productUnitId,
+          customer_received: Boolean(receivedByUnitId[device.productUnitId]),
+        })),
+      })
+      return
+    }
+    onConfirm(executedAt, askCustomerReceived ? { customerReceived } : undefined)
   }
 
-  const canSubmit = Boolean(executedAt) && (!askCustomerReceived || customerReceived !== null)
+  const canSubmit = Boolean(executedAt)
 
   return (
     <Modal open={open} onClose={handleClose} title="تم التنفيذ" size="sm">
@@ -60,34 +86,47 @@ export function CompleteTaskModal({
             className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
           />
         </div>
-        {askCustomerReceived && (
-          <div>
-            <p className="mb-2 text-sm font-medium text-on-surface">هل استلم العميل الجهاز؟</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
-                  customerReceived === true
-                    ? 'border-primary bg-primary text-on-primary'
-                    : 'border-outline-variant text-on-surface-variant'
-                }`}
-                onClick={() => setCustomerReceived(true)}
+        {askCustomerReceived && devices.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-on-surface">
+              علّم الأجهزة التي استلمها العميل؛ الباقي لا يُصرف.
+            </p>
+            {devices.map((device) => (
+              <label
+                key={device.productUnitId}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-outline-variant p-3 text-sm"
               >
-                نعم — إذن صرف
-              </button>
-              <button
-                type="button"
-                className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
-                  customerReceived === false
-                    ? 'border-primary bg-primary text-on-primary'
-                    : 'border-outline-variant text-on-surface-variant'
-                }`}
-                onClick={() => setCustomerReceived(false)}
-              >
-                لا
-              </button>
-            </div>
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 accent-primary"
+                  checked={Boolean(receivedByUnitId[device.productUnitId])}
+                  onChange={(e) =>
+                    setReceivedByUnitId((prev) => ({
+                      ...prev,
+                      [device.productUnitId]: e.target.checked,
+                    }))
+                  }
+                />
+                <span>
+                  <span className="block font-medium">{device.label}</span>
+                  <span className="text-xs text-on-surface-variant">
+                    {receivedByUnitId[device.productUnitId] ? 'إذن صرف للعميل' : 'لن يُصرف الجهاز'}
+                  </span>
+                </span>
+              </label>
+            ))}
           </div>
+        )}
+        {askCustomerReceived && devices.length === 0 && (
+          <label className="flex cursor-pointer items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={customerReceived}
+              onChange={(e) => setCustomerReceived(e.target.checked)}
+            />
+            استلم العميل الجهاز
+          </label>
         )}
         <div className="flex justify-end gap-sm">
           <button

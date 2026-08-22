@@ -10,6 +10,8 @@ import {
   linePaidNow as cashLinePaidNow,
   type CashSchedule,
 } from '../../lib/cashSchedule'
+import type { CustomerContractDevice } from '../../api/types'
+import { contractDeviceLabel } from './CustomerContractDevicePicker'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from '../pos/CashScheduleSelector'
 import { PosMoneyInput } from '../pos/PosMoneyInput'
@@ -126,6 +128,9 @@ interface ServiceLineCardProps {
   onRemove: () => void
   showErrors?: boolean
   showPayment?: boolean
+  devices?: CustomerContractDevice[]
+  productUnitId?: number
+  onSelectDevice?: (device: CustomerContractDevice | null) => void
 }
 
 export function ServiceLineCard({
@@ -138,6 +143,9 @@ export function ServiceLineCard({
   onRemove,
   showErrors = false,
   showPayment = true,
+  devices,
+  productUnitId,
+  onSelectDevice,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
   const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
@@ -172,9 +180,14 @@ export function ServiceLineCard({
 
   const descriptionError = showErrors && !line.description.trim()
   const priceError = showErrors && line.unit_price <= 0
+  const deviceError = Boolean(showErrors && onSelectDevice && devices && devices.length > 0 && !productUnitId)
   const hasLineErrors =
     showErrors &&
-    (!installmentValidation.valid || !cashValidation.valid || descriptionError || priceError)
+    (!installmentValidation.valid ||
+      !cashValidation.valid ||
+      descriptionError ||
+      priceError ||
+      deviceError)
 
   return (
     <div
@@ -227,6 +240,29 @@ export function ServiceLineCard({
             />
             {priceError ? <p className="mt-xs text-xs text-error">السعر مطلوب</p> : null}
           </div>
+          {onSelectDevice && devices ? (
+            <div className={posRequiredWrap(deviceError)}>
+              <label className={posLabelClass}>جهاز هذا الإجراء</label>
+              <select
+                className={`${posInputClass}${deviceError ? ' border-error' : ''}`}
+                value={productUnitId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value ? Number(e.target.value) : null
+                  onSelectDevice(id ? devices.find((device) => device.product_unit_id === id) ?? null : null)
+                }}
+              >
+                <option value="">اختر الجهاز</option>
+                {devices
+                  .filter((device) => device.product_unit_id)
+                  .map((device) => (
+                    <option key={device.id} value={device.product_unit_id ?? ''}>
+                      {contractDeviceLabel(device)}
+                    </option>
+                  ))}
+              </select>
+              {deviceError ? <p className="mt-xs text-xs text-error">اختر جهاز هذا البند</p> : null}
+            </div>
+          ) : null}
         </div>
 
         {showPayment ? (
