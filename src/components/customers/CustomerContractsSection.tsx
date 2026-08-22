@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type { InstallmentItem, SalesInvoice } from '../../api/types'
-import { canTransferContractToProblems } from '../../lib/contractCases'
+import {
+  canExchangeContract,
+  canRejectContract,
+  canReturnContract,
+  canTransferContractToProblems,
+  type ContractProblemCaseType,
+} from '../../lib/contractCases'
 import { useAuthStore } from '../../stores/authStore'
 import { ContractProblemWizard } from '../contracts/ContractProblemWizard'
 import { contractKindLabel } from '../../lib/contractKinds'
@@ -46,6 +52,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
   const user = useAuthStore((s) => s.user)
   const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('confirmed')
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
+  const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
 
   const filteredInvoices = useMemo(
     () => filterContracts(invoices, statusFilter),
@@ -176,10 +183,50 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <Icon name="print" size={18} />
                       طباعة العقد
                     </Link>
+                    {canRejectContract(user, invoice) && (
+                      <Link
+                        to={`/invoices/review/${invoice.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error/5"
+                      >
+                        <Icon name="cancel" size={18} />
+                        رفض
+                      </Link>
+                    )}
+                    {canExchangeContract(user, invoice) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProblemInvoice(invoice)
+                          setProblemCaseType('exchange')
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+                      >
+                        <Icon name="swap_horiz" size={18} />
+                        استبدال
+                      </button>
+                    )}
+                    {canReturnContract(user, invoice) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProblemInvoice(invoice)
+                          setProblemCaseType('return')
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+                      >
+                        <Icon name="assignment_return" size={18} />
+                        استرجاع
+                      </button>
+                    )}
                     {canTransferContractToProblems(user, invoice) && (
                       <button
                         type="button"
-                        onClick={() => setProblemInvoice(invoice)}
+                        onClick={() => {
+                          setProblemInvoice(invoice)
+                          setProblemCaseType(null)
+                        }}
                         className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
                       >
                         <Icon name="report_problem" size={18} />
@@ -264,9 +311,14 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
         <ContractProblemWizard
           invoice={problemInvoice}
           open
-          onClose={() => setProblemInvoice(null)}
+          initialCaseType={problemCaseType}
+          onClose={() => {
+            setProblemInvoice(null)
+            setProblemCaseType(null)
+          }}
           onComplete={() => {
             setProblemInvoice(null)
+            setProblemCaseType(null)
             queryClient.invalidateQueries({ queryKey: ['customer'] })
             queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
           }}

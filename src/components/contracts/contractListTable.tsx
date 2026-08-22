@@ -14,7 +14,13 @@ import {
 import { contractKindLabel } from '../../lib/contractKinds'
 import { contractPrintPath, distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
 import { userHasPermission } from '../../lib/access'
-import { canTransferContractToProblems } from '../../lib/contractCases'
+import {
+  canExchangeContract,
+  canRejectContract,
+  canReturnContract,
+  canTransferContractToProblems,
+  type ContractProblemCaseType,
+} from '../../lib/contractCases'
 import { canEditContract, contractEditPath } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
@@ -163,7 +169,7 @@ export function buildContractListColumns(
 export function defaultContractListActions(
   row: SalesInvoice,
   user?: AuthUser | null,
-  onOpenProblems?: (invoice: SalesInvoice) => void,
+  onOpenProblems?: (invoice: SalesInvoice, caseType?: ContractProblemCaseType) => void,
 ): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
@@ -196,6 +202,34 @@ export function defaultContractListActions(
           مراجعة
         </Link>
       )}
+      {canRejectContract(user ?? null, row) && (
+        <Link
+          to={`/invoices/review/${row.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          رفض
+        </Link>
+      )}
+      {onOpenProblems && canExchangeContract(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onOpenProblems(row, 'exchange')}
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          استبدال
+        </button>
+      )}
+      {onOpenProblems && canReturnContract(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onOpenProblems(row, 'return')}
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          استرجاع
+        </button>
+      )}
       {onOpenProblems && canTransferContractToProblems(user ?? null, row) && (
         <button
           type="button"
@@ -218,7 +252,11 @@ export function defaultContractListActions(
   )
 }
 
-export function reviewOnlyContractListActions(row: SalesInvoice, user?: AuthUser | null): ReactNode {
+export function reviewOnlyContractListActions(
+  row: SalesInvoice,
+  user?: AuthUser | null,
+  onOpenProblems?: (invoice: SalesInvoice, caseType?: ContractProblemCaseType) => void,
+): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
       {canEditContract(user ?? null, row) && (
@@ -239,6 +277,25 @@ export function reviewOnlyContractListActions(row: SalesInvoice, user?: AuthUser
       >
         مراجعة
       </Link>
+      {canRejectContract(user ?? null, row) && (
+        <Link
+          to={`/invoices/review/${row.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          رفض
+        </Link>
+      )}
+      {onOpenProblems && canExchangeContract(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onOpenProblems(row, 'exchange')}
+          className="text-sm font-medium text-error hover:underline whitespace-nowrap"
+        >
+          استبدال
+        </button>
+      )}
     </div>
   )
 }

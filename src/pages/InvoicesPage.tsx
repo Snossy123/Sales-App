@@ -26,6 +26,7 @@ import {
   reviewStatusOptions,
 } from '../lib/sales'
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
+import type { ContractProblemCaseType } from '../lib/contractCases'
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
@@ -33,6 +34,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
+  const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -117,7 +119,11 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const columns = useMemo(
     () =>
       buildContractListColumns({
-        renderActions: (row) => defaultContractListActions(row, user, setProblemInvoice),
+        renderActions: (row) =>
+          defaultContractListActions(row, user, (invoice, caseType) => {
+            setProblemInvoice(invoice)
+            setProblemCaseType(caseType ?? null)
+          }),
       }),
     [user],
   )
@@ -204,9 +210,14 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         <ContractProblemWizard
           invoice={problemInvoice}
           open
-          onClose={() => setProblemInvoice(null)}
+          initialCaseType={problemCaseType}
+          onClose={() => {
+            setProblemInvoice(null)
+            setProblemCaseType(null)
+          }}
           onComplete={() => {
             setProblemInvoice(null)
+            setProblemCaseType(null)
             queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
             queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
           }}

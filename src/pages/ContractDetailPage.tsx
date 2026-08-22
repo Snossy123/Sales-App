@@ -16,8 +16,12 @@ import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contract
 import { contractKindLabel } from '../lib/contractKinds'
 import {
   CONTRACT_CASES_MANAGE_PERMISSION,
+  canExchangeContract,
+  canRejectContract,
+  canReturnContract,
   canTransferContractToProblems,
   isContractEligibleForProblems,
+  type ContractProblemCaseType,
 } from '../lib/contractCases'
 import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
@@ -31,6 +35,7 @@ export function ContractDetailPage() {
   const canPrint = userHasPermission(user, 'review.print')
   const [searchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [wizardCaseType, setWizardCaseType] = useState<ContractProblemCaseType | null>(null)
 
   useEffect(() => {
     if (searchParams.get('resume') === 'problem') {
@@ -54,10 +59,19 @@ export function ContractDetailPage() {
 
   const invoice = query.data
   const canTransferToProblems = canTransferContractToProblems(user, invoice)
+  const canReject = canRejectContract(user, invoice)
+  const canExchange = canExchangeContract(user, invoice)
+  const canReturn = canReturnContract(user, invoice)
   const showProblemsPermissionHint = !canManageCases && isContractEligibleForProblems(invoice)
+
+  const openWizard = (caseType?: ContractProblemCaseType) => {
+    setWizardCaseType(caseType ?? null)
+    setWizardOpen(true)
+  }
 
   const handleWizardComplete = () => {
     setWizardOpen(false)
+    setWizardCaseType(null)
     queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'contract-detail', id] })
     queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
   }
@@ -103,10 +117,39 @@ export function ContractDetailPage() {
               تعديل العقد
             </Link>
           ) : null}
+          {canReject && invoice && (
+            <Link
+              to={`/invoices/review/${invoice.id}`}
+              className="inline-flex items-center gap-xs rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error/5"
+            >
+              <Icon name="cancel" size={18} />
+              رفض
+            </Link>
+          )}
+          {canExchange && invoice && (
+            <button
+              type="button"
+              onClick={() => openWizard('exchange')}
+              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+            >
+              <Icon name="swap_horiz" size={18} />
+              استبدال
+            </button>
+          )}
+          {canReturn && invoice && (
+            <button
+              type="button"
+              onClick={() => openWizard('return')}
+              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+            >
+              <Icon name="assignment_return" size={18} />
+              استرجاع
+            </button>
+          )}
           {canTransferToProblems && invoice && (
             <button
               type="button"
-              onClick={() => setWizardOpen(true)}
+              onClick={() => openWizard()}
               className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
             >
               <Icon name="report_problem" size={18} />
@@ -151,7 +194,11 @@ export function ContractDetailPage() {
         <ContractProblemWizard
           invoice={invoice}
           open={wizardOpen}
-          onClose={() => setWizardOpen(false)}
+          initialCaseType={wizardCaseType}
+          onClose={() => {
+            setWizardOpen(false)
+            setWizardCaseType(null)
+          }}
           onComplete={handleWizardComplete}
         />
       )}

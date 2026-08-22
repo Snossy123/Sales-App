@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
 import {
   buildContractListColumns,
   contractDateFilterParams,
@@ -14,12 +15,16 @@ import {
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
+import type { ContractProblemCaseType } from '../lib/contractCases'
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import { CONTRACT_KINDS, REVIEW_CONTRACT_KIND_OPTIONS } from '../lib/contractKinds'
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoiceReviewPage() {
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
+  const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
   const listScopeKey = getListScopeQueryKey(user)
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -62,7 +67,11 @@ export function InvoiceReviewPage() {
   const columns = useMemo(
     () =>
       buildContractListColumns({
-        renderActions: (row) => reviewOnlyContractListActions(row, user),
+        renderActions: (row) =>
+          reviewOnlyContractListActions(row, user, (invoice, caseType) => {
+            setProblemInvoice(invoice)
+            setProblemCaseType(caseType ?? null)
+          }),
       }),
     [user],
   )
@@ -111,6 +120,23 @@ export function InvoiceReviewPage() {
           />
         </AsyncState>
       </div>
+      {problemInvoice && (
+        <ContractProblemWizard
+          invoice={problemInvoice}
+          open
+          initialCaseType={problemCaseType}
+          onClose={() => {
+            setProblemInvoice(null)
+            setProblemCaseType(null)
+          }}
+          onComplete={() => {
+            setProblemInvoice(null)
+            setProblemCaseType(null)
+            queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+            queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+          }}
+        />
+      )}
     </SalesPageShell>
   )
 }

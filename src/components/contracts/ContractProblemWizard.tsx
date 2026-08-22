@@ -64,6 +64,7 @@ interface ContractProblemWizardProps {
   open: boolean
   onClose: () => void
   onComplete: () => void
+  initialCaseType?: CaseType | null
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -141,7 +142,13 @@ function applyWizardDraft(
   setters.setRefundAccountId(draft.refundAccountId)
 }
 
-export function ContractProblemWizard({ invoice, open, onClose, onComplete }: ContractProblemWizardProps) {
+export function ContractProblemWizard({
+  invoice,
+  open,
+  onClose,
+  onComplete,
+  initialCaseType = null,
+}: ContractProblemWizardProps) {
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const draftId = PROCEDURE_DRAFT_IDS.contractProblem(invoice.id)
   const [step, setStep] = useState(0)
@@ -182,8 +189,6 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       })
       return
     }
-    setStep(0)
-    setCaseType(null)
     setReason('')
     setNotes('')
     setOpenedCase(null)
@@ -195,7 +200,14 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
     setCustomerReceivedRefund(false)
     setRefundVia('cash')
     setRefundAccountId('')
-  }, [draftId, open, userId])
+    if (initialCaseType) {
+      setCaseType(initialCaseType)
+      setStep(1)
+      return
+    }
+    setStep(0)
+    setCaseType(null)
+  }, [draftId, initialCaseType, open, userId])
 
   const wizardDraftSnapshot = useMemo<WizardDraft>(
     () => ({
@@ -279,9 +291,11 @@ export function ContractProblemWizard({ invoice, open, onClose, onComplete }: Co
       TYPE_OPTIONS.filter((opt) => {
         if (opt.value === 'cancel' && cancelPreviewQuery.data?.allowed === false) return false
         if ((opt.value === 'return' || opt.value === 'cancel') && !canDisburse) return false
+        if (opt.value === 'return' && invoice.review_status !== 'approved') return false
+        if (invoice.review_status !== 'approved' && opt.value !== 'exchange') return false
         return true
       }),
-    [cancelPreviewQuery.data?.allowed, canDisburse],
+    [cancelPreviewQuery.data?.allowed, canDisburse, invoice.review_status],
   )
 
   const accountsQuery = useQuery({

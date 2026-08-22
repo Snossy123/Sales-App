@@ -5,6 +5,7 @@ import { api, getErrorMessage } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
+import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { Icon } from '../components/Icon'
@@ -14,6 +15,7 @@ import { useAuthStore } from '../stores/authStore'
 import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel, reviewApproveLabel } from '../lib/contractKinds'
+import { canExchangeContract } from '../lib/contractCases'
 import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
@@ -22,6 +24,7 @@ export function InvoiceReviewDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [rejectReason, setRejectReason] = useState('')
+  const [exchangeOpen, setExchangeOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
   const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
   const canApprove = userHasPermission(user, 'review.approve') || reviewRole
@@ -118,6 +121,16 @@ export function InvoiceReviewDetailPage() {
               تعديل العقد
             </Link>
           ) : null}
+          {invoice && canExchangeContract(user, invoice) ? (
+            <button
+              type="button"
+              onClick={() => setExchangeOpen(true)}
+              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+            >
+              <Icon name="swap_horiz" size={18} />
+              استبدال
+            </button>
+          ) : null}
           <Link
             to="/invoices/review"
             className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
@@ -193,6 +206,20 @@ export function InvoiceReviewDetailPage() {
           </div>
         )}
       </AsyncState>
+
+      {invoice && (
+        <ContractProblemWizard
+          invoice={invoice}
+          open={exchangeOpen}
+          initialCaseType="exchange"
+          onClose={() => setExchangeOpen(false)}
+          onComplete={() => {
+            setExchangeOpen(false)
+            queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'review', id] })
+            queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+          }}
+        />
+      )}
     </SalesPageShell>
   )
 }
