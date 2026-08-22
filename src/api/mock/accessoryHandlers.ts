@@ -216,6 +216,17 @@ export function tryHandleAccessoryRequest(
       })
       return updated
     }
+
+    if (m === 'DELETE') {
+      if (state.accessoryPackages.some((pkg) => (pkg.items ?? []).some((item) => item.product_model_id === id))) {
+        throw mockError(422, 'لا يمكن حذف الإكسسوار لأنه مستخدم في باكدج.')
+      }
+      mutateState((draft) => {
+        draft.accessories = draft.accessories.filter((item) => item.id !== id)
+        draft.accessoryStocks = draft.accessoryStocks.filter((stock) => stock.product_model_id !== id)
+      })
+      return null
+    }
   }
 
   if (m === 'GET' && path === 'accessory-packages') {

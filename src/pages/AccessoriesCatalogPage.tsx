@@ -63,6 +63,26 @@ export function AccessoriesCatalogPage() {
     onError: (err) => setError(getErrorMessage(err)),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/accessories/${id}`)
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['accessories'] })
+      if (editingId === id) {
+        setEditingId(null)
+        setForm(emptyForm)
+      }
+      setError('')
+      setSuccess('تم حذف الإكسسوار')
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const confirmDelete = (id: number) => {
+    if (confirm('حذف الإكسسوار؟')) deleteMutation.mutate(id)
+  }
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!form.name_ar.trim() || Number(form.sell_price) < 0) {
@@ -158,16 +178,26 @@ export function AccessoriesCatalogPage() {
             {editingId ? 'حفظ التعديل' : 'إضافة إكسسوار'}
           </button>
           {editingId && (
-            <button
-              type="button"
-              className="rounded-lg border border-outline-variant px-md py-2 text-sm"
-              onClick={() => {
-                setEditingId(null)
-                setForm(emptyForm)
-              }}
-            >
-              إلغاء
-            </button>
+            <>
+              <button
+                type="button"
+                className="rounded-lg border border-outline-variant px-md py-2 text-sm"
+                onClick={() => {
+                  setEditingId(null)
+                  setForm(emptyForm)
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={deleteMutation.isPending}
+                className="rounded-lg border border-error/40 px-md py-2 text-sm text-error"
+                onClick={() => confirmDelete(editingId)}
+              >
+                حذف
+              </button>
+            </>
           )}
         </div>
       </form>
@@ -201,13 +231,23 @@ export function AccessoriesCatalogPage() {
               key: 'actions',
               header: '',
               render: (row: ProductModel) => (
-                <button
-                  type="button"
-                  className="text-sm text-primary"
-                  onClick={() => startEdit(row)}
-                >
-                  تعديل
-                </button>
+                <div className="flex gap-sm">
+                  <button
+                    type="button"
+                    className="text-sm text-primary"
+                    onClick={() => startEdit(row)}
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm text-error"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => confirmDelete(row.id)}
+                  >
+                    حذف
+                  </button>
+                </div>
               ),
             },
           ]}
