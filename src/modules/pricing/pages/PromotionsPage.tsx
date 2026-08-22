@@ -9,7 +9,9 @@ import { Modal } from '../../../components/Modal'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
+import { userCanCrud } from '../../../lib/access'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { useAuthStore } from '../../../stores/authStore'
 import { NumericInput } from '../../../components/ui/NumericInput'
 
 
@@ -43,6 +45,8 @@ function promotionToForm(promotion: Promotion) {
 
 export function PromotionsPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canAdd = userCanCrud(user, 'promotions', 'add')
   const crudConfig = getEntityCrudConfig('promotions')
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
@@ -113,13 +117,15 @@ export function PromotionsPage() {
       title="العروض الترويجية"
       subtitle="خصومات وباقات تُطبَّق في نقطة البيع"
       actions={
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
-        >
-          عرض جديد
-        </button>
+        canAdd ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
+          >
+            عرض جديد
+          </button>
+        ) : undefined
       }
     >
       {toast && (

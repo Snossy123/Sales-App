@@ -24,7 +24,7 @@ import {
   distributorTypeLabel,
   paginatedMeta,
 } from '../lib/sales'
-import { getUserRole } from '../lib/permissions'
+import { userCanCrud } from '../lib/access'
 import { getAdministrationScopeQueryKey, mergeAdministrationListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
@@ -36,7 +36,7 @@ function truncateAddress(value?: string | null, max = 40): string {
 export function DistributorsPage() {
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getAdministrationScopeQueryKey(user)
-  const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
+  const canCreate = userCanCrud(user, 'distributors', 'add')
   const [search, setSearch] = useState('')
   const [codeSearch, setCodeSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')

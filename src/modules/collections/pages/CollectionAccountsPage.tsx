@@ -9,7 +9,9 @@ import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { EntityRowActions } from '../../../components/crud/EntityRowActions'
+import { userCanCrud } from '../../../lib/access'
 import { getEntityCrudConfig } from '../../../lib/crud/entityCrudRegistry'
+import { useAuthStore } from '../../../stores/authStore'
 import { formatMoney } from '../../../lib/theme'
 import { NumericInput } from '../../../components/ui/NumericInput'
 
@@ -42,6 +44,8 @@ const emptyForm = {
 
 export function CollectionAccountsPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canAdd = userCanCrud(user, 'collection_accounts', 'add')
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -141,14 +145,16 @@ export function CollectionAccountsPage() {
         title="حسابات التحويل"
         subtitle="إدارة حسابات التحصيل الخارجي لكل رقم هاتف"
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary"
-          >
-            <Icon name="add" size={18} />
-            حساب جديد
-          </button>
+          canAdd ? (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary"
+            >
+              <Icon name="add" size={18} />
+              حساب جديد
+            </button>
+          ) : undefined
         }
       />
 

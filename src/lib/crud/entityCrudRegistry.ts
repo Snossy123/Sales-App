@@ -14,6 +14,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     editPath: (id) => `/customers/${id}/edit`,
     label: (row) => (row as Customer).name,
     permissions: { create: [...salesRoles], read: [...salesRoles], edit: [...salesRoles], delete: [...adminRoles] },
+    crudResource: 'customers',
     editMode: 'route',
     deleteConfirmMessage: (row) => `حذف العميل "${(row as Customer).name}"؟`,
   },
@@ -26,6 +27,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     editPath: (id) => `/distributors/${id}`,
     label: (row) => (row as Distributor).name_ar || (row as Distributor).name,
     permissions: { create: [...salesRoles], read: [...salesRoles], edit: [...salesRoles], delete: [...adminRoles] },
+    crudResource: 'distributors',
     editMode: 'route',
     deleteConfirmMessage: (row) => {
       const d = row as Distributor
@@ -40,6 +42,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     editPath: (id) => `/services/${id}/edit`,
     label: (row) => (row as Service).name_ar || (row as Service).name,
     permissions: { create: [...adminRoles], read: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
+    crudResource: 'services',
     editMode: 'route',
     deleteConfirmMessage: (row) => {
       const s = row as Service
@@ -69,6 +72,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     listPath: '/pricing/promotions',
     label: (row) => (row as { name_ar?: string }).name_ar ?? `#${row.id}`,
     permissions: { create: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
+    crudResource: 'promotions',
     editMode: 'modal',
   },
   priceCatalog: {
@@ -149,6 +153,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     listPath: '/admin/collection-accounts',
     label: (row) => (row as { beneficiary_name?: string }).beneficiary_name ?? `#${row.id}`,
     permissions: { create: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
+    crudResource: 'collection_accounts',
     editMode: 'modal',
   },
   journalEntries: {

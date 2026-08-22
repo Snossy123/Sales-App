@@ -86,6 +86,28 @@ export function userCanPerform(user: AuthUser | null, permission: string): boole
   return userHasPermission(user, permission)
 }
 
+export type CrudAction = 'view' | 'add' | 'edit' | 'delete'
+
+/** Legacy `.manage` keys that still grant view/add/edit (not delete, except listed). */
+const CRUD_MANAGE_FALLBACKS: Record<string, { keys: string[]; includeDelete?: boolean }> = {
+  customers: { keys: ['customers.manage'] },
+  distributors: { keys: ['distributors.manage', 'customers.manage'] },
+  services: { keys: ['settings.manage'] },
+  accessories: { keys: ['inventory.manage'] },
+  accessory_packages: { keys: ['inventory.manage'] },
+  collection_accounts: { keys: ['collection_accounts.manage'], includeDelete: true },
+}
+
+export function userCanCrud(user: AuthUser | null, resource: string, action: CrudAction): boolean {
+  if (userCanPerform(user, `${resource}.${action}`)) return true
+
+  const fallback = CRUD_MANAGE_FALLBACKS[resource]
+  if (!fallback) return false
+  if (action === 'delete' && !fallback.includeDelete) return false
+
+  return fallback.keys.some((key) => userCanPerform(user, key))
+}
+
 /** null = unrestricted (super admin) */
 export function getUserAdministrationId(user: AuthUser | null): number | null {
   return user?.administration_id ?? user?.department_id ?? null

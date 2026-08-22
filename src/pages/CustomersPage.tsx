@@ -15,7 +15,7 @@ import { EntityRowActions } from '../components/crud/EntityRowActions'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, customerStatusOptions, paginatedMeta } from '../lib/sales'
-import { getUserRole } from '../lib/permissions'
+import { userCanCrud } from '../lib/access'
 import { getAdministrationScopeQueryKey, mergeAdministrationListParams } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
@@ -29,7 +29,7 @@ function customerGuarantorLabel(customer: Customer): string {
 export function CustomersPage() {
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getAdministrationScopeQueryKey(user)
-  const canCreate = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
+  const canCreate = userCanCrud(user, 'customers', 'add')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)

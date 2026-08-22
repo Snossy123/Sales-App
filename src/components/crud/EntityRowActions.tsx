@@ -5,6 +5,7 @@ import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { useSoftDelete } from '../../lib/crud/useSoftDelete'
 import type { EntityCrudConfig } from '../../lib/crud/types'
 import type { DemoRole } from '../../api/types'
+import { userCanCrud } from '../../lib/access'
 import { getUserRole } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -33,9 +34,16 @@ export function EntityRowActions<T extends { id: number }>({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
-  const canRead = hasPermission(config.permissions.read ?? config.permissions.create, role)
-  const canEdit = hasPermission(config.permissions.edit, role)
-  const canDelete = hasPermission(config.permissions.delete, role)
+  const crud = config.crudResource
+  const canRead = crud
+    ? userCanCrud(user, crud, 'view')
+    : hasPermission(config.permissions.read ?? config.permissions.create, role)
+  const canEdit = crud
+    ? userCanCrud(user, crud, 'edit')
+    : hasPermission(config.permissions.edit, role)
+  const canDelete = crud
+    ? userCanCrud(user, crud, 'delete')
+    : hasPermission(config.permissions.delete, role)
 
   const deleteMutation = useSoftDelete({
     resource: config.resource,

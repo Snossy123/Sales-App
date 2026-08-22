@@ -8,6 +8,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanCrud } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -32,6 +34,10 @@ function nextAccessoryCode(items: ProductModel[]): string {
 }
 
 export function AccessoriesCatalogPage() {
+  const user = useAuthStore((s) => s.user)
+  const canAdd = userCanCrud(user, 'accessories', 'add')
+  const canEdit = userCanCrud(user, 'accessories', 'edit')
+  const canDelete = userCanCrud(user, 'accessories', 'delete')
   const queryClient = useQueryClient()
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -137,7 +143,7 @@ export function AccessoriesCatalogPage() {
       )}
       {success && <ToastBanner message={success} onDismiss={() => setSuccess('')} />}
 
-      <form
+      {(canAdd || (editingId && canEdit)) && <form
         onSubmit={onSubmit}
         className="mb-lg grid grid-cols-1 gap-sm rounded-xl border border-outline-variant bg-surface-container-lowest p-md md:grid-cols-3"
       >
@@ -209,18 +215,20 @@ export function AccessoriesCatalogPage() {
               >
                 إلغاء
               </button>
-              <button
-                type="button"
-                disabled={deleteMutation.isPending}
-                className="rounded-lg border border-error/40 px-md py-2 text-sm text-error"
-                onClick={() => confirmDelete(editingId)}
-              >
-                حذف
-              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  disabled={deleteMutation.isPending}
+                  className="rounded-lg border border-error/40 px-md py-2 text-sm text-error"
+                  onClick={() => confirmDelete(editingId)}
+                >
+                  حذف
+                </button>
+              ) : null}
             </>
           )}
         </div>
-      </form>
+      </form>}
 
       <AsyncState
         isLoading={listQuery.isLoading}
@@ -252,21 +260,26 @@ export function AccessoriesCatalogPage() {
               header: '',
               render: (row: ProductModel) => (
                 <div className="flex gap-sm">
-                  <button
-                    type="button"
-                    className="text-sm text-primary"
-                    onClick={() => startEdit(row)}
-                  >
-                    تعديل
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-error"
-                    disabled={deleteMutation.isPending}
-                    onClick={() => confirmDelete(row.id)}
-                  >
-                    حذف
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="text-sm text-primary"
+                      onClick={() => startEdit(row)}
+                    >
+                      تعديل
+                    </button>
+                  ) : null}
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      className="text-sm text-error"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => confirmDelete(row.id)}
+                    >
+                      حذف
+                    </button>
+                  ) : null}
+                  {!canEdit && !canDelete ? '—' : null}
                 </div>
               ),
             },

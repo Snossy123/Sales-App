@@ -4,7 +4,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/pos': 'sales.pos',
   '/pos/services': 'sales.pos',
   '/pricing/catalog': 'sales.pos',
-  '/pricing/promotions': 'sales.pos',
+  '/pricing/promotions': 'promotions.view',
   '/sales/accessories': 'sales.pos',
   '/sales/maintenance': 'sales.pos',
   '/sales/mission': 'sales.daily_mission',
@@ -16,15 +16,15 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/inventory/returns': 'stock.transfer',
   '/inventory/warehouses': 'warehouses.manage',
   '/inventory/settings': 'inventory.manage',
-  '/inventory/accessories': 'inventory.manage',
-  '/inventory/accessory-packages': 'inventory.manage',
+  '/inventory/accessories': ['inventory.manage', 'accessories.view'],
+  '/inventory/accessory-packages': ['inventory.manage', 'accessory_packages.view'],
   '/inventory/accessory-stock': 'inventory.manage',
-  '/customers': 'customers.manage',
-  '/customers/add': 'customers.manage',
-  '/distributors': 'customers.manage',
-  '/distributors/add': 'customers.manage',
-  '/services': 'settings.manage',
-  '/services/add': 'settings.manage',
+  '/customers': ['customers.manage', 'customers.view'],
+  '/customers/add': ['customers.manage', 'customers.add'],
+  '/distributors': ['customers.manage', 'distributors.view'],
+  '/distributors/add': ['customers.manage', 'distributors.add'],
+  '/services': ['settings.manage', 'services.view'],
+  '/services/add': ['settings.manage', 'services.add'],
   '/contract-templates': 'settings.manage',
   '/invoices/review': ['review.view_queue', 'review.view_detail'],
   '/review/collections': 'review.view_collections',
@@ -38,7 +38,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/installments': 'installments.view',
   '/payments': 'payments.view',
   '/call-center/collections': 'external_collections.collect',
-  '/admin/collection-accounts': 'collection_accounts.manage',
+  '/admin/collection-accounts': ['collection_accounts.manage', 'collection_accounts.view'],
   '/daily-reports': 'dashboard.view',
   '/departments': 'branches.manage',
   '/branches': 'branches.manage',
@@ -107,9 +107,11 @@ export function resolveRoutePermissions(path: string): string[] | null {
     return asPermissionList(ROUTE_PERMISSIONS[normalized])
   }
 
-  if (normalized.startsWith('/customers/')) return ['customers.manage']
-  if (normalized.startsWith('/distributors/')) return ['customers.manage']
-  if (normalized.startsWith('/services/')) return ['settings.manage']
+  if (normalized.match(/^\/customers\/\d+\/edit$/)) return ['customers.manage', 'customers.edit']
+  if (normalized.startsWith('/customers/')) return ['customers.manage', 'customers.view']
+  if (normalized.startsWith('/distributors/')) return ['customers.manage', 'distributors.view']
+  if (normalized.match(/^\/services\/.+\/edit$/)) return ['settings.manage', 'services.edit']
+  if (normalized.startsWith('/services/')) return ['settings.manage', 'services.view']
   if (normalized.startsWith('/contract-templates/')) return ['settings.manage']
   if (normalized.match(/^\/departments\/\d+$/)) return ['branches.manage']
   if (normalized.match(/^\/branches\/\d+$/)) return ['branches.manage']

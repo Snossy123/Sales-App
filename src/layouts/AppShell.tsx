@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../components/Icon'
@@ -19,12 +19,24 @@ import { getDataScopeLabel } from '../lib/dataScope'
 import { resolvePublicStorageUrl } from '../lib/storageUrl'
 import { ChatWidget } from '../modules/chat/components/ChatWidget'
 import { ChatbotWidget } from '../components/help/ChatbotWidget'
+import { BranchStockTickerBar } from '../components/BranchStockTickerBar'
 import { IncompleteProceduresBanner } from '../components/IncompleteProceduresBanner'
 import {
   PROCEDURE_DRAFT_IDS,
   selectUserDrafts,
   useProcedureDraftStore,
 } from '../stores/procedureDraftStore'
+
+function shouldShowStockTicker(pathname: string): boolean {
+  return (
+    pathname === '/pos' ||
+    pathname.startsWith('/pos/') ||
+    pathname === '/sales/accessories' ||
+    pathname.startsWith('/sales/accessories/') ||
+    pathname === '/invoices' ||
+    pathname.startsWith('/invoices/')
+  )
+}
 
 export function AppShell() {
   useContextData()
@@ -36,6 +48,8 @@ export function AppShell() {
   const general = useOrgSettingsStore((s) => s.general)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const location = useLocation()
+  const showStockTicker = shouldShowStockTicker(location.pathname)
   const navEntries = getNavEntriesForUser(user)
   const role = getUserRole(user)
   const dataScopeLabel = getDataScopeLabel(user)
@@ -184,7 +198,8 @@ export function AppShell() {
           sidebarCollapsed ? 'mr-[4.5rem]' : 'mr-64'
         }`}
       >
-        <header className="sticky top-0 z-40 flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base print:hidden">
+        <div className="sticky top-0 z-40 bg-surface print:hidden">
+        <header className="flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base">
           <button
             type="button"
             onClick={() => setSidebarCollapsed((value) => !value)}
@@ -289,6 +304,8 @@ export function AppShell() {
             </div>
           </div>
         </header>
+        {showStockTicker ? <BranchStockTickerBar /> : null}
+        </div>
 
         <div className="flex-grow p-margin pb-20 md:pb-margin print:p-0">
           <IncompleteProceduresBanner />

@@ -15,13 +15,14 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { type ApiPaginated, paginatedMeta } from '../lib/sales'
 import { contractTemplateLabel } from '../lib/contractTemplates'
-import { getUserRole } from '../lib/permissions'
+import { userCanCrud, userCanPerform } from '../lib/access'
 import { serviceCategoryLabel } from '../lib/services'
 import { useAuthStore } from '../stores/authStore'
 
 export function ServicesPage() {
   const user = useAuthStore((s) => s.user)
-  const canManage = ['super_admin', 'admin'].includes(getUserRole(user))
+  const canAdd = userCanCrud(user, 'services', 'add')
+  const canManageTemplates = userCanPerform(user, 'settings.manage')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -54,22 +55,26 @@ export function ServicesPage() {
       title="الخدمات"
       subtitle="إدارة الخدمات والرسوم التي تقدمها الشركة"
       actions={
-        canManage ? (
+        canAdd || canManageTemplates ? (
           <div className="flex flex-wrap items-center gap-sm">
-            <Link
-              to="/contract-templates"
-              className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-bold text-on-surface-variant"
-            >
-              <Icon name="description" size={18} />
-              نماذج العقود
-            </Link>
-            <Link
-              to="/services/add"
-              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-            >
-              <Icon name="add_circle" size={18} />
-              خدمة جديدة
-            </Link>
+            {canManageTemplates ? (
+              <Link
+                to="/contract-templates"
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-bold text-on-surface-variant"
+              >
+                <Icon name="description" size={18} />
+                نماذج العقود
+              </Link>
+            ) : null}
+            {canAdd ? (
+              <Link
+                to="/services/add"
+                className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+              >
+                <Icon name="add_circle" size={18} />
+                خدمة جديدة
+              </Link>
+            ) : null}
           </div>
         ) : undefined
       }

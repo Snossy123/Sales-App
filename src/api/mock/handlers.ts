@@ -13,6 +13,7 @@ import type {
   Branch,
   CheckoutPayload,
   Customer,
+  CustomerContractDevice,
   DailyBranchReport,
   DashboardStats,
   Department,
@@ -56,19 +57,7 @@ type MockCollectionActionLog = {
 const mockCollectionActionLogs: MockCollectionActionLog[] = []
 const mockRegisteredDevices: Array<{
   customer_id: number
-  device: {
-    id: string
-    product_unit_id: number
-    origin: 'legacy' | 'external'
-    owner_customer_id: number
-    serial_number: string
-    sim_number?: string | null
-    username?: string | null
-    sales_invoice_id?: number | null
-    sales_invoice_line_id?: number | null
-    invoice_number?: string | null
-    product_model?: null
-  }
+  device: CustomerContractDevice
 }> = []
 import {
   cashDueDate,
@@ -2079,7 +2068,7 @@ export function handleMockRequest(
     const registered = mockRegisteredDevices
       .filter((entry) => entry.customer_id === customerId)
       .map((entry) => entry.device)
-    const merged = [...registered]
+    const merged: CustomerContractDevice[] = [...registered]
     for (const device of devices) {
       if (merged.some((item) => item.serial_number && item.serial_number === device.serial_number)) {
         continue
@@ -2093,7 +2082,7 @@ export function handleMockRequest(
     const customerId = Number(path.split('/')[1])
     const customer = state.customers.find((c) => c.id === customerId)
     if (!customer) throw mockError(404, 'العميل غير موجود')
-    const body = (config.data ? JSON.parse(config.data as string) : {}) as {
+    const body = (data ?? {}) as {
       origin?: 'legacy' | 'external'
       serial_number?: string
       sim_number?: string
@@ -2111,7 +2100,7 @@ export function handleMockRequest(
     )
     if (own) return { data: own.device }
     const productUnitId = 90000 + mockRegisteredDevices.length + 1
-    const device = {
+    const device: CustomerContractDevice = {
       id: `unit:${productUnitId}`,
       product_unit_id: productUnitId,
       origin,
@@ -4662,7 +4651,14 @@ export function handleMockRequest(
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
       'device_movements.manage', 'device_movements.transfer_quantity', 'stock.transfer',
-      'customers.manage', 'sales.pos', 'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
+      'customers.manage', 'customers.view', 'customers.add', 'customers.edit', 'customers.delete',
+      'distributors.view', 'distributors.add', 'distributors.edit', 'distributors.delete',
+      'promotions.view', 'promotions.add', 'promotions.edit', 'promotions.delete',
+      'services.view', 'services.add', 'services.edit', 'services.delete',
+      'accessories.view', 'accessories.add', 'accessories.edit', 'accessories.delete',
+      'accessory_packages.view', 'accessory_packages.add', 'accessory_packages.edit', 'accessory_packages.delete',
+      'collection_accounts.view', 'collection_accounts.add', 'collection_accounts.edit', 'collection_accounts.delete',
+      'sales.pos', 'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.edit_after_review', 'review.approve', 'review.reject', 'review.print',
       'review.manage_evaluation_questions', 'review.view_evaluation_queue',

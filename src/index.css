@@ -233,6 +233,27 @@
     -moz-appearance: textfield;
     appearance: textfield;
   }
+
+  .stock-ticker-track {
+    animation-name: stock-ticker;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes stock-ticker {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stock-ticker-track {
+      animation: none;
+    }
+  }
 }
 
 ::-webkit-scrollbar {

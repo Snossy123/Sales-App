@@ -8,6 +8,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanCrud } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -15,6 +17,10 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 type ItemDraft = { product_model_id: number | ''; quantity: string }
 
 export function AccessoryPackagesPage() {
+  const user = useAuthStore((s) => s.user)
+  const canAdd = userCanCrud(user, 'accessory_packages', 'add')
+  const canEdit = userCanCrud(user, 'accessory_packages', 'edit')
+  const canDelete = userCanCrud(user, 'accessory_packages', 'delete')
   const queryClient = useQueryClient()
   const [nameAr, setNameAr] = useState('')
   const [sellPrice, setSellPrice] = useState('')
@@ -127,7 +133,7 @@ export function AccessoryPackagesPage() {
       )}
       {success && <ToastBanner message={success} onDismiss={() => setSuccess('')} />}
 
-      <form
+      {(canAdd || (editingId && canEdit)) && <form
         onSubmit={onSubmit}
         className="mb-lg space-y-sm rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
       >
@@ -238,7 +244,7 @@ export function AccessoryPackagesPage() {
             </button>
           )}
         </div>
-      </form>
+      </form>}
 
       <AsyncState
         isLoading={packagesQuery.isLoading}
@@ -269,18 +275,23 @@ export function AccessoryPackagesPage() {
               header: '',
               render: (row: AccessoryPackage) => (
                 <div className="flex gap-sm">
-                  <button type="button" className="text-sm text-primary" onClick={() => startEdit(row)}>
-                    تعديل
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-error"
-                    onClick={() => {
-                      if (confirm('حذف الباكدج؟')) deleteMutation.mutate(row.id)
-                    }}
-                  >
-                    حذف
-                  </button>
+                  {canEdit ? (
+                    <button type="button" className="text-sm text-primary" onClick={() => startEdit(row)}>
+                      تعديل
+                    </button>
+                  ) : null}
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      className="text-sm text-error"
+                      onClick={() => {
+                        if (confirm('حذف الباكدج؟')) deleteMutation.mutate(row.id)
+                      }}
+                    >
+                      حذف
+                    </button>
+                  ) : null}
+                  {!canEdit && !canDelete ? '—' : null}
                 </div>
               ),
             },

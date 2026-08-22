@@ -18,6 +18,8 @@ export interface EntityCrudConfig<T extends { id: number } = { id: number }> {
   editPath?: (id: number) => string
   label: (row: T) => string
   permissions: EntityCrudPermissions
+  /** When set, row actions use catalog CRUD keys (`resource.view/add/edit/delete`). */
+  crudResource?: string
   editMode?: EditMode
   deleteConfirmMessage?: (row: T) => string
 }

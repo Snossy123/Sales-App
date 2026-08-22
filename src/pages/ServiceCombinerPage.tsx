@@ -558,8 +558,6 @@ export function ServiceCombinerPage() {
   }, [catalogServices, selectedChips, contractDate, minDownPercent])
 
   const customerDevices = customerDevicesQuery.data ?? []
-  const hasDeviceChip =
-    selectedChips.has('annual_renewal') || selectedChips.has('external_device')
   const showDeviceIdentityFields = true
   const listedDeviceSelected =
     Boolean(selectedCustomerDevice?.product_unit_id) && !manualDeviceEntry
