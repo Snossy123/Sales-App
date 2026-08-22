@@ -166,6 +166,7 @@ export function ServiceCombinerPage() {
   const [manualDeviceEntry, setManualDeviceEntry] = useState(false)
   const [contractSerial, setContractSerial] = useState('')
   const [contractSim, setContractSim] = useState('')
+  const [contractUsername, setContractUsername] = useState('')
   const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(null)
   const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(null)
   const [feeLines, setFeeLines] = useState<Record<string, ServiceLineDraft>>({})
@@ -198,6 +199,7 @@ export function ServiceCombinerPage() {
     setManualDeviceEntry(false)
     setContractSerial('')
     setContractSim('')
+    setContractUsername('')
   }
 
   const handleCustomerChange = (customer: Customer | null) => {
@@ -426,6 +428,7 @@ export function ServiceCombinerPage() {
           productUnitId: undefined,
           serialNumber: contractSerial,
           simNumber: contractSim,
+          username: contractUsername,
         }
 
   const applyIdentityToDeviceLines = (
@@ -441,6 +444,7 @@ export function ServiceCombinerPage() {
     setManualDeviceEntry(false)
     setContractSerial(identity.serialNumber)
     setContractSim(identity.simNumber)
+    setContractUsername(identity.username)
     applyIdentityToDeviceLines(identity)
   }
 
@@ -451,29 +455,37 @@ export function ServiceCombinerPage() {
       productUnitId: undefined,
       serialNumber: contractSerial,
       simNumber: contractSim,
+      username: contractUsername,
     })
   }
 
-  const handleContractSerialChange = (value: string) => {
-    setContractSerial(value)
-    applyIdentityToDeviceLines({
-      productUnitId: selectedCustomerDevice && !manualDeviceEntry
+  const currentIdentityPatch = (patch: {
+    serialNumber?: string
+    simNumber?: string
+    username?: string
+  }) => ({
+    productUnitId:
+      selectedCustomerDevice && !manualDeviceEntry
         ? selectedCustomerDevice.product_unit_id ?? undefined
         : undefined,
-      serialNumber: value,
-      simNumber: contractSim,
-    })
+    serialNumber: patch.serialNumber ?? contractSerial,
+    simNumber: patch.simNumber ?? contractSim,
+    username: patch.username ?? contractUsername,
+  })
+
+  const handleContractSerialChange = (value: string) => {
+    setContractSerial(value)
+    applyIdentityToDeviceLines(currentIdentityPatch({ serialNumber: value }))
   }
 
   const handleContractSimChange = (value: string) => {
     setContractSim(value)
-    applyIdentityToDeviceLines({
-      productUnitId: selectedCustomerDevice && !manualDeviceEntry
-        ? selectedCustomerDevice.product_unit_id ?? undefined
-        : undefined,
-      serialNumber: contractSerial,
-      simNumber: value,
-    })
+    applyIdentityToDeviceLines(currentIdentityPatch({ simNumber: value }))
+  }
+
+  const handleContractUsernameChange = (value: string) => {
+    setContractUsername(value)
+    applyIdentityToDeviceLines(currentIdentityPatch({ username: value }))
   }
 
   useEffect(() => {
@@ -668,7 +680,8 @@ export function ServiceCombinerPage() {
   const contractDeviceReady =
     (listedDeviceSelected || manualDeviceEntry) &&
     Boolean(contractSerial.trim()) &&
-    Boolean(contractSim.trim())
+    Boolean(contractSim.trim()) &&
+    Boolean(contractUsername.trim())
 
   const renewalValid =
     !selectedChips.has('annual_renewal') ||
@@ -754,6 +767,7 @@ export function ServiceCombinerPage() {
           product_unit_id: selectedCustomerDevice?.product_unit_id ?? undefined,
           serial_number: contractSerial.trim() || undefined,
           sim_number: contractSim.trim() || undefined,
+          username: contractUsername.trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
           cash_schedule:
             collectionScope === 'service' && line.paymentTerm === 'cash'
@@ -887,7 +901,7 @@ export function ServiceCombinerPage() {
       <PosContractTypeTabs />
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"
+        className="pos-form grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"
       >
         <div className="space-y-md">
           <PosSectionCard number={1} title="بيانات التعاقد" subtitle="العميل والمصدر وتاريخ العقد">
@@ -934,6 +948,7 @@ export function ServiceCombinerPage() {
                 manual={manualDeviceEntry}
                 serialNumber={contractSerial}
                 simNumber={contractSim}
+                username={contractUsername}
                 onSelectDevice={handleSelectCustomerDevice}
                 onManual={handleManualDevice}
                 onClear={() => {
@@ -944,6 +959,7 @@ export function ServiceCombinerPage() {
                 }}
                 onSerialChange={handleContractSerialChange}
                 onSimChange={handleContractSimChange}
+                onUsernameChange={handleContractUsernameChange}
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
                 showErrors={submitAttempted}
@@ -1242,7 +1258,12 @@ export function ServiceCombinerPage() {
                 طباعة العقد
               </Link>
               {lastInstallmentSale && (
-                <Link to="/installments" className="inline-flex items-center gap-1 font-bold text-primary">
+                <Link
+                  to="/installments"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-bold text-primary"
+                >
                   <Icon name="payments" size={18} />
                   الذهاب لتحصيل الأقساط
                 </Link>

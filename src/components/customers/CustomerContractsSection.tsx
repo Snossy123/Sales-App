@@ -153,6 +153,8 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                   <div className="flex flex-wrap gap-sm">
                     <Link
                       to={`/contracts/${invoice.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 rounded-lg border border-primary bg-primary/5 px-md py-sm text-sm font-medium text-primary hover:bg-primary/10"
                     >
                       <Icon name="description" size={18} />
@@ -160,6 +162,8 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                     </Link>
                     <Link
                       to={`/invoices/${invoice.id}/contract-print`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
                     >
                       <Icon name="print" size={18} />

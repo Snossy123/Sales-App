@@ -164,6 +164,8 @@ export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | 
     <div className="flex flex-wrap items-center gap-sm">
       <Link
         to={`/invoices/${row.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
         className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
       >
         تفاصيل
@@ -171,6 +173,8 @@ export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | 
       {canEditContract(user ?? null, row) && (
         <Link
           to={contractEditPath(row.id)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
           تعديل
@@ -180,6 +184,8 @@ export function defaultContractListActions(row: SalesInvoice, user?: AuthUser | 
         userHasPermission(user ?? null, 'review.view_queue') && (
         <Link
           to={`/invoices/review/${row.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm font-medium text-error hover:underline whitespace-nowrap"
         >
           مراجعة
@@ -204,6 +210,8 @@ export function reviewOnlyContractListActions(row: SalesInvoice, user?: AuthUser
       {canEditContract(user ?? null, row) && (
         <Link
           to={contractEditPath(row.id)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
           تعديل
@@ -211,6 +219,8 @@ export function reviewOnlyContractListActions(row: SalesInvoice, user?: AuthUser
       )}
       <Link
         to={`/invoices/review/${row.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
         className="text-sm font-medium text-error hover:underline whitespace-nowrap"
       >
         مراجعة

@@ -489,6 +489,8 @@ export function DashboardPage() {
                         <Link
                           key={inv.id}
                           to={`/invoices/review/${inv.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="flex items-center justify-between rounded-lg border-s-2 border-error bg-surface-container-low px-sm py-xs text-sm transition-colors hover:bg-surface-container"
                         >
                           <div>

@@ -75,6 +75,8 @@ export function CustomerInstallationsSection({ customerId }: CustomerInstallatio
                   {task.invoice_number && task.sales_invoice_id && (
                     <Link
                       to={`/contracts/${task.sales_invoice_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-primary hover:underline"
                     >
                       {task.invoice_number}

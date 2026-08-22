@@ -42,7 +42,12 @@ export function CustomerDeviceHistorySection({
             <li key={`${d.invoiceId}-${d.serial}`} className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{d.serial}</span>
               <span className="text-on-surface-variant">·</span>
-              <Link to={`/contracts/${d.invoiceId}`} className="text-primary hover:underline">
+              <Link
+                to={`/contracts/${d.invoiceId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
                 {d.invoiceNumber ?? `#${d.invoiceId}`}
               </Link>
               <StatusBadge

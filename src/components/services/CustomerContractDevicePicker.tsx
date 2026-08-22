@@ -4,6 +4,7 @@ import { normalizeScannedInput } from '../../lib/scanner'
 import type { DeviceLineDraft } from '../pos/DeviceLineCard'
 import { SearchableSelect } from '../SearchableSelect'
 import {
+  posInputClass,
   posLabelClass,
   posRequiredWrap,
   posScanClass,
@@ -83,11 +84,13 @@ interface CustomerContractDevicePickerProps {
   manual: boolean
   serialNumber: string
   simNumber: string
+  username: string
   onSelectDevice: (device: CustomerContractDevice) => void
   onManual: () => void
   onClear?: () => void
   onSerialChange: (value: string) => void
   onSimChange: (value: string) => void
+  onUsernameChange: (value: string) => void
   showIdentityFields: boolean
   identityLocked: boolean
   showErrors?: boolean
@@ -102,11 +105,13 @@ export function CustomerContractDevicePicker({
   manual,
   serialNumber,
   simNumber,
+  username,
   onSelectDevice,
   onManual,
   onClear,
   onSerialChange,
   onSimChange,
+  onUsernameChange,
   showIdentityFields,
   identityLocked,
   showErrors = false,
@@ -122,6 +127,7 @@ export function CustomerContractDevicePicker({
   const selected = manual ? MANUAL_OPTION : selectedDevice
   const serialError = showErrors && !serialNumber.trim()
   const simError = showErrors && !simNumber.trim()
+  const usernameError = showErrors && !username.trim()
 
   return (
     <div className="space-y-md">
@@ -160,7 +166,7 @@ export function CustomerContractDevicePicker({
       )}
 
       {showIdentityFields && (
-        <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
           <div className={posRequiredWrap(serialError)}>
             <label className={posLabelClass}>السريال</label>
             <input
@@ -189,6 +195,20 @@ export function CustomerContractDevicePicker({
               disabled={identityLocked}
             />
             {simError && <p className="mt-xs text-xs text-error">رقم الشريحة مطلوب</p>}
+          </div>
+          <div className={posRequiredWrap(usernameError)}>
+            <label className={posLabelClass}>اسم المستخدم</label>
+            <input
+              value={username}
+              onChange={(e) => onUsernameChange(normalizeScannedInput(e.target.value))}
+              placeholder="username"
+              className={`${posInputClass}${usernameError ? ' border-error' : ''}`}
+              dir="ltr"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={identityLocked}
+            />
+            {usernameError && <p className="mt-xs text-xs text-error">اسم المستخدم مطلوب</p>}
           </div>
         </div>
       )}

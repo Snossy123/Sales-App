@@ -93,6 +93,8 @@ export function CustomerComplaintsSection({ customerId }: CustomerComplaintsSect
                 {c.sales_invoice?.id && (
                   <Link
                     to={`/contracts/${c.sales_invoice.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="mt-1 inline-block text-xs text-primary hover:underline"
                   >
                     عرض العقد {c.sales_invoice.invoice_number ?? ''}

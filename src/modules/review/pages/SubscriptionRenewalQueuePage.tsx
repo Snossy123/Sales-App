@@ -123,6 +123,8 @@ export function SubscriptionRenewalQueuePage() {
                   {canRenew ? (
                     <Link
                       to={`/pos?contract_kind=subscription_renewal&renewal_line_id=${row.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-sm font-medium text-primary hover:underline"
                     >
                       تجديد
@@ -139,6 +141,8 @@ export function SubscriptionRenewalQueuePage() {
                   {row.sales_invoice_id ? (
                     <Link
                       to={`/invoices/${row.sales_invoice_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-sm text-primary hover:underline"
                     >
                       العقد

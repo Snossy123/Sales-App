@@ -267,7 +267,12 @@ export function AccessoriesSalesPage() {
         <div className="mb-md rounded-lg border border-outline-variant bg-surface-container-low p-md text-sm">
           فاتورة: {lastInvoice.invoice_number} — الإجمالي{' '}
           {Number(lastInvoice.total).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
-          <Link to={`/invoices/${lastInvoice.id}`} className="mr-sm text-primary">
+          <Link
+            to={`/invoices/${lastInvoice.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mr-sm text-primary"
+          >
             عرض
           </Link>
         </div>
