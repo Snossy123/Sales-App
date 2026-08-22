@@ -143,6 +143,21 @@ export function HrmZkDevicesPage() {
     onError: (err) => setToast(getErrorMessage(err)),
   })
 
+  const syncFingerprintsMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post<{ message: string }>(`/hrm/zk-devices/${id}/sync-fingerprints`)
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['hrm', 'zk-devices'] })
+      setToast(
+        data.message ||
+          'تم طلب سحب البصمات. سيكتمل التوزيع بعد اتصال الأجهزة بالسيرفر.',
+      )
+    },
+    onError: (err) => setToast(getErrorMessage(err)),
+  })
+
   const openEdit = (device: ZkDevice) => {
     setEditId(device.id)
     setForm({
@@ -163,7 +178,7 @@ export function HrmZkDevicesPage() {
     <div>
       <PageHeader
         title="أجهزة البصمة ZK"
-        subtitle="ربط جهاز بصمة لكل فرع — سحب UDP أو دفع ADMS"
+        subtitle="ربط جهاز بصمة لكل فرع — سحب UDP أو دفع ADMS، مع توزيع قوالب البصمة بين الفروع"
         actions={
           <div className="flex flex-wrap gap-xs">
             <button
@@ -278,14 +293,24 @@ export function HrmZkDevicesPage() {
                       </>
                     )}
                     {canPush && (
-                      <button
-                        type="button"
-                        onClick={() => pushUsersMutation.mutate(row.id)}
-                        disabled={pushUsersMutation.isPending}
-                        className="text-xs text-tertiary hover:underline"
-                      >
-                        إرسال الموظفين
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => pushUsersMutation.mutate(row.id)}
+                          disabled={pushUsersMutation.isPending}
+                          className="text-xs text-tertiary hover:underline"
+                        >
+                          إرسال الموظفين
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => syncFingerprintsMutation.mutate(row.id)}
+                          disabled={syncFingerprintsMutation.isPending}
+                          className="text-xs text-secondary hover:underline"
+                        >
+                          سحب البصمات وتوزيعها
+                        </button>
+                      </>
                     )}
                     <button
                       type="button"

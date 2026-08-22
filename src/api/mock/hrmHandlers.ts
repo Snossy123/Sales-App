@@ -995,5 +995,24 @@ export function tryHandleHrmRequest(
     return paginate(buildMockZkDevices(state), params)
   }
 
+  if (m === 'POST' && path.match(/^hrm\/zk-devices\/\d+\/sync-fingerprints$/)) {
+    return {
+      queried: true,
+      distributed: 0,
+      templates: 0,
+      pending_distribute: true,
+      message:
+        'تم طلب سحب البصمات (0 قالب محفوظ، 0 أمر توزيع). سيكتمل بعد اتصال الأجهزة بالسيرفر.',
+    }
+  }
+
+  if (m === 'GET' && path.match(/^hrm\/zk-devices\/\d+\/fingerprint-sync$/)) {
+    return {
+      templates: 0,
+      pending_distribute: false,
+      pending_commands: 0,
+    }
+  }
+
   return undefined
 }

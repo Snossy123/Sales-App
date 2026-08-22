@@ -183,25 +183,6 @@ export function validateDeviceLine(
   if (requireTechnician && !line.technician) {
     fieldErrors.technician = 'الفني مطلوب'
   }
-  if (!line.vehicleType) {
-    fieldErrors.vehicleType = 'نوع المركبة مطلوب'
-  }
-  if (line.vehicleType === 'car' || line.vehicleType === 'motorcycle') {
-    if (!line.vehiclePlateLetters.trim()) {
-      fieldErrors.vehiclePlateLetters = 'حروف اللوحة مطلوبة'
-    }
-    if (!line.vehiclePlateNumbers.trim()) {
-      fieldErrors.vehiclePlateNumbers = 'أرقام اللوحة مطلوبة'
-    }
-  }
-  if (line.vehicleType === 'tuk_tuk') {
-    if (!line.chassisNumber.trim()) {
-      fieldErrors.chassisNumber = 'رقم الشاسيه مطلوب'
-    }
-    if (!line.engineNumber.trim()) {
-      fieldErrors.engineNumber = 'رقم الموتور مطلوب'
-    }
-  }
 
   const cashValidation = validateCashLine(line)
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
