@@ -22,6 +22,7 @@ import { useAuthStore } from '../stores/authStore'
 export function ServicesPage() {
   const user = useAuthStore((s) => s.user)
   const canAdd = userCanCrud(user, 'services', 'add')
+  const canManage = userCanCrud(user, 'services', 'edit') || userCanCrud(user, 'services', 'delete')
   const canManageTemplates = userCanPerform(user, 'settings.manage')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
