@@ -39,6 +39,7 @@ export const MODULE_LABELS: Record<string, string> = {
   accounting: 'المحاسبة',
   review: 'المراجعة',
   support: 'الدعم الفني',
+  contracts: 'مشاكل العقود',
   scope: 'نطاق البيانات',
 }
 
@@ -104,6 +105,12 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     label: 'المراجعة',
     icon: 'fact_check',
     modules: ['review'],
+  },
+  {
+    id: 'problems',
+    label: 'قسم المشاكل',
+    icon: 'report_problem',
+    modules: ['contracts'],
   },
   {
     id: 'hrm',

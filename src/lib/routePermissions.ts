@@ -69,6 +69,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/crm/tasks': 'crm.access_own_leads',
   '/support/my-tasks': 'support.view_assigned_tasks',
   '/support/tasks': ['support.view_all_tasks', 'support.assign_tasks'],
+  '/problems': 'contract_cases.manage',
   '/accounting': 'accounting.access_accounting_module',
   '/hrm': 'hr.employees.manage',
 }

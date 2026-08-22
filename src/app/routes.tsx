@@ -47,6 +47,7 @@ import { DeviceMovementNewPage } from '../pages/DeviceMovementNewPage'
 import { InvoiceReviewDetailPage } from '../pages/InvoiceReviewDetailPage'
 import { InvoiceDetailPage } from '../pages/InvoiceDetailPage'
 import { ContractDetailPage } from '../pages/ContractDetailPage'
+import { ContractCasesPage } from '../pages/ContractCasesPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
 import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { PaymentReceiptPrintPage } from '../pages/PaymentReceiptPrintPage'
@@ -253,6 +254,7 @@ export function AppRoutes() {
             <Route path="invoices/:id/service-contract" element={<ServiceContractPrintPage />} />
             <Route path="invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="contracts/:id" element={<ContractDetailPage />} />
+            <Route path="problems" element={<ContractCasesPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
             <Route path="payments" element={<PaymentsPage />} />

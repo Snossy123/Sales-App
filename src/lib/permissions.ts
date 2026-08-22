@@ -145,6 +145,23 @@ export const navEntries: NavEntry[] = [
   {
     type: 'group',
     group: {
+      id: 'problems',
+      label: 'قسم المشاكل',
+      icon: 'report_problem',
+      items: [
+        {
+          to: '/problems',
+          icon: 'report_problem',
+          label: 'قائمة المشاكل',
+          end: true,
+          roles: ['super_admin', 'admin', 'reviewer', 'collector'],
+        },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
       id: 'hrm',
       label: 'الموارد البشرية',
       icon: 'groups',
@@ -338,6 +355,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/crm/tasks': ['super_admin', 'admin', 'crm'],
   '/support/my-tasks': ['super_admin', 'admin', 'support'],
   '/support/tasks': ['super_admin', 'admin'],
+  '/problems': ['super_admin', 'admin', 'reviewer', 'collector'],
 }
 
 function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
@@ -387,6 +405,9 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
     }
     if (item.to === '/support/tasks') {
       return userHasPermission(user, 'support.view_all_tasks') || userHasPermission(user, 'support.assign_tasks')
+    }
+    if (item.to === '/problems') {
+      return userHasPermission(user, 'contract_cases.manage')
     }
     if (item.to === '/inventory/movements') {
       return userHasPermission(user, 'device_movements.manage') || userHasPermission(user, 'inventory.manage')
