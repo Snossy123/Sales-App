@@ -423,6 +423,7 @@ export interface GpsProduct {
   external_installment_permanent_price?: number
   device_debt_price?: number
   monthly_interest_amount?: number
+  min_stock_level?: number
   cost_price?: number | null
 }
 

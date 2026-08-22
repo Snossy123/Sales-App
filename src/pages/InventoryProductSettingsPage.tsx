@@ -27,6 +27,7 @@ const emptyForm = {
   external_installment_annual_price: '',
   external_installment_permanent_price: '',
   monthly_interest_amount: '',
+  min_stock_level: '',
 }
 
 function serviceCashPrice(services: Service[], category: ServiceCategory): number {
@@ -63,6 +64,7 @@ function toForm(product: GpsProduct): GpsProductForm {
       product.external_installment_permanent_price ?? installmentAnnual,
     ),
     monthly_interest_amount: String(product.monthly_interest_amount ?? 0),
+    min_stock_level: String(product.min_stock_level ?? 0),
   }
 }
 
@@ -87,6 +89,7 @@ function toPayload(form: GpsProductForm) {
     external_installment_annual_price: Number(form.external_installment_annual_price),
     external_installment_permanent_price: Number(form.external_installment_permanent_price),
     monthly_interest_amount: Number(form.monthly_interest_amount || 0),
+    min_stock_level: Math.max(0, Math.floor(Number(form.min_stock_level || 0))),
   }
 }
 
@@ -266,6 +269,24 @@ export function InventoryProductSettingsPage() {
               onChange={(e) => setForm({ ...form, brand: e.target.value })}
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label htmlFor="gps-product-min-stock" className="mb-1 block text-sm font-medium text-on-surface-variant">
+              الحد الأدنى للمخزون
+            </label>
+            <NumericInput
+              id="gps-product-min-stock"
+              type="number"
+              min={0}
+              step="1"
+              value={form.min_stock_level}
+              onChange={(e) => setForm({ ...form, min_stock_level: e.target.value })}
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-on-surface-variant">
+              عند وصول المتاح لهذا الرقم أو أقل، يظهر تنبيه لموظف الفرع ليكلم الأدمن ويطلب أجهزة. صفر يعني إيقاف التنبيه.
+            </p>
           </div>
 
           <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">

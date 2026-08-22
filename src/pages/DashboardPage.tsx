@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { api } from '../api/client'
-import type { DashboardInstallmentSummary, DashboardStats, InventoryOverviewRow, PaginatedResponse, Branch } from '../api/types'
+import type { DashboardInstallmentSummary, DashboardStats, GpsProduct, InventoryOverviewRow, PaginatedResponse, Branch } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ChartCard } from '../components/ChartCard'
 import { CollapsibleSection } from '../components/CollapsibleSection'
@@ -110,6 +111,20 @@ export function DashboardPage() {
     },
   })
 
+  const gpsProductQuery = useQuery({
+    queryKey: ['gps-product'],
+    queryFn: async () => {
+      const { data } = await api.get<GpsProduct>('/gps-product')
+      return data
+    },
+    retry: (failureCount, error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return false
+      }
+      return failureCount < 2
+    },
+  })
+
   const inventoryOverviewQuery = useQuery({
     queryKey: ['inventory', 'overview', 'dashboard'],
     queryFn: async () => {
@@ -163,8 +178,11 @@ export function DashboardPage() {
   }
 
   const insights = useMemo(
-    () => (query.data ? computeDashboardInsights(query.data, showReviews) : []),
-    [query.data, showReviews],
+    () =>
+      query.data
+        ? computeDashboardInsights(query.data, showReviews, gpsProductQuery.data?.min_stock_level)
+        : [],
+    [query.data, showReviews, gpsProductQuery.data?.min_stock_level],
   )
 
   const overdueList = query.data?.overdue_installments_list ?? []

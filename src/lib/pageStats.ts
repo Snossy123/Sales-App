@@ -6,6 +6,7 @@ import type {
 } from '../api/types'
 import type { DonutSlice } from '../components/charts/DonutChartPanel'
 import type { InsightVariant } from '../components/InsightBanner'
+import { isAtOrBelowMinStock, minStockWarningMessage } from './minStock'
 
 export interface DepartmentKpis {
   activeCount: number
@@ -331,13 +332,14 @@ export function computeDashboardInstallmentDonut(stats: DashboardStats): DonutSl
 export function computeDashboardInsights(
   stats: DashboardStats,
   showReviews: boolean,
+  minStockLevel?: number | null,
 ): PageInsight[] {
   const insights: PageInsight[] = []
 
-  if (stats.available_units < 10) {
+  if (isAtOrBelowMinStock(stats.available_units, minStockLevel)) {
     insights.push({
-      message: `تنبيه مخزون: المتاح حالياً ${stats.available_units} وحدة فقط`,
-      variant: 'error',
+      message: minStockWarningMessage(stats.available_units),
+      variant: 'warning',
     })
   }
 

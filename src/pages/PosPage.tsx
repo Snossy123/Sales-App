@@ -52,6 +52,8 @@ import {
   subscriptionRenewalUnitPrice,
 } from '../lib/contractKinds'
 import { resolveGpsUnitPrice } from '../lib/gpsProductPricing'
+import { isAtOrBelowMinStock, minStockWarningMessage } from '../lib/minStock'
+import { InsightBanner } from '../components/InsightBanner'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
@@ -1036,6 +1038,17 @@ export function PosPage() {
         <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">
           تعذر تحميل التعاقد للتعديل.
         </p>
+      ) : null}
+
+      {warehouseId &&
+      !stockQuery.isLoading &&
+      isAtOrBelowMinStock(available, productQuery.data?.min_stock_level) ? (
+        <div className="mb-md">
+          <InsightBanner
+            message={minStockWarningMessage(available)}
+            variant="warning"
+          />
+        </div>
       ) : null}
       {isEditMode && editInvoiceQuery.data && !canEditContract(user, editInvoiceQuery.data) ? (
         <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">
