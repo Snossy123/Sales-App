@@ -34,6 +34,18 @@ function paginate<T>(items: T[], params: Record<string, string>) {
   }
 }
 
+function nextAccessoryCode(state: DemoState): string {
+  let max = 0
+  let width = 2
+  for (const item of state.accessories) {
+    const code = String(item.model_code ?? '')
+    if (!/^\d+$/.test(code)) continue
+    max = Math.max(max, Number(code))
+    width = Math.max(width, code.length)
+  }
+  return String(max + 1).padStart(width, '0')
+}
+
 function nextId(items: { id: number }[]): number {
   return items.reduce((max, item) => Math.max(max, item.id), 0) + 1
 }
@@ -165,7 +177,7 @@ export function tryHandleAccessoryRequest(
       name: String(body.name_ar ?? body.name ?? ''),
       name_ar: String(body.name_ar ?? ''),
       brand: (body.brand as string) ?? null,
-      model_code: (body.model_code as string) ?? null,
+      model_code: String(body.model_code ?? '').trim() || nextAccessoryCode(state),
       kind: 'accessory',
       sell_price: Number(body.sell_price ?? 0),
       cost_price: body.cost_price == null ? null : Number(body.cost_price),

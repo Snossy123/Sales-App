@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { PaginatedResponse, ProductModel } from '../api/types'
@@ -14,10 +14,21 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 const emptyForm = {
   name_ar: '',
-  model_code: '',
   brand: '',
   sell_price: '',
   is_active: true,
+}
+
+function nextAccessoryCode(items: ProductModel[]): string {
+  let max = 0
+  let width = 2
+  for (const item of items) {
+    const code = String(item.model_code ?? '')
+    if (!/^\d+$/.test(code)) continue
+    max = Math.max(max, Number(code))
+    width = Math.max(width, code.length)
+  }
+  return String(max + 1).padStart(width, '0')
 }
 
 export function AccessoriesCatalogPage() {
@@ -26,6 +37,7 @@ export function AccessoriesCatalogPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [editingCode, setEditingCode] = useState('')
 
   const listQuery = useQuery({
     queryKey: ['accessories'],
@@ -41,7 +53,6 @@ export function AccessoriesCatalogPage() {
     mutationFn: async () => {
       const payload = {
         name_ar: form.name_ar.trim(),
-        model_code: form.model_code.trim() || null,
         brand: form.brand.trim() || null,
         sell_price: Number(form.sell_price),
         is_active: form.is_active,
@@ -57,6 +68,7 @@ export function AccessoriesCatalogPage() {
       queryClient.invalidateQueries({ queryKey: ['accessories'] })
       setForm(emptyForm)
       setEditingId(null)
+      setEditingCode('')
       setError('')
       setSuccess(editingId ? 'تم تحديث الإكسسوار' : 'تم إضافة الإكسسوار')
     },
@@ -71,6 +83,7 @@ export function AccessoriesCatalogPage() {
       queryClient.invalidateQueries({ queryKey: ['accessories'] })
       if (editingId === id) {
         setEditingId(null)
+        setEditingCode('')
         setForm(emptyForm)
       }
       setError('')
@@ -92,11 +105,16 @@ export function AccessoriesCatalogPage() {
     saveMutation.mutate()
   }
 
+  const previewCode = useMemo(
+    () => (editingId ? editingCode : nextAccessoryCode(listQuery.data ?? [])),
+    [editingCode, editingId, listQuery.data],
+  )
+
   const startEdit = (item: ProductModel) => {
     setEditingId(item.id)
+    setEditingCode(item.model_code ?? '')
     setForm({
       name_ar: item.name_ar || item.name,
-      model_code: item.model_code ?? '',
       brand: item.brand ?? '',
       sell_price: String(item.sell_price ?? ''),
       is_active: item.is_active !== false,
@@ -135,9 +153,10 @@ export function AccessoriesCatalogPage() {
         <label className="text-sm">
           الكود
           <input
-            className={inputClass}
-            value={form.model_code}
-            onChange={(e) => setForm((f) => ({ ...f, model_code: e.target.value }))}
+            className={`${inputClass} bg-surface-container`}
+            value={previewCode}
+            readOnly
+            tabIndex={-1}
           />
         </label>
         <label className="text-sm">
@@ -184,6 +203,7 @@ export function AccessoriesCatalogPage() {
                 className="rounded-lg border border-outline-variant px-md py-2 text-sm"
                 onClick={() => {
                   setEditingId(null)
+                  setEditingCode('')
                   setForm(emptyForm)
                 }}
               >

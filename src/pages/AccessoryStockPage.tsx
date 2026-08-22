@@ -8,9 +8,9 @@ import type {
   Department,
   PaginatedResponse,
   ProductModel,
+  Warehouse,
 } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
-import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
@@ -21,6 +21,16 @@ const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 t
 
 type Tab = 'add' | 'distribute' | 'return'
 type TargetKind = 'accessory' | 'package'
+
+function warehouseLabel(warehouse?: Warehouse | null, warehouseId?: number): string {
+  const name = warehouse?.name_ar || warehouse?.name || warehouseId
+  const kind = warehouse?.is_central ? 'إدارة' : 'فرع'
+  return `${name} (${kind})`
+}
+
+function stockQty(row: AccessoryWarehouseStock): number {
+  return row.available ?? Math.max(0, Number(row.quantity ?? 0) - Number(row.reserved ?? 0))
+}
 
 export function AccessoryStockPage() {
   const queryClient = useQueryClient()
@@ -87,6 +97,45 @@ export function AccessoryStockPage() {
     () => (packagesQuery.data ?? []).find((pkg) => pkg.id === packageId),
     [packageId, packagesQuery.data],
   )
+
+  const stockMatrix = useMemo(() => {
+    const stocks = stocksQuery.data ?? []
+    const catalog = accessoriesQuery.data ?? []
+    const extraFromStocks: ProductModel[] = []
+    const seenIds = new Set(catalog.map((item) => item.id))
+    for (const row of stocks) {
+      const product = row.product_model
+      if (!product || seenIds.has(product.id)) continue
+      seenIds.add(product.id)
+      extraFromStocks.push(product)
+    }
+    const accessories = [...catalog, ...extraFromStocks]
+
+    const warehouses: Warehouse[] = []
+    const warehouseSeen = new Set<number>()
+    for (const row of stocks) {
+      if (warehouseSeen.has(row.warehouse_id)) continue
+      warehouseSeen.add(row.warehouse_id)
+      warehouses.push(
+        row.warehouse ?? {
+          id: row.warehouse_id,
+          name: String(row.warehouse_id),
+          code: '',
+        },
+      )
+    }
+    warehouses.sort((a, b) => {
+      if (Boolean(a.is_central) !== Boolean(b.is_central)) return a.is_central ? -1 : 1
+      return (a.name_ar || a.name || '').localeCompare(b.name_ar || b.name || '', 'ar')
+    })
+
+    const qtyByKey = new Map<string, number>()
+    for (const row of stocks) {
+      qtyByKey.set(`${row.warehouse_id}:${row.product_model_id}`, stockQty(row))
+    }
+
+    return { accessories, warehouses, qtyByKey }
+  }, [accessoriesQuery.data, stocksQuery.data])
 
   const packagePreview = useMemo(() => {
     if (!selectedPackage) return []
@@ -321,39 +370,49 @@ export function AccessoryStockPage() {
 
       <h2 className="mb-sm text-base font-medium">أرصدة المخازن</h2>
       <AsyncState
-        isLoading={stocksQuery.isLoading}
-        isError={stocksQuery.isError}
-        error={stocksQuery.error}
+        isLoading={stocksQuery.isLoading || accessoriesQuery.isLoading}
+        isError={stocksQuery.isError || accessoriesQuery.isError}
+        error={stocksQuery.error ?? accessoriesQuery.error}
       >
-        <DataTable
-          columns={[
-            {
-              key: 'product',
-              header: 'الإكسسوار',
-              render: (row: AccessoryWarehouseStock) =>
-                row.product_model?.name_ar || row.product_model?.name || row.product_model_id,
-            },
-            {
-              key: 'warehouse',
-              header: 'المخزن',
-              render: (row: AccessoryWarehouseStock) => {
-                const name = row.warehouse?.name_ar || row.warehouse?.name || row.warehouse_id
-                const kind = row.warehouse?.is_central ? 'إدارة' : 'فرع'
-                return `${name} (${kind})`
-              },
-            },
-            { key: 'qty', header: 'الكمية', render: (row: AccessoryWarehouseStock) => row.quantity },
-            {
-              key: 'available',
-              header: 'المتاح',
-              render: (row: AccessoryWarehouseStock) =>
-                row.available ?? Math.max(0, row.quantity - row.reserved),
-            },
-          ]}
-          data={stocksQuery.data ?? []}
-          keyExtractor={(row) => row.id}
-          emptyMessage="لا توجد أرصدة بعد"
-        />
+        {stockMatrix.accessories.length === 0 || stockMatrix.warehouses.length === 0 ? (
+          <p className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-sm text-on-surface-variant">
+            لا توجد أرصدة بعد
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-outline-variant bg-surface-container">
+                  <th className="sticky start-0 z-10 bg-surface-container px-sm py-2 text-start font-medium">
+                    المخزن
+                  </th>
+                  {stockMatrix.accessories.map((item) => (
+                    <th
+                      key={item.id}
+                      className="whitespace-nowrap px-sm py-2 text-center font-medium"
+                    >
+                      {item.name_ar || item.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stockMatrix.warehouses.map((warehouse) => (
+                  <tr key={warehouse.id} className="border-b border-outline-variant last:border-b-0">
+                    <td className="sticky start-0 z-10 whitespace-nowrap bg-surface-container-lowest px-sm py-2 font-medium">
+                      {warehouseLabel(warehouse, warehouse.id)}
+                    </td>
+                    {stockMatrix.accessories.map((item) => (
+                      <td key={item.id} className="px-sm py-2 text-center tabular-nums">
+                        {stockMatrix.qtyByKey.get(`${warehouse.id}:${item.id}`) ?? 0}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </AsyncState>
     </div>
   )
