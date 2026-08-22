@@ -13,6 +13,7 @@ import type {
   SalesInvoice,
   Warehouse,
 } from '../api/types'
+import { CustomerCreateModal } from '../components/customers/CustomerCreateModal'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
@@ -97,6 +98,7 @@ export function AccessoriesSalesPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
 
   const accessoriesDraftSnapshot = useMemo<AccessoriesDraft>(
     () => ({
@@ -388,15 +390,24 @@ export function AccessoriesSalesPage() {
         <div className="space-y-md">
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
             <h2 className="mb-sm font-medium">العميل والفرع</h2>
-            <label className="mb-sm block text-sm">
-              بحث عميل
+            <div className="mb-sm">
+              <div className="mb-xs flex items-center justify-between gap-sm">
+                <span className="text-sm">بحث عميل</span>
+                <button
+                  type="button"
+                  onClick={() => setAddCustomerOpen(true)}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  إضافة عميل
+                </button>
+              </div>
               <input
                 className={inputClass}
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
                 placeholder="اسم أو هاتف"
               />
-            </label>
+            </div>
             {(customersQuery.data ?? []).length > 0 && (
               <ul className="mb-sm max-h-40 overflow-auto rounded-lg border border-outline-variant">
                 {(customersQuery.data ?? []).map((customer) => (
@@ -581,6 +592,15 @@ export function AccessoriesSalesPage() {
           </button>
         </aside>
       </form>
+      <CustomerCreateModal
+        open={addCustomerOpen}
+        onClose={() => setAddCustomerOpen(false)}
+        onCreated={(customer) => {
+          setSelectedCustomer(customer)
+          setCustomerSearch(customer.name)
+          if (customer.branch_id) setBranchId(customer.branch_id)
+        }}
+      />
     </div>
   )
 }

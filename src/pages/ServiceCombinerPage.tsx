@@ -28,6 +28,7 @@ import {
 } from '../lib/serviceCombiner'
 import { Icon } from '../components/Icon'
 import { MyContractsButton } from '../components/contracts/MyContractsButton'
+import { CustomerCreateModal } from '../components/customers/CustomerCreateModal'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -219,6 +220,7 @@ export function ServiceCombinerPage() {
     () => serviceDraft?.feeTechnician ?? null,
   )
   const [technicianSearch, setTechnicianSearch] = useState(() => serviceDraft?.technicianSearch ?? '')
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
 
   const serviceDraftSnapshot = useMemo<ServiceContractDraft>(
     () => ({
@@ -1078,6 +1080,7 @@ export function ServiceCombinerPage() {
               salesRepsLoading={salesRepsQuery.isLoading}
               selectedCustomer={selectedCustomer}
               onCustomerChange={handleCustomerChange}
+              onAddCustomer={() => setAddCustomerOpen(true)}
               onCustomerSearchChange={setCustomerSearch}
               customers={customersQuery.data ?? []}
               customersLoading={customersQuery.isLoading}
@@ -1437,6 +1440,14 @@ export function ServiceCombinerPage() {
         open={uninstallInvoice !== null}
         invoice={uninstallInvoice}
         onClose={() => setUninstallInvoice(null)}
+      />
+      <CustomerCreateModal
+        open={addCustomerOpen}
+        onClose={() => setAddCustomerOpen(false)}
+        onCreated={(customer) => {
+          setCustomerSearch(customer.name)
+          handleCustomerChange(customer)
+        }}
       />
     </SalesPageShell>
   )

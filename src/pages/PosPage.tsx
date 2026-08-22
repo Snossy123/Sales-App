@@ -51,6 +51,7 @@ import {
 } from '../components/pos/PosContractHeader'
 import { PosContractSummary } from '../components/pos/PosContractSummary'
 import { PosMobileCheckoutBar } from '../components/pos/PosMobileCheckoutBar'
+import { CustomerCreateModal } from '../components/customers/CustomerCreateModal'
 import { PosContractKindSelector } from '../components/pos/PosContractKindSelector'
 import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import {
@@ -162,6 +163,7 @@ export function PosPage() {
     () => deviceDraft?.distributorBalanceAmount ?? 0,
   )
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
   const hasAutoSelectedPromotion = useRef(false)
   const hydratedRenewalLineRef = useRef<number | null>(null)
   const skipDefaultFeeOnce = useRef(Boolean(deviceDraft))
@@ -1274,6 +1276,7 @@ export function PosPage() {
                 salesRepsLoading={salesRepsQuery.isLoading}
                 selectedCustomer={selectedCustomer}
                 onCustomerChange={handleCustomerChange}
+                onAddCustomer={isEditMode ? undefined : () => setAddCustomerOpen(true)}
                 onCustomerSearchChange={setCustomerSearch}
                 customers={customersQuery.data ?? []}
                 customersLoading={customersQuery.isLoading}
@@ -1435,6 +1438,14 @@ export function PosPage() {
           actionLabel={isEditMode ? 'حفظ التعديل' : 'إتمام التعاقد'}
         />
       </form>
+      <CustomerCreateModal
+        open={addCustomerOpen}
+        onClose={() => setAddCustomerOpen(false)}
+        onCreated={(customer) => {
+          setCustomerSearch(customer.name)
+          handleCustomerChange(customer)
+        }}
+      />
     </SalesPageShell>
   )
 }

@@ -38,6 +38,7 @@ export interface ServiceContractHeaderProps {
   contractDate: string
   onContractDateChange: (date: string) => void
   plain?: boolean
+  onAddCustomer?: () => void
 }
 
 export function ServiceContractHeader({
@@ -66,6 +67,7 @@ export function ServiceContractHeader({
   contractDate,
   onContractDateChange,
   plain = false,
+  onAddCustomer,
 }: ServiceContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
   const sourceToggleOptions = customerLinkedToSalesRep
@@ -105,6 +107,15 @@ export function ServiceContractHeader({
               loading={customersLoading}
               emptyMessage="لا يوجد عميل مطابق"
             />
+            {onAddCustomer ? (
+              <button
+                type="button"
+                onClick={onAddCustomer}
+                className="mt-xs text-xs font-bold text-primary hover:underline"
+              >
+                إضافة عميل
+              </button>
+            ) : null}
             {selectedCustomer?.sales_user && (
               <p className="mt-xs text-[13px] leading-snug text-secondary">
                 تابع لموظف مبيعات: {selectedCustomer.sales_user.name}

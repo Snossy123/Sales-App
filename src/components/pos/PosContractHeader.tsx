@@ -36,6 +36,7 @@ export interface PosContractHeaderProps {
   sectionNumber?: number
   submitAttempted?: boolean
   customerLocked?: boolean
+  onAddCustomer?: () => void
 }
 
 export function PosContractHeader({
@@ -67,6 +68,7 @@ export function PosContractHeader({
   sectionNumber = 1,
   submitAttempted = false,
   customerLocked = false,
+  onAddCustomer,
 }: PosContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
   const customerLinkedToDistributor = Boolean(
@@ -123,6 +125,15 @@ export function PosContractHeader({
               emptyMessage="لا يوجد عميل مطابق"
               hasError={customerError}
             />
+            {onAddCustomer ? (
+              <button
+                type="button"
+                onClick={onAddCustomer}
+                className="mt-xs text-xs font-bold text-primary hover:underline"
+              >
+                إضافة عميل
+              </button>
+            ) : null}
             {customerError && (
               <p className="mt-xs text-xs text-error">
                 {customerLabel === 'العميل' ? 'يجب اختيار العميل' : `يجب اختيار ${customerLabel}`}
