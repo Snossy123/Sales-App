@@ -157,7 +157,7 @@ export function readAccessoriesDraft(userId: number | null): AccessoriesDraft | 
 
 export const useSalesDraftStore = create<SalesDraftState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       userId: null,
       deviceContract: null,
       serviceContract: null,
