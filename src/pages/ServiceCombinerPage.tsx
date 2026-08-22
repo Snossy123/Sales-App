@@ -853,7 +853,7 @@ export function ServiceCombinerPage() {
       }
       setNotes('')
       setSelectedChips(new Set())
-      setSourceRenewalCandidate(null)
+      resetContractDevice()
       setRenewalLine(null)
       setExternalLine(null)
       setFeeLines({})
