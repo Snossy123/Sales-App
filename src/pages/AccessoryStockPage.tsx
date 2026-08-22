@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
+  AccessoryPackage,
   AccessoryWarehouseStock,
   Branch,
   Department,
@@ -17,13 +18,16 @@ import { ToastBanner } from '../components/ToastBanner'
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 type Tab = 'add' | 'distribute' | 'return'
+type TargetKind = 'accessory' | 'package'
 
 export function AccessoryStockPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('add')
+  const [targetKind, setTargetKind] = useState<TargetKind>('accessory')
   const [departmentId, setDepartmentId] = useState<number | ''>('')
   const [branchId, setBranchId] = useState<number | ''>('')
   const [productModelId, setProductModelId] = useState<number | ''>('')
+  const [packageId, setPackageId] = useState<number | ''>('')
   const [quantity, setQuantity] = useState('1')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -67,12 +71,39 @@ export function AccessoryStockPage() {
     },
   })
 
+  const packagesQuery = useQuery({
+    queryKey: ['accessory-packages', 'stock-page'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<AccessoryPackage>>('/accessory-packages', {
+        params: { per_page: 100, include: 'items.productModel', 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
+
+  const selectedPackage = useMemo(
+    () => (packagesQuery.data ?? []).find((pkg) => pkg.id === packageId),
+    [packageId, packagesQuery.data],
+  )
+
+  const packagePreview = useMemo(() => {
+    if (!selectedPackage) return []
+    const multiplier = Math.max(1, Number(quantity) || 1)
+    return (selectedPackage.items ?? []).map((item) => ({
+      key: item.product_model_id,
+      name: item.product_model?.name_ar || item.product_model?.name || item.product_model_id,
+      quantity: item.quantity * multiplier,
+    }))
+  }, [quantity, selectedPackage])
+
   const mutation = useMutation({
     mutationFn: async () => {
       const payload = {
         department_id: Number(departmentId),
-        product_model_id: Number(productModelId),
         quantity: Math.max(1, Number(quantity) || 1),
+        ...(targetKind === 'package'
+          ? { accessory_package_id: Number(packageId) }
+          : { product_model_id: Number(productModelId) }),
         ...(tab !== 'add' ? { branch_id: Number(branchId) } : {}),
       }
       const path =
@@ -97,8 +128,16 @@ export function AccessoryStockPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (departmentId === '' || productModelId === '') {
+    if (departmentId === '') {
+      setError('اختر الإدارة')
+      return
+    }
+    if (targetKind === 'accessory' && productModelId === '') {
       setError('اختر الإدارة والإكسسوار')
+      return
+    }
+    if (targetKind === 'package' && packageId === '') {
+      setError('اختر الإدارة والباكدج')
       return
     }
     if (tab !== 'add' && branchId === '') {
@@ -189,21 +228,56 @@ export function AccessoryStockPage() {
         )}
 
         <label className="text-sm">
-          الإكسسوار
+          النوع
           <select
             className={inputClass}
-            value={productModelId}
-            onChange={(e) => setProductModelId(e.target.value ? Number(e.target.value) : '')}
-            required
+            value={targetKind}
+            onChange={(e) => {
+              setTargetKind(e.target.value as TargetKind)
+              setProductModelId('')
+              setPackageId('')
+            }}
           >
-            <option value="">اختر</option>
-            {(accessoriesQuery.data ?? []).map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name_ar || acc.name}
-              </option>
-            ))}
+            <option value="accessory">إكسسوار</option>
+            <option value="package">باكدج</option>
           </select>
         </label>
+
+        {targetKind === 'accessory' ? (
+          <label className="text-sm">
+            الإكسسوار
+            <select
+              className={inputClass}
+              value={productModelId}
+              onChange={(e) => setProductModelId(e.target.value ? Number(e.target.value) : '')}
+              required
+            >
+              <option value="">اختر</option>
+              {(accessoriesQuery.data ?? []).map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name_ar || acc.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="text-sm">
+            الباكدج
+            <select
+              className={inputClass}
+              value={packageId}
+              onChange={(e) => setPackageId(e.target.value ? Number(e.target.value) : '')}
+              required
+            >
+              <option value="">اختر</option>
+              {(packagesQuery.data ?? []).map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>
+                  {pkg.name_ar || pkg.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className="text-sm">
           الكمية
@@ -216,6 +290,19 @@ export function AccessoryStockPage() {
             required
           />
         </label>
+
+        {targetKind === 'package' && packagePreview.length > 0 && (
+          <div className="md:col-span-2 rounded-lg border border-outline-variant bg-surface-container px-sm py-2 text-sm">
+            <p className="mb-1 font-medium">القطع التي ستتحرك</p>
+            <ul className="list-disc pe-5">
+              {packagePreview.map((item) => (
+                <li key={item.key}>
+                  {item.name} × {item.quantity}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="md:col-span-2">
           <button

@@ -4522,7 +4522,7 @@ export function handleMockRequest(
   if (m === 'GET' && path === 'admin/permissions') {
     const allKeys = [
       'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
-      'device_movements.manage', 'stock.transfer',
+      'device_movements.manage', 'device_movements.transfer_quantity', 'stock.transfer',
       'customers.manage', 'sales.pos', 'sales.invoices.view', 'sales.invoices.edit_before_review', 'sales.daily_mission',
       'review.view_queue', 'review.view_contracts', 'review.view_detail',
       'review.edit_after_review', 'review.approve', 'review.reject', 'review.print',
@@ -4697,7 +4697,9 @@ export function handleMockRequest(
       from_warehouse_id: number
       to_warehouse_id: number
       recipient_user_id: number
-      product_unit_ids: number[]
+      product_unit_ids?: number[]
+      product_model_id?: number
+      quantity?: number
       notes?: string
     }
     const sender = state.users.find((u) => u.id === ctx.user?.id)
@@ -4713,7 +4715,7 @@ export function handleMockRequest(
       sender_user_id: ctx.user?.id ?? 1,
       recipient_user_id: body.recipient_user_id,
       notes: body.notes ?? null,
-      lines_count: body.product_unit_ids?.length ?? 0,
+      lines_count: body.product_unit_ids?.length ?? body.quantity ?? 0,
       sender: sender ? { id: sender.id, name: sender.name } : undefined,
       recipient: recipient ? { id: recipient.id, name: recipient.name } : undefined,
       from_warehouse: fromWarehouse,

@@ -42,6 +42,37 @@ function availableQty(stock: AccessoryWarehouseStock): number {
   return Math.max(0, Number(stock.quantity) - Number(stock.reserved ?? 0))
 }
 
+function resolveStockRequirements(
+  state: DemoState,
+  body: Record<string, unknown>,
+): { productModelId: number | null; packageId: number | null; requirements: Map<number, number> } {
+  const quantity = Math.max(1, Number(body.quantity) || 1)
+  const hasProduct = body.product_model_id != null && body.product_model_id !== ''
+  const hasPackage = body.accessory_package_id != null && body.accessory_package_id !== ''
+  if (hasProduct === hasPackage) {
+    throw mockError(422, 'اختر إكسسوار أو باكدج، وليس الاثنين معاً.')
+  }
+
+  if (hasPackage) {
+    const packageId = Number(body.accessory_package_id)
+    const pkg = state.accessoryPackages.find((item) => item.id === packageId)
+    if (!pkg || !pkg.is_active) throw mockError(422, 'الباكدج غير نشط.')
+    if (!(pkg.items ?? []).length) throw mockError(422, 'يجب إضافة مكون واحد على الأقل للباكدج.')
+    const requirements = new Map<number, number>()
+    for (const item of pkg.items ?? []) {
+      const need = item.quantity * quantity
+      requirements.set(item.product_model_id, (requirements.get(item.product_model_id) ?? 0) + need)
+    }
+    return { productModelId: null, packageId, requirements }
+  }
+
+  const productModelId = Number(body.product_model_id)
+  if (!state.accessories.some((acc) => acc.id === productModelId)) {
+    throw mockError(422, 'يجب أن يكون المنتج من نوع إكسسوار.')
+  }
+  return { productModelId, packageId: null, requirements: new Map([[productModelId, quantity]]) }
+}
+
 function ensureStock(
   state: DemoState,
   warehouseId: number,
@@ -264,31 +295,38 @@ export function tryHandleAccessoryRequest(
 
   if (m === 'POST' && path === 'accessory-stock/add') {
     const body = data ?? {}
-    const productModelId = Number(body.product_model_id)
-    const quantity = Math.max(1, Number(body.quantity) || 1)
     const departmentId = Number(body.department_id)
     const hub = state.warehouses.find(
       (wh) => wh.administration_id === departmentId || wh.is_central,
     ) ?? state.warehouses[0]
     if (!hub) throw mockError(422, 'لا يوجد مخزن')
-    if (!state.accessories.some((acc) => acc.id === productModelId)) {
-      throw mockError(422, 'يجب أن يكون المنتج من نوع إكسسوار.')
-    }
+    const { productModelId, packageId, requirements } = resolveStockRequirements(state, body)
     mutateState((draft) => {
-      const stock = ensureStock(draft, hub.id, productModelId)
-      stock.quantity += quantity
+      for (const [modelId, qty] of requirements) {
+        const stock = ensureStock(draft, hub.id, modelId)
+        stock.quantity += qty
+      }
     })
-    const stock = withRelations(
-      loadState(),
-      ensureStock(loadState(), hub.id, productModelId),
+    const fresh = loadState()
+    const stocks = [...requirements.keys()].map((modelId) =>
+      withRelations(fresh, ensureStock(fresh, hub.id, modelId)),
     )
-    return { warehouse: hub, stock }
+    const pkg = packageId
+      ? fresh.accessoryPackages.find((item) => item.id === packageId) ?? null
+      : null
+    return {
+      warehouse: hub,
+      package: pkg,
+      product: productModelId
+        ? fresh.accessories.find((item) => item.id === productModelId) ?? null
+        : null,
+      stocks,
+      stock: productModelId && stocks.length === 1 ? stocks[0] : null,
+    }
   }
 
   if (m === 'POST' && (path === 'accessory-stock/distribute' || path === 'accessory-stock/return')) {
     const body = data ?? {}
-    const productModelId = Number(body.product_model_id)
-    const quantity = Math.max(1, Number(body.quantity) || 1)
     const departmentId = Number(body.department_id)
     const branchId = Number(body.branch_id)
     const hub =
@@ -301,23 +339,41 @@ export function tryHandleAccessoryRequest(
 
     const fromId = path.endsWith('distribute') ? hub.id : branchWh.id
     const toId = path.endsWith('distribute') ? branchWh.id : hub.id
+    const { productModelId, packageId, requirements } = resolveStockRequirements(state, body)
 
-    const fromBefore = ensureStock(state, fromId, productModelId)
-    if (availableQty(fromBefore) < quantity) {
-      throw mockError(422, 'رصيد الإكسسوار غير كافٍ.')
+    for (const [modelId, qty] of requirements) {
+      const fromBefore = ensureStock(state, fromId, modelId)
+      if (availableQty(fromBefore) < qty) {
+        throw mockError(422, 'رصيد الإكسسوار غير كافٍ.')
+      }
     }
 
     mutateState((draft) => {
-      const from = ensureStock(draft, fromId, productModelId)
-      from.quantity -= quantity
-      const to = ensureStock(draft, toId, productModelId)
-      to.quantity += quantity
+      for (const [modelId, qty] of requirements) {
+        const from = ensureStock(draft, fromId, modelId)
+        from.quantity -= qty
+        const to = ensureStock(draft, toId, modelId)
+        to.quantity += qty
+      }
     })
 
     const fresh = loadState()
+    const movements = [...requirements.keys()].map((modelId) => ({
+      from_stock: withRelations(fresh, ensureStock(fresh, fromId, modelId)),
+      to_stock: withRelations(fresh, ensureStock(fresh, toId, modelId)),
+    }))
+    const pkg = packageId
+      ? fresh.accessoryPackages.find((item) => item.id === packageId) ?? null
+      : null
     return {
-      from_stock: withRelations(fresh, ensureStock(fresh, fromId, productModelId)),
-      to_stock: withRelations(fresh, ensureStock(fresh, toId, productModelId)),
+      package: pkg,
+      product: productModelId
+        ? fresh.accessories.find((item) => item.id === productModelId) ?? null
+        : null,
+      movements,
+      ...(productModelId && movements.length === 1
+        ? { from_stock: movements[0].from_stock, to_stock: movements[0].to_stock }
+        : {}),
     }
   }
 

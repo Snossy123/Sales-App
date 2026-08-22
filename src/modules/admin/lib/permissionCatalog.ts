@@ -147,6 +147,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'warehouses.manage', module: 'warehouses', category: 'other', label: 'إدارة المخازن', description: 'إنشاء وتعديل مخازن الفروع' },
   { key: 'inventory.manage', module: 'inventory', category: 'other', label: 'إدارة المخزون', description: 'عرض وإدارة مخزون أجهزة GPS' },
   { key: 'device_movements.manage', module: 'inventory', category: 'other', label: 'حركات الأجهزة', description: 'إرسال واستلام وتأكيد حركات الأجهزة بين المخازن' },
+  { key: 'device_movements.transfer_quantity', module: 'inventory', category: 'other', label: 'نقل كمية من مخزون الفرع', description: 'إنشاء حركة بعدد أجهزة من المخزون دون تحديد السيريال' },
   { key: 'stock.transfer', module: 'stock', category: 'other', label: 'تحويل المخزون', description: 'إنشاء واعتماد تحويلات المخزون بين الفروع' },
   { key: 'customers.manage', module: 'customers', category: 'other', label: 'إدارة العملاء', description: 'إنشاء وتعديل بيانات العملاء والضامنين' },
   { key: 'sales.pos', module: 'sales', category: 'other', label: 'نقطة البيع والتعاقدات', description: 'تنفيذ التعاقدات، الأسعار، العروض، والإكسسوارات' },
