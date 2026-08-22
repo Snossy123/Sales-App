@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type FormEvent } from 'react'
+import { useCallback, useMemo, useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -66,9 +66,15 @@ import {
   type ServicePaymentState,
 } from '../components/services/ServicePaymentSection'
 import { posRequiredWrap, posSourceToggle } from '../components/pos/posFormStyles'
+import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import {
+  readServiceDraft,
+  useSalesDraftStore,
+  type ServiceContractDraft,
+} from '../stores/salesDraftStore'
 import { NumericInput } from '../components/ui/NumericInput'
 import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
 
@@ -149,39 +155,170 @@ export function ServiceCombinerPage() {
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
-  const [selectedChips, setSelectedChips] = useState<Set<CombinerChipId>>(new Set())
-  const [transactionSource, setTransactionSource] = useState<TransactionSource>('branch')
-  const [branchSearch, setBranchSearch] = useState('')
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
-  const [distributorSearch, setDistributorSearch] = useState('')
-  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null)
-  const [salesRepSearch, setSalesRepSearch] = useState('')
-  const [selectedSalesRep, setSelectedSalesRep] = useState<SalesRep | null>(null)
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [notes, setNotes] = useState('')
+  const draftUserId = useAuthStore((s) => s.user?.id ?? null)
+  const serviceDraft = readServiceDraft(draftUserId)
+
+  const [selectedChips, setSelectedChips] = useState<Set<CombinerChipId>>(
+    () => new Set(serviceDraft?.selectedChips ?? []),
+  )
+  const [transactionSource, setTransactionSource] = useState<TransactionSource>(
+    () => serviceDraft?.transactionSource ?? 'branch',
+  )
+  const [branchSearch, setBranchSearch] = useState(() => serviceDraft?.branchSearch ?? '')
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(
+    () => serviceDraft?.selectedBranch ?? null,
+  )
+  const [distributorSearch, setDistributorSearch] = useState(() => serviceDraft?.distributorSearch ?? '')
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(
+    () => serviceDraft?.selectedDistributor ?? null,
+  )
+  const [salesRepSearch, setSalesRepSearch] = useState(() => serviceDraft?.salesRepSearch ?? '')
+  const [selectedSalesRep, setSelectedSalesRep] = useState<SalesRep | null>(
+    () => serviceDraft?.selectedSalesRep ?? null,
+  )
+  const [customerSearch, setCustomerSearch] = useState(() => serviceDraft?.customerSearch ?? '')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    () => serviceDraft?.selectedCustomer ?? null,
+  )
+  const [contractDate, setContractDate] = useState(
+    () => serviceDraft?.contractDate ?? new Date().toISOString().split('T')[0],
+  )
+  const [notes, setNotes] = useState(() => serviceDraft?.notes ?? '')
   const [selectedCustomerDevice, setSelectedCustomerDevice] =
-    useState<CustomerContractDevice | null>(null)
-  const [manualDeviceEntry, setManualDeviceEntry] = useState(false)
-  const [contractSerial, setContractSerial] = useState('')
-  const [contractSim, setContractSim] = useState('')
-  const [contractUsername, setContractUsername] = useState('')
-  const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(null)
-  const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(null)
-  const [feeLines, setFeeLines] = useState<Record<string, ServiceLineDraft>>({})
+    useState<CustomerContractDevice | null>(() => serviceDraft?.selectedCustomerDevice ?? null)
+  const [manualDeviceEntry, setManualDeviceEntry] = useState(
+    () => serviceDraft?.manualDeviceEntry ?? false,
+  )
+  const [contractSerial, setContractSerial] = useState(() => serviceDraft?.contractSerial ?? '')
+  const [contractSim, setContractSim] = useState(() => serviceDraft?.contractSim ?? '')
+  const [contractUsername, setContractUsername] = useState(() => serviceDraft?.contractUsername ?? '')
+  const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(
+    () => serviceDraft?.renewalLine ?? null,
+  )
+  const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(
+    () => serviceDraft?.externalLine ?? null,
+  )
+  const [feeLines, setFeeLines] = useState<Record<string, ServiceLineDraft>>(
+    () => serviceDraft?.feeLines ?? {},
+  )
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [uninstallInvoice, setUninstallInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
-  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
-  const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>('contract')
-  const [contractPayment, setContractPayment] = useState<ServicePaymentState>(() =>
-    createDefaultServicePayment(0, minDownPercent),
+  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
+    () => serviceDraft?.distributorBalanceAmount ?? 0,
   )
-  const [feeTechnician, setFeeTechnician] = useState<Employee | null>(null)
-  const [technicianSearch, setTechnicianSearch] = useState('')
+  const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>(
+    () => serviceDraft?.collectionScope ?? 'contract',
+  )
+  const [contractPayment, setContractPayment] = useState<ServicePaymentState>(
+    () => serviceDraft?.contractPayment ?? createDefaultServicePayment(0, minDownPercent),
+  )
+  const [feeTechnician, setFeeTechnician] = useState<Employee | null>(
+    () => serviceDraft?.feeTechnician ?? null,
+  )
+  const [technicianSearch, setTechnicianSearch] = useState(() => serviceDraft?.technicianSearch ?? '')
+
+  const serviceDraftSnapshot = useMemo<ServiceContractDraft>(
+    () => ({
+      selectedChips: Array.from(selectedChips),
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      contractDate,
+      notes,
+      selectedCustomerDevice,
+      manualDeviceEntry,
+      contractSerial,
+      contractSim,
+      contractUsername,
+      renewalLine,
+      externalLine,
+      feeLines,
+      distributorBalanceAmount,
+      collectionScope,
+      contractPayment,
+      feeTechnician,
+      technicianSearch,
+    }),
+    [
+      selectedChips,
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      contractDate,
+      notes,
+      selectedCustomerDevice,
+      manualDeviceEntry,
+      contractSerial,
+      contractSim,
+      contractUsername,
+      renewalLine,
+      externalLine,
+      feeLines,
+      distributorBalanceAmount,
+      collectionScope,
+      contractPayment,
+      feeTechnician,
+      technicianSearch,
+    ],
+  )
+
+  const saveServiceDraft = useCallback(
+    (draft: ServiceContractDraft) => {
+      useSalesDraftStore.getState().setServiceDraft(draftUserId, draft)
+    },
+    [draftUserId],
+  )
+
+  useDebouncedDraftSync(serviceDraftSnapshot, saveServiceDraft, true)
+
+  const resetServiceForm = () => {
+    setSelectedChips(new Set())
+    setTransactionSource('branch')
+    setBranchSearch('')
+    setSelectedBranch(null)
+    setDistributorSearch('')
+    setSelectedDistributor(null)
+    setSalesRepSearch('')
+    setSelectedSalesRep(null)
+    setCustomerSearch('')
+    setSelectedCustomer(null)
+    setContractDate(new Date().toISOString().split('T')[0])
+    setNotes('')
+    setSelectedCustomerDevice(null)
+    setManualDeviceEntry(false)
+    setContractSerial('')
+    setContractSim('')
+    setContractUsername('')
+    setRenewalLine(null)
+    setExternalLine(null)
+    setFeeLines({})
+    setSubmitAttempted(false)
+    setSuccessMsg('')
+    setLastInvoice(null)
+    setUninstallInvoice(null)
+    setLastInstallmentSale(false)
+    setDistributorBalanceAmount(0)
+    setCollectionScope('contract')
+    setContractPayment(createDefaultServicePayment(0, minDownPercent))
+    setFeeTechnician(null)
+    setTechnicianSearch('')
+    useSalesDraftStore.getState().clearServiceDraft()
+  }
 
   const debouncedDistributorSearch = useDebouncedValue(distributorSearch, 300)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
@@ -874,6 +1011,21 @@ export function ServiceCombinerPage() {
       setFeeTechnician(null)
       setTechnicianSearch('')
       setSubmitAttempted(false)
+      useSalesDraftStore.getState().setServiceDraft(draftUserId, {
+        ...serviceDraftSnapshot,
+        selectedChips: [],
+        notes: '',
+        selectedCustomerDevice: null,
+        manualDeviceEntry: false,
+        contractSerial: '',
+        contractSim: '',
+        contractUsername: '',
+        renewalLine: null,
+        externalLine: null,
+        feeLines: {},
+        feeTechnician: null,
+        technicianSearch: '',
+      })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
@@ -898,7 +1050,7 @@ export function ServiceCombinerPage() {
       subtitle="خدمة واحدة أو أكتر في نفس العقد"
       actions={<MyContractsButton />}
     >
-      <PosContractTypeTabs />
+      <PosContractTypeTabs onClear={resetServiceForm} />
       <form
         onSubmit={handleSubmit}
         className="pos-form grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"

@@ -8,18 +8,14 @@ export function normalizeDigits(value: string): string {
     .replace(/[۰-۹]/g, (d) => String(PERSIAN.indexOf(d)))
 }
 
-/** Keep Latin digits and numeric punctuation only. Drops Arabic/Persian digits. */
+/** Keep Latin digits and numeric punctuation only. Converts Arabic/Persian digits first. */
 export function stripNonLatinNumber(value: string): string {
-  return value.replace(/[^\d.-]/g, '')
+  return normalizeDigits(value).replace(/[^\d.-]/g, '')
 }
 
-/** Phone/ID style: Latin digits and common separators only. */
+/** Phone/ID style: Latin digits and common separators only. Converts Arabic/Persian digits first. */
 export function stripNonLatinPhone(value: string): string {
-  return value.replace(/[^\d+\s-]/g, '')
-}
-
-function isArabicIndicOrPersianDigit(code: number): boolean {
-  return (code >= 0x0660 && code <= 0x0669) || (code >= 0x06f0 && code <= 0x06f9)
+  return normalizeDigits(value).replace(/[^\d+\s-]/g, '')
 }
 
 function isArabicLetterBlock(code: number): boolean {
@@ -34,14 +30,14 @@ function isArabicLetterBlock(code: number): boolean {
 
 const EXTRA_PUNCTUATION = '.,:;!?-_()[]{}«»""\'/\\%+*#@&،؛؟'
 
-/** Arabic letters/punctuation/spaces + Latin digits. Rejects Latin letters and Arabic digits. */
+/** Arabic or English letters, punctuation, spaces, and Latin digits. Converts Arabic/Persian digits. */
 export function filterArabicText(value: string): string {
-  return [...value]
+  return [...normalizeDigits(value)]
     .filter((ch) => {
       const code = ch.codePointAt(0)
       if (code == null) return false
       if (code >= 0x30 && code <= 0x39) return true
-      if (isArabicIndicOrPersianDigit(code)) return false
+      if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) return true
       if (isArabicLetterBlock(code)) return true
       if (/\s/.test(ch)) return true
       return EXTRA_PUNCTUATION.includes(ch)

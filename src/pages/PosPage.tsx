@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
+import { useCallback, useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
@@ -29,8 +29,14 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
+import {
+  readDeviceDraft,
+  useSalesDraftStore,
+  type DeviceContractDraft,
+} from '../stores/salesDraftStore'
 import {
   createDeviceLine,
   DeviceLineCard,
@@ -94,39 +100,164 @@ export function PosPage() {
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
+  const draftUserId = user?.id ?? null
+  const deviceDraft = readDeviceDraft(draftUserId, isEditMode)
+
   const [contractKind, setContractKind] = useState<ContractKind>(() =>
     searchParams.get('contract_kind') === 'subscription_renewal'
       ? 'subscription_renewal'
-      : 'new_contract',
+      : deviceDraft?.contractKind ?? 'new_contract',
   )
-  const [sourceTransferInvoice, setSourceTransferInvoice] = useState<SalesInvoice | null>(null)
+  const [sourceTransferInvoice, setSourceTransferInvoice] = useState<SalesInvoice | null>(
+    () => deviceDraft?.sourceTransferInvoice ?? null,
+  )
   const [sourceRenewalCandidate, setSourceRenewalCandidate] =
-    useState<SubscriptionRenewalCandidate | null>(null)
-  const [transactionSource, setTransactionSource] = useState<TransactionSource>('branch')
-  const [branchSearch, setBranchSearch] = useState('')
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
-  const [distributorSearch, setDistributorSearch] = useState('')
-  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null)
-  const [salesRepSearch, setSalesRepSearch] = useState('')
-  const [selectedSalesRep, setSelectedSalesRep] = useState<SalesRep | null>(null)
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [quantity, setQuantity] = useState(1)
-  const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>([])
-  const [applyInstallationFee, setApplyInstallationFee] = useState(true)
-  const [installationFee, setInstallationFee] = useState(defaultInstallationFee)
-  const [applyTransportationFee, setApplyTransportationFee] = useState(false)
-  const [transportationFee, setTransportationFee] = useState(0)
-  const [feeDiscountAmount, setFeeDiscountAmount] = useState(0)
-  const [feeDiscountPercent, setFeeDiscountPercent] = useState(0)
-  const [contractDate, setContractDate] = useState(() => new Date().toISOString().split('T')[0])
+    useState<SubscriptionRenewalCandidate | null>(() => deviceDraft?.sourceRenewalCandidate ?? null)
+  const [transactionSource, setTransactionSource] = useState<TransactionSource>(
+    () => deviceDraft?.transactionSource ?? 'branch',
+  )
+  const [branchSearch, setBranchSearch] = useState(() => deviceDraft?.branchSearch ?? '')
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(
+    () => deviceDraft?.selectedBranch ?? null,
+  )
+  const [distributorSearch, setDistributorSearch] = useState(() => deviceDraft?.distributorSearch ?? '')
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(
+    () => deviceDraft?.selectedDistributor ?? null,
+  )
+  const [salesRepSearch, setSalesRepSearch] = useState(() => deviceDraft?.salesRepSearch ?? '')
+  const [selectedSalesRep, setSelectedSalesRep] = useState<SalesRep | null>(
+    () => deviceDraft?.selectedSalesRep ?? null,
+  )
+  const [customerSearch, setCustomerSearch] = useState(() => deviceDraft?.customerSearch ?? '')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    () => deviceDraft?.selectedCustomer ?? null,
+  )
+  const [quantity, setQuantity] = useState(() => deviceDraft?.quantity ?? 1)
+  const [deviceLines, setDeviceLines] = useState<DeviceLineDraft[]>(
+    () => deviceDraft?.deviceLines ?? [],
+  )
+  const [applyInstallationFee, setApplyInstallationFee] = useState(
+    () => deviceDraft?.applyInstallationFee ?? true,
+  )
+  const [installationFee, setInstallationFee] = useState(
+    () => deviceDraft?.installationFee ?? defaultInstallationFee,
+  )
+  const [applyTransportationFee, setApplyTransportationFee] = useState(
+    () => deviceDraft?.applyTransportationFee ?? false,
+  )
+  const [transportationFee, setTransportationFee] = useState(() => deviceDraft?.transportationFee ?? 0)
+  const [feeDiscountAmount, setFeeDiscountAmount] = useState(() => deviceDraft?.feeDiscountAmount ?? 0)
+  const [feeDiscountPercent, setFeeDiscountPercent] = useState(
+    () => deviceDraft?.feeDiscountPercent ?? 0,
+  )
+  const [contractDate, setContractDate] = useState(
+    () => deviceDraft?.contractDate ?? new Date().toISOString().split('T')[0],
+  )
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
-  const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>('')
-  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(0)
+  const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>(
+    () => deviceDraft?.selectedPromotionId ?? '',
+  )
+  const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
+    () => deviceDraft?.distributorBalanceAmount ?? 0,
+  )
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const hasAutoSelectedPromotion = useRef(false)
   const hydratedRenewalLineRef = useRef<number | null>(null)
+  const skipDefaultFeeOnce = useRef(Boolean(deviceDraft))
+
+  const deviceDraftSnapshot = useMemo<DeviceContractDraft>(
+    () => ({
+      contractKind,
+      sourceTransferInvoice,
+      sourceRenewalCandidate,
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      quantity,
+      deviceLines,
+      applyInstallationFee,
+      installationFee,
+      applyTransportationFee,
+      transportationFee,
+      feeDiscountAmount,
+      feeDiscountPercent,
+      contractDate,
+      selectedPromotionId,
+      distributorBalanceAmount,
+    }),
+    [
+      contractKind,
+      sourceTransferInvoice,
+      sourceRenewalCandidate,
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      quantity,
+      deviceLines,
+      applyInstallationFee,
+      installationFee,
+      applyTransportationFee,
+      transportationFee,
+      feeDiscountAmount,
+      feeDiscountPercent,
+      contractDate,
+      selectedPromotionId,
+      distributorBalanceAmount,
+    ],
+  )
+
+  const saveDeviceDraft = useCallback(
+    (draft: DeviceContractDraft) => {
+      useSalesDraftStore.getState().setDeviceDraft(draftUserId, draft)
+    },
+    [draftUserId],
+  )
+
+  useDebouncedDraftSync(deviceDraftSnapshot, saveDeviceDraft, !isEditMode)
+
+  const resetDeviceForm = () => {
+    setContractKind('new_contract')
+    setSourceTransferInvoice(null)
+    setSourceRenewalCandidate(null)
+    setTransactionSource('branch')
+    setBranchSearch('')
+    setSelectedBranch(null)
+    setDistributorSearch('')
+    setSelectedDistributor(null)
+    setSalesRepSearch('')
+    setSelectedSalesRep(null)
+    setCustomerSearch('')
+    setSelectedCustomer(null)
+    setQuantity(1)
+    setDeviceLines([])
+    setApplyInstallationFee(true)
+    setInstallationFee(defaultInstallationFee)
+    setApplyTransportationFee(false)
+    setTransportationFee(0)
+    setFeeDiscountAmount(0)
+    setFeeDiscountPercent(0)
+    setContractDate(new Date().toISOString().split('T')[0])
+    setSelectedPromotionId('')
+    setDistributorBalanceAmount(0)
+    setSubmitAttempted(false)
+    setSuccessMsg('')
+    setLastInvoice(null)
+    hasAutoSelectedPromotion.current = false
+    useSalesDraftStore.getState().clearDeviceDraft()
+  }
 
   const editInvoiceQuery = useQuery({
     queryKey: ['sales-invoice', 'edit', editInvoiceId],
@@ -728,6 +859,10 @@ export function PosPage() {
 
   useEffect(() => {
     if (isEditMode) return
+    if (skipDefaultFeeOnce.current) {
+      skipDefaultFeeOnce.current = false
+      return
+    }
     setInstallationFee(defaultInstallationFee)
   }, [defaultInstallationFee, isEditMode])
 
@@ -760,6 +895,11 @@ export function PosPage() {
       )
       setQuantity(1)
       setSourceRenewalCandidate(null)
+      useSalesDraftStore.getState().setDeviceDraft(draftUserId, {
+        ...deviceDraftSnapshot,
+        quantity: 1,
+        sourceRenewalCandidate: null,
+      })
     },
   })
 
@@ -1055,7 +1195,7 @@ export function PosPage() {
           لا توجد صلاحية لتعديل هذا التعاقد في حالته الحالية.
         </p>
       ) : null}
-      {isEditMode ? null : <PosContractTypeTabs />}
+      {isEditMode ? null : <PosContractTypeTabs onClear={resetDeviceForm} />}
       <PosContractKindSelector
         value={contractKind}
         onChange={(kind) => {

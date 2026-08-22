@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -15,9 +15,17 @@ import type {
 } from '../api/types'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
+import { PosContractTypeTabs } from '../components/pos/PosContractTypeTabs'
 import { ToastBanner } from '../components/ToastBanner'
+import { useDebouncedDraftSync } from '../hooks/useDebouncedDraftSync'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuthStore } from '../stores/authStore'
+import {
+  readAccessoriesDraft,
+  useSalesDraftStore,
+  type AccessoriesCartLine,
+  type AccessoriesDraft,
+} from '../stores/salesDraftStore'
 import { NumericInput } from '../components/ui/NumericInput'
 
 
@@ -41,19 +49,107 @@ type CartLine =
       unit_price: number
     }
 
+function cartFromDraft(draft: AccessoriesDraft | null): CartLine[] {
+  if (!draft) return []
+  const lines: CartLine[] = []
+  for (const line of draft.cart) {
+    if (line.line_type === 'accessory' && line.product_model_id != null) {
+      lines.push({
+        key: line.key,
+        line_type: 'accessory',
+        product_model_id: line.product_model_id,
+        name: line.name,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+      })
+    } else if (line.line_type === 'package' && line.accessory_package_id != null) {
+      lines.push({
+        key: line.key,
+        line_type: 'package',
+        accessory_package_id: line.accessory_package_id,
+        name: line.name,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+      })
+    }
+  }
+  return lines
+}
+
 export function AccessoriesSalesPage() {
   const queryClient = useQueryClient()
   const contextBranchId = useAuthStore((s) => s.branchId)
+  const draftUserId = useAuthStore((s) => s.user?.id ?? null)
+  const accessoriesDraft = readAccessoriesDraft(draftUserId)
 
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [branchId, setBranchId] = useState<number | ''>(contextBranchId ?? '')
-  const [warehouseId, setWarehouseId] = useState<number | ''>('')
-  const [cart, setCart] = useState<CartLine[]>([])
-  const [notes, setNotes] = useState('')
+  const [customerSearch, setCustomerSearch] = useState(() => accessoriesDraft?.customerSearch ?? '')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    () => accessoriesDraft?.selectedCustomer ?? null,
+  )
+  const [branchId, setBranchId] = useState<number | ''>(
+    () => accessoriesDraft?.branchId ?? contextBranchId ?? '',
+  )
+  const [warehouseId, setWarehouseId] = useState<number | ''>(
+    () => accessoriesDraft?.warehouseId ?? '',
+  )
+  const [cart, setCart] = useState<CartLine[]>(() => cartFromDraft(accessoriesDraft))
+  const [notes, setNotes] = useState(() => accessoriesDraft?.notes ?? '')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
+
+  const accessoriesDraftSnapshot = useMemo<AccessoriesDraft>(
+    () => ({
+      customerSearch,
+      selectedCustomer,
+      branchId,
+      warehouseId,
+      cart: cart.map(
+        (line): AccessoriesCartLine =>
+          line.line_type === 'accessory'
+            ? {
+                key: line.key,
+                line_type: 'accessory',
+                product_model_id: line.product_model_id,
+                name: line.name,
+                quantity: line.quantity,
+                unit_price: line.unit_price,
+              }
+            : {
+                key: line.key,
+                line_type: 'package',
+                accessory_package_id: line.accessory_package_id,
+                name: line.name,
+                quantity: line.quantity,
+                unit_price: line.unit_price,
+              },
+      ),
+      notes,
+    }),
+    [customerSearch, selectedCustomer, branchId, warehouseId, cart, notes],
+  )
+
+  const saveAccessoriesDraft = useCallback(
+    (draft: AccessoriesDraft) => {
+      useSalesDraftStore.getState().setAccessoriesDraft(draftUserId, draft)
+    },
+    [draftUserId],
+  )
+
+  useDebouncedDraftSync(accessoriesDraftSnapshot, saveAccessoriesDraft, true)
+
+  const resetAccessoriesForm = () => {
+    setCustomerSearch('')
+    setSelectedCustomer(null)
+    setBranchId(contextBranchId ?? '')
+    setWarehouseId('')
+    setCart([])
+    setNotes('')
+    setError('')
+    setSuccess('')
+    setLastInvoice(null)
+    useSalesDraftStore.getState().clearAccessoriesDraft()
+  }
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
 
@@ -224,6 +320,14 @@ export function AccessoriesSalesPage() {
       setLastInvoice(invoice)
       setError('')
       setSuccess(`تم إنشاء فاتورة ${invoice.invoice_number}`)
+      useSalesDraftStore.getState().setAccessoriesDraft(draftUserId, {
+        customerSearch,
+        selectedCustomer,
+        branchId,
+        warehouseId,
+        cart: [],
+        notes: '',
+      })
     },
     onError: (err) => setError(getErrorMessage(err)),
   })
@@ -255,6 +359,8 @@ export function AccessoriesSalesPage() {
           </div>
         }
       />
+
+      <PosContractTypeTabs onClear={resetAccessoriesForm} />
 
       {error && (
         <div className="mb-md rounded-lg border border-error/30 bg-error-container/30 p-md text-sm text-error">
