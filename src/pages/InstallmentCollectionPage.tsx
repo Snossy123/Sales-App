@@ -3,7 +3,6 @@ import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import {
   PROCEDURE_DRAFT_IDS,
   readProcedureDraft,
-  useProcedureDraftStore,
 } from '../stores/procedureDraftStore'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'

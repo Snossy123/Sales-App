@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AuthUser } from '../api/types'
+import { queryClient } from '../lib/queryClient'
 import { useOrgSettingsStore } from './orgSettingsStore'
 
 interface AuthState {
@@ -65,9 +66,13 @@ export const useAuthStore = create<AuthState>()(
       setWarehouseId: (warehouseId) => set({ warehouseId }),
 
       logout: () => {
+        queryClient.clear()
         useOrgSettingsStore.getState().clear()
         import('./tourStore').then(({ useTourStore }) => {
           useTourStore.getState().reset()
+        })
+        import('./contextStore').then(({ useContextStore }) => {
+          useContextStore.getState().reset()
         })
         set({
           token: null,

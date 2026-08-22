@@ -6,10 +6,11 @@ import { useAuthStore } from '../stores/authStore'
 
 export function useAuthRefresh() {
   const token = useAuthStore((s) => s.token)
+  const userId = useAuthStore((s) => s.user?.id)
   const updateUser = useAuthStore((s) => s.updateUser)
 
   const query = useQuery({
-    queryKey: ['auth', 'me'],
+    queryKey: ['auth', 'me', token],
     queryFn: async () => {
       const { data } = await api.get<AuthUser>('/auth/me')
       return data
@@ -20,10 +21,10 @@ export function useAuthRefresh() {
   })
 
   useEffect(() => {
-    if (query.data) {
-      updateUser(query.data)
-    }
-  }, [query.data, updateUser])
+    if (!query.data) return
+    if (userId != null && query.data.id !== userId) return
+    updateUser(query.data)
+  }, [query.data, updateUser, userId])
 
   return query
 }

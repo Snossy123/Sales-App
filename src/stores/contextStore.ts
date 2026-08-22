@@ -18,6 +18,7 @@ interface ContextState {
   selectDepartment: (departmentId: number) => void
   selectBranch: (branchId: number) => void
   selectWarehouse: (warehouseId: number) => void
+  reset: () => void
 }
 
 export const useContextStore = create<ContextState>((set) => ({
@@ -49,4 +50,14 @@ export const useContextStore = create<ContextState>((set) => ({
   selectWarehouse: (warehouseId) => {
     useAuthStore.getState().setWarehouseId(warehouseId)
   },
+
+  reset: () =>
+    set({
+      departments: [],
+      branches: [],
+      warehouses: [],
+      departmentsLoading: false,
+      branchesLoading: false,
+      warehousesLoading: false,
+    }),
 }))

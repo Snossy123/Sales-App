@@ -113,8 +113,8 @@ function migrateLegacySalesDrafts(): ProcedureDraft[] {
     }
     sessionStorage.removeItem(LEGACY_SALES_DRAFT_KEY)
     const state = parsed.state
-    const userId = state?.userId
-    if (userId == null) return []
+    if (!state || state.userId == null) return []
+    const userId = state.userId
 
     const now = Date.now()
     const migrated: ProcedureDraft[] = []

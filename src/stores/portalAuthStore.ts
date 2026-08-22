@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { PortalUser } from '../api/types'
+import { queryClient } from '../lib/queryClient'
 
 interface PortalAuthState {
   token: string | null
@@ -18,7 +19,10 @@ export const usePortalAuthStore = create<PortalAuthState>()(
 
       setAuth: (token, user) => set({ token, user }),
 
-      logout: () => set({ token: null, user: null }),
+      logout: () => {
+        queryClient.clear()
+        set({ token: null, user: null })
+      },
 
       isAuthenticated: () => Boolean(get().token),
     }),
