@@ -181,11 +181,15 @@ export function resolveUsername(line?: SalesInvoiceLine, customer?: Customer | n
   return line?.username ?? customer?.username ?? ''
 }
 
-export function resolveTechnician(line?: SalesInvoiceLine, invoice?: SalesInvoice): string {
-  const name =
-    line?.technician?.name ?? invoice?.technician?.name ?? invoice?.technician_name ?? ''
-  const parts = name.trim().split(/\s+/).filter(Boolean)
+export function displayPersonName(name?: string | null): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
   return parts.slice(0, 2).join(' ')
+}
+
+export function resolveTechnician(line?: SalesInvoiceLine, invoice?: SalesInvoice): string {
+  return displayPersonName(
+    line?.technician?.name ?? invoice?.technician?.name ?? invoice?.technician_name ?? '',
+  )
 }
 
 type InstallmentPlanCarrier = {
@@ -256,18 +260,54 @@ export function lineFinancialSummary(
   invoice: SalesInvoice,
 ): LineFinancialSummary {
   const plan = resolveLinePlan(line, invoice)
-  const lineCount = invoice.lines?.length ?? 1
+  const lineCount = Math.max(1, invoice.lines?.length ?? 1)
   const installationShare = Number(invoice.installation_fee ?? 0) / lineCount
   const lineTotal = Number(line.line_total ?? 0)
-  const linePaid =
-    line.payment_term === 'cash' ? lineTotal : Number(plan?.down_payment ?? 0)
-  const paid = linePaid + installationShare
-  const balance =
-    line.payment_term === 'cash'
-      ? 0
-      : Math.max(0, lineTotal - Number(plan?.down_payment ?? 0))
+  const isInvoiceLevelPlan = Boolean(plan) && plan?.sales_invoice_line_id == null
 
-  return { installationShare, paid, balance }
+  if (isInvoiceLevelPlan) {
+    return {
+      installationShare,
+      paid: Number(invoice.paid_amount ?? 0),
+      balance: Number(
+        invoice.balance_due ??
+          Math.max(0, Number(invoice.total ?? 0) - Number(invoice.paid_amount ?? 0)),
+      ),
+    }
+  }
+
+  if (usesCashContractTemplate(line, invoice)) {
+    return {
+      installationShare,
+      paid: lineTotal,
+      balance: 0,
+    }
+  }
+
+  const downPayment = Number(plan?.down_payment ?? 0)
+  const items = plan?.items ?? []
+  if (items.length > 0) {
+    const installmentsPaid = items.reduce(
+      (sum, item) => sum + Number(item.paid_amount ?? 0),
+      0,
+    )
+    const remaining = items.reduce(
+      (sum, item) =>
+        sum + Math.max(0, Number(item.amount) - Number(item.paid_amount ?? 0)),
+      0,
+    )
+    return {
+      installationShare,
+      paid: downPayment + installmentsPaid,
+      balance: remaining,
+    }
+  }
+
+  return {
+    installationShare,
+    paid: downPayment,
+    balance: Math.max(0, lineTotal - downPayment),
+  }
 }
 
 export function installmentTableColumnCount(count: number): 1 | 2 | 3 {

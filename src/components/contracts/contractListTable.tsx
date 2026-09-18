@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import type { AuthUser, SalesInvoice } from '../../api/types'
 import type { Column } from '../DataTable'
 import { StatusBadge } from '../StatusBadge'
-import { Icon } from '../Icon'
 import {
   contractSourceLabel,
   contractSortTimestamp,
@@ -12,7 +11,8 @@ import {
   invoiceContractSummary,
 } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
-import { contractPrintPath, distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
+import { distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
+import { ContractPrintActions } from './ContractPrintActions'
 import { userHasPermission } from '../../lib/access'
 import {
   canExchangeContract,
@@ -239,15 +239,10 @@ export function defaultContractListActions(
           تحويل للمشاكل
         </button>
       )}
-      <Link
-        to={contractPrintPath(row.id)}
-        target="_blank"
-        rel="noopener noreferrer"
+      <ContractPrintActions
+        invoice={row}
         className="inline-flex items-center gap-1 text-sm text-primary hover:underline whitespace-nowrap"
-      >
-        <Icon name="print" size={18} />
-        طباعة
-      </Link>
+      />
     </div>
   )
 }

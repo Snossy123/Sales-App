@@ -19,7 +19,9 @@ import {
   renewalTypeLabels,
   usesCashContractTemplate,
   vehicleTypeLabels,
+  displayPersonName,
 } from '../../lib/contractFields'
+import { useAuthStore } from '../../stores/authStore'
 import { ContractPrintHeader } from './ContractPrintHeader'
 import '../../styles/installment-contract.css'
 
@@ -182,6 +184,7 @@ function renderTableCol(installmentRows: InstallmentTableCell[], start: number, 
 }
 
 export function InstallmentContractDocument({ invoice, lineId }: InstallmentContractDocumentProps) {
+  const signerName = displayPersonName(useAuthStore((s) => s.user?.name))
   const customer = invoice.customer
   const line = resolveInvoiceLine(invoice, lineId)
   const isInstallment = !usesCashContractTemplate(line, invoice)
@@ -195,25 +198,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
   const tableCols = installmentTableColumnCount(installmentCount || 1)
   const renewalType = line?.renewal_type ?? invoice.renewal_type
   const renewalDate = line?.subscription_renewal_date ?? invoice.subscription_renewal_date
-  const { paid: paidForDevice, balance: balanceForDevice, installationShare } = line
+  const { paid: paidDisplay, balance: balanceDisplay, installationShare } = line
     ? lineFinancialSummary(line, invoice)
-    : { paid: 0, balance: 0, installationShare: 0 }
-
-  let paidDisplay = Number(invoice.paid_amount ?? paidForDevice)
-  let balanceDisplay = Number(invoice.balance_due ?? balanceForDevice)
+    : {
+        paid: Number(invoice.paid_amount ?? 0),
+        balance: Number(invoice.balance_due ?? 0),
+        installationShare: 0,
+      }
   const feesDisplay = installationShare
   const downPaymentDisplay = Number(plan?.down_payment ?? 0)
-  if (isInstallment && plan?.items?.length && line) {
-    const installmentsPaid = plan.items.reduce(
-      (sum, item) => sum + Number(item.paid_amount ?? 0),
-      0,
-    )
-    paidDisplay = Number(plan.down_payment ?? 0) + installmentsPaid
-    balanceDisplay = Math.max(0, Number(line.line_total ?? 0) - paidDisplay)
-  } else if (!isInstallment && line) {
-    paidDisplay = Number(line.line_total ?? paidForDevice)
-    balanceDisplay = 0
-  }
 
   const deviceSuffix =
     invoice.lines && invoice.lines.length > 1 && line
@@ -398,7 +391,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className="ic-renewal-notes-title">ملاحظات</div>
                 <div className="ic-renewal-notes-body">{invoice.notes || ''}</div>
               </div>
-              <div className="ic-renewal-sign">توقيع الموظف : ....................</div>
+              <div className="ic-renewal-sign">توقيع الموظف : {signerName || '....................'}</div>
             </div>
           </>
         ) : !isInstallment ? (
@@ -488,7 +481,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
 
               <div className="ic-signatures">
                 <div>
-                  توقيع الموظف <span className="ic-sign-name">{resolveTechnician(line, invoice)}</span>
+                  توقيع الموظف <span className="ic-sign-name">{signerName}</span>
                 </div>
                 <div>
                   توقيع العميل بعد الموافقة على بنود العقد / <span className="ic-sign-line" />
@@ -653,7 +646,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
 
             <div className="ic-signatures">
               <div>
-                توقيع الموظف <span className="ic-sign-name">{resolveTechnician(line, invoice)}</span>
+                توقيع الموظف <span className="ic-sign-name">{signerName}</span>
               </div>
               <div>
                 توقيع العميل بعد الموافقة على بنود العقد / <span className="ic-sign-line" />

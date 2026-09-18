@@ -10,6 +10,7 @@ import {
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
 import { useAuthStore } from '../../stores/authStore'
+import { ContractPrintActions } from '../contracts/ContractPrintActions'
 import { ContractProblemWizard } from '../contracts/ContractProblemWizard'
 import { contractKindLabel } from '../../lib/contractKinds'
 import {
@@ -174,15 +175,10 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <Icon name="description" size={18} />
                       تفاصيل العقد
                     </Link>
-                    <Link
-                      to={`/invoices/${invoice.id}/contract-print`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <ContractPrintActions
+                      invoice={invoice}
                       className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
-                    >
-                      <Icon name="print" size={18} />
-                      طباعة العقد
-                    </Link>
+                    />
                     {canRejectContract(user, invoice) && (
                       <Link
                         to={`/invoices/review/${invoice.id}`}

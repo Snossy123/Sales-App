@@ -2,12 +2,14 @@ import type { ReactNode } from 'react'
 import type { InstallmentItem, SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
   branchLabel,
+  displayPersonName,
   resolveInvoiceLine,
   resolveSerial,
   resolveTechnician,
   resolveUsername,
 } from '../../lib/contractFields'
 import { isServiceInvoiceLine } from '../../lib/sales'
+import { useAuthStore } from '../../stores/authStore'
 import { ContractPrintHeader } from './ContractPrintHeader'
 import '../../styles/installment-contract.css'
 
@@ -105,6 +107,7 @@ function receiptInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
 }
 
 export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocumentProps) {
+  const signerName = displayPersonName(useAuthStore((s) => s.user?.name))
   const customer = invoice.customer
   const invoiceScoped = lineId == null || !Number.isFinite(lineId) || lineId <= 0
   const focused = invoiceScoped ? undefined : resolveInvoiceLine(invoice, lineId)
@@ -236,7 +239,7 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
         ) : null}
 
         <div className="sr-sign">
-          <div>توقيع المسؤول</div>
+          <div>توقيع المسؤول {signerName}</div>
           <div className="sr-sign-line" />
         </div>
       </div>
