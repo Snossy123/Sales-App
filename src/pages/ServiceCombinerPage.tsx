@@ -1001,7 +1001,7 @@ export function ServiceCombinerPage() {
         }
       }
 
-      if (selectedChips.has('annual_renewal') && selectedCustomerDevice?.sales_invoice_id) {
+      if (selectedCustomerDevice?.sales_invoice_id) {
         payload.source_sales_invoice_id = selectedCustomerDevice.sales_invoice_id
       }
       if (transactionSource === 'distributor' && selectedDistributor) {

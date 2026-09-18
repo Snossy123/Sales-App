@@ -488,7 +488,15 @@ export function InstallmentCollectionGroupedList({
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
               const expandedView = expandedViews[contractKey]
               const current = contract.current
-              const deviceRow = current ?? contract.rows[0]
+              const deviceRow =
+                contract.rows.find((row) => {
+                  const serial = String(row.serial_number ?? '').trim()
+                  const username = String(row.username ?? '').trim()
+                  const sim = String(row.sim_number ?? '').trim()
+                  return Boolean(serial || username || sim)
+                }) ??
+                current ??
+                contract.rows[0]
               const serial = String(deviceRow?.serial_number ?? '').trim()
               const username = String(deviceRow?.username ?? '').trim()
               const sim = String(deviceRow?.sim_number ?? '').trim()
