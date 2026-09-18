@@ -3342,7 +3342,16 @@ export function handleMockRequest(
       if (branchFilter && inv.branch_id !== branchFilter) continue
       if (invoiceFilter && inv.id !== invoiceFilter) continue
       const customer = state.customers.find((c) => c.id === inv.customer_id)
-      const deviceLine = inv.lines?.find((line) => line.serial_number || line.username) ?? inv.lines?.[0]
+      const sourceInvoice = inv.source_sales_invoice_id
+        ? state.invoices.find((invoice) => invoice.id === inv.source_sales_invoice_id)
+        : undefined
+      const identityLine =
+        inv.lines?.find((line) => !line.service_id && (line.serial_number || line.username || line.product_unit_id)) ??
+        inv.lines?.find((line) => line.serial_number || line.username || line.product_unit_id) ??
+        sourceInvoice?.lines?.find(
+          (line) => !line.service_id && (line.serial_number || line.username || line.product_unit_id),
+        ) ??
+        sourceInvoice?.lines?.find((line) => line.serial_number || line.username || line.product_unit_id)
       for (const item of inv.installment_plan?.items ?? []) {
         if (!invoiceFilter && item.status === 'paid') continue
         const due = new Date(item.due_date)
@@ -3363,8 +3372,8 @@ export function handleMockRequest(
                 (phone): phone is string => Boolean(phone?.trim()),
               )
             : [],
-          username: deviceLine?.username ?? customer?.username ?? null,
-          serial_number: deviceLine?.serial_number ?? customer?.device_serial ?? null,
+          username: identityLine?.username ?? customer?.username ?? null,
+          serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
           remaining: Number(item.amount) - Number(item.paid_amount),
           remaining_installments: Math.max(
             0,
