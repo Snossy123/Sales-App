@@ -55,6 +55,19 @@ type MockCollectionActionLog = {
 }
 
 const mockCollectionActionLogs: MockCollectionActionLog[] = []
+const mockCollectionAssignments: Array<{
+  id: number
+  sales_invoice_id: number
+  from_user_id: number | null
+  from_user_name: string | null
+  to_user_id: number | null
+  to_user_name: string | null
+  assigned_by: number
+  assigned_by_name: string | null
+  assigned_at: string
+  notes?: string | null
+}> = []
+let mockCollectionAssignmentSeq = 1
 const mockRegisteredDevices: Array<{
   customer_id: number
   device: CustomerContractDevice
@@ -3334,6 +3347,9 @@ export function handleMockRequest(
     const invoiceFilter = params['filter[sales_invoice_id]']
       ? Number(params['filter[sales_invoice_id]'])
       : undefined
+    const collectorFilter = params['filter[collector_user_id]']
+      ? String(params['filter[collector_user_id]'])
+      : ''
     const onlyOverdue = path === 'installments/overdue'
     const rows: Record<string, unknown>[] = []
 
@@ -3341,6 +3357,13 @@ export function handleMockRequest(
       if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') continue
       if (branchFilter && inv.branch_id !== branchFilter) continue
       if (invoiceFilter && inv.id !== invoiceFilter) continue
+      if (collectorFilter === 'unassigned' && inv.collector_user_id) continue
+      if (collectorFilter && collectorFilter !== 'unassigned' && Number(inv.collector_user_id) !== Number(collectorFilter)) {
+        continue
+      }
+      const collector = inv.collector_user_id
+        ? state.users.find((user) => user.id === inv.collector_user_id)
+        : undefined
       const customer = state.customers.find((c) => c.id === inv.customer_id)
       const sourceInvoice = inv.source_sales_invoice_id
         ? state.invoices.find((invoice) => invoice.id === inv.source_sales_invoice_id)
@@ -3375,6 +3398,11 @@ export function handleMockRequest(
           username: identityLine?.username ?? customer?.username ?? null,
           serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
           sim_number: identityLine?.sim_number ?? customer?.sim_number ?? null,
+          collection_status: inv.collection_status ?? null,
+          collection_reminder_at: inv.collection_reminder_at ?? null,
+          collection_notes: inv.collection_notes ?? null,
+          collector_user_id: inv.collector_user_id ?? null,
+          collector_name: collector?.name ?? null,
           remaining: Number(item.amount) - Number(item.paid_amount),
           remaining_installments: Math.max(
             0,
@@ -3400,6 +3428,94 @@ export function handleMockRequest(
     }
 
     return paginate(rows, params)
+  }
+
+  if (m === 'GET' && path === 'collectors') {
+    const collectors = state.users
+      .filter((user) => user.roles?.some((role) => role.name === 'Collector'))
+      .map((user) => ({ id: user.id, name: user.name, branch_id: user.branch_id }))
+    return { data: collectors }
+  }
+
+  if (m === 'GET' && path === 'collection-assignments/workload') {
+    const openInvoices = state.invoices.filter(
+      (inv) =>
+        inv.payment_term === 'installment' &&
+        (inv.installment_plan?.items ?? []).some((item) => item.status !== 'paid'),
+    )
+    const unassigned = openInvoices.filter((inv) => !inv.collector_user_id).length
+    const counts = new Map<number, number>()
+    for (const inv of openInvoices) {
+      if (!inv.collector_user_id) continue
+      counts.set(inv.collector_user_id, (counts.get(inv.collector_user_id) ?? 0) + 1)
+    }
+    const data = Array.from(counts.entries()).map(([collectorId, contract_count]) => ({
+      collector_user_id: collectorId,
+      collector_name: state.users.find((user) => user.id === collectorId)?.name ?? null,
+      contract_count,
+    }))
+    return { data, unassigned_count: unassigned }
+  }
+
+  if (m === 'POST' && path === 'collection-assignments') {
+    const body = data as {
+      sales_invoice_ids: number[]
+      collector_user_id?: number | null
+      notes?: string | null
+    }
+    const collectorId = body.collector_user_id ?? null
+    const collector = collectorId ? state.users.find((user) => user.id === collectorId) : undefined
+    const updated: Array<{
+      id: number
+      invoice_number?: string
+      collector_user_id: number | null
+      collector_name: string | null
+    }> = []
+    mutateState((s) => {
+      for (const invoiceId of body.sales_invoice_ids ?? []) {
+        const invoice = s.invoices.find((inv) => inv.id === invoiceId)
+        if (!invoice) continue
+        const fromId = invoice.collector_user_id ?? null
+        if (fromId === collectorId) {
+          updated.push({
+            id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            collector_user_id: collectorId,
+            collector_name: collector?.name ?? null,
+          })
+          continue
+        }
+        const fromUser = fromId ? s.users.find((user) => user.id === fromId) : undefined
+        invoice.collector_user_id = collectorId
+        mockCollectionAssignments.unshift({
+          id: mockCollectionAssignmentSeq++,
+          sales_invoice_id: invoice.id,
+          from_user_id: fromId,
+          from_user_name: fromUser?.name ?? null,
+          to_user_id: collectorId,
+          to_user_name: collector?.name ?? null,
+          assigned_by: ctx.user?.id ?? 0,
+          assigned_by_name: ctx.user?.name ?? null,
+          assigned_at: new Date().toISOString(),
+          notes: body.notes ?? null,
+        })
+        updated.push({
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          collector_user_id: collectorId,
+          collector_name: collector?.name ?? null,
+        })
+      }
+    })
+    return { data: updated }
+  }
+
+  const assignmentHistoryMatch = path.match(/^sales-invoices\/(\d+)\/collection-assignments$/)
+  if (m === 'GET' && assignmentHistoryMatch) {
+    const invoiceId = Number(assignmentHistoryMatch[1])
+    return {
+      data: mockCollectionAssignments.filter((row) => row.sales_invoice_id === invoiceId),
+    }
   }
 
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {
@@ -4702,7 +4818,7 @@ export function handleMockRequest(
       'review.view_collections', 'review.confirm_collections',
       'review.view_expenses', 'review.approve_expenses', 'expenses.submit',
       'installments.collect', 'installments.view',
-      'installments.reconcile', 'external_collections.collect', 'collection_accounts.manage',
+      'installments.reconcile', 'installments.assign', 'external_collections.collect', 'collection_accounts.manage',
       'payments.view', 'payments.refund',
       'trash.view', 'trash.restore', 'trash.force_delete',
       'faq.manage', 'feedback.view',

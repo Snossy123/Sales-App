@@ -91,6 +91,7 @@ export const navEntries: NavEntry[] = [
       icon: 'payments',
       items: [
         { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', end: true, roles: ['super_admin', 'admin', 'collector'] },
+        { to: '/installments/assignments', icon: 'group', label: 'توزيع التحصيل', roles: ['super_admin', 'admin'] },
         { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'collector'] },
         { to: '/call-center/collections', icon: 'phone_in_talk', label: 'التحصيلات الخارجية', roles: ['super_admin', 'admin', 'call_center'] },
         { to: '/admin/collection-accounts', icon: 'account_balance', label: 'حسابات التحويل', roles: ['super_admin', 'admin'] },
@@ -302,6 +303,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/review/subscription-renewals': ['super_admin', 'admin', 'reviewer'],
   '/review/evaluation-questions': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
+  '/installments/assignments': ['super_admin', 'admin'],
   '/payments': ['super_admin', 'admin', 'collector'],
   '/help/faq': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
   '/feedback': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],

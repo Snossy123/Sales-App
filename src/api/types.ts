@@ -773,6 +773,33 @@ export interface InstallmentItem {
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
+  collector_user_id?: number | null
+  collector_name?: string | null
+}
+
+export interface CollectorOption {
+  id: number
+  name: string
+  branch_id?: number | null
+}
+
+export interface CollectionAssignmentRecord {
+  id: number
+  sales_invoice_id: number
+  from_user_id?: number | null
+  from_user_name?: string | null
+  to_user_id?: number | null
+  to_user_name?: string | null
+  assigned_by?: number
+  assigned_by_name?: string | null
+  assigned_at?: string | null
+  notes?: string | null
+}
+
+export interface CollectionWorkloadRow {
+  collector_user_id: number
+  collector_name?: string | null
+  contract_count: number
 }
 
 export interface CollectionPaymentAccount {
@@ -843,7 +870,11 @@ export interface SalesInvoice {
   customer_id: number
   distributor_id?: number | null
   sales_user_id?: number | null
+  collector_user_id?: number | null
   user_id?: number | null
+  collection_status?: string | null
+  collection_reminder_at?: string | null
+  collection_notes?: string | null
   customer?: Customer
   distributor?: Distributor
   sales_user?: { id: number; name: string; branch_id?: number | null }

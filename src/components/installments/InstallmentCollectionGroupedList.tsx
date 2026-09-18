@@ -30,6 +30,8 @@ interface ContractGroup {
   current?: InstallmentCollectionRow
   collectionStatus?: string | null
   collectionReminderAt?: string | null
+  collectorUserId?: number | null
+  collectorName?: string | null
 }
 
 export interface CustomerInstallmentGroup {
@@ -97,6 +99,8 @@ export function groupInstallmentsByCustomerAndContract(
         rows: [],
         collectionStatus: row.collection_status,
         collectionReminderAt: row.collection_reminder_at,
+        collectorUserId: row.collector_user_id ?? null,
+        collectorName: row.collector_name ?? null,
       }
       customerGroup.contracts.push(contractGroup)
     }
@@ -166,6 +170,10 @@ interface InstallmentCollectionGroupedListProps {
   onDelete: (row: InstallmentCollectionRow) => void
   onUpdateUnpaidReason?: (row: InstallmentCollectionRow, reason: string) => void
   emptyMessage?: string
+  collectors?: Array<{ id: number; name: string }>
+  canAssign?: boolean
+  onAssignCollector?: (invoiceId: number, collectorUserId: number | null) => void
+  assigningInvoiceId?: number | null
 }
 
 function InstallmentMetricCell({
@@ -403,6 +411,10 @@ export function InstallmentCollectionGroupedList({
   onDelete,
   onUpdateUnpaidReason,
   emptyMessage = 'لا توجد أقساط مستحقة',
+  collectors = [],
+  canAssign = false,
+  onAssignCollector,
+  assigningInvoiceId = null,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
@@ -497,6 +509,8 @@ export function InstallmentCollectionGroupedList({
                         {contract.collectionReminderAt && (
                           <> · تذكير {formatDatetime12hDisplay(contract.collectionReminderAt)}</>
                         )}
+                        {' · '}
+                        {contract.collectorName ? `المحصل: ${contract.collectorName}` : 'بدون محصل'}
                       </p>
                       <p className="mt-1 text-xs text-on-surface">
                         <span className="text-on-surface-variant">السريال:</span>{' '}
@@ -516,6 +530,27 @@ export function InstallmentCollectionGroupedList({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                      {canAssign && onAssignCollector && (
+                        <select
+                          value={contract.collectorUserId ?? ''}
+                          disabled={assigningInvoiceId === contract.invoiceId}
+                          onChange={(e) =>
+                            onAssignCollector(
+                              contract.invoiceId,
+                              e.target.value ? Number(e.target.value) : null,
+                            )
+                          }
+                          className="h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="">بدون محصل</option>
+                          {collectors.map((collector) => (
+                            <option key={collector.id} value={collector.id}>
+                              {collector.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         type="button"
                         onClick={() => toggleView(contractKey, 'due')}

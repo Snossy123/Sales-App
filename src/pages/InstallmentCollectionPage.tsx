@@ -5,9 +5,10 @@ import {
   readProcedureDraft,
   useProcedureDraftStore,
 } from '../stores/procedureDraftStore'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { AdminUser, Branch, CollectionPaymentAccount, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
+import type { AdminUser, Branch, CollectionPaymentAccount, CollectorOption, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
 import {
@@ -31,6 +32,7 @@ import {
 } from '../lib/sales'
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 import { useAuthStore } from '../stores/authStore'
+import { userHasPermission } from '../lib/access'
 
 type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
@@ -154,6 +156,8 @@ export function InstallmentCollectionPage() {
   const queryClient = useQueryClient()
   const authBranchId = useAuthStore((s) => s.branchId)
   const userId = useAuthStore((s) => s.user?.id ?? null)
+  const user = useAuthStore((s) => s.user)
+  const canAssignCollectors = userHasPermission(user, 'installments.assign')
   const savedDraft = readProcedureDraft<InstallmentDraft>(PROCEDURE_DRAFT_IDS.installments, userId)
   const restoredRef = useRef(false)
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(
@@ -167,6 +171,7 @@ export function InstallmentCollectionPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [contractTierFilter, setContractTierFilter] = useState<ContractTierFilter>('all')
   const [collectionStatusFilter, setCollectionStatusFilter] = useState('')
+  const [collectorFilter, setCollectorFilter] = useState('')
   const [sortByReminder, setSortByReminder] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [collectionStatus, setCollectionStatus] = useState(() => savedDraft?.collectionStatus ?? '')
@@ -238,6 +243,14 @@ export function InstallmentCollectionPage() {
     },
   })
 
+  const collectorsQuery = useQuery({
+    queryKey: ['collectors'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CollectorOption[] }>('/collectors')
+      return data.data
+    },
+  })
+
   const branchEmployeesQuery = useQuery({
     queryKey: ['employees', 'collection-suspend', selectedBranchId],
     queryFn: async () => {
@@ -250,7 +263,7 @@ export function InstallmentCollectionPage() {
   })
 
   const installmentsQuery = useQuery({
-    queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, sortByReminder],
+    queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, collectorFilter, sortByReminder],
     queryFn: async () => {
       const params: Record<string, string | number> = {
         per_page: 500,
@@ -258,6 +271,7 @@ export function InstallmentCollectionPage() {
       }
       if (statusFilter) params['filter[status]'] = statusFilter
       if (collectionStatusFilter) params['filter[collection_status]'] = collectionStatusFilter
+      if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
       if (sortByReminder) params.sort = 'reminder'
 
       const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', { params })
@@ -617,6 +631,26 @@ export function InstallmentCollectionPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
   })
 
+  const assignCollectorMutation = useMutation({
+    mutationFn: async ({
+      invoiceId,
+      collectorUserId,
+    }: {
+      invoiceId: number
+      collectorUserId: number | null
+    }) => {
+      const { data } = await api.post('/collection-assignments', {
+        sales_invoice_ids: [invoiceId],
+        collector_user_id: collectorUserId,
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['collection-assignments'] })
+    },
+  })
+
   const selectRow = (row: InstallmentRow) => {
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
@@ -666,11 +700,12 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
   }
 
-  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || contractTierFilter !== 'all')
+  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all')
   const clearFilters = () => {
     setCustomerSearch('')
     setStatusFilter('')
     setCollectionStatusFilter('')
+    setCollectorFilter('')
     setContractTierFilter('all')
     setSortByReminder(false)
   }
@@ -679,6 +714,16 @@ export function InstallmentCollectionPage() {
     <SalesPageShell
       title="تحصيل الأقساط"
       subtitle="اختر فرعاً لعرض الأقساط مجمّعة حسب العميل ثم التعاقد"
+      actions={
+        canAssignCollectors ? (
+          <Link
+            to="/installments/assignments"
+            className="rounded-lg bg-primary px-md py-2 text-sm font-medium text-on-primary"
+          >
+            توزيع العقود
+          </Link>
+        ) : undefined
+      }
       filters={
         <FilterBar
           selects={[
@@ -705,6 +750,23 @@ export function InstallmentCollectionPage() {
                 setSelected(null)
               },
               options: collectionStatusOptions,
+            },
+            {
+              id: 'collector',
+              label: 'المحصل',
+              value: collectorFilter,
+              onChange: (v) => {
+                setCollectorFilter(v)
+                setSelected(null)
+              },
+              options: [
+                { value: '', label: 'كل المحصلين' },
+                { value: 'unassigned', label: 'غير معيَّن' },
+                ...(collectorsQuery.data ?? []).map((collector) => ({
+                  value: String(collector.id),
+                  label: collector.name,
+                })),
+              ],
             },
             {
               id: 'status',
@@ -796,6 +858,16 @@ export function InstallmentCollectionPage() {
                     unpaidReasonMutation.mutate({ id: row.id, reason })
                   }}
                   emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
+                  collectors={collectorsQuery.data ?? []}
+                  canAssign={canAssignCollectors}
+                  onAssignCollector={(invoiceId, collectorUserId) =>
+                    assignCollectorMutation.mutate({ invoiceId, collectorUserId })
+                  }
+                  assigningInvoiceId={
+                    assignCollectorMutation.isPending
+                      ? (assignCollectorMutation.variables?.invoiceId ?? null)
+                      : null
+                  }
                 />
               </div>
 

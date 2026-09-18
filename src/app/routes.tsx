@@ -60,6 +60,7 @@ import { MessagesPage } from '../modules/chat/pages/MessagesPage'
 import { PricingCatalogPage } from '../modules/pricing/pages/PricingCatalogPage'
 import { ExternalCollectionPage } from '../modules/collections/pages/ExternalCollectionPage'
 import { CollectionAccountsPage } from '../modules/collections/pages/CollectionAccountsPage'
+import { CollectionAssignmentsPage } from '../modules/collections/pages/CollectionAssignmentsPage'
 import { DepartmentsPage } from '../pages/DepartmentsPage'
 import { DepartmentDetailPage } from '../pages/DepartmentDetailPage'
 import { BranchesPage } from '../pages/BranchesPage'
@@ -258,6 +259,7 @@ export function AppRoutes() {
             <Route path="problems" element={<ContractCasesPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="installments" element={<InstallmentCollectionPage />} />
+            <Route path="installments/assignments" element={<CollectionAssignmentsPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="help/faq" element={<FaqPage />} />
             <Route path="profile" element={<MyProfilePage />} />

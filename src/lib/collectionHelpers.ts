@@ -50,6 +50,8 @@ export type InstallmentCollectionRow = {
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
+  collector_user_id?: number | null
+  collector_name?: string | null
   has_open_reconciliation?: boolean
   open_reconciliation_id?: number | null
   remaining_installments?: number

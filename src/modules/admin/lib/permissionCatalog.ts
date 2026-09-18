@@ -212,6 +212,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'installments.collect', module: 'installments', category: 'other', label: 'تحصيل الأقساط', description: 'تسجيل تحصيل الأقساط من العملاء' },
   { key: 'installments.view', module: 'installments', category: 'view', label: 'عرض الأقساط', description: 'استعراض جداول الأقساط والمتأخرات' },
   { key: 'installments.reconcile', module: 'installments', category: 'other', label: 'تصالح الأقساط', description: 'فتح وإغلاق تصالح الأقساط المتأخرة' },
+  { key: 'installments.assign', module: 'installments', category: 'other', label: 'توزيع عقود التحصيل', description: 'تعيين ونقل عقود الأقساط بين المحصلين' },
   { key: 'external_collections.collect', module: 'installments', category: 'other', label: 'التحصيلات الخارجية', description: 'تحصيل الأقساط عبر التحويل لمركز الاتصال' },
   { key: 'collection_accounts.manage', module: 'installments', category: 'other', label: 'حسابات التحويل', description: 'إدارة حسابات التحصيل الخارجي لكل رقم' },
   { key: 'collection_accounts.view', module: 'installments', category: 'view', label: 'عرض حسابات التحويل', description: 'استعراض حسابات التحصيل الخارجي' },
