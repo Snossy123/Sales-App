@@ -3410,7 +3410,6 @@ export function handleMockRequest(
           customer_name: customer?.name,
           customer_phone: customer?.phone,
           customer_phones: customerPhones,
-          branch_id: inv.branch_id,
           branch_name: branch?.name_ar || branch?.name || null,
           username: identityLine?.username ?? customer?.username ?? null,
           serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
