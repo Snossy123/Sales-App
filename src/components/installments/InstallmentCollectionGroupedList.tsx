@@ -189,13 +189,11 @@ function InstallmentMetricCell({
 
 function CurrentInstallmentCard({
   row,
-  invoiceNumber,
   selected,
   onSelect,
   onReconcile,
 }: {
   row: InstallmentCollectionRow
-  invoiceNumber: string
   selected: boolean
   onSelect: () => void
   onReconcile: () => void
@@ -203,12 +201,18 @@ function CurrentInstallmentCard({
   const remaining = rowRemaining(row)
   const installmentNo = row.installment_number ?? row.sequence ?? '—'
   const tier = String(row.display_tier ?? row.status)
+  const serial = String(row.serial_number ?? '').trim()
+  const username = String(row.username ?? '').trim()
 
   return (
     <div className={`rounded-xl border p-md ${tierRowClass(tier, selected)}`}>
-      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-6">
-        <InstallmentMetricCell label="رقم التعاقد" dir="ltr">
-          <span className="font-semibold">{invoiceNumber}</span>
+      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-7">
+        <InstallmentMetricCell label="السريال" dir="ltr">
+          <span className="font-semibold">{serial || '—'}</span>
+        </InstallmentMetricCell>
+
+        <InstallmentMetricCell label="اليوزر" dir="ltr">
+          <span className="font-semibold">{username || '—'}</span>
         </InstallmentMetricCell>
 
         <InstallmentMetricCell label="رقم القسط">
@@ -528,7 +532,6 @@ export function InstallmentCollectionGroupedList({
                   {current ? (
                     <CurrentInstallmentCard
                       row={current}
-                      invoiceNumber={contract.invoiceNumber}
                       selected={selectedId === current.id}
                       onSelect={() => onSelect(current)}
                       onReconcile={() => onReconcile(current)}
