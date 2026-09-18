@@ -473,17 +473,6 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selected?.id),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (itemId: number) => {
-      await api.delete(`/installments/${itemId}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
-      queryClient.invalidateQueries({ queryKey: ['trash'] })
-      setSelected(null)
-    },
-  })
-
   const collectMutation = useMutation({
     mutationFn: async () => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
@@ -848,11 +837,6 @@ export function InstallmentCollectionPage() {
                   onReconcile={(row) => {
                     selectRow(row)
                     setShowReconcile(true)
-                  }}
-                  onDelete={(row) => {
-                    if (window.confirm('نقل القسط إلى سلة المهملات؟')) {
-                      deleteMutation.mutate(row.id as number)
-                    }
                   }}
                   onUpdateUnpaidReason={(row, reason) => {
                     unpaidReasonMutation.mutate({ id: row.id, reason })

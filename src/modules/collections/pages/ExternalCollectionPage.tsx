@@ -286,17 +286,6 @@ export function ExternalCollectionPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (itemId: number) => {
-      await api.delete(`/installments/${itemId}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
-      queryClient.invalidateQueries({ queryKey: ['trash'] })
-      setSelected(null)
-    },
-  })
-
   const suspendMutation = useMutation({
     mutationFn: async (payload: {
       device_received: boolean
@@ -424,11 +413,6 @@ export function ExternalCollectionPage() {
                 onReconcile={(row) => {
                   selectRow(row)
                   setShowReconcile(true)
-                }}
-                onDelete={(row) => {
-                  if (window.confirm('نقل القسط إلى سلة المهملات؟')) {
-                    deleteMutation.mutate(row.id as number)
-                  }
                 }}
                 onUpdateUnpaidReason={(row, reason) => {
                   unpaidReasonMutation.mutate({ id: row.id, reason })

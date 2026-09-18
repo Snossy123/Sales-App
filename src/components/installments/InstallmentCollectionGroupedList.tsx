@@ -186,7 +186,6 @@ interface InstallmentCollectionGroupedListProps {
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
-  onDelete: (row: InstallmentCollectionRow) => void
   onUpdateUnpaidReason?: (row: InstallmentCollectionRow, reason: string) => void
   emptyMessage?: string
   collectors?: Array<{ id: number; name: string }>
@@ -283,7 +282,6 @@ function InstallmentDetailsTable({
   selectedId,
   onSelect,
   onReconcile,
-  onDelete,
   onUpdateUnpaidReason,
   showPaymentColumns = false,
 }: Omit<InstallmentCollectionGroupedListProps, 'emptyMessage'> & { showPaymentColumns?: boolean }) {
@@ -367,13 +365,6 @@ function InstallmentDetailsTable({
                       تصالح
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => onDelete(row)}
-                    className="ms-2 text-xs text-error hover:underline"
-                  >
-                    حذف
-                  </button>
                 </td>
               </tr>
             )
@@ -389,7 +380,6 @@ function ContractAllInstallmentsTable({
   selectedId,
   onSelect,
   onReconcile,
-  onDelete,
   onUpdateUnpaidReason,
 }: {
   invoiceId: number
@@ -430,7 +420,6 @@ function ContractAllInstallmentsTable({
       selectedId={selectedId}
       onSelect={onSelect}
       onReconcile={onReconcile}
-      onDelete={onDelete}
       onUpdateUnpaidReason={onUpdateUnpaidReason}
       showPaymentColumns
     />
@@ -443,7 +432,6 @@ export function InstallmentCollectionGroupedList({
   selectedId,
   onSelect,
   onReconcile,
-  onDelete,
   onUpdateUnpaidReason,
   emptyMessage = 'لا توجد أقساط مستحقة',
   collectors = [],
@@ -635,7 +623,6 @@ export function InstallmentCollectionGroupedList({
                         selectedId={selectedId}
                         onSelect={onSelect}
                         onReconcile={onReconcile}
-                        onDelete={onDelete}
                         onUpdateUnpaidReason={onUpdateUnpaidReason}
                       />
                     </div>
@@ -648,7 +635,6 @@ export function InstallmentCollectionGroupedList({
                         selectedId={selectedId}
                         onSelect={onSelect}
                         onReconcile={onReconcile}
-                        onDelete={onDelete}
                         onUpdateUnpaidReason={onUpdateUnpaidReason}
                       />
                     </div>
