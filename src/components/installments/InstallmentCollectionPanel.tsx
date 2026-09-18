@@ -89,6 +89,7 @@ export interface InstallmentCollectionPanelProps {
   dueDatesMutation: UseMutationResult<unknown, Error, void, unknown>
   branchId?: number | null
   branchEmployees?: Employee[]
+  hideCash?: boolean
   suspendMutation: UseMutationResult<
     unknown,
     Error,
@@ -165,12 +166,17 @@ export function InstallmentCollectionPanel({
   dueDatesMutation,
   branchId,
   branchEmployees = [],
+  hideCash = false,
   suspendMutation,
   resumeMutation,
 }: InstallmentCollectionPanelProps) {
   const user = useAuthStore((s) => s.user)
-  const canCollectPayment = userCanPerform(user, 'installments.collect')
+  const canCollectPayment =
+    userCanPerform(user, 'installments.collect') || userCanPerform(user, 'external_collections.collect')
   const canReconcile = userCanPerform(user, 'installments.reconcile')
+  const visiblePaymentMethods = hideCash
+    ? paymentMethodOptions.filter((option) => option.value !== 'cash')
+    : paymentMethodOptions
   const serialRef = useRef<HTMLInputElement>(null)
   const [suspendMode, setSuspendMode] = useState<'not_installed' | 'receive_device' | 'vehicle_impounded'>(
     'not_installed',
@@ -190,6 +196,12 @@ export function InstallmentCollectionPanel({
     setSuspendResumeFromDate('')
     setShowMoreActions(false)
   }, [selected?.id])
+
+  useEffect(() => {
+    if (hideCash && paymentMethod === 'cash') {
+      onPaymentMethodChange('bank_transfer')
+    }
+  }, [hideCash, paymentMethod, onPaymentMethodChange])
 
   if (!selected) {
     return <InstallmentCollectionPanelEmpty />
@@ -335,7 +347,7 @@ export function InstallmentCollectionPanel({
             onChange={(e) => onPaymentMethodChange(e.target.value)}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
           >
-            {paymentMethodOptions.map((o) => (
+            {visiblePaymentMethods.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
