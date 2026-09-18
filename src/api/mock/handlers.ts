@@ -3401,8 +3401,18 @@ export function handleMockRequest(
           item.status === 'overdue' ||
           (item.status !== 'paid' && due < new Date() && Number(item.paid_amount) < Number(item.amount))
         if (onlyOverdue && !isOverdue) continue
+        const payments = (state.paymentTransactions ?? []).filter(
+          (payment) => payment.installment_item_id === item.id && payment.status === 'active',
+        )
+        const paymentMethods = [...new Set(payments.map((payment) => payment.payment_method).filter(Boolean))]
+        const latestPaidAt = payments
+          .map((payment) => payment.paid_at)
+          .filter((value): value is string => Boolean(value))
+          .sort((a, b) => b.localeCompare(a))[0]
         rows.push({
           ...item,
+          paid_at: item.paid_at ?? latestPaidAt ?? null,
+          payment_method: paymentMethods.length > 0 ? paymentMethods.join(',') : null,
           sales_invoice_id: inv.id,
           branch_id: inv.branch_id,
           invoice_number: inv.invoice_number,

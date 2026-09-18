@@ -749,6 +749,7 @@ export interface InstallmentItem {
   amount: string | number
   paid_amount: string | number
   paid_at?: string | null
+  payment_method?: string | null
   status: string
   display_tier?: 'upcoming' | 'grace' | 'overdue' | 'paid' | 'suspended'
   late_fee_accrued?: string | number

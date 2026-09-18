@@ -30,6 +30,7 @@ export type InstallmentCollectionRow = {
   amount: string | number
   paid_amount: string | number
   paid_at?: string | null
+  payment_method?: string | null
   status: string
   display_tier?: string
   remaining?: number

@@ -47,6 +47,25 @@ export interface CustomerInstallmentGroup {
 
 type ContractExpandView = 'due' | 'all'
 
+const installmentPaymentMethodLabels: Record<string, string> = {
+  cash: 'كاش',
+  wallet: 'محفظة',
+  instapay: 'انستا',
+  bank_transfer: 'تحويل بنكي',
+  card: 'بطاقة',
+  distributor_balance: 'رصيد موزع',
+}
+
+function formatInstallmentPaymentMethod(value?: string | null): string {
+  if (!value?.trim()) return '—'
+  return value
+    .split(',')
+    .map((method) => method.trim())
+    .filter(Boolean)
+    .map((method) => installmentPaymentMethodLabels[method] ?? method)
+    .join(' + ')
+}
+
 function isOverdueRow(row: InstallmentCollectionRow): boolean {
   return row.status === 'overdue' || row.display_tier === 'overdue'
 }
@@ -266,16 +285,23 @@ function InstallmentDetailsTable({
   onReconcile,
   onDelete,
   onUpdateUnpaidReason,
-}: Omit<InstallmentCollectionGroupedListProps, 'emptyMessage'>) {
+  showPaymentColumns = false,
+}: Omit<InstallmentCollectionGroupedListProps, 'emptyMessage'> & { showPaymentColumns?: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
-      <table className="w-full min-w-[36rem] text-sm">
+      <table className={`w-full text-sm ${showPaymentColumns ? 'min-w-[46rem]' : 'min-w-[36rem]'}`}>
         <thead>
           <tr className="border-b border-outline-variant/60 bg-surface-container-low text-[11px] text-on-surface-variant">
             <th className="px-sm py-2 text-start font-bold">قسط #</th>
             <th className="px-sm py-2 text-start font-bold">المبلغ</th>
             <th className="px-sm py-2 text-start font-bold">المتبقي</th>
             <th className="px-sm py-2 text-start font-bold">الاستحقاق</th>
+            {showPaymentColumns && (
+              <>
+                <th className="px-sm py-2 text-start font-bold">تاريخ السداد</th>
+                <th className="px-sm py-2 text-start font-bold">طريقة الدفع</th>
+              </>
+            )}
             <th className="px-sm py-2 text-start font-bold">الحالة</th>
             <th className="px-sm py-2 text-start font-bold">سبب عدم السداد</th>
             <th className="px-sm py-2 text-start font-bold"></th>
@@ -296,6 +322,14 @@ function InstallmentDetailsTable({
                   {isPaid ? '—' : rowRemaining(row).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
                 </td>
                 <td className="px-sm py-2 tabular-nums">{formatInvoiceDate(row.due_date)}</td>
+                {showPaymentColumns && (
+                  <>
+                    <td className="px-sm py-2 tabular-nums">
+                      {row.paid_at ? formatInvoiceDate(row.paid_at) : '—'}
+                    </td>
+                    <td className="px-sm py-2">{formatInstallmentPaymentMethod(row.payment_method)}</td>
+                  </>
+                )}
                 <td className="px-sm py-2">
                   <StatusBadge status={String(row.display_tier ?? row.status)} />
                 </td>
@@ -398,6 +432,7 @@ function ContractAllInstallmentsTable({
       onReconcile={onReconcile}
       onDelete={onDelete}
       onUpdateUnpaidReason={onUpdateUnpaidReason}
+      showPaymentColumns
     />
   )
 }
