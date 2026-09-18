@@ -766,6 +766,7 @@ export interface InstallmentItem {
   has_open_reconciliation?: boolean
   open_reconciliation_id?: number | null
   branch_id?: number
+  branch_name?: string | null
   unpaid_reason?: string | null
   suspended_at?: string | null
   is_suspended?: boolean

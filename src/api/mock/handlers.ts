@@ -3350,6 +3350,7 @@ export function handleMockRequest(
     const collectorFilter = params['filter[collector_user_id]']
       ? String(params['filter[collector_user_id]'])
       : ''
+    const searchFilter = String(params['filter[search]'] ?? '').trim().toLowerCase()
     const onlyOverdue = path === 'installments/overdue'
     const rows: Record<string, unknown>[] = []
 
@@ -3365,6 +3366,24 @@ export function handleMockRequest(
         ? state.users.find((user) => user.id === inv.collector_user_id)
         : undefined
       const customer = state.customers.find((c) => c.id === inv.customer_id)
+      const branch = state.branches.find((item) => item.id === inv.branch_id)
+      const customerPhones = customer
+        ? [customer.phone, customer.phone_2, customer.phone_3, ...(customer.extra_phones ?? []).map((p) => p.number)].filter(
+            (phone): phone is string => Boolean(phone?.trim()),
+          )
+        : []
+      if (searchFilter) {
+        const haystack = [
+          customer?.name,
+          inv.invoice_number,
+          customer?.username,
+          ...customerPhones,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(searchFilter)) continue
+      }
       const sourceInvoice = inv.source_sales_invoice_id
         ? state.invoices.find((invoice) => invoice.id === inv.source_sales_invoice_id)
         : undefined
@@ -3390,11 +3409,9 @@ export function handleMockRequest(
           customer_id: inv.customer_id,
           customer_name: customer?.name,
           customer_phone: customer?.phone,
-          customer_phones: customer
-            ? [customer.phone, customer.phone_2, customer.phone_3, ...(customer.extra_phones ?? []).map((p) => p.number)].filter(
-                (phone): phone is string => Boolean(phone?.trim()),
-              )
-            : [],
+          customer_phones: customerPhones,
+          branch_id: inv.branch_id,
+          branch_name: branch?.name_ar || branch?.name || null,
           username: identityLine?.username ?? customer?.username ?? null,
           serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
           sim_number: identityLine?.sim_number ?? customer?.sim_number ?? null,
