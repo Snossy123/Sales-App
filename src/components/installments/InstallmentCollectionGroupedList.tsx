@@ -201,20 +201,10 @@ function CurrentInstallmentCard({
   const remaining = rowRemaining(row)
   const installmentNo = row.installment_number ?? row.sequence ?? '—'
   const tier = String(row.display_tier ?? row.status)
-  const serial = String(row.serial_number ?? '').trim()
-  const username = String(row.username ?? '').trim()
 
   return (
     <div className={`rounded-xl border p-md ${tierRowClass(tier, selected)}`}>
-      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-7">
-        <InstallmentMetricCell label="السريال" dir="ltr">
-          <span className="font-semibold">{serial || '—'}</span>
-        </InstallmentMetricCell>
-
-        <InstallmentMetricCell label="اليوزر" dir="ltr">
-          <span className="font-semibold">{username || '—'}</span>
-        </InstallmentMetricCell>
-
+      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-5">
         <InstallmentMetricCell label="رقم القسط">
           <span className="tabular-nums">#{installmentNo}</span>
         </InstallmentMetricCell>
@@ -486,6 +476,9 @@ export function InstallmentCollectionGroupedList({
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
               const expandedView = expandedViews[contractKey]
               const current = contract.current
+              const deviceRow = current ?? contract.rows[0]
+              const serial = String(deviceRow?.serial_number ?? '').trim()
+              const username = String(deviceRow?.username ?? '').trim()
 
               return (
                 <div
@@ -503,6 +496,17 @@ export function InstallmentCollectionGroupedList({
                         {contract.collectionReminderAt && (
                           <> · تذكير {formatDatetime12hDisplay(contract.collectionReminderAt)}</>
                         )}
+                      </p>
+                      <p className="mt-1 text-xs text-on-surface">
+                        <span className="text-on-surface-variant">السريال:</span>{' '}
+                        <span className="font-semibold" dir="ltr">
+                          {serial || '—'}
+                        </span>
+                        <span className="mx-2 text-on-surface-variant">·</span>
+                        <span className="text-on-surface-variant">اليوزر:</span>{' '}
+                        <span className="font-semibold" dir="ltr">
+                          {username || '—'}
+                        </span>
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
