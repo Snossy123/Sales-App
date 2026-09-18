@@ -40,6 +40,7 @@ export type InstallmentCollectionRow = {
   customer_phones?: string[]
   username?: string
   serial_number?: string
+  sim_number?: string
   invoice_number?: string
   branch_id?: number
   unpaid_reason?: string | null
@@ -133,6 +134,7 @@ function installmentRowSearchHaystack(row: InstallmentCollectionRow): string[] {
     String(row.invoice_number ?? ''),
     String(row.username ?? ''),
     String(row.serial_number ?? ''),
+    String(row.sim_number ?? ''),
     ...phones,
   ]
 }

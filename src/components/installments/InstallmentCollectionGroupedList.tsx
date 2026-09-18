@@ -479,6 +479,7 @@ export function InstallmentCollectionGroupedList({
               const deviceRow = current ?? contract.rows[0]
               const serial = String(deviceRow?.serial_number ?? '').trim()
               const username = String(deviceRow?.username ?? '').trim()
+              const sim = String(deviceRow?.sim_number ?? '').trim()
 
               return (
                 <div
@@ -506,6 +507,11 @@ export function InstallmentCollectionGroupedList({
                         <span className="text-on-surface-variant">اليوزر:</span>{' '}
                         <span className="font-semibold" dir="ltr">
                           {username || '—'}
+                        </span>
+                        <span className="mx-2 text-on-surface-variant">·</span>
+                        <span className="text-on-surface-variant">الشريحة:</span>{' '}
+                        <span className="font-semibold" dir="ltr">
+                          {sim || '—'}
                         </span>
                       </p>
                     </div>

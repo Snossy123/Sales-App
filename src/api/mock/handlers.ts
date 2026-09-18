@@ -3374,6 +3374,7 @@ export function handleMockRequest(
             : [],
           username: identityLine?.username ?? customer?.username ?? null,
           serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
+          sim_number: identityLine?.sim_number ?? customer?.sim_number ?? null,
           remaining: Number(item.amount) - Number(item.paid_amount),
           remaining_installments: Math.max(
             0,

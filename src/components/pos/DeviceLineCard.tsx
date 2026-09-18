@@ -4,6 +4,7 @@ import { resolveGpsUnitPrice } from '../../lib/gpsProductPricing'
 import {
   type DiscountMode,
 } from '../../lib/discount'
+import { isGpsUsernameComplete } from '../../lib/gpsUsername'
 import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { normalizeScannedInput } from '../../lib/scanner'
 import {
@@ -16,6 +17,7 @@ import { renewalTypeLabels } from '../../lib/contractFields'
 import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from './CashScheduleSelector'
+import { GpsUsernameInput } from './GpsUsernameInput'
 import { OptionalDiscountFields } from './OptionalDiscountFields'
 import { SearchableSelect } from '../SearchableSelect'
 import { PosMoneyInput } from './PosMoneyInput'
@@ -177,7 +179,7 @@ export function validateDeviceLine(
   if (!line.simNumber.trim()) {
     fieldErrors.simNumber = 'رقم الشريحة مطلوب'
   }
-  if (!line.username.trim()) {
+  if (!isGpsUsernameComplete(line.username)) {
     fieldErrors.username = 'اسم المستخدم مطلوب'
   }
   if (requireTechnician && !line.technician) {
@@ -455,15 +457,11 @@ export function DeviceLineCard({
                 </div>
                 <div className={posRequiredWrap(Boolean(fieldErrors.username))}>
                   <label className={posLabelClass}>اسم المستخدم</label>
-                  <input
-                    ref={usernameInputRef}
+                  <GpsUsernameInput
+                    inputRef={usernameInputRef}
                     value={line.username}
-                    onChange={(e) => patchScanned('username', e.target.value)}
-                    placeholder="username"
-                    className={fieldErrorClass(Boolean(fieldErrors.username), posInputClass)}
-                    dir="ltr"
-                    autoComplete="off"
-                    spellCheck={false}
+                    onChange={(next) => patch({ username: next })}
+                    hasError={Boolean(fieldErrors.username)}
                   />
                   {fieldErrors.username && (
                     <p className="mt-xs text-xs text-error">{fieldErrors.username}</p>

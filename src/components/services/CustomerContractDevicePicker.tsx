@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { CustomerContractDevice, DeviceOrigin } from '../../api/types'
 import { normalizeScannedInput } from '../../lib/scanner'
+import { isGpsUsernameComplete } from '../../lib/gpsUsername'
 import type { DeviceLineDraft } from '../pos/DeviceLineCard'
+import { GpsUsernameInput } from '../pos/GpsUsernameInput'
 import { SearchableSelect } from '../SearchableSelect'
 import {
-  posInputClass,
   posLabelClass,
   posRequiredWrap,
   posScanClass,
@@ -153,7 +154,7 @@ export function CustomerContractDevicePicker({
   const selected = manual ? REGISTER_OPTION : selectedDevice
   const serialError = showErrors && !serialNumber.trim()
   const simError = showErrors && !simNumber.trim()
-  const usernameError = showErrors && !username.trim()
+  const usernameError = showErrors && !isGpsUsernameComplete(username)
 
   return (
     <div className="space-y-md">
@@ -256,14 +257,10 @@ export function CustomerContractDevicePicker({
           </div>
           <div className={posRequiredWrap(usernameError)}>
             <label className={posLabelClass}>اسم المستخدم</label>
-            <input
+            <GpsUsernameInput
               value={username}
-              onChange={(e) => onUsernameChange(normalizeScannedInput(e.target.value))}
-              placeholder="username"
-              className={`${posInputClass}${usernameError ? ' border-error' : ''}`}
-              dir="ltr"
-              autoComplete="off"
-              spellCheck={false}
+              onChange={onUsernameChange}
+              hasError={usernameError}
               disabled={identityLocked}
             />
             {usernameError && <p className="mt-xs text-xs text-error">اسم المستخدم مطلوب</p>}
