@@ -98,14 +98,14 @@ export function salesLabelForPeriod(period: DashboardPeriod): string {
 export function invoicesLabelForPeriod(period: DashboardPeriod): string {
   switch (period) {
     case 'day':
-      return 'فواتير اليوم'
+      return 'عقود اليوم'
     case 'week':
-      return 'فواتير الأسبوع'
+      return 'عقود الأسبوع'
     case 'month':
-      return 'فواتير الشهر'
+      return 'عقود الشهر'
     case 'year':
-      return 'فواتير السنة'
+      return 'عقود السنة'
     case 'all':
-      return 'إجمالي الفواتير'
+      return 'إجمالي العقود'
   }
 }

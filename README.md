@@ -1,73 +1,58 @@
-# React + TypeScript + Vite
+# GPS App (Sales-App)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite SPA for نظام GPS للمبيعات (Arabic RTL). Talks to [Sales-API](../Sales-API/README.md) over `/api/v1`.
 
-Currently, two official plugins are available:
+Client staff guide (Arabic): [`../docs/client-user-manual-ar.md`](../docs/client-user-manual-ar.md)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Requirements
 
-## React Compiler
+- Node.js 20+ (or the version used in CI)
+- npm
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Environment
 
-## Expanding the ESLint configuration
+Copy [`.env.example`](.env.example).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Variable | Meaning |
+| --- | --- |
+| `VITE_DEMO_MODE=true` | Standalone mock API (MSW). For demos only. |
+| `VITE_DEMO_MODE=false` | Real Laravel API |
+| `VITE_API_URL` | Production API base, e.g. `https://example.com/public/api/v1` |
+| `VITE_PROXY_TARGET` | Docker/local proxy target (compose sets `http://api:8100`) |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Production builds must ship with `VITE_DEMO_MODE=false` and a real `VITE_API_URL`. See [`.env.production`](.env.production) for the hosted pattern.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Local
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Default Vite port in Docker compose is **5174**. SPA fallback for Vercel is in [`vercel.json`](vercel.json).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Docker
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+From the GPS repo root (MySQL network must exist — [`../.env.docker.example`](../.env.docker.example)):
+
+```bash
+docker compose up -d --build
 ```
+
+- Frontend: http://localhost:5174
+- API: http://localhost:8100
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run test
+npm run lint
+```
+
+## Handover notes
+
+- Sidebar labels and roles live in `src/lib/permissions.ts`; CRM items in `src/modules/crm/lib/crmNavCatalog.ts`.
+- Incomplete POS/accessory checkouts persist as drafts and surface in the incomplete-procedures banner.
+- Do not commit secrets. Keep production API URLs in env, not in source, when rotating hosts.

@@ -680,18 +680,26 @@ export function handleMockRequest(
       if (scopedBranchIds) return i.branch_id != null && scopedBranchIds.includes(i.branch_id)
       return true
     })
+    const isNewContract = (invoice: (typeof branchInvoices)[number]) =>
+      (invoice.contract_kind ?? 'new_contract') === 'new_contract'
     const periodInvoices = branchInvoices.filter((i) => inPeriod(i.invoice_date))
+    const newPeriodInvoices = periodInvoices.filter(isNewContract)
     const confirmed = branchInvoices.filter((i) => i.status === 'confirmed')
 
     let outstanding = 0
-    let overdue = 0
-    let dueWeek = 0
+    const overdueInvoiceIds = new Set<number>()
+    const dueWeekInvoiceIds = new Set<number>()
     const weekEnd = new Date()
     weekEnd.setDate(weekEnd.getDate() + 7)
-    const overdueList: DashboardStats['overdue_installments_list'] = []
+    const overdueByInvoice = new Map<
+      number,
+      NonNullable<DashboardStats['overdue_installments_list']>[number]
+    >()
 
     for (const inv of confirmed) {
       outstanding += Number(inv.balance_due)
+      const customer = state.customers.find((c) => c.id === inv.customer_id)
+      const planCount = inv.installment_plan?.installment_count
       for (const item of inv.installment_plan?.items ?? []) {
         const due = new Date(item.due_date)
         const remaining = Number(item.amount) - Number(item.paid_amount)
@@ -699,22 +707,22 @@ export function handleMockRequest(
           remaining > 0 &&
           (item.status === 'overdue' || (item.status !== 'paid' && due < new Date()))
         if (isOverdue) {
-          overdue++
-          if (overdueList.length < 10) {
-            const customer = state.customers.find((c) => c.id === inv.customer_id)
-            const planCount = inv.installment_plan?.installment_count
-            const daysOverdue = Math.max(
-              0,
-              Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)),
-            )
-            overdueList.push({
-              id: item.id,
+          overdueInvoiceIds.add(inv.id)
+          const daysOverdue = Math.max(
+            0,
+            Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)),
+          )
+          const existing = overdueByInvoice.get(inv.id)
+          if (!existing || item.due_date < existing.due_date) {
+            overdueByInvoice.set(inv.id, {
+              id: inv.id,
               due_date: item.due_date,
-              amount: item.amount,
-              paid_amount: item.paid_amount,
+              amount: existing ? Number(existing.amount) + Number(item.amount) : item.amount,
+              paid_amount: existing
+                ? Number(existing.paid_amount) + Number(item.paid_amount)
+                : item.paid_amount,
               status: 'overdue',
-              remaining,
-              installment_number: item.installment_number,
+              remaining: (existing?.remaining ?? 0) + remaining,
               installment_count: planCount,
               days_overdue: daysOverdue,
               customer_name: customer?.name,
@@ -724,22 +732,37 @@ export function handleMockRequest(
               sales_invoice: {
                 id: inv.id,
                 invoice_number: inv.invoice_number,
-                customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : undefined,
+                customer: customer
+                  ? { id: customer.id, name: customer.name, phone: customer.phone }
+                  : undefined,
               },
+            })
+          } else if (existing) {
+            overdueByInvoice.set(inv.id, {
+              ...existing,
+              amount: Number(existing.amount) + Number(item.amount),
+              paid_amount: Number(existing.paid_amount) + Number(item.paid_amount),
+              remaining: (existing.remaining ?? 0) + remaining,
             })
           }
         }
-        if (due >= new Date() && due <= weekEnd && item.status !== 'paid') dueWeek++
+        if (due >= new Date() && due <= weekEnd && item.status !== 'paid' && remaining > 0) {
+          dueWeekInvoiceIds.add(inv.id)
+        }
       }
     }
+
+    const overdue = overdueInvoiceIds.size
+    const dueWeek = dueWeekInvoiceIds.size
+    const overdueList = [...overdueByInvoice.values()]
+      .sort((a, b) => a.due_date.localeCompare(b.due_date))
+      .slice(0, 10)
 
     const stock = warehouseId ? getStock(state, warehouseId) : null
     const availableQty = stock ? stock.quantity - stock.reserved : state.stocks.reduce((s, x) => s + x.quantity - x.reserved, 0)
 
-    const salesToday = periodInvoices
-      .filter((i) => i.status === 'confirmed')
-      .reduce((s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0), 0)
-    const invoicesToday = periodInvoices.length
+    const salesToday = newPeriodInvoices.filter((i) => i.status === 'confirmed').length
+    const invoicesToday = newPeriodInvoices.length
 
     const previousPeriodBounds = (): { start: Date; end: Date } | null => {
       if (period === 'all') return null
@@ -782,11 +805,9 @@ export function handleMockRequest(
     if (prevBounds) {
       const prevInvoices = branchInvoices.filter((i) => {
         const d = new Date(i.invoice_date)
-        return d >= prevBounds.start && d <= prevBounds.end
+        return d >= prevBounds.start && d <= prevBounds.end && isNewContract(i)
       })
-      const prevSales = prevInvoices
-        .filter((i) => i.status === 'confirmed')
-        .reduce((s, i) => s + Number(i.total) - Number(i.transportation_fee ?? 0), 0)
+      const prevSales = prevInvoices.filter((i) => i.status === 'confirmed').length
       previous_period = {
         sales: prevSales,
         invoices: prevInvoices.length,

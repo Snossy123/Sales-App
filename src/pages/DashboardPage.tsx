@@ -200,15 +200,12 @@ export function DashboardPage() {
           },
         },
         {
-          key: 'amount',
-          header: 'قيمة القسط',
-          render: (row: Record<string, unknown>) => fmtMoney(Number(row.amount)),
-        },
-        {
-          key: 'installment_count',
-          header: 'عدد الأقساط',
-          render: (row: Record<string, unknown>) =>
-            row.installment_count != null ? String(row.installment_count) : '—',
+          key: 'invoice_number',
+          header: 'رقم العقد',
+          render: (row: Record<string, unknown>) => {
+            const inv = row.sales_invoice as { invoice_number?: string } | undefined
+            return String(row.invoice_number ?? inv?.invoice_number ?? '—')
+          },
         },
         {
           key: 'remaining',
@@ -254,7 +251,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="لوحة التحكم"
-        subtitle={`${todayLabel} — نظرة عامة على المبيعات والمخزون والأقساط`}
+        subtitle={`${todayLabel} — نظرة عامة على المبيعات والمخزون والعقود`}
         actions={<StartTourButton tourId="dashboard" />}
       />
 
@@ -319,7 +316,7 @@ export function DashboardPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-xs">
-                        <h2 className="text-base font-bold text-on-surface">الأقساط المتأخرة في السداد</h2>
+                        <h2 className="text-base font-bold text-on-surface">العقود المتأخرة في السداد</h2>
                         <Icon
                           name="expand_more"
                           size={22}
@@ -327,7 +324,7 @@ export function DashboardPage() {
                         />
                       </div>
                       <p className="text-xs text-on-surface-variant">
-                        {query.data.overdue_installments} قسط تجاوز تاريخ الاستحقاق
+                        {query.data.overdue_installments} عقد تجاوز تاريخ الاستحقاق
                       </p>
                     </div>
                   </button>
@@ -346,7 +343,7 @@ export function DashboardPage() {
                       keyExtractor={(row) => Number(row.id)}
                       pageSize={10}
                       columns={overdueColumns}
-                      emptyMessage="لا توجد أقساط متأخرة"
+                      emptyMessage="لا توجد عقود متأخرة"
                     />
                   </div>
                 )}
@@ -361,7 +358,7 @@ export function DashboardPage() {
               <KpiCard label="مخزون GPS المتاح" value={query.data.available_units} icon="gps_fixed" />
               <KpiCard
                 label={salesLabelForPeriod(period)}
-                value={fmtMoney(query.data.sales_today)}
+                value={query.data.sales_today}
                 icon="payments"
                 trend={formatChangeTrend(prev?.sales_change_percent)}
                 trendUp={(prev?.sales_change_percent ?? 0) >= 0}
@@ -376,7 +373,7 @@ export function DashboardPage() {
               <KpiCard label="إجمالي العملاء" value={query.data.customers_count} icon="group" />
             </div>
 
-            <SectionTitle>الأقساط والتحصيل</SectionTitle>
+            <SectionTitle>العقود والتحصيل</SectionTitle>
             <div className="mb-md grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
               {showReviews && (
                 <KpiCard
@@ -389,7 +386,7 @@ export function DashboardPage() {
                 />
               )}
               <KpiCard
-                label="أقساط متأخرة"
+                label="عقود متأخرة"
                 value={query.data.overdue_installments}
                 icon="warning"
                 trend={query.data.overdue_installments > 0 ? 'يتطلب متابعة' : undefined}
@@ -408,7 +405,7 @@ export function DashboardPage() {
               summary={
                 stockBarData.length > 0
                   ? `${stockBarData.length} إدارة`
-                  : 'ملخص الأقساط والتعاقدات'
+                  : 'ملخص العقود والتعاقدات'
               }
               defaultOpen
             >
@@ -430,7 +427,7 @@ export function DashboardPage() {
                 )}
 
                 {installmentDonut.length > 0 && (
-                  <ChartCard title="ملخص الأقساط" subtitle="حسب الحالة" className="xl:col-span-1">
+                  <ChartCard title="ملخص العقود" subtitle="حسب الحالة" className="xl:col-span-1">
                     <DonutChartPanel data={installmentDonut} />
                   </ChartCard>
                 )}
@@ -532,7 +529,7 @@ export function DashboardPage() {
 
             <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
               <div className="mb-sm flex items-center justify-between">
-                <h3 className="text-sm font-bold text-on-surface">آخر الفواتير</h3>
+                <h3 className="text-sm font-bold text-on-surface">آخر العقود</h3>
                 <Link to="/invoices" className="text-xs font-medium text-primary hover:underline">
                   عرض الكل
                 </Link>
@@ -544,7 +541,7 @@ export function DashboardPage() {
                 columns={[
                   {
                     key: 'invoice_number',
-                    header: 'الفاتورة',
+                    header: 'العقد',
                     render: (row) => String(row.invoice_number ?? '—'),
                   },
                   {
@@ -564,7 +561,7 @@ export function DashboardPage() {
                     render: (row) => <StatusBadge status={String(row.status)} />,
                   },
                 ]}
-                emptyMessage="لا توجد فواتير"
+                emptyMessage="لا توجد عقود"
               />
             </div>
           </>

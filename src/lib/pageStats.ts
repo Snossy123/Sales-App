@@ -345,7 +345,7 @@ export function computeDashboardInsights(
 
   if (stats.overdue_installments > 0) {
     insights.push({
-      message: `يوجد ${stats.overdue_installments} قسط متأخر يحتاج متابعة`,
+      message: `يوجد ${stats.overdue_installments} عقد متأخر يحتاج متابعة`,
       variant: 'warning',
       to: '/installments',
     })

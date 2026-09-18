@@ -179,6 +179,7 @@ export function InstallmentCollectionPanel({
   const [suspendReason, setSuspendReason] = useState('')
   const [suspendEmployeeId, setSuspendEmployeeId] = useState<number | ''>('')
   const [suspendResumeFromDate, setSuspendResumeFromDate] = useState('')
+  const [showMoreActions, setShowMoreActions] = useState(false)
 
   useEffect(() => {
     if (!selected) return
@@ -187,6 +188,7 @@ export function InstallmentCollectionPanel({
     setSuspendReason('')
     setSuspendEmployeeId('')
     setSuspendResumeFromDate('')
+    setShowMoreActions(false)
   }, [selected?.id])
 
   if (!selected) {
@@ -304,127 +306,6 @@ export function InstallmentCollectionPanel({
               <p className="text-xs text-error">{getErrorMessage(resumeMutation.error)}</p>
             )}
           </div>
-        )}
-
-        {canCollectPayment && !selected.is_suspended && (
-          <CollapsibleSection
-            title="تعليق التعاقد"
-            icon="block"
-            className="mb-sm"
-            summary="تعليق الأقساط حتى يسدد العميل"
-          >
-            <p className="mb-sm text-xs text-on-surface-variant">
-              استخدم التعليق عندما لا يستطيع العميل الدفع الآن — سواء الجهاز لم يُركّب بعد، أو تستلم الجهاز، أو
-              العربية محبوسة وتحتاج ترحيل الأقساط.
-            </p>
-
-            <div className="mb-sm flex flex-wrap gap-xs">
-              {[
-                { value: 'not_installed' as const, label: 'لم يُركّب بعد' },
-                { value: 'receive_device' as const, label: 'استلام الجهاز' },
-                { value: 'vehicle_impounded' as const, label: 'العربية محبوسة' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setSuspendMode(option.value)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    suspendMode === option.value
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            {suspendMode === 'receive_device' && (
-              <>
-                <label className="mb-xs block text-xs text-on-surface-variant">مسح سريال الجهاز</label>
-                <input
-                  ref={serialRef}
-                  type="text"
-                  autoComplete="off"
-                  value={suspendSerial}
-                  onChange={(e) => setSuspendSerial(normalizeScannedInput(e.target.value))}
-                  onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                    if (e.key === 'Enter') e.preventDefault()
-                  }}
-                  placeholder="امسح السريال"
-                  className="mb-sm w-full rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 font-mono text-sm tracking-wide"
-                  dir="ltr"
-                />
-                <label className="mb-xs block text-xs text-on-surface-variant">موظف العهدة</label>
-                <select
-                  value={suspendEmployeeId}
-                  onChange={(e) => setSuspendEmployeeId(e.target.value ? Number(e.target.value) : '')}
-                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                >
-                  <option value="">اختر الموظف (أو يُستخدم حسابك إن كان مربوطاً)</option>
-                  {branchEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            {suspendMode === 'vehicle_impounded' && (
-              <>
-                <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية الترحيل</label>
-                <input
-                  type="date"
-                  value={suspendResumeFromDate}
-                  onChange={(e) => setSuspendResumeFromDate(e.target.value)}
-                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-                />
-                <p className="mb-sm text-xs text-on-surface-variant">
-                  تُرحَّل الأقساط غير المدفوعة لتبدأ من هذا التاريخ — بدون استلام الجهاز.
-                </p>
-              </>
-            )}
-
-            <label className="mb-xs block text-xs text-on-surface-variant">سبب التعليق</label>
-            <TextArea
-              mode="arabic"
-              value={suspendReason}
-              onChange={(e) => setSuspendReason(e.target.value)}
-              rows={2}
-              placeholder="مثال: العميل لا يملك المبلغ حالياً"
-              className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-            />
-
-            {suspendMutation.isError && (
-              <p className="mb-sm text-xs text-error">{getErrorMessage(suspendMutation.error)}</p>
-            )}
-
-            <button
-              type="button"
-              onClick={() =>
-                suspendMutation.mutate({
-                  device_received: suspendMode === 'receive_device',
-                  suspend_mode: suspendMode,
-                  resume_from_date:
-                    suspendMode === 'vehicle_impounded' ? suspendResumeFromDate : undefined,
-                  serial_code: suspendMode === 'receive_device' ? suspendSerial : undefined,
-                  employee_id: suspendEmployeeId || undefined,
-                  reason: suspendReason.trim() || undefined,
-                  notes: suspendReason.trim() || undefined,
-                })
-              }
-              disabled={
-                suspendMutation.isPending ||
-                !branchId ||
-                (suspendMode === 'receive_device' && !suspendSerial.trim()) ||
-                (suspendMode === 'vehicle_impounded' && !suspendResumeFromDate)
-              }
-              className="w-full rounded-lg border border-error/40 bg-error/5 py-2 text-sm font-bold text-error"
-            >
-              {suspendMutation.isPending ? 'جاري التعليق...' : 'تعليق التعاقد'}
-            </button>
-          </CollapsibleSection>
         )}
 
         {selected.has_open_reconciliation && (
@@ -658,122 +539,256 @@ export function InstallmentCollectionPanel({
           </button>
         </CollapsibleSection>
 
-        {canCollectPayment && selectedIsOverdueContract && (
-          <CollapsibleSection
-            title="ترحيل الأقساط"
-            icon="event_repeat"
-            className="mb-sm"
-            summary="إعادة جدولة المتأخرين"
-          >
-            <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية جديد</label>
-            <input
-              type="date"
-              value={deferDate}
-              onChange={(e) => onDeferDateChange(e.target.value)}
-              className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => deferMutation.mutate()}
-              disabled={deferMutation.isPending || !deferDate}
-              className="w-full rounded-lg border border-tertiary py-2 text-sm font-medium text-tertiary"
-            >
-              {deferMutation.isPending ? 'جاري الترحيل…' : 'ترحيل جدول الأقساط'}
-            </button>
-          </CollapsibleSection>
-        )}
-
-        <CollapsibleSection
-          title="تعديل تواريخ الأقساط"
-          icon="edit_calendar"
-          className="mb-sm"
-          summary={`${Object.keys(dueDateEdits).length} قسط`}
+        <button
+          type="button"
+          onClick={() => setShowMoreActions((open) => !open)}
+          className="mb-sm flex w-full items-center justify-center gap-xs rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-sm text-sm font-bold text-on-surface hover:bg-surface-container-low"
         >
-          {Object.entries(dueDateEdits).map(([id, date]) => (
-            <div key={id} className="mb-sm flex items-center gap-2 text-sm">
-              <span className="w-16 text-on-surface-variant">#{id}</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) =>
-                  onDueDateEditsChange({ ...dueDateEdits, [Number(id)]: e.target.value })
-                }
-                className="flex-1 rounded border border-outline-variant px-sm py-1 text-sm"
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => dueDatesMutation.mutate()}
-            disabled={dueDatesMutation.isPending || !canCollectPayment}
-            className="w-full rounded-lg border border-outline-variant py-2 text-sm"
-          >
-            {dueDatesMutation.isPending ? 'جاري الحفظ…' : 'حفظ التواريخ'}
-          </button>
-        </CollapsibleSection>
+          <Icon name={showMoreActions ? 'expand_less' : 'more_horiz'} size={20} className="text-primary" />
+          {showMoreActions ? 'إخفاء الإجراءات الإضافية' : 'المزيد من الإجراءات'}
+        </button>
 
-        {(installmentPaymentsQuery.data ?? []).length > 0 && (
-          <CollapsibleSection
-            title="آخر مدفوعات هذا القسط"
-            icon="receipt_long"
-            className="mb-sm"
-            summary={`${installmentPaymentsQuery.data?.length ?? 0} دفعة`}
-          >
-            <ul className="space-y-1 text-sm">
-              {(installmentPaymentsQuery.data ?? []).map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-2">
-                  <span className="tabular-nums">
-                    {Number(p.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                    {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CollapsibleSection>
-        )}
+        {showMoreActions && (
+          <>
+            {canCollectPayment && !selected.is_suspended && (
+              <CollapsibleSection
+                title="تعليق التعاقد"
+                icon="block"
+                className="mb-sm"
+                summary="تعليق الأقساط حتى يسدد العميل"
+              >
+                <p className="mb-sm text-xs text-on-surface-variant">
+                  استخدم التعليق عندما لا يستطيع العميل الدفع الآن — سواء الجهاز لم يُركّب بعد، أو تستلم الجهاز، أو
+                  العربية محبوسة وتحتاج ترحيل الأقساط.
+                </p>
 
-        {canReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
-          <CollapsibleSection
-            title="تصالح — تسجيل حالة مفتوحة"
-            icon="handshake"
-            defaultOpen
-            className="mb-sm"
-          >
-            <label className="mb-xs block text-xs text-on-surface-variant">
-              المسؤول الذي تحدث معه العميل *
-            </label>
-            <select
-              value={responsibleUserId}
-              onChange={(e) => onResponsibleUserIdChange(e.target.value ? Number(e.target.value) : '')}
-              className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-            >
-              <option value="">اختر الموظف</option>
-              {(usersQuery.data ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-            <TextArea
-              mode="arabic"
-              value={reconcileNotes}
-              onChange={(e) => onReconcileNotesChange(e.target.value)}
-              placeholder="ملاحظات التصالح..."
-              rows={2}
-              className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-            />
-            {reconcileMutation.isError && (
-              <p className="mb-sm text-xs text-error">{getErrorMessage(reconcileMutation.error)}</p>
+                <div className="mb-sm flex flex-wrap gap-xs">
+                  {[
+                    { value: 'not_installed' as const, label: 'لم يُركّب بعد' },
+                    { value: 'receive_device' as const, label: 'استلام الجهاز' },
+                    { value: 'vehicle_impounded' as const, label: 'العربية محبوسة' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSuspendMode(option.value)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        suspendMode === option.value
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                {suspendMode === 'receive_device' && (
+                  <>
+                    <label className="mb-xs block text-xs text-on-surface-variant">مسح سريال الجهاز</label>
+                    <input
+                      ref={serialRef}
+                      type="text"
+                      autoComplete="off"
+                      value={suspendSerial}
+                      onChange={(e) => setSuspendSerial(normalizeScannedInput(e.target.value))}
+                      onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                        if (e.key === 'Enter') e.preventDefault()
+                      }}
+                      placeholder="امسح السريال"
+                      className="mb-sm w-full rounded border border-outline-variant bg-surface-container-lowest px-sm py-2 font-mono text-sm tracking-wide"
+                      dir="ltr"
+                    />
+                    <label className="mb-xs block text-xs text-on-surface-variant">موظف العهدة</label>
+                    <select
+                      value={suspendEmployeeId}
+                      onChange={(e) => setSuspendEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                    >
+                      <option value="">اختر الموظف (أو يُستخدم حسابك إن كان مربوطاً)</option>
+                      {branchEmployees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+
+                {suspendMode === 'vehicle_impounded' && (
+                  <>
+                    <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية الترحيل</label>
+                    <input
+                      type="date"
+                      value={suspendResumeFromDate}
+                      onChange={(e) => setSuspendResumeFromDate(e.target.value)}
+                      className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                    />
+                    <p className="mb-sm text-xs text-on-surface-variant">
+                      تُرحَّل الأقساط غير المدفوعة لتبدأ من هذا التاريخ — بدون استلام الجهاز.
+                    </p>
+                  </>
+                )}
+
+                <label className="mb-xs block text-xs text-on-surface-variant">سبب التعليق</label>
+                <TextArea
+                  mode="arabic"
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  rows={2}
+                  placeholder="مثال: العميل لا يملك المبلغ حالياً"
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                />
+
+                {suspendMutation.isError && (
+                  <p className="mb-sm text-xs text-error">{getErrorMessage(suspendMutation.error)}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    suspendMutation.mutate({
+                      device_received: suspendMode === 'receive_device',
+                      suspend_mode: suspendMode,
+                      resume_from_date:
+                        suspendMode === 'vehicle_impounded' ? suspendResumeFromDate : undefined,
+                      serial_code: suspendMode === 'receive_device' ? suspendSerial : undefined,
+                      employee_id: suspendEmployeeId || undefined,
+                      reason: suspendReason.trim() || undefined,
+                      notes: suspendReason.trim() || undefined,
+                    })
+                  }
+                  disabled={
+                    suspendMutation.isPending ||
+                    !branchId ||
+                    (suspendMode === 'receive_device' && !suspendSerial.trim()) ||
+                    (suspendMode === 'vehicle_impounded' && !suspendResumeFromDate)
+                  }
+                  className="w-full rounded-lg border border-error/40 bg-error/5 py-2 text-sm font-bold text-error"
+                >
+                  {suspendMutation.isPending ? 'جاري التعليق...' : 'تعليق التعاقد'}
+                </button>
+              </CollapsibleSection>
             )}
-            <button
-              type="button"
-              onClick={() => reconcileMutation.mutate()}
-              disabled={reconcileMutation.isPending || !responsibleUserId}
-              className="w-full rounded-lg border border-primary py-2 text-sm font-bold text-primary"
+
+            {canCollectPayment && selectedIsOverdueContract && (
+              <CollapsibleSection
+                title="ترحيل الأقساط"
+                icon="event_repeat"
+                className="mb-sm"
+                summary="إعادة جدولة المتأخرين"
+              >
+                <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية جديد</label>
+                <input
+                  type="date"
+                  value={deferDate}
+                  onChange={(e) => onDeferDateChange(e.target.value)}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => deferMutation.mutate()}
+                  disabled={deferMutation.isPending || !deferDate}
+                  className="w-full rounded-lg border border-tertiary py-2 text-sm font-medium text-tertiary"
+                >
+                  {deferMutation.isPending ? 'جاري الترحيل…' : 'ترحيل جدول الأقساط'}
+                </button>
+              </CollapsibleSection>
+            )}
+
+            <CollapsibleSection
+              title="تعديل تواريخ الأقساط"
+              icon="edit_calendar"
+              className="mb-sm"
+              summary={`${Object.keys(dueDateEdits).length} قسط`}
             >
-              {reconcileMutation.isPending ? 'جاري التسجيل...' : 'تسجيل التصالح'}
-            </button>
-          </CollapsibleSection>
+              {Object.entries(dueDateEdits).map(([id, date]) => (
+                <div key={id} className="mb-sm flex items-center gap-2 text-sm">
+                  <span className="w-16 text-on-surface-variant">#{id}</span>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) =>
+                      onDueDateEditsChange({ ...dueDateEdits, [Number(id)]: e.target.value })
+                    }
+                    className="flex-1 rounded border border-outline-variant px-sm py-1 text-sm"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => dueDatesMutation.mutate()}
+                disabled={dueDatesMutation.isPending || !canCollectPayment}
+                className="w-full rounded-lg border border-outline-variant py-2 text-sm"
+              >
+                {dueDatesMutation.isPending ? 'جاري الحفظ…' : 'حفظ التواريخ'}
+              </button>
+            </CollapsibleSection>
+
+            {(installmentPaymentsQuery.data ?? []).length > 0 && (
+              <CollapsibleSection
+                title="آخر مدفوعات هذا القسط"
+                icon="receipt_long"
+                className="mb-sm"
+                summary={`${installmentPaymentsQuery.data?.length ?? 0} دفعة`}
+              >
+                <ul className="space-y-1 text-sm">
+                  {(installmentPaymentsQuery.data ?? []).map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-2">
+                      <span className="tabular-nums">
+                        {Number(p.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                        {p.paid_at ? ` — ${new Date(p.paid_at).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CollapsibleSection>
+            )}
+
+            {canReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
+              <CollapsibleSection
+                title="تصالح — تسجيل حالة مفتوحة"
+                icon="handshake"
+                defaultOpen
+                className="mb-sm"
+              >
+                <label className="mb-xs block text-xs text-on-surface-variant">
+                  المسؤول الذي تحدث معه العميل *
+                </label>
+                <select
+                  value={responsibleUserId}
+                  onChange={(e) => onResponsibleUserIdChange(e.target.value ? Number(e.target.value) : '')}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                >
+                  <option value="">اختر الموظف</option>
+                  {(usersQuery.data ?? []).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+                <TextArea
+                  mode="arabic"
+                  value={reconcileNotes}
+                  onChange={(e) => onReconcileNotesChange(e.target.value)}
+                  placeholder="ملاحظات التصالح..."
+                  rows={2}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                />
+                {reconcileMutation.isError && (
+                  <p className="mb-sm text-xs text-error">{getErrorMessage(reconcileMutation.error)}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => reconcileMutation.mutate()}
+                  disabled={reconcileMutation.isPending || !responsibleUserId}
+                  className="w-full rounded-lg border border-primary py-2 text-sm font-bold text-primary"
+                >
+                  {reconcileMutation.isPending ? 'جاري التسجيل...' : 'تسجيل التصالح'}
+                </button>
+              </CollapsibleSection>
+            )}
+          </>
         )}
       </div>
     </div>
