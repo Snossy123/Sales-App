@@ -1,5 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api, getErrorMessage } from '../../api/client'
+import type { InstallmentItem } from '../../api/types'
 import type { CollectionSortMode, InstallmentCollectionRow } from '../../lib/collectionHelpers'
 import {
   collectionStatusLabels,
@@ -11,7 +14,7 @@ import {
 } from '../../lib/collectionHelpers'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/customerForm'
-import { formatInvoiceDate } from '../../lib/sales'
+import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { Icon } from '../Icon'
 import { StatusBadge } from '../StatusBadge'
@@ -40,8 +43,19 @@ export interface CustomerInstallmentGroup {
   contracts: ContractGroup[]
 }
 
+type ContractExpandView = 'due' | 'all'
+
 function isOverdueRow(row: InstallmentCollectionRow): boolean {
   return row.status === 'overdue' || row.display_tier === 'overdue'
+}
+
+function sortContractInstallments(rows: InstallmentCollectionRow[]): InstallmentCollectionRow[] {
+  return [...rows].sort((a, b) => {
+    const seqA = a.sequence ?? a.installment_number ?? 0
+    const seqB = b.sequence ?? b.installment_number ?? 0
+    if (seqA !== seqB) return seqA - seqB
+    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+  })
 }
 
 export function groupInstallmentsByCustomerAndContract(
@@ -334,6 +348,58 @@ function InstallmentDetailsTable({
   )
 }
 
+function ContractAllInstallmentsTable({
+  invoiceId,
+  selectedId,
+  onSelect,
+  onReconcile,
+  onDelete,
+  onUpdateUnpaidReason,
+}: {
+  invoiceId: number
+} & Omit<InstallmentCollectionGroupedListProps, 'rows' | 'emptyMessage' | 'sortMode'>) {
+  const query = useQuery({
+    queryKey: ['installments', 'by-invoice', invoiceId],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', {
+        params: {
+          per_page: 500,
+          'filter[sales_invoice_id]': invoiceId,
+          include: 'salesInvoice.customer',
+        },
+      })
+      return sortContractInstallments(
+        data.data.map((item) => normalizeInstallmentItem(item) as InstallmentCollectionRow),
+      )
+    },
+    enabled: invoiceId > 0,
+  })
+
+  if (query.isLoading) {
+    return <p className="text-sm text-on-surface-variant">جاري التحميل…</p>
+  }
+
+  if (query.isError) {
+    return <p className="text-sm text-error">{getErrorMessage(query.error)}</p>
+  }
+
+  const rows = query.data ?? []
+  if (rows.length === 0) {
+    return <p className="text-sm text-on-surface-variant">لا توجد أقساط على هذا التعاقد</p>
+  }
+
+  return (
+    <InstallmentDetailsTable
+      rows={rows}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onReconcile={onReconcile}
+      onDelete={onDelete}
+      onUpdateUnpaidReason={onUpdateUnpaidReason}
+    />
+  )
+}
+
 export function InstallmentCollectionGroupedList({
   rows,
   sortMode = 'priority',
@@ -345,14 +411,16 @@ export function InstallmentCollectionGroupedList({
   emptyMessage = 'لا توجد أقساط مستحقة',
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
-  const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set())
+  const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
 
-  const toggleDetails = (key: string) => {
-    setExpandedContracts((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
+  const toggleView = (key: string, view: ContractExpandView) => {
+    setExpandedViews((prev) => {
+      if (prev[key] === view) {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      }
+      return { ...prev, [key]: view }
     })
   }
 
@@ -412,7 +480,7 @@ export function InstallmentCollectionGroupedList({
           <div className="space-y-sm">
             {customer.contracts.map((contract) => {
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
-              const showDetails = expandedContracts.has(contractKey)
+              const expandedView = expandedViews[contractKey]
               const current = contract.current
 
               return (
@@ -433,13 +501,22 @@ export function InstallmentCollectionGroupedList({
                         )}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleDetails(contractKey)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      {showDetails ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleView(contractKey, 'due')}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {expandedView === 'due' ? 'إخفاء الأقساط المستحقة' : 'عرض جميع الأقساط المستحقة'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleView(contractKey, 'all')}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {expandedView === 'all' ? 'إخفاء جميع الأقساط' : 'عرض جميع الأقساط'}
+                      </button>
+                    </div>
                   </div>
 
                   <ContractCollectionActions
@@ -460,10 +537,23 @@ export function InstallmentCollectionGroupedList({
                     <p className="text-sm text-on-surface-variant">لا يوجد قسط حالي (معَلّق أو مسدّد)</p>
                   )}
 
-                  {showDetails && (
+                  {expandedView === 'due' && (
                     <div className="mt-sm">
                       <InstallmentDetailsTable
                         rows={contract.rows}
+                        selectedId={selectedId}
+                        onSelect={onSelect}
+                        onReconcile={onReconcile}
+                        onDelete={onDelete}
+                        onUpdateUnpaidReason={onUpdateUnpaidReason}
+                      />
+                    </div>
+                  )}
+
+                  {expandedView === 'all' && (
+                    <div className="mt-sm">
+                      <ContractAllInstallmentsTable
+                        invoiceId={contract.invoiceId}
                         selectedId={selectedId}
                         onSelect={onSelect}
                         onReconcile={onReconcile}

@@ -3331,16 +3331,20 @@ export function handleMockRequest(
     const branchFilter = params['filter[branch_id]']
       ? Number(params['filter[branch_id]'])
       : undefined
+    const invoiceFilter = params['filter[sales_invoice_id]']
+      ? Number(params['filter[sales_invoice_id]'])
+      : undefined
     const onlyOverdue = path === 'installments/overdue'
     const rows: Record<string, unknown>[] = []
 
     for (const inv of state.invoices) {
       if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') continue
       if (branchFilter && inv.branch_id !== branchFilter) continue
+      if (invoiceFilter && inv.id !== invoiceFilter) continue
       const customer = state.customers.find((c) => c.id === inv.customer_id)
       const deviceLine = inv.lines?.find((line) => line.serial_number || line.username) ?? inv.lines?.[0]
       for (const item of inv.installment_plan?.items ?? []) {
-        if (item.status === 'paid') continue
+        if (!invoiceFilter && item.status === 'paid') continue
         const due = new Date(item.due_date)
         const isOverdue =
           item.status === 'overdue' ||
