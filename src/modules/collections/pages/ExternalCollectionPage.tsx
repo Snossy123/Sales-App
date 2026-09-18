@@ -279,13 +279,6 @@ export function ExternalCollectionPage() {
     },
   })
 
-  const unpaidReasonMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
-      await api.patch(`/installments/${id}`, { unpaid_reason: reason || null })
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
-  })
-
   const suspendMutation = useMutation({
     mutationFn: async (payload: {
       device_received: boolean
@@ -413,9 +406,6 @@ export function ExternalCollectionPage() {
                 onReconcile={(row) => {
                   selectRow(row)
                   setShowReconcile(true)
-                }}
-                onUpdateUnpaidReason={(row, reason) => {
-                  unpaidReasonMutation.mutate({ id: row.id, reason })
                 }}
                 emptyMessage="لا توجد أقساط مطابقة للبحث"
               />

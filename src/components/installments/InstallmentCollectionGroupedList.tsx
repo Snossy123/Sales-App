@@ -186,7 +186,6 @@ interface InstallmentCollectionGroupedListProps {
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
-  onUpdateUnpaidReason?: (row: InstallmentCollectionRow, reason: string) => void
   emptyMessage?: string
   collectors?: Array<{ id: number; name: string }>
   canAssign?: boolean
@@ -282,12 +281,11 @@ function InstallmentDetailsTable({
   selectedId,
   onSelect,
   onReconcile,
-  onUpdateUnpaidReason,
   showPaymentColumns = false,
 }: Omit<InstallmentCollectionGroupedListProps, 'emptyMessage'> & { showPaymentColumns?: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
-      <table className={`w-full text-sm ${showPaymentColumns ? 'min-w-[46rem]' : 'min-w-[36rem]'}`}>
+      <table className={`w-full text-sm ${showPaymentColumns ? 'min-w-[42rem]' : 'min-w-[32rem]'}`}>
         <thead>
           <tr className="border-b border-outline-variant/60 bg-surface-container-low text-[11px] text-on-surface-variant">
             <th className="px-sm py-2 text-start font-bold">قسط #</th>
@@ -301,7 +299,6 @@ function InstallmentDetailsTable({
               </>
             )}
             <th className="px-sm py-2 text-start font-bold">الحالة</th>
-            <th className="px-sm py-2 text-start font-bold">سبب عدم السداد</th>
             <th className="px-sm py-2 text-start font-bold"></th>
           </tr>
         </thead>
@@ -330,25 +327,6 @@ function InstallmentDetailsTable({
                 )}
                 <td className="px-sm py-2">
                   <StatusBadge status={String(row.display_tier ?? row.status)} />
-                </td>
-                <td className="px-sm py-2">
-                  {isPaid ? (
-                    <span className="text-xs text-secondary">مسدّد</span>
-                  ) : onUpdateUnpaidReason ? (
-                    <input
-                      type="text"
-                      defaultValue={row.unpaid_reason ?? ''}
-                      placeholder="سبب التأخير…"
-                      className="w-full min-w-[8rem] rounded border border-outline-variant px-1 py-0.5 text-xs"
-                      onBlur={(e) => {
-                        if (e.target.value !== (row.unpaid_reason ?? '')) {
-                          onUpdateUnpaidReason(row, e.target.value)
-                        }
-                      }}
-                    />
-                  ) : (
-                    row.unpaid_reason ?? '—'
-                  )}
                 </td>
                 <td className="px-sm py-2">
                   {!isPaid && !row.is_suspended && (
@@ -380,7 +358,6 @@ function ContractAllInstallmentsTable({
   selectedId,
   onSelect,
   onReconcile,
-  onUpdateUnpaidReason,
 }: {
   invoiceId: number
 } & Omit<InstallmentCollectionGroupedListProps, 'rows' | 'emptyMessage' | 'sortMode'>) {
@@ -420,7 +397,6 @@ function ContractAllInstallmentsTable({
       selectedId={selectedId}
       onSelect={onSelect}
       onReconcile={onReconcile}
-      onUpdateUnpaidReason={onUpdateUnpaidReason}
       showPaymentColumns
     />
   )
@@ -432,7 +408,6 @@ export function InstallmentCollectionGroupedList({
   selectedId,
   onSelect,
   onReconcile,
-  onUpdateUnpaidReason,
   emptyMessage = 'لا توجد أقساط مستحقة',
   collectors = [],
   canAssign = false,
@@ -623,7 +598,6 @@ export function InstallmentCollectionGroupedList({
                         selectedId={selectedId}
                         onSelect={onSelect}
                         onReconcile={onReconcile}
-                        onUpdateUnpaidReason={onUpdateUnpaidReason}
                       />
                     </div>
                   )}
@@ -635,7 +609,6 @@ export function InstallmentCollectionGroupedList({
                         selectedId={selectedId}
                         onSelect={onSelect}
                         onReconcile={onReconcile}
-                        onUpdateUnpaidReason={onUpdateUnpaidReason}
                       />
                     </div>
                   )}
