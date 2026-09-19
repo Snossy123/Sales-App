@@ -486,6 +486,19 @@ function buildInventoryOverview(
   return rows
 }
 
+function findInstallmentAcrossInvoices(
+  invoices: SalesInvoice[],
+  itemId: number,
+): { invoice: SalesInvoice; item: InstallmentItem; plan: InstallmentPlan } | undefined {
+  for (const invoice of invoices) {
+    const found = findInstallmentItem(invoice, itemId)
+    if (found) {
+      return { invoice, ...found }
+    }
+  }
+  return undefined
+}
+
 function findInstallmentItem(
   invoice: SalesInvoice,
   itemId: number,
@@ -499,6 +512,52 @@ function findInstallmentItem(
   const item = plan?.items?.find((i) => i.id === itemId)
   if (item && plan) return { item, plan }
   return undefined
+}
+
+function applyMockCollectionMetadata(
+  invoice: SalesInvoice,
+  item: InstallmentItem | undefined,
+  body: {
+    collection_status?: string | null
+    collection_reminder_at?: string | null
+    collection_notes?: string | null
+  },
+  ctx: MockContext,
+): void {
+  const nextStatus = body.collection_status ?? item?.collection_status ?? invoice.collection_status ?? null
+  const nextReminder = body.collection_reminder_at ?? item?.collection_reminder_at ?? invoice.collection_reminder_at ?? null
+  const nextNotes = body.collection_notes ?? item?.collection_notes ?? invoice.collection_notes ?? null
+  const currentStatus = item?.collection_status ?? invoice.collection_status ?? null
+  const currentReminder = item?.collection_reminder_at ?? invoice.collection_reminder_at ?? null
+  const currentNotes = item?.collection_notes ?? invoice.collection_notes ?? null
+  const changed =
+    currentStatus !== nextStatus || currentReminder !== nextReminder || currentNotes !== nextNotes
+
+  if (item) {
+    item.collection_status = nextStatus
+    item.collection_reminder_at = nextReminder
+    item.collection_notes = nextNotes
+  }
+  invoice.collection_status = nextStatus
+  invoice.collection_reminder_at = nextReminder
+  invoice.collection_notes = nextNotes
+
+  if (changed) {
+    mockCollectionFollowUpLogs.unshift({
+      id: mockCollectionFollowUpSeq++,
+      sales_invoice_id: invoice.id,
+      installment_item_id: item?.id ?? null,
+      installment_sequence: item?.sequence ?? item?.installment_number ?? null,
+      invoice_number: invoice.invoice_number,
+      user_id: ctx.user?.id ?? null,
+      user_name: ctx.user?.name ?? null,
+      collection_status: nextStatus,
+      collection_status_label: nextStatus ? collectionStatusLabels[nextStatus] ?? nextStatus : null,
+      collection_reminder_at: nextReminder,
+      collection_notes: nextNotes,
+      created_at: new Date().toISOString(),
+    })
+  }
 }
 
 function refreshInvoicePayment(invoice: SalesInvoice): void {
@@ -3431,9 +3490,9 @@ export function handleMockRequest(
           username: identityLine?.username ?? customer?.username ?? null,
           serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
           sim_number: identityLine?.sim_number ?? customer?.sim_number ?? null,
-          collection_status: inv.collection_status ?? null,
-          collection_reminder_at: inv.collection_reminder_at ?? null,
-          collection_notes: inv.collection_notes ?? null,
+          collection_status: item.collection_status ?? inv.collection_status ?? null,
+          collection_reminder_at: item.collection_reminder_at ?? inv.collection_reminder_at ?? null,
+          collection_notes: item.collection_notes ?? inv.collection_notes ?? null,
           collector_user_id: inv.collector_user_id ?? null,
           collector_name: collector?.name ?? null,
           remaining: Number(item.amount) - Number(item.paid_amount),
@@ -3559,10 +3618,19 @@ export function handleMockRequest(
     }
   }
 
+  const installmentFollowUpHistoryMatch = path.match(/^installments\/(\d+)\/collection-follow-ups$/)
+  if (m === 'GET' && installmentFollowUpHistoryMatch) {
+    const installmentId = Number(installmentFollowUpHistoryMatch[1])
+    return {
+      data: mockCollectionFollowUpLogs.filter((row) => row.installment_item_id === installmentId),
+    }
+  }
+
   const metadataMatch = path.match(/^sales-invoices\/(\d+)\/collection-metadata$/)
   if (m === 'PATCH' && metadataMatch) {
     const invoiceId = Number(metadataMatch[1])
     const body = data as {
+      installment_item_id?: number | null
       collection_status?: string | null
       collection_reminder_at?: string | null
       collection_notes?: string | null
@@ -3571,32 +3639,35 @@ export function handleMockRequest(
     mutateState((s) => {
       invoice = s.invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
-      const nextStatus = body.collection_status ?? null
-      const nextReminder = body.collection_reminder_at ?? null
-      const nextNotes = body.collection_notes ?? null
-      const changed =
-        (invoice.collection_status ?? null) !== nextStatus ||
-        (invoice.collection_reminder_at ?? null) !== nextReminder ||
-        (invoice.collection_notes ?? null) !== nextNotes
-      invoice.collection_status = nextStatus
-      invoice.collection_reminder_at = nextReminder
-      invoice.collection_notes = nextNotes
-      if (changed) {
-        mockCollectionFollowUpLogs.unshift({
-          id: mockCollectionFollowUpSeq++,
-          sales_invoice_id: invoice.id,
-          user_id: ctx.user?.id ?? null,
-          user_name: ctx.user?.name ?? null,
-          collection_status: nextStatus,
-          collection_status_label: nextStatus ? collectionStatusLabels[nextStatus] ?? nextStatus : null,
-          collection_reminder_at: nextReminder,
-          collection_notes: nextNotes,
-          created_at: new Date().toISOString(),
-        })
-      }
+      const found = body.installment_item_id
+        ? findInstallmentItem(invoice, body.installment_item_id)
+        : undefined
+      const target = found?.item
+        ?? invoice.installment_plan?.items?.find((item) => item.status !== 'paid')
+        ?? invoice.installment_plan?.items?.[0]
+      applyMockCollectionMetadata(invoice, target, body, ctx)
     })
     if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
     return invoice
+  }
+
+  const installmentMetadataMatch = path.match(/^installments\/(\d+)\/collection-metadata$/)
+  if (m === 'PATCH' && installmentMetadataMatch) {
+    const installmentId = Number(installmentMetadataMatch[1])
+    const body = data as {
+      collection_status?: string | null
+      collection_reminder_at?: string | null
+      collection_notes?: string | null
+    }
+    let updatedItem: InstallmentItem | undefined
+    mutateState((s) => {
+      const found = findInstallmentAcrossInvoices(s.invoices, installmentId)
+      if (!found) return
+      applyMockCollectionMetadata(found.invoice, found.item, body, ctx)
+      updatedItem = found.item
+    })
+    if (!updatedItem) throw mockError(404, 'القسط غير موجود')
+    return updatedItem
   }
 
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {

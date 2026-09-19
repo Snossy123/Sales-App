@@ -238,7 +238,7 @@ export function ExternalCollectionPage() {
 
   const metadataMutation = useMutation({
     mutationFn: async () => {
-      if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
+      if (!selected?.id) throw new Error('قسط غير محدد')
       const payload = buildCollectionFollowUpPayload({
         collectionStatus,
         collectionReminderAt,
@@ -246,12 +246,15 @@ export function ExternalCollectionPage() {
       })
       if (Object.keys(payload).length === 0) throw new Error('أضف حالة أو ميعاد تذكير أو ملاحظة')
       const { data } = await api.patch(
-        `/sales-invoices/${selected.sales_invoice_id}/collection-metadata`,
+        `/installments/${selected.id}/collection-metadata`,
         payload,
       )
       return data
     },
     onSuccess: () => {
+      if (selected?.id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', selected.id] })
+      }
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }

@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from '../Icon'
 import type { ExcessAllocationPreview } from '../../lib/collectionHelpers'
 
@@ -24,14 +26,35 @@ export function OverpaymentConfirmDialog({
   onConfirm,
   onCancel,
 }: OverpaymentConfirmDialogProps) {
-  if (!open) return null
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isPending) onCancel()
+    }
+    document.addEventListener('keydown', handler)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handler)
+      document.body.style.overflow = ''
+    }
+  }, [open, isPending, onCancel])
+
+  if (!open || typeof document === 'undefined') return null
 
   const excess = Math.round((paymentAmount - currentDue) * 100) / 100
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-md">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-sm sm:p-md">
+      <button
+        type="button"
+        aria-label="إغلاق"
+        className="absolute inset-0 bg-black/40"
+        onClick={() => {
+          if (!isPending) onCancel()
+        }}
+      />
       <div
-        className="w-full max-w-md rounded-xl border border-outline-variant bg-surface-container-lowest p-lg shadow-lg"
+        className="relative z-10 w-[calc(100vw-1.5rem)] max-w-md max-h-[min(32rem,calc(100dvh-2rem))] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-sm shadow-lg sm:p-lg"
         role="dialog"
         aria-modal="true"
         aria-labelledby="overpay-dialog-title"
@@ -63,12 +86,12 @@ export function OverpaymentConfirmDialog({
             ))}
           </ul>
         )}
-        <div className="flex justify-end gap-sm">
+        <div className="flex flex-col-reverse gap-sm sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="rounded-lg border border-outline-variant px-md py-sm text-sm"
+            className="w-full rounded-lg border border-outline-variant px-md py-sm text-sm sm:w-auto"
           >
             إلغاء
           </button>
@@ -76,13 +99,14 @@ export function OverpaymentConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+            className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary sm:w-auto"
           >
             <Icon name="payments" size={18} />
             {isPending ? 'جاري التحصيل...' : 'الموافقة والتحصيل'}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

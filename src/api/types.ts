@@ -815,6 +815,9 @@ export interface CollectionAssignmentRecord {
 export interface CollectionFollowUpLog {
   id: number
   sales_invoice_id: number
+  installment_item_id?: number | null
+  installment_sequence?: number | null
+  invoice_number?: string | null
   user_id?: number | null
   user_name?: string | null
   collection_status?: string | null

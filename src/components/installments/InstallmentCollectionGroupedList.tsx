@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, getErrorMessage } from '../../api/client'
 import type { InstallmentItem } from '../../api/types'
@@ -49,7 +49,7 @@ export interface CustomerInstallmentGroup {
 type ContractExpandView = 'due' | 'all'
 
 const installmentPaymentMethodLabels: Record<string, string> = {
-  cash: 'كاش',
+  cash: 'نقدي',
   wallet: 'محفظة',
   instapay: 'انستا',
   bank_transfer: 'تحويل بنكي',
@@ -210,6 +210,150 @@ function InstallmentMetricCell({
       <div className="mt-1 flex min-h-[1.75rem] items-center justify-center text-sm font-bold text-on-surface" dir={dir}>
         {children}
       </div>
+    </div>
+  )
+}
+
+function ContractMetaCell({
+  label,
+  children,
+  dir,
+}: {
+  label: string
+  children: React.ReactNode
+  dir?: 'ltr' | 'rtl'
+}) {
+  return (
+    <div className="min-w-0 rounded-lg bg-surface-container-low/60 px-sm py-1.5">
+      <p className="text-[11px] font-medium text-on-surface-variant">{label}</p>
+      <div className="mt-0.5 truncate text-xs font-semibold text-on-surface" dir={dir}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ContractOptionsMenu({
+  expandedView,
+  onToggleDue,
+  onToggleAll,
+  canAssign,
+  collectors,
+  collectorUserId,
+  assigning,
+  onAssignCollector,
+  canAddAction,
+  onAddAction,
+}: {
+  expandedView?: ContractExpandView
+  onToggleDue?: () => void
+  onToggleAll?: () => void
+  canAssign?: boolean
+  collectors?: Array<{ id: number; name: string }>
+  collectorUserId?: number | null
+  assigning?: boolean
+  onAssignCollector?: (collectorUserId: number | null) => void
+  canAddAction?: boolean
+  onAddAction?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const hasItems = Boolean(onToggleDue || onToggleAll || (canAssign && onAssignCollector) || (canAddAction && onAddAction))
+  if (!hasItems) return null
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        aria-label="خيارات التعاقد"
+        aria-expanded={open}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((current) => !current)
+        }}
+        className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
+      >
+        <Icon name="more_vert" size={22} />
+      </button>
+      {open && (
+        <div className="absolute end-0 z-20 mt-1 min-w-56 rounded-lg border border-outline-variant bg-surface-container-lowest py-1 shadow-lg">
+          {onToggleDue && (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleDue()
+                setOpen(false)
+              }}
+              className="block w-full px-sm py-2 text-right text-sm text-on-surface hover:bg-surface-container-low"
+            >
+              {expandedView === 'due' ? 'إخفاء الأقساط المستحقة' : 'عرض جميع الأقساط المستحقة'}
+            </button>
+          )}
+          {onToggleAll && (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleAll()
+                setOpen(false)
+              }}
+              className="block w-full px-sm py-2 text-right text-sm text-on-surface hover:bg-surface-container-low"
+            >
+              {expandedView === 'all' ? 'إخفاء جميع الأقساط' : 'عرض جميع الأقساط'}
+            </button>
+          )}
+          {canAddAction && onAddAction && (
+            <button
+              type="button"
+              onClick={() => {
+                onAddAction()
+                setOpen(false)
+              }}
+              className="block w-full px-sm py-2 text-right text-sm text-on-surface hover:bg-surface-container-low"
+            >
+              إضافة إجراء
+            </button>
+          )}
+          {canAssign && onAssignCollector && (
+            <div className="border-t border-outline-variant/60 px-sm py-2">
+              <p className="mb-1 text-[11px] text-on-surface-variant">تعيين المحصل</p>
+              <select
+                value={collectorUserId ?? ''}
+                disabled={assigning}
+                onChange={(event) => {
+                  onAssignCollector(event.target.value ? Number(event.target.value) : null)
+                  setOpen(false)
+                }}
+                className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-xs"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <option value="">بدون محصل</option>
+                {collectors?.map((collector) => (
+                  <option key={collector.id} value={collector.id}>
+                    {collector.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -419,6 +563,7 @@ export function InstallmentCollectionGroupedList({
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
+  const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
 
   const toggleView = (key: string, view: ContractExpandView) => {
     setExpandedViews((prev) => {
@@ -451,13 +596,13 @@ export function InstallmentCollectionGroupedList({
             customer.customerId ? (
               <Link
                 to={`/customers/${customer.customerId}`}
-                title="فتح ملف العميل"
-                aria-label={`فتح ملف العميل ${customer.customerName}`}
+                title="فتح بروفايل العميل"
+                aria-label={`فتح بروفايل العميل ${customer.customerName}`}
                 className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Icon name="open_in_new" size={16} />
-                الملف
+                بروفايل
               </Link>
             ) : null
           }
@@ -507,9 +652,9 @@ export function InstallmentCollectionGroupedList({
                   key={contractKey}
                   className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm"
                 >
-                  <div className="mb-sm flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-on-surface">
+                  <div className="mb-sm">
+                    <div className="mb-sm flex items-start justify-between gap-2">
+                      <p className="min-w-0 font-semibold text-on-surface">
                         تعاقد{' '}
                         {contract.invoiceId > 0 ? (
                           <Link
@@ -526,79 +671,68 @@ export function InstallmentCollectionGroupedList({
                           contract.invoiceNumber
                         )}
                       </p>
-                      <p className="text-xs text-on-surface-variant">
-                        {contract.installmentCount} قسط · {contract.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                        {contract.collectionStatus && (
-                          <> · {collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus}</>
-                        )}
-                        {contract.collectionReminderAt && (
-                          <> · تذكير {formatDatetime12hDisplay(contract.collectionReminderAt)}</>
-                        )}
-                        {' · '}
-                        {contract.collectorName ? `المحصل: ${contract.collectorName}` : 'بدون محصل'}
-                      </p>
-                      <p className="mt-1 text-xs text-on-surface">
-                        <span className="text-on-surface-variant">السريال:</span>{' '}
-                        <span className="font-semibold" dir="ltr">
-                          {serial || '—'}
-                        </span>
-                        <span className="mx-2 text-on-surface-variant">·</span>
-                        <span className="text-on-surface-variant">اليوزر:</span>{' '}
-                        <span className="font-semibold" dir="ltr">
-                          {username || '—'}
-                        </span>
-                        <span className="mx-2 text-on-surface-variant">·</span>
-                        <span className="text-on-surface-variant">الشريحة:</span>{' '}
-                        <span className="font-semibold" dir="ltr">
-                          {sim || '—'}
-                        </span>
-                      </p>
+                      <ContractOptionsMenu
+                        expandedView={expandedView}
+                        onToggleDue={compact ? undefined : () => toggleView(contractKey, 'due')}
+                        onToggleAll={compact ? undefined : () => toggleView(contractKey, 'all')}
+                        canAssign={!compact && canAssign}
+                        collectors={collectors}
+                        collectorUserId={contract.collectorUserId}
+                        assigning={assigningInvoiceId === contract.invoiceId}
+                        onAssignCollector={
+                          onAssignCollector
+                            ? (collectorUserId) => onAssignCollector(contract.invoiceId, collectorUserId)
+                            : undefined
+                        }
+                        canAddAction={Boolean(customer.customerId)}
+                        onAddAction={() =>
+                          setActionsOpenByContract((prev) => ({ ...prev, [contractKey]: true }))
+                        }
+                      />
                     </div>
-                    {!compact && (
-                      <div className="flex flex-wrap items-center gap-3">
-                        {canAssign && onAssignCollector && (
-                          <select
-                            value={contract.collectorUserId ?? ''}
-                            disabled={assigningInvoiceId === contract.invoiceId}
-                            onChange={(e) =>
-                              onAssignCollector(
-                                contract.invoiceId,
-                                e.target.value ? Number(e.target.value) : null,
-                              )
-                            }
-                            className="h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <option value="">بدون محصل</option>
-                            {collectors.map((collector) => (
-                              <option key={collector.id} value={collector.id}>
-                                {collector.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => toggleView(contractKey, 'due')}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {expandedView === 'due' ? 'إخفاء الأقساط المستحقة' : 'عرض جميع الأقساط المستحقة'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleView(contractKey, 'all')}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {expandedView === 'all' ? 'إخفاء جميع الأقساط' : 'عرض جميع الأقساط'}
-                        </button>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
+                      <ContractMetaCell label="الأقساط">
+                        <span className="tabular-nums">{contract.installmentCount}</span>
+                      </ContractMetaCell>
+                      <ContractMetaCell label="المتبقي">
+                        <span className="tabular-nums">
+                          {contract.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                        </span>
+                      </ContractMetaCell>
+                      {contract.collectionStatus ? (
+                        <ContractMetaCell label="حالة التحصيل">
+                          {collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus}
+                        </ContractMetaCell>
+                      ) : null}
+                      <ContractMetaCell label="المحصل">
+                        {contract.collectorName || 'بدون محصل'}
+                      </ContractMetaCell>
+                      <ContractMetaCell label="السريال" dir="ltr">
+                        {serial || '—'}
+                      </ContractMetaCell>
+                      <ContractMetaCell label="اليوزر" dir="ltr">
+                        {username || '—'}
+                      </ContractMetaCell>
+                      <ContractMetaCell label="الشريحة" dir="ltr">
+                        {sim || '—'}
+                      </ContractMetaCell>
+                      {contract.collectionReminderAt ? (
+                        <ContractMetaCell label="التذكير">
+                          {formatDatetime12hDisplay(contract.collectionReminderAt)}
+                        </ContractMetaCell>
+                      ) : null}
+                    </div>
                   </div>
 
                   <ContractCollectionActions
                     customerId={customer.customerId}
                     invoiceId={contract.invoiceId}
                     hasPhone={customer.customerPhones.length > 0}
+                    hideTrigger
+                    openActions={Boolean(actionsOpenByContract[contractKey])}
+                    onOpenActionsChange={(open) =>
+                      setActionsOpenByContract((prev) => ({ ...prev, [contractKey]: open }))
+                    }
                   />
 
                   {current ? (

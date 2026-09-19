@@ -26,7 +26,7 @@ import { useAuthStore } from '../../stores/authStore'
 
 
 const paymentMethodOptions = [
-  { value: 'cash', label: 'كاش' },
+  { value: 'cash', label: 'نقدي' },
   { value: 'wallet', label: 'محفظة' },
   { value: 'instapay', label: 'انستا' },
   { value: 'bank_transfer', label: 'تحويل بنكي' },
@@ -282,7 +282,7 @@ export function InstallmentCollectionPanel({
                   className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
                 >
                   <Icon name="open_in_new" size={14} />
-                  الملف
+                  بروفايل
                 </Link>
               ) : null}
             </dd>
@@ -628,7 +628,9 @@ export function InstallmentCollectionPanel({
         </CollapsibleSection>
 
         <CollectionFollowUpHistoryModal
-          invoiceId={selected.sales_invoice_id}
+          installmentId={selected.id}
+          invoiceNumber={selected.invoice_number}
+          installmentSequence={selected.installment_number ?? selected.sequence}
           open={showFollowUpHistory}
           onClose={() => setShowFollowUpHistory(false)}
         />

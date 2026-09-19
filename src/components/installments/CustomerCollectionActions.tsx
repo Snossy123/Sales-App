@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, getErrorMessage } from '../../api/client'
 import type { CollectionActionsSummary } from '../../api/types'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
@@ -27,16 +27,34 @@ export function ContractCollectionActions({
   customerId,
   invoiceId,
   hasPhone,
+  hideTrigger = false,
+  openActions = false,
+  onOpenActionsChange,
 }: {
   customerId?: number
   invoiceId: number
   hasPhone: boolean
+  hideTrigger?: boolean
+  openActions?: boolean
+  onOpenActionsChange?: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const [actionsModalOpen, setActionsModalOpen] = useState(false)
   const [deviceModalOpen, setDeviceModalOpen] = useState(false)
   const [deviceNotes, setDeviceNotes] = useState('')
   const [error, setError] = useState('')
+
+  const setModalOpen = (open: boolean) => {
+    setActionsModalOpen(open)
+    onOpenActionsChange?.(open)
+  }
+
+  useEffect(() => {
+    if (openActions) {
+      setActionsModalOpen(true)
+      setError('')
+    }
+  }, [openActions])
 
   const summaryQuery = useCollectionActionsSummary(customerId)
   const summary = summaryQuery.data
@@ -56,7 +74,7 @@ export function ContractCollectionActions({
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
       setError('')
-      setActionsModalOpen(false)
+      setModalOpen(false)
     },
     onError: (err) => setError(getErrorMessage(err)),
   })
@@ -95,13 +113,13 @@ export function ContractCollectionActions({
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
       setError('')
-      setActionsModalOpen(false)
+      setModalOpen(false)
     },
     onError: (err) => setError(getErrorMessage(err)),
   })
 
   const closeActionsModal = () => {
-    setActionsModalOpen(false)
+    setModalOpen(false)
     setError('')
   }
 
@@ -115,18 +133,20 @@ export function ContractCollectionActions({
         </p>
       )}
 
-      <div className="mb-sm flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setError('')
-            setActionsModalOpen(true)
-          }}
-          className="rounded-lg border border-primary/40 bg-primary/5 px-sm py-1 text-xs font-medium text-primary hover:bg-primary/10"
-        >
-          إضافة إجراء
-        </button>
-      </div>
+      {!hideTrigger && (
+        <div className="mb-sm flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setError('')
+              setModalOpen(true)
+            }}
+            className="rounded-lg border border-primary/40 bg-primary/5 px-sm py-1 text-xs font-medium text-primary hover:bg-primary/10"
+          >
+            إضافة إجراء
+          </button>
+        </div>
+      )}
 
       <div className="mb-sm flex flex-wrap gap-sm text-[11px] text-on-surface-variant">
         {warning && (
@@ -189,7 +209,7 @@ export function ContractCollectionActions({
             type="button"
             onClick={() => {
               setError('')
-              setActionsModalOpen(false)
+              setModalOpen(false)
               setDeviceModalOpen(true)
             }}
             disabled={deviceMutation.isPending}
