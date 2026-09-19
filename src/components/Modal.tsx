@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
 interface ModalProps {
@@ -29,9 +30,9 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-md">
       <button
         type="button"
@@ -59,6 +60,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
         </div>
         <div className="p-md">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
