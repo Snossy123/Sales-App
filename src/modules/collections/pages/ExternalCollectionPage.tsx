@@ -302,6 +302,7 @@ export function ExternalCollectionPage() {
       employee_id?: number
       reason?: string
       notes?: string
+      collection_reminder_at?: string
     }) => {
       if (!selected?.sales_invoice_id || !selectedBranchId) throw new Error('عقد أو فرع غير محدد')
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/suspend`, {

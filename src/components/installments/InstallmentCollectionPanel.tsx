@@ -115,6 +115,7 @@ export interface InstallmentCollectionPanelProps {
       employee_id?: number
       reason?: string
       notes?: string
+      collection_reminder_at?: string
     },
     unknown
   >
@@ -201,6 +202,7 @@ export function InstallmentCollectionPanel({
   const [suspendReason, setSuspendReason] = useState('')
   const [suspendEmployeeId, setSuspendEmployeeId] = useState<number | ''>('')
   const [suspendResumeFromDate, setSuspendResumeFromDate] = useState('')
+  const [suspendFollowUpAt, setSuspendFollowUpAt] = useState('')
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [showOverpayConfirm, setShowOverpayConfirm] = useState(false)
   const [showFollowUpHistory, setShowFollowUpHistory] = useState(false)
@@ -212,6 +214,7 @@ export function InstallmentCollectionPanel({
     setSuspendReason('')
     setSuspendEmployeeId('')
     setSuspendResumeFromDate('')
+    setSuspendFollowUpAt('')
     setShowMoreActions(false)
     setShowOverpayConfirm(false)
     setShowFollowUpHistory(false)
@@ -721,6 +724,16 @@ export function InstallmentCollectionPanel({
                   </>
                 )}
 
+                <label className="mb-xs block text-xs text-on-surface-variant">ميعاد المتابعة</label>
+                <DateTimeInput12h
+                  value={suspendFollowUpAt}
+                  onChange={setSuspendFollowUpAt}
+                  className="mb-sm"
+                />
+                <p className="mb-sm text-xs text-on-surface-variant">
+                  هيظهر في المتابعات ويرجع للتحصيل لما الميعاد يجي.
+                </p>
+
                 <label className="mb-xs block text-xs text-on-surface-variant">سبب التعليق</label>
                 <TextArea
                   mode="arabic"
@@ -747,11 +760,13 @@ export function InstallmentCollectionPanel({
                       employee_id: suspendEmployeeId || undefined,
                       reason: suspendReason.trim() || undefined,
                       notes: suspendReason.trim() || undefined,
+                      collection_reminder_at: suspendFollowUpAt || undefined,
                     })
                   }
                   disabled={
                     suspendMutation.isPending ||
                     !branchId ||
+                    !suspendFollowUpAt ||
                     (suspendMode === 'receive_device' && !suspendSerial.trim()) ||
                     (suspendMode === 'vehicle_impounded' && !suspendResumeFromDate)
                   }

@@ -328,13 +328,23 @@ export function hasFutureCollectionReminder(
   })
 }
 
-export function filterRowsWithoutFutureReminder(
+export function isFullySuspendedContract(rows: InstallmentCollectionRow[]): boolean {
+  const unpaid = rows.filter((row) => row.status !== 'paid')
+  return unpaid.length > 0 && unpaid.every((row) => Boolean(row.is_suspended || row.suspended_at))
+}
+
+export function isParkedFollowUpContract(
   rows: InstallmentCollectionRow[],
   now: number = Date.now(),
-): InstallmentCollectionRow[] {
-  const hiddenInvoiceIds = new Set<number>()
-  const byInvoice = new Map<number, InstallmentCollectionRow[]>()
+): boolean {
+  return hasFutureCollectionReminder(rows, now) || isFullySuspendedContract(rows)
+}
 
+function invoiceIdsMatching(
+  rows: InstallmentCollectionRow[],
+  predicate: (invoiceRows: InstallmentCollectionRow[]) => boolean,
+): Set<number> {
+  const byInvoice = new Map<number, InstallmentCollectionRow[]>()
   for (const row of rows) {
     const invoiceId = Number(row.sales_invoice_id ?? 0)
     const list = byInvoice.get(invoiceId) ?? []
@@ -342,35 +352,40 @@ export function filterRowsWithoutFutureReminder(
     byInvoice.set(invoiceId, list)
   }
 
+  const matching = new Set<number>()
   for (const [invoiceId, invoiceRows] of byInvoice) {
-    if (hasFutureCollectionReminder(invoiceRows, now)) {
-      hiddenInvoiceIds.add(invoiceId)
-    }
+    if (predicate(invoiceRows)) matching.add(invoiceId)
   }
+  return matching
+}
 
-  return rows.filter((row) => !hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
+export function filterRowsWithoutFutureReminder(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): InstallmentCollectionRow[] {
+  return filterRowsWithoutParkedFollowUp(rows, now)
 }
 
 export function filterRowsWithFutureReminder(
   rows: InstallmentCollectionRow[],
   now: number = Date.now(),
 ): InstallmentCollectionRow[] {
-  const hiddenInvoiceIds = new Set<number>()
-  const byInvoice = new Map<number, InstallmentCollectionRow[]>()
+  return filterRowsWithParkedFollowUp(rows, now)
+}
 
-  for (const row of rows) {
-    const invoiceId = Number(row.sales_invoice_id ?? 0)
-    const list = byInvoice.get(invoiceId) ?? []
-    list.push(row)
-    byInvoice.set(invoiceId, list)
-  }
+export function filterRowsWithoutParkedFollowUp(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): InstallmentCollectionRow[] {
+  const hiddenInvoiceIds = invoiceIdsMatching(rows, (invoiceRows) => isParkedFollowUpContract(invoiceRows, now))
+  return rows.filter((row) => !hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
+}
 
-  for (const [invoiceId, invoiceRows] of byInvoice) {
-    if (hasFutureCollectionReminder(invoiceRows, now)) {
-      hiddenInvoiceIds.add(invoiceId)
-    }
-  }
-
+export function filterRowsWithParkedFollowUp(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): InstallmentCollectionRow[] {
+  const hiddenInvoiceIds = invoiceIdsMatching(rows, (invoiceRows) => isParkedFollowUpContract(invoiceRows, now))
   return rows.filter((row) => hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
 }
 
@@ -399,7 +414,7 @@ export function computeContractStats(
   let upcoming = 0
 
   for (const invoiceRows of byInvoice.values()) {
-    if (hasFutureCollectionReminder(invoiceRows, now)) {
+    if (isParkedFollowUpContract(invoiceRows, now)) {
       continue
     }
 

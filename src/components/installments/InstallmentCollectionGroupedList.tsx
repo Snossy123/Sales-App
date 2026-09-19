@@ -192,6 +192,7 @@ interface InstallmentCollectionGroupedListProps {
   canAssign?: boolean
   onAssignCollector?: (invoiceId: number, collectorUserId: number | null) => void
   assigningInvoiceId?: number | null
+  compact?: boolean
 }
 
 function InstallmentMetricCell({
@@ -414,6 +415,7 @@ export function InstallmentCollectionGroupedList({
   canAssign = false,
   onAssignCollector,
   assigningInvoiceId = null,
+  compact = false,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
@@ -444,7 +446,7 @@ export function InstallmentCollectionGroupedList({
           key={customer.customerKey}
           title={customer.customerName}
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
-          defaultOpen={index === 0}
+          defaultOpen={compact || index === 0}
           actions={
             customer.customerId ? (
               <Link
@@ -552,43 +554,45 @@ export function InstallmentCollectionGroupedList({
                         </span>
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {canAssign && onAssignCollector && (
-                        <select
-                          value={contract.collectorUserId ?? ''}
-                          disabled={assigningInvoiceId === contract.invoiceId}
-                          onChange={(e) =>
-                            onAssignCollector(
-                              contract.invoiceId,
-                              e.target.value ? Number(e.target.value) : null,
-                            )
-                          }
-                          className="h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-xs"
-                          onClick={(e) => e.stopPropagation()}
+                    {!compact && (
+                      <div className="flex flex-wrap items-center gap-3">
+                        {canAssign && onAssignCollector && (
+                          <select
+                            value={contract.collectorUserId ?? ''}
+                            disabled={assigningInvoiceId === contract.invoiceId}
+                            onChange={(e) =>
+                              onAssignCollector(
+                                contract.invoiceId,
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                            className="h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="">بدون محصل</option>
+                            {collectors.map((collector) => (
+                              <option key={collector.id} value={collector.id}>
+                                {collector.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleView(contractKey, 'due')}
+                          className="text-sm text-primary hover:underline"
                         >
-                          <option value="">بدون محصل</option>
-                          {collectors.map((collector) => (
-                            <option key={collector.id} value={collector.id}>
-                              {collector.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => toggleView(contractKey, 'due')}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {expandedView === 'due' ? 'إخفاء الأقساط المستحقة' : 'عرض جميع الأقساط المستحقة'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleView(contractKey, 'all')}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {expandedView === 'all' ? 'إخفاء جميع الأقساط' : 'عرض جميع الأقساط'}
-                      </button>
-                    </div>
+                          {expandedView === 'due' ? 'إخفاء الأقساط المستحقة' : 'عرض جميع الأقساط المستحقة'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleView(contractKey, 'all')}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {expandedView === 'all' ? 'إخفاء جميع الأقساط' : 'عرض جميع الأقساط'}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <ContractCollectionActions
@@ -605,7 +609,27 @@ export function InstallmentCollectionGroupedList({
                       onReconcile={() => onReconcile(current)}
                     />
                   ) : (
-                    <p className="text-sm text-on-surface-variant">لا يوجد قسط حالي (معَلّق أو مسدّد)</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fallback = contract.rows[0]
+                        if (fallback) onSelect(fallback)
+                      }}
+                      className={`w-full rounded-lg border px-sm py-sm text-right text-sm ${
+                        selectedId && contract.rows.some((row) => row.id === selectedId)
+                          ? 'border-primary/40 bg-primary/10'
+                          : 'border-outline-variant/70 bg-surface-container-low'
+                      }`}
+                    >
+                      <span className="inline-flex rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">
+                        معلّق
+                      </span>
+                      <p className="mt-1 text-on-surface">
+                        {contract.collectionReminderAt
+                          ? `متابعة ${formatDatetime12hDisplay(contract.collectionReminderAt)}`
+                          : 'أضف ميعاد متابعة من لوحة التحصيل'}
+                      </p>
+                    </button>
                   )}
 
                   {expandedView === 'due' && (

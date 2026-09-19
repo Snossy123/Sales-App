@@ -6,7 +6,9 @@ import {
   filterInstallmentCollectionRows,
   filterRowsByContractTier,
   filterRowsWithFutureReminder,
+  filterRowsWithParkedFollowUp,
   filterRowsWithoutFutureReminder,
+  filterRowsWithoutParkedFollowUp,
   hasCollectionFollowUpDraft,
   hasFutureCollectionReminder,
   firstDueStatus,
@@ -174,11 +176,24 @@ describe('collectionHelpers', () => {
     )
 
     expect(stats).toEqual({
-      total_contracts: 3,
+      total_contracts: 2,
       overdue_contracts: 1,
       due_soon_contracts: 0,
-      upcoming_contracts: 2,
+      upcoming_contracts: 1,
     })
+  })
+
+  it('parks fully suspended contracts in follow-up instead of upcoming', () => {
+    const now = new Date('2026-09-19T12:00:00.000Z').getTime()
+    const rows = [
+      makeRow({ id: 1, sales_invoice_id: 10, status: 'pending', is_suspended: true }),
+      makeRow({ id: 2, sales_invoice_id: 20, status: 'pending', display_tier: 'overdue' }),
+    ]
+
+    expect(filterRowsWithoutParkedFollowUp(rows, now).map((row) => row.id)).toEqual([2])
+    expect(filterRowsWithParkedFollowUp(rows, now).map((row) => row.id)).toEqual([1])
+    expect(computeContractStats(rows, now).upcoming_contracts).toBe(0)
+    expect(computeContractStats(rows, now).total_contracts).toBe(1)
   })
 
   it('hides contracts with a future reminder from card stats', () => {

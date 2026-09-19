@@ -24,8 +24,8 @@ import {
   computeContractStats,
   filterRowsByContractTier,
   filterInstallmentCollectionRows,
-  filterRowsWithFutureReminder,
-  filterRowsWithoutFutureReminder,
+  filterRowsWithParkedFollowUp,
+  filterRowsWithoutParkedFollowUp,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
@@ -473,11 +473,11 @@ export function InstallmentCollectionPage() {
     let rows = branchRows
     rows = filterRowsByContractTier(rows, contractTierFilter)
     rows = filterInstallmentCollectionRows(rows, customerSearch)
-    return filterRowsWithoutFutureReminder(rows)
+    return filterRowsWithoutParkedFollowUp(rows)
   }, [branchRows, contractTierFilter, customerSearch])
 
   const followUpRows = useMemo(
-    () => filterRowsWithFutureReminder(filterInstallmentCollectionRows(branchRows, customerSearch)),
+    () => filterRowsWithParkedFollowUp(filterInstallmentCollectionRows(branchRows, customerSearch)),
     [branchRows, customerSearch],
   )
 
@@ -652,6 +652,7 @@ export function InstallmentCollectionPage() {
       employee_id?: number
       reason?: string
       notes?: string
+      collection_reminder_at?: string
     }) => {
       if (!selected?.sales_invoice_id || !selectedBranchId) throw new Error('عقد أو فرع غير محدد')
       const { data } = await api.post(
@@ -663,7 +664,13 @@ export function InstallmentCollectionPage() {
       )
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
+      setShowFollowUps(true)
+    },
   })
 
   const resumeMutation = useMutation({
@@ -989,16 +996,6 @@ export function InstallmentCollectionPage() {
           selectRow(row)
           setShowReconcile(true)
         }}
-        collectors={collectorsQuery.data ?? []}
-        canAssign={canAssignCollectors}
-        onAssignCollector={(invoiceId, collectorUserId) =>
-          assignCollectorMutation.mutate({ invoiceId, collectorUserId })
-        }
-        assigningInvoiceId={
-          assignCollectorMutation.isPending
-            ? (assignCollectorMutation.variables?.invoiceId ?? null)
-            : null
-        }
       />
     </SalesPageShell>
   )
