@@ -507,7 +507,23 @@ export function InstallmentCollectionGroupedList({
                 >
                   <div className="mb-sm flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-on-surface">تعاقد {contract.invoiceNumber}</p>
+                      <p className="font-semibold text-on-surface">
+                        تعاقد{' '}
+                        {contract.invoiceId > 0 ? (
+                          <Link
+                            to={`/contracts/${contract.invoiceId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            dir="ltr"
+                            className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {contract.invoiceNumber}
+                          </Link>
+                        ) : (
+                          contract.invoiceNumber
+                        )}
+                      </p>
                       <p className="text-xs text-on-surface-variant">
                         {contract.installmentCount} قسط · {contract.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
                         {contract.collectionStatus && (
