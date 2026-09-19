@@ -89,7 +89,12 @@ export interface InstallmentCollectionPanelProps {
   installmentPaymentsQuery: UseQueryResult<PaymentRow[]>
   distributorProfile: Distributor | null | undefined
   contractRows?: InstallmentCollectionRow[]
-  collectMutation: UseMutationResult<unknown, Error, { applyExcessToFollowing?: boolean } | void, unknown>
+  collectMutation: UseMutationResult<
+    { id?: number; related_payment_ids?: number[] } | null | undefined,
+    Error,
+    { applyExcessToFollowing?: boolean } | void,
+    unknown
+  >
   closeReconcileMutation: UseMutationResult<unknown, Error, number, unknown>
   reconcileMutation: UseMutationResult<unknown, Error, void, unknown>
   metadataMutation: UseMutationResult<unknown, Error, void, unknown>

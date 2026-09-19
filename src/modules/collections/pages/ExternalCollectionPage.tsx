@@ -175,7 +175,7 @@ export function ExternalCollectionPage() {
     setDistributorBalanceAmount(0)
   }
 
-  const collectMutation = useMutation<unknown, Error, { applyExcessToFollowing?: boolean } | void>({
+  const collectMutation = useMutation<{ id?: number; related_payment_ids?: number[] } | null | undefined, Error, { applyExcessToFollowing?: boolean } | void>({
     mutationFn: async (vars) => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
       const payload: Record<string, unknown> = {
