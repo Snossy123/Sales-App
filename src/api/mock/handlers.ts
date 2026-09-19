@@ -1,5 +1,6 @@
 import type { AxiosRequestConfig } from 'axios'
 import type {
+  CollectionFollowUpLog,
   AccountingDashboard,
   AccountingSettings,
   BranchAccountingMap,
@@ -45,6 +46,8 @@ import { tryHandleAccessoryRequest } from './accessoryHandlers'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
+import { installmentDueDate } from '../../lib/installmentSchedule'
+import { collectionStatusLabels } from '../../lib/collectionHelpers'
 
 type MockCollectionActionLog = {
   customer_id: number
@@ -68,6 +71,8 @@ const mockCollectionAssignments: Array<{
   notes?: string | null
 }> = []
 let mockCollectionAssignmentSeq = 1
+const mockCollectionFollowUpLogs: CollectionFollowUpLog[] = []
+let mockCollectionFollowUpSeq = 1
 const mockRegisteredDevices: Array<{
   customer_id: number
   device: CustomerContractDevice
@@ -250,12 +255,6 @@ function getParams(config?: AxiosRequestConfig): Record<string, string> {
     if (v != null) out[k] = String(v)
   }
   return out
-}
-
-function addDays(date: string, days: number): string {
-  const d = new Date(date)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
 }
 
 function getCustomerMedia(state: DemoState): (MediaFile & { customer_id: number })[] {
@@ -563,7 +562,12 @@ function generateInstallmentItems(
 
   for (let i = 0; i < count; i++) {
     const amount = i === count - 1 ? base + remainder : base
-    const dueDate = addDays(plan.first_due_date ?? new Date().toISOString().split('T')[0], i * (plan.interval_days ?? 30))
+    const dueDate = installmentDueDate(
+      plan.first_due_date ?? new Date().toISOString().split('T')[0],
+      i,
+      plan.interval_type,
+      plan.interval_days ?? 30,
+    )
     const isPast = new Date(dueDate) < new Date()
     items.push({
       id: state.counters.installmentItem++,
@@ -1052,6 +1056,9 @@ export function handleMockRequest(
       if (body.address != null) dept.address = body.address
       if (body.phone != null) dept.phone = body.phone
       if (body.is_active != null) dept.is_active = body.is_active
+      if (body.settings != null) {
+        dept.settings = { ...(dept.settings ?? {}), ...body.settings }
+      }
       updated = enrichDepartment(s, dept)
     })
     return updated
@@ -3544,6 +3551,54 @@ export function handleMockRequest(
     }
   }
 
+  const followUpHistoryMatch = path.match(/^sales-invoices\/(\d+)\/collection-follow-ups$/)
+  if (m === 'GET' && followUpHistoryMatch) {
+    const invoiceId = Number(followUpHistoryMatch[1])
+    return {
+      data: mockCollectionFollowUpLogs.filter((row) => row.sales_invoice_id === invoiceId),
+    }
+  }
+
+  const metadataMatch = path.match(/^sales-invoices\/(\d+)\/collection-metadata$/)
+  if (m === 'PATCH' && metadataMatch) {
+    const invoiceId = Number(metadataMatch[1])
+    const body = data as {
+      collection_status?: string | null
+      collection_reminder_at?: string | null
+      collection_notes?: string | null
+    }
+    let invoice: SalesInvoice | undefined
+    mutateState((s) => {
+      invoice = s.invoices.find((inv) => inv.id === invoiceId)
+      if (!invoice) return
+      const nextStatus = body.collection_status ?? null
+      const nextReminder = body.collection_reminder_at ?? null
+      const nextNotes = body.collection_notes ?? null
+      const changed =
+        (invoice.collection_status ?? null) !== nextStatus ||
+        (invoice.collection_reminder_at ?? null) !== nextReminder ||
+        (invoice.collection_notes ?? null) !== nextNotes
+      invoice.collection_status = nextStatus
+      invoice.collection_reminder_at = nextReminder
+      invoice.collection_notes = nextNotes
+      if (changed) {
+        mockCollectionFollowUpLogs.unshift({
+          id: mockCollectionFollowUpSeq++,
+          sales_invoice_id: invoice.id,
+          user_id: ctx.user?.id ?? null,
+          user_name: ctx.user?.name ?? null,
+          collection_status: nextStatus,
+          collection_status_label: nextStatus ? collectionStatusLabels[nextStatus] ?? nextStatus : null,
+          collection_reminder_at: nextReminder,
+          collection_notes: nextNotes,
+          created_at: new Date().toISOString(),
+        })
+      }
+    })
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    return invoice
+  }
+
   if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {
     const id = Number(path.split('/')[2])
     const body = data as {
@@ -3551,8 +3606,9 @@ export function handleMockRequest(
       amount: number
       payment_method?: string
       distributor_balance_amount?: number
+      apply_excess_to_following?: boolean
     }
-    let result: { invoice: SalesInvoice; item: unknown } | undefined
+    let result: Record<string, unknown> | undefined
     mutateState((s) => {
       const invoice = s.invoices.find((i) => i.id === id)
       if (!invoice || invoice.status !== 'confirmed') {
@@ -3560,11 +3616,50 @@ export function handleMockRequest(
       }
       const found = findInstallmentItem(invoice, body.installment_item_id)
       if (!found) throw mockError(404, 'القسط غير موجود')
-      const { item } = found
+      const { item, plan } = found
 
       const remaining = Number(item.amount) - Number(item.paid_amount)
-      if (body.amount <= 0 || body.amount > remaining) {
+      const invoiceBalance = Number(invoice.balance_due ?? remaining)
+      if (body.amount <= 0) {
         throw mockError(422, `المبلغ المتبقي ${remaining} ج.م`)
+      }
+      if (body.amount > invoiceBalance + 0.009) {
+        throw mockError(422, `مبلغ الدفع يتجاوز رصيد الفاتورة (${invoiceBalance})`)
+      }
+
+      const selectedSeq = Number(item.sequence ?? item.installment_number ?? 0)
+      const following = (plan.items ?? [])
+        .filter((row) => row.id !== item.id && row.status !== 'paid')
+        .filter((row) => Number(row.sequence ?? row.installment_number ?? 0) > selectedSeq)
+        .sort(
+          (a, b) =>
+            Number(a.sequence ?? a.installment_number ?? 0) - Number(b.sequence ?? b.installment_number ?? 0),
+        )
+
+      const allocations: Array<{ target: typeof item; amount: number }> = []
+      let leftover = Number(body.amount)
+      const firstSlice = Math.min(leftover, remaining)
+      allocations.push({ target: item, amount: firstSlice })
+      leftover = Math.round((leftover - firstSlice) * 100) / 100
+
+      if (leftover > 0.009 && !body.apply_excess_to_following) {
+        throw mockError(422, `المبلغ المتبقي ${remaining} ج.م`)
+      }
+
+      for (const next of following) {
+        if (leftover <= 0.009) break
+        if (next.suspended_at) {
+          throw mockError(422, 'لا يمكن توزيع الزيادة: القسط التالي معلّق أو عليه تصالح مفتوح.')
+        }
+        const nextRemaining = Number(next.amount) - Number(next.paid_amount)
+        if (nextRemaining <= 0.009) continue
+        const slice = Math.min(leftover, nextRemaining)
+        allocations.push({ target: next, amount: slice })
+        leftover = Math.round((leftover - slice) * 100) / 100
+      }
+
+      if (leftover > 0.009) {
+        throw mockError(422, 'المبلغ المتبقي بعد سداد الأقساط المتاحة أكبر من صفر.')
       }
 
       const balanceAmount = Number(body.distributor_balance_amount ?? 0)
@@ -3572,51 +3667,72 @@ export function handleMockRequest(
         throw mockError(422, 'مبلغ رصيد العمولة يتجاوز مبلغ التحصيل')
       }
 
-      item.paid_amount = Number(item.paid_amount) + body.amount
-      if (item.paid_amount >= Number(item.amount)) {
-        item.status = 'paid'
-        item.paid_at = new Date().toISOString()
-      } else {
-        item.status = 'partial'
+      const paymentIds: number[] = []
+      let leftoverDistributor = balanceAmount
+      let lastPaymentId = 0
+
+      for (const allocation of allocations) {
+        const target = allocation.target
+        target.paid_amount = Number(target.paid_amount) + allocation.amount
+        if (target.paid_amount >= Number(target.amount)) {
+          target.status = 'paid'
+          target.paid_at = new Date().toISOString()
+        } else {
+          target.status = 'partial'
+        }
+
+        const distributorSlice = Math.min(allocation.amount, leftoverDistributor)
+        const cashSlice = Math.round((allocation.amount - distributorSlice) * 100) / 100
+        leftoverDistributor = Math.round((leftoverDistributor - distributorSlice) * 100) / 100
+
+        if (distributorSlice > 0.009 && invoice.customer_id) {
+          const paymentId = s.counters.payment++
+          mockDebitDistributorBalance(s, invoice.customer_id, distributorSlice, invoice.id, paymentId)
+          s.paymentTransactions.push({
+            id: paymentId,
+            transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+            sales_invoice_id: invoice.id,
+            customer_id: invoice.customer_id,
+            installment_item_id: target.id,
+            amount: distributorSlice,
+            status: 'active',
+            payment_source: 'distributor_balance',
+            payment_method: 'distributor_balance',
+            paid_at: new Date().toISOString(),
+          })
+          paymentIds.push(paymentId)
+          lastPaymentId = paymentId
+        }
+
+        if (cashSlice > 0.009) {
+          const paymentId = s.counters.payment++
+          s.paymentTransactions.push({
+            id: paymentId,
+            transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+            sales_invoice_id: invoice.id,
+            customer_id: invoice.customer_id ?? 0,
+            installment_item_id: target.id,
+            amount: cashSlice,
+            status: 'active',
+            payment_source: 'installment',
+            payment_method: body.payment_method ?? 'cash',
+            paid_at: new Date().toISOString(),
+          })
+          paymentIds.push(paymentId)
+          lastPaymentId = paymentId
+        }
       }
 
       refreshInvoicePayment(invoice)
-
-      if (balanceAmount > 0 && invoice.customer_id) {
-        const paymentId = s.counters.payment++
-        mockDebitDistributorBalance(s, invoice.customer_id, balanceAmount, invoice.id, paymentId)
-        s.paymentTransactions.push({
-          id: paymentId,
-          transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
-          sales_invoice_id: invoice.id,
-          customer_id: invoice.customer_id,
-          installment_item_id: item.id,
-          amount: balanceAmount,
-          status: 'active',
-          payment_source: 'distributor_balance',
-          payment_method: 'distributor_balance',
-          paid_at: new Date().toISOString(),
-        })
+      result = {
+        id: lastPaymentId,
+        related_payment_ids: paymentIds,
+        allocations: allocations.map((allocation) => ({
+          installment_item_id: allocation.target.id,
+          sequence: allocation.target.sequence ?? allocation.target.installment_number,
+          amount: allocation.amount,
+        })),
       }
-
-      const cashAmount = body.amount - balanceAmount
-      if (cashAmount > 0) {
-        const paymentId = s.counters.payment++
-        s.paymentTransactions.push({
-          id: paymentId,
-          transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
-          sales_invoice_id: invoice.id,
-          customer_id: invoice.customer_id ?? 0,
-          installment_item_id: item.id,
-          amount: cashAmount,
-          status: 'active',
-          payment_source: 'installment',
-          payment_method: body.payment_method ?? 'cash',
-          paid_at: new Date().toISOString(),
-        })
-      }
-
-      result = { invoice, item }
     })
     return result
   }

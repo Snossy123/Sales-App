@@ -10,6 +10,7 @@ import {
   compareContractCollection,
   contractCollectionSortKey,
   getCurrentInstallment,
+  rowAllowsReconciliation,
   rowRemaining,
 } from '../../lib/collectionHelpers'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
@@ -260,7 +261,7 @@ function CurrentInstallmentCard({
             ) : (
               <span className="text-xs text-on-surface-variant">معلّق</span>
             )}
-            {tier === 'overdue' && !row.is_suspended && (
+            {tier === 'overdue' && !row.is_suspended && rowAllowsReconciliation(row) && (
               <button
                 type="button"
                 onClick={onReconcile}
@@ -334,7 +335,7 @@ function InstallmentDetailsTable({
                       تحصيل
                     </button>
                   )}
-                  {!isPaid && row.display_tier === 'overdue' && (
+                  {!isPaid && row.display_tier === 'overdue' && rowAllowsReconciliation(row) && (
                     <button
                       type="button"
                       onClick={() => onReconcile(row)}

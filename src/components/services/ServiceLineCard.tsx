@@ -10,6 +10,7 @@ import {
   linePaidNow as cashLinePaidNow,
   type CashSchedule,
 } from '../../lib/cashSchedule'
+import { nextInstallmentInterval } from '../../lib/installmentSchedule'
 import type { CustomerContractDevice } from '../../api/types'
 import { contractDeviceLabel } from './CustomerContractDevicePicker'
 import { Icon } from '../Icon'
@@ -41,12 +42,6 @@ export interface ServiceLineDraft {
   installmentAmount: number
   intervalType: ServiceIntervalType
   firstDueDate: string
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
 }
 
 export function lineTotal(line: ServiceLineDraft): number {
@@ -165,7 +160,7 @@ export function ServiceLineCard({
       unit_price: price,
       downPayment: computeMinDownPayment(price, minDownPercent),
       installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
-      firstDueDate: addDays(contractDate, 30),
+      firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
     })
   }
 
@@ -299,7 +294,7 @@ export function ServiceLineCard({
                     onClick={() =>
                       patch({
                         intervalType: type,
-                        firstDueDate: addDays(contractDate, type === 'weekly' ? 7 : 30),
+                        firstDueDate: nextInstallmentInterval(contractDate, type),
                       })
                     }
                     className={`flex h-full flex-1 items-center justify-center rounded-md text-xs font-medium transition-colors ${
@@ -425,6 +420,6 @@ export function createServiceLine(
     downPayment: paymentTerm === 'cash' ? 0 : computeMinDownPayment(unitPrice, minDownPercent),
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     intervalType: 'monthly',
-    firstDueDate: addDays(contractDate, 30),
+    firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
   }
 }

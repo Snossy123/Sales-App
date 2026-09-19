@@ -43,7 +43,7 @@ export function CustomerEvaluationsSection({ customerId }: CustomerEvaluationsSe
                 key={row.id}
                 title={`${row.invoice_number ?? '—'} · ${row.executed_at ? formatDate(row.executed_at) : '—'}`}
                 summary={EVALUATION_STATUS_LABELS[row.status]}
-                defaultOpen={row.status === 'pending'}
+                defaultOpen={rows.length === 1 || row.status === 'pending'}
               >
                 <div className="space-y-md">
                   <div className="flex flex-wrap items-center gap-sm">

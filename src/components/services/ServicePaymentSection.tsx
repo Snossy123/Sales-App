@@ -13,6 +13,7 @@ import {
   posStaticFieldClass,
   posToggleBtn,
 } from '../pos/posFormStyles'
+import { nextInstallmentInterval } from '../../lib/installmentSchedule'
 
 export type ServicePaymentTerm = 'cash' | 'installment'
 export type ServiceIntervalType = 'monthly' | 'weekly'
@@ -25,12 +26,6 @@ export interface ServicePaymentState {
   firstDueDate: string
 }
 
-function addDays(dateStr: string, days: number): string {
-  const date = new Date(dateStr)
-  date.setDate(date.getDate() + days)
-  return date.toISOString().split('T')[0]
-}
-
 export function createDefaultServicePayment(total: number, minDownPercent: number): ServicePaymentState {
   const today = new Date().toISOString().split('T')[0]
   const downPayment = computeMinDownPayment(total, minDownPercent)
@@ -41,7 +36,7 @@ export function createDefaultServicePayment(total: number, minDownPercent: numbe
     downPayment,
     installmentAmount,
     intervalType: 'monthly',
-    firstDueDate: addDays(today, 30),
+    firstDueDate: nextInstallmentInterval(today, 'monthly'),
   }
 }
 
@@ -121,7 +116,7 @@ export function ServicePaymentSection({
       paymentTerm: 'installment',
       downPayment: computeMinDownPayment(total, minDownPercent),
       installmentAmount: suggestInstallmentAmount(total, 6, minDownPercent),
-      firstDueDate: addDays(new Date().toISOString().split('T')[0], 30),
+      firstDueDate: nextInstallmentInterval(new Date().toISOString().split('T')[0], 'monthly'),
     })
   }
 
@@ -152,9 +147,9 @@ export function ServicePaymentSection({
                 onClick={() =>
                   onChange({
                     intervalType: type,
-                    firstDueDate: addDays(
+                    firstDueDate: nextInstallmentInterval(
                       new Date().toISOString().split('T')[0],
-                      type === 'weekly' ? 7 : 30,
+                      type,
                     ),
                   })
                 }

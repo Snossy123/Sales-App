@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
@@ -64,18 +64,24 @@ const acquisitionLabels: Record<string, string> = {
   social: 'سوشيال',
 }
 
-const SECTION_NAV = [
-  { id: 'customer-profile', label: 'البيانات' },
-  { id: 'customer-calls', label: 'المكالمات' },
-  { id: 'customer-contracts', label: 'العقود' },
-  { id: 'customer-invoices-payments', label: 'المدفوعات' },
-  { id: 'customer-installations', label: 'التركيبات' },
-  { id: 'customer-complaints', label: 'الشكاوى' },
-  { id: 'customer-warranty', label: 'الضمان' },
-  { id: 'customer-referrals', label: 'الترشيحات' },
-  { id: 'customer-evaluations', label: 'التقييم' },
-  { id: 'customer-attachments', label: 'الملفات' },
+const PROFILE_TABS = [
+  { id: 'profile', label: 'البيانات' },
+  { id: 'calls', label: 'المكالمات' },
+  { id: 'contracts', label: 'العقود' },
+  { id: 'payments', label: 'المدفوعات' },
+  { id: 'installations', label: 'التركيبات' },
+  { id: 'complaints', label: 'الشكاوى' },
+  { id: 'warranty', label: 'الضمان' },
+  { id: 'referrals', label: 'الترشيحات' },
+  { id: 'evaluations', label: 'التقييم' },
+  { id: 'attachments', label: 'الملفات' },
 ] as const
+
+type ProfileTabId = (typeof PROFILE_TABS)[number]['id']
+
+function isProfileTabId(value: string | null): value is ProfileTabId {
+  return PROFILE_TABS.some((tab) => tab.id === value)
+}
 
 function ProfileDetailItem({
   icon,
@@ -104,12 +110,28 @@ function ProfileDetailItem({
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
   const crudConfig = getEntityCrudConfig('customers')
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
   const canDelete = ['super_admin', 'admin'].includes(getUserRole(user))
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+
+  const tabParam = searchParams.get('tab')
+  const activeTab: ProfileTabId = isProfileTabId(tabParam) ? tabParam : 'profile'
+
+  const setActiveTab = (tab: ProfileTabId) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (tab === 'profile') next.delete('tab')
+        else next.set('tab', tab)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   const deleteMutation = useSoftDelete({
     resource: 'customers',
@@ -141,7 +163,7 @@ export function CustomerDetailPage() {
       })
       return (data as { data?: PaymentRow[] }).data ?? []
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && activeTab === 'payments',
   })
 
   const evaluationsQuery = useQuery({
@@ -228,59 +250,27 @@ export function CustomerDetailPage() {
               </div>
             )}
 
-            <section
-              id="customer-profile"
-              className="mb-md scroll-mt-24 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest"
-            >
-              <div className="border-b border-outline-variant/60 bg-surface-container/40 px-lg py-md">
-                <div className="grid grid-cols-1 items-start gap-lg sm:grid-cols-[1fr_auto]">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-sm">
+            <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+              <div className="flex flex-col gap-md p-md sm:flex-row sm:items-start">
+                <ProfilePhotoUploader
+                  entityType="customer"
+                  entityId={customer.id}
+                  name={customer.name}
+                  photoUrl={customer.profile_photo_url}
+                  variant="customer"
+                  layout="vertical"
+                  canEdit={canManage}
+                  queryKeys={[['customer', id ?? ''], ['customers']]}
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-sm">
+                    <div className="flex min-w-0 flex-wrap items-center gap-sm">
                       <h1 className="text-2xl font-bold text-on-surface">{customer.name}</h1>
                       <StatusBadge status={customer.status} />
                     </div>
-
-                    <div className="mt-sm flex flex-wrap gap-x-md gap-y-1 text-sm text-on-surface-variant">
-                      {referrer && (
-                        <span>
-                          رشّحه:{' '}
-                          <Link
-                            to={`/customers/${referrer.id}`}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            {referrer.name}
-                          </Link>
-                        </span>
-                      )}
-                      {customer.acquisition_source && (
-                        <span>
-                          المصدر:{' '}
-                          <span className="font-medium text-on-surface">
-                            {acquisitionLabels[customer.acquisition_source] ??
-                              customer.acquisition_source}
-                          </span>
-                        </span>
-                      )}
-                      {customer.credit_score != null && (
-                        <span>
-                          الائتمان:{' '}
-                          <span className="font-medium tabular-nums text-on-surface">
-                            {customer.credit_score}/100
-                          </span>
-                        </span>
-                      )}
-                      {avgRating != null && (
-                        <span>
-                          التقييم:{' '}
-                          <span className="font-medium tabular-nums text-on-surface">
-                            {avgRating.toFixed(1)}/5
-                          </span>
-                        </span>
-                      )}
-                    </div>
-
                     {canManage && (
-                      <div className="mt-sm flex flex-wrap items-center gap-md">
+                      <div className="flex flex-wrap items-center gap-md">
                         <Link
                           to={`/customers/${customer.id}/edit`}
                           className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
@@ -300,168 +290,240 @@ export function CustomerDetailPage() {
                         )}
                       </div>
                     )}
-                    {deleteError && <p className="mt-xs text-xs text-error">{deleteError}</p>}
                   </div>
-                  <ProfilePhotoUploader
-                    entityType="customer"
-                    entityId={customer.id}
-                    name={customer.name}
-                    photoUrl={customer.profile_photo_url}
-                    variant="customer"
-                    layout="vertical"
-                    canEdit={canManage}
-                    queryKeys={[['customer', id ?? ''], ['customers']]}
-                  />
-                </div>
-              </div>
 
-              <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
-                {customerToPhoneEntries(customer)
-                  .filter((entry) => entry.number.trim())
-                  .map((entry, index) => (
-                    <ProfileDetailItem
-                      key={`${entry.number}-${index}`}
-                      icon="call"
-                      label={(entry.label ?? '').trim() || `رقم الهاتف ${index + 1}`}
-                      value={entry.number}
-                    />
-                  ))}
-                <ProfileDetailItem icon="badge" label="الرقم القومي" value={customer.national_id} />
-                <ProfileDetailItem
-                  icon="location_on"
-                  label="العنوان"
-                  value={customer.address}
-                  className="sm:col-span-2"
-                />
-                {customer.distinctive_mark && (
-                  <ProfileDetailItem
-                    icon="place"
-                    label="علامة مميزة"
-                    value={customer.distinctive_mark}
-                  />
-                )}
-                {customer.city && (
-                  <ProfileDetailItem icon="map" label="المدينة" value={customer.city} />
-                )}
-                {customer.notes && (
-                  <ProfileDetailItem
-                    icon="notes"
-                    label="ملاحظات"
-                    value={customer.notes}
-                    className="sm:col-span-2 lg:col-span-3"
-                  />
-                )}
-              </dl>
-            </section>
-
-            <nav
-              className="mb-md sticky top-0 z-10 -mx-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest/95 px-sm py-sm backdrop-blur"
-              aria-label="أقسام صفحة العميل"
-            >
-              <ul className="flex min-w-max gap-1">
-                {SECTION_NAV.map((item) => (
-                  <li key={item.id}>
-                    <a
-                      href={`#${item.id}`}
-                      className="inline-flex rounded-md px-sm py-1.5 text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
-                    >
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            {hasGuarantor && guarantor ? (
-              <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-                <div className="border-b border-outline-variant/60 bg-surface-container/40 px-lg py-md">
-                  <p className="text-xs font-medium text-on-surface-variant">بيانات الضامن</p>
-                  <div className="mt-xs flex flex-wrap items-center gap-sm">
-                    <h2 className="text-2xl font-bold text-on-surface">{guarantor.name}</h2>
-                    {guarantor.relationship && (
-                      <span className="rounded-full bg-secondary/10 px-sm py-0.5 text-xs font-medium text-secondary">
-                        {guarantor.relationship}
+                  <div className="mt-sm flex flex-wrap gap-x-md gap-y-1 text-sm text-on-surface-variant">
+                    {referrer && (
+                      <span>
+                        رشّحه:{' '}
+                        <Link
+                          to={`/customers/${referrer.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {referrer.name}
+                        </Link>
+                      </span>
+                    )}
+                    {customer.acquisition_source && (
+                      <span>
+                        المصدر:{' '}
+                        <span className="font-medium text-on-surface">
+                          {acquisitionLabels[customer.acquisition_source] ??
+                            customer.acquisition_source}
+                        </span>
+                      </span>
+                    )}
+                    {customer.credit_score != null && (
+                      <span>
+                        الائتمان:{' '}
+                        <span className="font-medium tabular-nums text-on-surface">
+                          {customer.credit_score}/100
+                        </span>
+                      </span>
+                    )}
+                    {avgRating != null && (
+                      <span>
+                        التقييم:{' '}
+                        <span className="font-medium tabular-nums text-on-surface">
+                          {avgRating.toFixed(1)}/5
+                        </span>
                       </span>
                     )}
                   </div>
+                  {deleteError && <p className="mt-xs text-xs text-error">{deleteError}</p>}
                 </div>
+              </div>
+            </section>
 
-                <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
-                  <ProfileDetailItem icon="call" label="رقم الهاتف" value={guarantor.phone} />
-                  <ProfileDetailItem icon="badge" label="الرقم القومي" value={guarantor.national_id} />
-                  <ProfileDetailItem icon="group" label="الصلة" value={guarantor.relationship} />
-                  <ProfileDetailItem
-                    icon="location_on"
-                    label="العنوان"
-                    value={guarantor.address}
-                    className="sm:col-span-2 lg:col-span-3"
+            <div className="mb-md overflow-x-auto border-b border-outline-variant">
+              <div className="flex min-w-max gap-xs" role="tablist" aria-label="أقسام صفحة العميل">
+                {PROFILE_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`border-b-2 px-md py-sm text-sm font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeTab === 'profile' && (
+              <>
+                <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+                  <div className="border-b border-outline-variant/60 px-lg py-sm">
+                    <h2 className="text-lg font-semibold">بيانات العميل</h2>
+                  </div>
+                  <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
+                    {customerToPhoneEntries(customer)
+                      .filter((entry) => entry.number.trim())
+                      .map((entry, index) => (
+                        <ProfileDetailItem
+                          key={`${entry.number}-${index}`}
+                          icon="call"
+                          label={(entry.label ?? '').trim() || `رقم الهاتف ${index + 1}`}
+                          value={entry.number}
+                        />
+                      ))}
+                    <ProfileDetailItem
+                      icon="badge"
+                      label="الرقم القومي"
+                      value={customer.national_id}
+                    />
+                    <ProfileDetailItem
+                      icon="location_on"
+                      label="العنوان"
+                      value={customer.address}
+                      className="sm:col-span-2"
+                    />
+                    {customer.distinctive_mark && (
+                      <ProfileDetailItem
+                        icon="place"
+                        label="علامة مميزة"
+                        value={customer.distinctive_mark}
+                      />
+                    )}
+                    {customer.city && (
+                      <ProfileDetailItem icon="map" label="المدينة" value={customer.city} />
+                    )}
+                    {customer.notes && (
+                      <ProfileDetailItem
+                        icon="notes"
+                        label="ملاحظات"
+                        value={customer.notes}
+                        className="sm:col-span-2 lg:col-span-3"
+                      />
+                    )}
+                  </dl>
+                </section>
+
+                {hasGuarantor && guarantor ? (
+                  <section className="mb-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+                    <div className="border-b border-outline-variant/60 bg-surface-container/40 px-lg py-md">
+                      <p className="text-xs font-medium text-on-surface-variant">بيانات الضامن</p>
+                      <div className="mt-xs flex flex-wrap items-center gap-sm">
+                        <h2 className="text-xl font-bold text-on-surface">{guarantor.name}</h2>
+                        {guarantor.relationship && (
+                          <span className="rounded-full bg-secondary/10 px-sm py-0.5 text-xs font-medium text-secondary">
+                            {guarantor.relationship}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <dl className="grid gap-md p-lg sm:grid-cols-2 lg:grid-cols-3">
+                      <ProfileDetailItem icon="call" label="رقم الهاتف" value={guarantor.phone} />
+                      <ProfileDetailItem
+                        icon="badge"
+                        label="الرقم القومي"
+                        value={guarantor.national_id}
+                      />
+                      <ProfileDetailItem
+                        icon="group"
+                        label="الصلة"
+                        value={guarantor.relationship}
+                      />
+                      <ProfileDetailItem
+                        icon="location_on"
+                        label="العنوان"
+                        value={guarantor.address}
+                        className="sm:col-span-2 lg:col-span-3"
+                      />
+                    </dl>
+                  </section>
+                ) : (
+                  <section className="mb-md rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-lg text-center">
+                    <Icon
+                      name="person_off"
+                      size={28}
+                      className="mx-auto mb-sm text-on-surface-variant"
+                    />
+                    <p className="text-sm font-medium text-on-surface-variant">بدون ضامن</p>
+                  </section>
+                )}
+
+                <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
+                <CustomerOwnershipTransfersSection
+                  transfersFrom={ownershipTransfersFrom}
+                  transfersTo={ownershipTransfersTo}
+                />
+              </>
+            )}
+
+            {activeTab === 'calls' && <CustomerCallTimelineSection customerId={customer.id} />}
+
+            {activeTab === 'contracts' && <CustomerContractsSection invoices={invoices} />}
+
+            {activeTab === 'payments' && (
+              <section className="mb-md">
+                <h2 className="mb-sm text-lg font-semibold">سجل المدفوعات</h2>
+                <AsyncState
+                  isLoading={paymentsQuery.isLoading}
+                  isError={paymentsQuery.isError}
+                  error={paymentsQuery.error}
+                >
+                  <DataTable<PaymentRow>
+                    data={paymentsQuery.data ?? []}
+                    keyExtractor={(r) => r.id}
+                    pageSize={10}
+                    emptyMessage="لا توجد مدفوعات"
+                    columns={[
+                      { key: 'transaction_number', header: 'رقم العملية' },
+                      {
+                        key: 'invoice',
+                        header: 'فاتورة',
+                        render: (r) => r.sales_invoice?.invoice_number ?? '—',
+                      },
+                      {
+                        key: 'source',
+                        header: 'المصدر',
+                        render: (r) =>
+                          sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—',
+                      },
+                      {
+                        key: 'amount',
+                        header: 'المبلغ',
+                        render: (r) =>
+                          Number(r.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
+                      },
+                      { key: 'status', header: 'الحالة' },
+                    ]}
                   />
-                </dl>
-              </section>
-            ) : (
-              <section className="mb-md rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-lg text-center">
-                <Icon name="person_off" size={28} className="mx-auto mb-sm text-on-surface-variant" />
-                <p className="text-sm font-medium text-on-surface-variant">بدون ضامن</p>
+                </AsyncState>
               </section>
             )}
 
-            <CustomerReferralsSection customer={customer} />
+            {activeTab === 'installations' && (
+              <CustomerInstallationsSection customerId={customer.id} />
+            )}
 
-            <CustomerCallTimelineSection customerId={customer.id} />
+            {activeTab === 'complaints' && (
+              <CustomerComplaintsSection customerId={customer.id} />
+            )}
 
-            <div id="customer-evaluations" className="scroll-mt-24">
+            {activeTab === 'warranty' && <CustomerWarrantySection />}
+
+            {activeTab === 'referrals' && <CustomerReferralsSection customer={customer} />}
+
+            {activeTab === 'evaluations' && (
               <CustomerEvaluationsSection customerId={customer.id} />
-            </div>
+            )}
 
-            <section id="customer-invoices-payments" className="mb-md scroll-mt-24">
-              <h2 className="mb-sm text-lg font-semibold">سجل المدفوعات</h2>
-              <DataTable<PaymentRow>
-                data={paymentsQuery.data ?? []}
-                keyExtractor={(r) => r.id}
-                pageSize={10}
-                emptyMessage="لا توجد مدفوعات"
-                columns={[
-                  { key: 'transaction_number', header: 'رقم العملية' },
-                  { key: 'invoice', header: 'فاتورة', render: (r) => r.sales_invoice?.invoice_number ?? '—' },
-                  {
-                    key: 'source',
-                    header: 'المصدر',
-                    render: (r) => sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—',
-                  },
-                  {
-                    key: 'amount',
-                    header: 'المبلغ',
-                    render: (r) => Number(r.amount).toLocaleString('ar-EG', { numberingSystem: 'latn' }),
-                  },
-                  { key: 'status', header: 'الحالة' },
-                ]}
-              />
-            </section>
-
-            <div id="customer-attachments" className="mb-md scroll-mt-24">
+            {activeTab === 'attachments' && (
               <CustomerAttachmentsSection
                 mode="view"
                 customerId={customer.id}
                 canManage={canManage}
               />
-            </div>
-
-            <CustomerOwnershipTransfersSection
-              transfersFrom={ownershipTransfersFrom}
-              transfersTo={ownershipTransfersTo}
-            />
-
-            <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
-
-            <div id="customer-contracts" className="scroll-mt-24">
-              <CustomerContractsSection invoices={invoices} />
-            </div>
-
-            <CustomerInstallationsSection customerId={customer.id} />
-
-            <CustomerComplaintsSection customerId={customer.id} />
-
-            <CustomerWarrantySection />
+            )}
           </>
         )}
       </AsyncState>

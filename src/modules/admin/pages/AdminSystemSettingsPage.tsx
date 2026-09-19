@@ -16,6 +16,7 @@ import { KpiCard } from '../../../components/KpiCard'
 import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { useOrgSettingsStore } from '../../../stores/orgSettingsStore'
+import { AdministrationCollectionSettingsCard } from '../components/AdministrationCollectionSettingsCard'
 import { LogoUploader } from '../components/LogoUploader'
 import { ModuleToggleCard } from '../components/ModuleToggleCard'
 import { SettingsField, SettingsSectionCard, settingsInputClass, settingsToggleClass } from '../components/SettingsSectionCard'
@@ -678,6 +679,13 @@ export function AdminSystemSettingsPage() {
                     </select>
                   </SettingsField>
                 </SettingsSectionCard>
+              )}
+
+              {activeTab === 'sales' && (
+                <AdministrationCollectionSettingsCard
+                  orgSales={form.sales}
+                  onToast={setToast}
+                />
               )}
 
               {activeTab === 'messaging' && (

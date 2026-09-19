@@ -6,6 +6,7 @@ import {
   filterRowsByContractTier,
   firstDueStatus,
   getCurrentInstallment,
+  previewExcessAllocation,
   rowRemaining,
   tierSortOrder,
   type InstallmentCollectionRow,
@@ -26,6 +27,27 @@ describe('collectionHelpers', () => {
     expect(rowRemaining(makeRow({ id: 1, remaining: 250 }))).toBe(250)
     expect(rowRemaining(makeRow({ id: 2, total_due: 400 }))).toBe(400)
     expect(rowRemaining(makeRow({ id: 3, amount: 1000, paid_amount: 350 }))).toBe(650)
+  })
+
+  it('previews excess allocation across following installments', () => {
+    const selected = makeRow({
+      id: 1,
+      sales_invoice_id: 10,
+      sequence: 1,
+      total_due: 100,
+      remaining: 100,
+    })
+    const preview = previewExcessAllocation(selected, 250, [
+      selected,
+      makeRow({ id: 2, sales_invoice_id: 10, sequence: 2, total_due: 200, remaining: 200 }),
+      makeRow({ id: 3, sales_invoice_id: 10, sequence: 3, total_due: 200, remaining: 200 }),
+      makeRow({ id: 4, sales_invoice_id: 11, sequence: 2, total_due: 200 }),
+    ])
+
+    expect(preview).toEqual([
+      { installmentId: 1, sequence: 1, amount: 100, remainingAfter: 0 },
+      { installmentId: 2, sequence: 2, amount: 150, remainingAfter: 50 },
+    ])
   })
 
   it('picks the current unpaid installment by sequence and skips paid or suspended', () => {
@@ -72,6 +94,15 @@ describe('collectionHelpers', () => {
     expect(filterRowsByContractTier(rows, 'all')).toHaveLength(2)
     expect(filterRowsByContractTier(rows, 'overdue').map((row) => row.id)).toEqual([1])
     expect(filterRowsByContractTier(rows, 'due_soon').map((row) => row.id)).toEqual([2])
+  })
+
+  it('filters contracts that have an open reconciliation', () => {
+    const rows = [
+      makeRow({ id: 1, sales_invoice_id: 10, status: 'pending', has_open_reconciliation: true }),
+      makeRow({ id: 2, sales_invoice_id: 20, status: 'pending', display_tier: 'overdue' }),
+    ]
+
+    expect(filterRowsByContractTier(rows, 'open_reconciliation').map((row) => row.id)).toEqual([1])
   })
 
   it('searches collection rows by name and phone with spaces', () => {

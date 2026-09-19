@@ -15,7 +15,7 @@ import {
 } from '../../../lib/collectionHelpers'
 import { formatDatetimeLocal, parseDatetimeLocal } from '../../../lib/datetime12h'
 import { normalizeInstallmentItem } from '../../../lib/sales'
-import { openPaymentReceiptPrint } from '../../../lib/paymentReceipt'
+import { openCollectionReceipts } from '../../../lib/paymentReceipt'
 
 type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
@@ -176,7 +176,7 @@ export function ExternalCollectionPage() {
   }
 
   const collectMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (vars?: { applyExcessToFollowing?: boolean }) => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
       const payload: Record<string, unknown> = {
         sales_invoice_id: selected.sales_invoice_id,
@@ -193,6 +193,9 @@ export function ExternalCollectionPage() {
       if (distributorBalanceAmount > 0) {
         payload.distributor_balance_amount = distributorBalanceAmount
       }
+      if (vars?.applyExcessToFollowing) {
+        payload.apply_excess_to_following = true
+      }
       const { data } = await api.post('/external-collections/collect', payload)
       return data
     },
@@ -200,9 +203,7 @@ export function ExternalCollectionPage() {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
-      if (data?.id) {
-        openPaymentReceiptPrint(Number(data.id))
-      }
+      openCollectionReceipts(data)
       resetSelection()
     },
   })
@@ -245,7 +246,12 @@ export function ExternalCollectionPage() {
       })
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
+    },
   })
 
   const deferMutation = useMutation({
@@ -391,6 +397,7 @@ export function ExternalCollectionPage() {
               <option value="all">كل العقود</option>
               <option value="overdue">متأخرة</option>
               <option value="due_soon">مستحقة / فترة سماح</option>
+              <option value="open_reconciliation">تصالح مفتوح</option>
             </select>
             <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
               {rows.length} قسط · {new Set(rows.map((r) => r.sales_invoice_id)).size} عقد
@@ -414,6 +421,7 @@ export function ExternalCollectionPage() {
             <InstallmentCollectionPanel
               selected={selected}
               selectedIsOverdueContract={selectedIsOverdueContract}
+              contractRows={selectedContractRows}
               amount={amount}
               onAmountChange={setAmount}
               paymentMethod={paymentMethod}

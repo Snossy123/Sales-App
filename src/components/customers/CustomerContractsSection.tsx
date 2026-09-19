@@ -51,7 +51,7 @@ function showInvoiceStatusBadge(filter: ContractStatusFilter): boolean {
 export function CustomerContractsSection({ invoices }: CustomerContractsSectionProps) {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('confirmed')
+  const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('all')
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
 
@@ -106,7 +106,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                     .filter(Boolean)
                     .join(' · ') || undefined
                 }
-                defaultOpen={false}
+                defaultOpen={filteredInvoices.length === 1}
               >
                 <div className="space-y-md">
                   <div className="flex flex-wrap items-center gap-sm">

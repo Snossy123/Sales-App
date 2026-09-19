@@ -15,6 +15,11 @@ import {
 } from '../../lib/sales'
 import { renewalTypeLabels } from '../../lib/contractFields'
 import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
+import {
+  addDays,
+  lastInstallmentDate,
+  nextInstallmentInterval,
+} from '../../lib/installmentSchedule'
 import { Icon } from '../Icon'
 import { CashScheduleSelector } from './CashScheduleSelector'
 import { GpsUsernameInput } from './GpsUsernameInput'
@@ -84,22 +89,6 @@ function fieldErrorClass(hasError: boolean, baseClass: string): string {
 
 const PAYMENT_TERMS: LinePaymentTerm[] = ['installment', 'cash']
 const INTERVAL_TYPES: IntervalType[] = ['weekly', 'monthly']
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
-
-function lastInstallmentDate(
-  firstDueDate: string,
-  count: number,
-  intervalType: IntervalType,
-): string | null {
-  if (count < 1 || !firstDueDate) return null
-  const stepDays = intervalType === 'weekly' ? 7 : 30
-  return addDays(firstDueDate, stepDays * (count - 1))
-}
 
 export function lineNetTotal(line: DeviceLineDraft): number {
   return Math.max(0, line.unitPrice - line.discountAmount)
@@ -329,7 +318,7 @@ export function DeviceLineCard({
       discountPercent: 0,
       downPayment: minDown,
       installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
-      firstDueDate: addDays(contractDate, 30),
+      firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
     })
   }
 
@@ -659,7 +648,7 @@ export function DeviceLineCard({
                         onClick={() =>
                           patch({
                             intervalType: type,
-                            firstDueDate: addDays(contractDate, type === 'weekly' ? 7 : 30),
+                            firstDueDate: nextInstallmentInterval(contractDate, type),
                           })
                         }
                         className={`flex h-full flex-1 items-center justify-center rounded-md text-xs font-medium transition-colors ${
@@ -827,7 +816,7 @@ export function createDeviceLine(
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     downPayment: minDown,
     intervalType: 'monthly',
-    firstDueDate: addDays(contractDate, 30),
+    firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
     technician: null,
     vehicleType: '',
     vehiclePlateLetters: '',

@@ -14,8 +14,18 @@ export interface Administration {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  settings?: AdministrationCollectionSettings | null
   department_stock?: DepartmentStock
   deletion_blockers?: AdministrationDeletionBlockers
+}
+
+export interface AdministrationCollectionSettings {
+  reconciliation_enabled?: boolean | null
+  overdue_grace_days?: number | null
+  late_fee_mode?: 'daily_fixed' | 'percent' | null
+  late_fee_daily_amount?: number | null
+  late_fee_percent?: number | null
+  waive_late_fee_on_close?: boolean | null
 }
 
 export interface AdministrationDeletionBlockers {
@@ -43,6 +53,7 @@ export interface Department {
   address?: string | null
   phone?: string | null
   is_active?: boolean
+  settings?: AdministrationCollectionSettings | null
   department_stock?: DepartmentStock
 }
 
@@ -766,6 +777,9 @@ export interface InstallmentItem {
   remaining_installments?: number
   has_open_reconciliation?: boolean
   open_reconciliation_id?: number | null
+  reconciliation_enabled?: boolean
+  waive_late_fee_on_close?: boolean
+  administration_id?: number | null
   branch_id?: number
   branch_name?: string | null
   unpaid_reason?: string | null
@@ -796,6 +810,18 @@ export interface CollectionAssignmentRecord {
   assigned_by_name?: string | null
   assigned_at?: string | null
   notes?: string | null
+}
+
+export interface CollectionFollowUpLog {
+  id: number
+  sales_invoice_id: number
+  user_id?: number | null
+  user_name?: string | null
+  collection_status?: string | null
+  collection_status_label?: string | null
+  collection_reminder_at?: string | null
+  collection_notes?: string | null
+  created_at?: string | null
 }
 
 export interface CollectionWorkloadRow {

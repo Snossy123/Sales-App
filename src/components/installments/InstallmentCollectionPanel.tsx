@@ -8,7 +8,14 @@ import { DateTimeInput12h } from '../DateTimeInput12h'
 import { Icon } from '../Icon'
 import { InsightBanner } from '../InsightBanner'
 import { StatusBadge } from '../StatusBadge'
-import { collectionStatusOptions, type InstallmentCollectionRow } from '../../lib/collectionHelpers'
+import {
+  collectionStatusOptions,
+  previewExcessAllocation,
+  rowAllowsReconciliation,
+  type InstallmentCollectionRow,
+} from '../../lib/collectionHelpers'
+import { CollectionFollowUpHistoryModal } from './CollectionFollowUpHistoryModal'
+import { OverpaymentConfirmDialog } from './OverpaymentConfirmDialog'
 import { normalizeScannedInput } from '../../lib/scanner'
 import { formatInvoiceDate } from '../../lib/sales'
 import { TextArea } from '../ui/TextArea'
@@ -81,7 +88,8 @@ export interface InstallmentCollectionPanelProps {
   usersQuery: UseQueryResult<AdminUser[]>
   installmentPaymentsQuery: UseQueryResult<PaymentRow[]>
   distributorProfile: Distributor | null | undefined
-  collectMutation: UseMutationResult<unknown, Error, void, unknown>
+  contractRows?: InstallmentCollectionRow[]
+  collectMutation: UseMutationResult<unknown, Error, { applyExcessToFollowing?: boolean } | void, unknown>
   closeReconcileMutation: UseMutationResult<unknown, Error, number, unknown>
   reconcileMutation: UseMutationResult<unknown, Error, void, unknown>
   metadataMutation: UseMutationResult<unknown, Error, void, unknown>
@@ -158,6 +166,7 @@ export function InstallmentCollectionPanel({
   usersQuery,
   installmentPaymentsQuery,
   distributorProfile,
+  contractRows = [],
   collectMutation,
   closeReconcileMutation,
   reconcileMutation,
@@ -174,6 +183,7 @@ export function InstallmentCollectionPanel({
   const canCollectPayment =
     userCanPerform(user, 'installments.collect') || userCanPerform(user, 'external_collections.collect')
   const canReconcile = userCanPerform(user, 'installments.reconcile')
+  const canOpenReconcile = canReconcile && rowAllowsReconciliation(selected ?? {})
   const visiblePaymentMethods = hideCash
     ? paymentMethodOptions.filter((option) => option.value !== 'cash')
     : paymentMethodOptions
@@ -186,6 +196,8 @@ export function InstallmentCollectionPanel({
   const [suspendEmployeeId, setSuspendEmployeeId] = useState<number | ''>('')
   const [suspendResumeFromDate, setSuspendResumeFromDate] = useState('')
   const [showMoreActions, setShowMoreActions] = useState(false)
+  const [showOverpayConfirm, setShowOverpayConfirm] = useState(false)
+  const [showFollowUpHistory, setShowFollowUpHistory] = useState(false)
 
   useEffect(() => {
     if (!selected) return
@@ -195,6 +207,8 @@ export function InstallmentCollectionPanel({
     setSuspendEmployeeId('')
     setSuspendResumeFromDate('')
     setShowMoreActions(false)
+    setShowOverpayConfirm(false)
+    setShowFollowUpHistory(false)
   }, [selected?.id])
 
   useEffect(() => {
@@ -213,6 +227,8 @@ export function InstallmentCollectionPanel({
   const tier = String(selected.display_tier ?? selected.status)
   const remainingAfterPay = roundMoney(Math.max(0, totalDue - amount))
   const isPartialPayment = amount > 0 && amount < totalDue - 0.009
+  const isOverpayment = amount > totalDue + 0.009
+  const overpayAllocations = isOverpayment ? previewExcessAllocation(selected, amount, contractRows) : []
   const canCollect =
     canCollectPayment &&
     !collectMutation.isPending &&
@@ -390,7 +406,6 @@ export function InstallmentCollectionPanel({
               <NumericInput
                 type="number"
                 min={0.01}
-                max={totalDue}
                 step="0.01"
                 value={amount}
                 onChange={(e) => onAmountChange(Number(e.target.value))}
@@ -430,6 +445,10 @@ export function InstallmentCollectionPanel({
                 {remainingAfterPay.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>{' '}
               على نفس القسط
+            </p>
+          ) : isOverpayment ? (
+            <p className="rounded-lg bg-primary/5 px-sm py-2 text-xs text-on-surface">
+              المبلغ أكبر من المتبقي — بعد الموافقة يُسدَّد هذا القسط بالكامل ويُوزَّع الباقي على الأقساط التالية
             </p>
           ) : (
             <p className="text-xs text-on-surface-variant">
@@ -488,13 +507,38 @@ export function InstallmentCollectionPanel({
 
           <button
             type="button"
-            onClick={() => collectMutation.mutate()}
+            onClick={() => {
+              if (isOverpayment) {
+                setShowOverpayConfirm(true)
+                return
+              }
+              collectMutation.mutate()
+            }}
             disabled={!canCollect}
             className="flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-3 font-bold text-on-primary disabled:opacity-60"
           >
             <Icon name="payments" />
-            {collectMutation.isPending ? 'جاري التحصيل...' : isPartialPayment ? 'تأكيد الدفع الجزئي' : 'تأكيد التحصيل'}
+            {collectMutation.isPending
+              ? 'جاري التحصيل...'
+              : isPartialPayment
+                ? 'تأكيد الدفع الجزئي'
+                : isOverpayment
+                  ? 'تأكيد التحصيل مع التوزيع'
+                  : 'تأكيد التحصيل'}
           </button>
+
+          <OverpaymentConfirmDialog
+            open={showOverpayConfirm}
+            currentDue={totalDue}
+            paymentAmount={amount}
+            allocations={overpayAllocations}
+            isPending={collectMutation.isPending}
+            onCancel={() => setShowOverpayConfirm(false)}
+            onConfirm={() => {
+              collectMutation.mutate({ applyExcessToFollowing: true })
+              setShowOverpayConfirm(false)
+            }}
+          />
 
           {canReconcile && selected.has_open_reconciliation && selected.open_reconciliation_id != null ? (
             <button
@@ -503,7 +547,11 @@ export function InstallmentCollectionPanel({
               disabled={closeReconcileMutation.isPending}
               className="w-full rounded-lg border border-secondary py-2 text-sm font-bold text-secondary"
             >
-              {closeReconcileMutation.isPending ? 'جاري الإغلاق...' : 'إغلاق التصالح وإعفاء الغرامة'}
+              {closeReconcileMutation.isPending
+                ? 'جاري الإغلاق...'
+                : selected.waive_late_fee_on_close === false
+                  ? 'إغلاق التصالح'
+                  : 'إغلاق التصالح وإعفاء الغرامة'}
             </button>
           ) : null}
         </section>
@@ -513,6 +561,17 @@ export function InstallmentCollectionPanel({
           icon="schedule"
           className="mb-sm"
           summary="حالة التذكير والملاحظات"
+          actions={
+            <button
+              type="button"
+              title="سجل متابعة التحصيل"
+              aria-label="سجل متابعة التحصيل"
+              onClick={() => setShowFollowUpHistory(true)}
+              className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-1 text-primary hover:bg-primary/20"
+            >
+              <Icon name="history" size={18} />
+            </button>
+          }
         >
           <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
           <select
@@ -550,6 +609,12 @@ export function InstallmentCollectionPanel({
             {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
           </button>
         </CollapsibleSection>
+
+        <CollectionFollowUpHistoryModal
+          invoiceId={selected.sales_invoice_id}
+          open={showFollowUpHistory}
+          onClose={() => setShowFollowUpHistory(false)}
+        />
 
         <button
           type="button"
@@ -757,7 +822,7 @@ export function InstallmentCollectionPanel({
               </CollapsibleSection>
             )}
 
-            {canReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
+            {canOpenReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
               <CollapsibleSection
                 title="تصالح — تسجيل حالة مفتوحة"
                 icon="handshake"

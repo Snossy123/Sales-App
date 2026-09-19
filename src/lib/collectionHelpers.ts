@@ -1,4 +1,4 @@
-export type ContractTierFilter = 'all' | 'overdue' | 'due_soon'
+export type ContractTierFilter = 'all' | 'overdue' | 'due_soon' | 'open_reconciliation'
 
 export type FirstDueStatus = 'upcoming' | 'due' | 'overdue'
 
@@ -34,6 +34,7 @@ export const contractTierFilterOptions = [
   { value: 'all', label: 'كل العقود' },
   { value: 'overdue', label: 'متأخرة' },
   { value: 'due_soon', label: 'مستحقة اليوم / فترة السماح' },
+  { value: 'open_reconciliation', label: 'تصالح مفتوح' },
 ] as const
 
 export type InstallmentCollectionRow = {
@@ -70,6 +71,9 @@ export type InstallmentCollectionRow = {
   collector_name?: string | null
   has_open_reconciliation?: boolean
   open_reconciliation_id?: number | null
+  reconciliation_enabled?: boolean
+  waive_late_fee_on_close?: boolean
+  administration_id?: number | null
   remaining_installments?: number
   late_fee_accrued?: string | number
 } & Record<string, unknown>
@@ -80,6 +84,60 @@ export function rowRemaining(row: InstallmentCollectionRow): number {
       row.total_due ??
       Math.max(0, Number(row.amount) - Number(row.paid_amount ?? 0)),
   )
+}
+
+export function rowTotalDue(row: InstallmentCollectionRow): number {
+  return Number(
+    row.total_due ??
+      row.remaining ??
+      Math.max(0, Number(row.amount) - Number(row.paid_amount ?? 0)),
+  )
+}
+
+export type ExcessAllocationPreview = {
+  installmentId: number
+  sequence: number
+  amount: number
+  remainingAfter: number
+}
+
+export function previewExcessAllocation(
+  selected: InstallmentCollectionRow,
+  amount: number,
+  contractRows: InstallmentCollectionRow[],
+): ExcessAllocationPreview[] {
+  const leftoverStart = Math.round(amount * 100) / 100
+  const selectedSeq = selected.sequence ?? selected.installment_number ?? 0
+  const following = contractRows
+    .filter((row) => {
+      if (row.id === selected.id) return false
+      if (row.status === 'paid') return false
+      if (row.is_suspended || row.suspended_at) return false
+      if (Number(row.sales_invoice_id ?? 0) !== Number(selected.sales_invoice_id ?? 0)) return false
+      const seq = row.sequence ?? row.installment_number ?? 0
+      return seq > selectedSeq
+    })
+    .sort((a, b) => (a.sequence ?? a.installment_number ?? 0) - (b.sequence ?? b.installment_number ?? 0))
+
+  const queue = [selected, ...following]
+  let leftover = leftoverStart
+  const preview: ExcessAllocationPreview[] = []
+
+  for (const row of queue) {
+    if (leftover <= 0.009) break
+    const due = rowTotalDue(row)
+    if (due <= 0.009) continue
+    const slice = Math.min(leftover, due)
+    leftover = Math.round((leftover - slice) * 100) / 100
+    preview.push({
+      installmentId: row.id,
+      sequence: row.sequence ?? row.installment_number ?? 0,
+      amount: Math.round(slice * 100) / 100,
+      remainingAfter: Math.round((due - slice) * 100) / 100,
+    })
+  }
+
+  return preview
 }
 
 function dateOnly(value: string | undefined): string {
@@ -133,6 +191,10 @@ export function contractFilterTier(rows: InstallmentCollectionRow[]): ContractTi
   return 'other'
 }
 
+export function rowAllowsReconciliation(row: Pick<InstallmentCollectionRow, 'reconciliation_enabled'>): boolean {
+  return row.reconciliation_enabled !== false
+}
+
 export function filterRowsByContractTier(
   rows: InstallmentCollectionRow[],
   tier: ContractTierFilter,
@@ -154,6 +216,9 @@ export function filterRowsByContractTier(
       matchingInvoiceIds.add(invoiceId)
     }
     if (tier === 'due_soon' && contractTier === 'due_soon') {
+      matchingInvoiceIds.add(invoiceId)
+    }
+    if (tier === 'open_reconciliation' && invoiceRows.some((row) => row.has_open_reconciliation)) {
       matchingInvoiceIds.add(invoiceId)
     }
   }

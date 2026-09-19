@@ -7,11 +7,12 @@ import { AsyncState } from '../components/AsyncState'
 import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { CollectionFollowUpHistoryModal } from '../components/installments/CollectionFollowUpHistoryModal'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
-import { userHasPermission } from '../lib/access'
+import { userCanPerform, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
 import {
@@ -33,9 +34,11 @@ export function ContractDetailPage() {
   const user = useAuthStore((s) => s.user)
   const canManageCases = userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
   const canPrint = userHasPermission(user, 'review.print')
+  const canViewFollowUpHistory = userCanPerform(user, 'installments.view')
   const [searchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [wizardCaseType, setWizardCaseType] = useState<ContractProblemCaseType | null>(null)
+  const [followUpHistoryOpen, setFollowUpHistoryOpen] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('resume') === 'problem') {
@@ -185,10 +188,36 @@ export function ContractDetailPage() {
                 {invoice.problem_reason}
               </div>
             )}
+            {canViewFollowUpHistory && (
+              <div className="mb-md flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-sm">
+                <div>
+                  <p className="text-sm font-bold text-on-surface">متابعة التحصيل</p>
+                  <p className="text-xs text-on-surface-variant">سجل الحالة والتذكير والملاحظات</p>
+                </div>
+                <button
+                  type="button"
+                  title="سجل متابعة التحصيل"
+                  aria-label="سجل متابعة التحصيل"
+                  onClick={() => setFollowUpHistoryOpen(true)}
+                  className="inline-flex items-center gap-xs rounded-lg border border-primary/30 bg-primary/10 px-sm py-1 text-sm font-medium text-primary hover:bg-primary/20"
+                >
+                  <Icon name="history" size={18} />
+                  السجل
+                </button>
+              </div>
+            )}
             <ContractReviewDetails invoice={invoice} />
           </>
         )}
       </AsyncState>
+
+      {invoice && canViewFollowUpHistory && (
+        <CollectionFollowUpHistoryModal
+          invoiceId={invoice.id}
+          open={followUpHistoryOpen}
+          onClose={() => setFollowUpHistoryOpen(false)}
+        />
+      )}
 
       {invoice && (
         <ContractProblemWizard
