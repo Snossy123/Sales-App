@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCollectionFollowUpPayload,
   computeContractStats,
   contractFilterTier,
   filterInstallmentCollectionRows,
   filterRowsByContractTier,
+  filterRowsWithoutFutureReminder,
+  hasCollectionFollowUpDraft,
+  hasFutureCollectionReminder,
   firstDueStatus,
   getCurrentInstallment,
   previewExcessAllocation,
@@ -133,6 +137,73 @@ describe('collectionHelpers', () => {
       total_contracts: 2,
       overdue_contracts: 1,
       due_soon_contracts: 1,
+      upcoming_follow_ups: 0,
+    })
+  })
+
+  it('hides contracts with a future reminder and counts them separately', () => {
+    const now = new Date('2026-09-19T12:00:00.000Z').getTime()
+    const future = '2026-09-20T10:00:00.000Z'
+    const past = '2026-09-18T10:00:00.000Z'
+    const rows = [
+      makeRow({
+        id: 1,
+        sales_invoice_id: 10,
+        status: 'pending',
+        display_tier: 'overdue',
+        collection_reminder_at: future,
+      }),
+      makeRow({
+        id: 2,
+        sales_invoice_id: 20,
+        status: 'pending',
+        display_tier: 'overdue',
+        collection_reminder_at: past,
+      }),
+      makeRow({
+        id: 3,
+        sales_invoice_id: 30,
+        status: 'pending',
+        display_tier: 'grace',
+      }),
+    ]
+
+    expect(hasFutureCollectionReminder([rows[0]], now)).toBe(true)
+    expect(hasFutureCollectionReminder([rows[1]], now)).toBe(false)
+    expect(filterRowsWithoutFutureReminder(rows, now).map((row) => row.id)).toEqual([2, 3])
+
+    const stats = computeContractStats(rows, now)
+    expect(stats.upcoming_follow_ups).toBe(1)
+    expect(stats.total_contracts).toBe(2)
+    expect(stats.overdue_contracts).toBe(1)
+    expect(stats.due_soon_contracts).toBe(1)
+  })
+
+  it('builds a follow-up payload from filled fields only', () => {
+    expect(
+      buildCollectionFollowUpPayload({
+        collectionStatus: '',
+        collectionReminderAt: '',
+        collectionNotes: '   ',
+      }),
+    ).toEqual({})
+    expect(
+      hasCollectionFollowUpDraft({
+        collectionStatus: '',
+        collectionReminderAt: '',
+        collectionNotes: '   ',
+      }),
+    ).toBe(false)
+    expect(
+      buildCollectionFollowUpPayload({
+        collectionStatus: 'responded',
+        collectionReminderAt: '2026-09-20T10:00',
+        collectionNotes: ' هاتف ',
+      }),
+    ).toEqual({
+      collection_status: 'responded',
+      collection_reminder_at: '2026-09-20T10:00',
+      collection_notes: 'هاتف',
     })
   })
 

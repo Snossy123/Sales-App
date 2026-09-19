@@ -18,14 +18,16 @@ import { FilterBar } from '../components/FilterBar'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
+  buildCollectionFollowUpPayload,
   collectionStatusOptions,
   computeContractStats,
   filterRowsByContractTier,
   filterInstallmentCollectionRows,
+  filterRowsWithoutFutureReminder,
+  hasFutureCollectionReminder,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
-import { formatDatetimeLocal, parseDatetimeLocal } from '../lib/datetime12h'
 import {
   installmentStatusOptions,
   normalizeInstallmentItem,
@@ -41,6 +43,7 @@ interface BranchStats {
   contractsCount: number
   overdueCount: number
   dueSoonCount: number
+  upcomingFollowUps: number
 }
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
@@ -78,7 +81,7 @@ function BranchInstallmentCard({
   onSelectBranch: () => void
   onFilter: (tier: ContractTierFilter) => void
 }) {
-  const { branch, contractsCount, overdueCount, dueSoonCount } = stats
+  const { branch, contractsCount, overdueCount, dueSoonCount, upcomingFollowUps } = stats
 
   const statButtonClass = (tier: ContractTierFilter, overdueTone = false) => {
     const isActive = selected && activeFilter === tier
@@ -120,7 +123,7 @@ function BranchInstallmentCard({
         </div>
       </button>
 
-      <div className="grid grid-cols-3 gap-xs text-center">
+      <div className="grid grid-cols-4 gap-xs text-center">
         <button
           type="button"
           onClick={() => onFilter('all')}
@@ -147,6 +150,12 @@ function BranchInstallmentCard({
           <p className="tabular-nums text-lg font-bold text-on-surface">{dueSoonCount}</p>
           <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
         </button>
+        <div className="rounded-lg bg-surface-container-low px-xs py-sm text-center">
+          <p className={`tabular-nums text-lg font-bold ${upcomingFollowUps > 0 ? 'text-primary' : 'text-on-surface'}`}>
+            {upcomingFollowUps}
+          </p>
+          <p className="text-[11px] text-on-surface-variant">متابعة قادمة</p>
+        </div>
       </div>
     </div>
   )
@@ -302,15 +311,24 @@ export function InstallmentCollectionPage() {
           total_contracts: contractsCount,
           overdue_contracts: overdueCount,
           due_soon_contracts: dueSoonCount,
+          upcoming_follow_ups: upcomingFollowUps,
         } = computeContractStats(rows)
         return {
           branch,
           contractsCount,
           overdueCount,
           dueSoonCount,
+          upcomingFollowUps,
         }
       })
-      .filter((s) => s.contractsCount > 0 || s.overdueCount > 0 || s.dueSoonCount > 0 || branches.length <= 6)
+      .filter(
+        (s) =>
+          s.contractsCount > 0 ||
+          s.overdueCount > 0 ||
+          s.dueSoonCount > 0 ||
+          s.upcomingFollowUps > 0 ||
+          branches.length <= 6,
+      )
       .sort(
         (a, b) =>
           b.overdueCount - a.overdueCount ||
@@ -433,8 +451,22 @@ export function InstallmentCollectionPage() {
   const filteredRows = useMemo(() => {
     let rows = branchRows
     rows = filterRowsByContractTier(rows, contractTierFilter)
-    return filterInstallmentCollectionRows(rows, customerSearch)
+    rows = filterInstallmentCollectionRows(rows, customerSearch)
+    return filterRowsWithoutFutureReminder(rows)
   }, [branchRows, contractTierFilter, customerSearch])
+
+  const upcomingFollowUpCount = useMemo(
+    () => computeContractStats(branchRows).upcoming_follow_ups,
+    [branchRows],
+  )
+
+  useEffect(() => {
+    if (!selected?.sales_invoice_id) return
+    const contractRows = branchRows.filter((row) => row.sales_invoice_id === selected.sales_invoice_id)
+    if (contractRows.length > 0 && hasFutureCollectionReminder(contractRows)) {
+      setSelected(null)
+    }
+  }, [branchRows, selected?.sales_invoice_id])
 
   const selectedContractRows = useMemo(() => {
     if (!selected?.sales_invoice_id) return []
@@ -538,17 +570,31 @@ export function InstallmentCollectionPage() {
   const metadataMutation = useMutation({
     mutationFn: async () => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
-      const { data } = await api.patch(`/sales-invoices/${selected.sales_invoice_id}/collection-metadata`, {
-        collection_status: collectionStatus || null,
-        collection_reminder_at: collectionReminderAt || null,
-        collection_notes: collectionNotes.trim() || null,
+      const payload = buildCollectionFollowUpPayload({
+        collectionStatus,
+        collectionReminderAt,
+        collectionNotes,
       })
+      if (Object.keys(payload).length === 0) throw new Error('أضف حالة أو ميعاد تذكير أو ملاحظة')
+      const { data } = await api.patch(
+        `/sales-invoices/${selected.sales_invoice_id}/collection-metadata`,
+        payload,
+      )
       return data
     },
     onSuccess: () => {
+      const reminderIsFuture =
+        Boolean(collectionReminderAt) && new Date(collectionReminderAt).getTime() > Date.now()
+      const invoiceId = selected?.sales_invoice_id
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      if (selected?.sales_invoice_id) {
-        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      if (invoiceId) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoiceId] })
+      }
+      setCollectionStatus('')
+      setCollectionReminderAt('')
+      setCollectionNotes('')
+      if (reminderIsFuture) {
+        setSelected(null)
       }
     },
   })
@@ -647,16 +693,9 @@ export function InstallmentCollectionPage() {
     setSenderNumber('')
     setShowReconcile(false)
     setAdjustNextDueDate(false)
-    setCollectionStatus(String(row.collection_status ?? ''))
-    setCollectionReminderAt(
-      row.collection_reminder_at
-        ? (() => {
-            const parts = parseDatetimeLocal(String(row.collection_reminder_at))
-            return parts ? formatDatetimeLocal(parts) : ''
-          })()
-        : '',
-    )
-    setCollectionNotes(String(row.collection_notes ?? ''))
+    setCollectionStatus('')
+    setCollectionReminderAt('')
+    setCollectionNotes('')
     const edits: Record<number, string> = {}
     branchRows
       .filter((r) => r.sales_invoice_id === row.sales_invoice_id && r.status !== 'paid')
@@ -816,6 +855,7 @@ export function InstallmentCollectionPage() {
               <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
                 {filteredRows.length} قسط ·{' '}
                 {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
+                {upcomingFollowUpCount > 0 ? ` · متابعة قادمة: ${upcomingFollowUpCount}` : ''}
               </span>
             </div>
 

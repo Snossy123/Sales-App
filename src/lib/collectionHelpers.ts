@@ -269,13 +269,87 @@ export function filterInstallmentCollectionRows(
   })
 }
 
+export function buildCollectionFollowUpPayload(input: {
+  collectionStatus: string
+  collectionReminderAt: string
+  collectionNotes: string
+}): {
+  collection_status?: string | null
+  collection_reminder_at?: string | null
+  collection_notes?: string | null
+} {
+  const payload: {
+    collection_status?: string | null
+    collection_reminder_at?: string | null
+    collection_notes?: string | null
+  } = {}
+
+  if (input.collectionStatus) {
+    payload.collection_status = input.collectionStatus
+  }
+  if (input.collectionReminderAt) {
+    payload.collection_reminder_at = input.collectionReminderAt
+  }
+  if (input.collectionNotes.trim()) {
+    payload.collection_notes = input.collectionNotes.trim()
+  }
+
+  return payload
+}
+
+export function hasCollectionFollowUpDraft(input: {
+  collectionStatus: string
+  collectionReminderAt: string
+  collectionNotes: string
+}): boolean {
+  return Object.keys(buildCollectionFollowUpPayload(input)).length > 0
+}
+
+export function hasFutureCollectionReminder(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): boolean {
+  return rows.some((row) => {
+    if (!row.collection_reminder_at) return false
+    const reminderAt = new Date(row.collection_reminder_at).getTime()
+    return Number.isFinite(reminderAt) && reminderAt > now
+  })
+}
+
+export function filterRowsWithoutFutureReminder(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): InstallmentCollectionRow[] {
+  const hiddenInvoiceIds = new Set<number>()
+  const byInvoice = new Map<number, InstallmentCollectionRow[]>()
+
+  for (const row of rows) {
+    const invoiceId = Number(row.sales_invoice_id ?? 0)
+    const list = byInvoice.get(invoiceId) ?? []
+    list.push(row)
+    byInvoice.set(invoiceId, list)
+  }
+
+  for (const [invoiceId, invoiceRows] of byInvoice) {
+    if (hasFutureCollectionReminder(invoiceRows, now)) {
+      hiddenInvoiceIds.add(invoiceId)
+    }
+  }
+
+  return rows.filter((row) => !hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
+}
+
 export interface ContractCollectionStats {
   total_contracts: number
   overdue_contracts: number
   due_soon_contracts: number
+  upcoming_follow_ups: number
 }
 
-export function computeContractStats(rows: InstallmentCollectionRow[]): ContractCollectionStats {
+export function computeContractStats(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): ContractCollectionStats {
   const byInvoice = new Map<number, InstallmentCollectionRow[]>()
   for (const row of rows.filter((r) => r.status !== 'paid')) {
     const invoiceId = Number(row.sales_invoice_id ?? 0)
@@ -286,16 +360,26 @@ export function computeContractStats(rows: InstallmentCollectionRow[]): Contract
 
   let overdue = 0
   let dueSoon = 0
+  let upcomingFollowUps = 0
+  let visibleContracts = 0
+
   for (const invoiceRows of byInvoice.values()) {
+    if (hasFutureCollectionReminder(invoiceRows, now)) {
+      upcomingFollowUps++
+      continue
+    }
+
+    visibleContracts++
     const tier = contractFilterTier(invoiceRows)
     if (tier === 'overdue') overdue++
     if (tier === 'due_soon') dueSoon++
   }
 
   return {
-    total_contracts: byInvoice.size,
+    total_contracts: visibleContracts,
     overdue_contracts: overdue,
     due_soon_contracts: dueSoon,
+    upcoming_follow_ups: upcomingFollowUps,
   }
 }
 

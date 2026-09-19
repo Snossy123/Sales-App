@@ -10,6 +10,7 @@ import { InsightBanner } from '../InsightBanner'
 import { StatusBadge } from '../StatusBadge'
 import {
   collectionStatusOptions,
+  hasCollectionFollowUpDraft,
   previewExcessAllocation,
   rowAllowsReconciliation,
   type InstallmentCollectionRow,
@@ -565,7 +566,7 @@ export function InstallmentCollectionPanel({
           title="متابعة التحصيل"
           icon="schedule"
           className="mb-sm"
-          summary="حالة التذكير والملاحظات"
+          summary="إضافة موعد أو ملاحظة جديدة — السجل للتاريخ السابق"
           actions={
             <button
               type="button"
@@ -608,7 +609,15 @@ export function InstallmentCollectionPanel({
           <button
             type="button"
             onClick={() => metadataMutation.mutate()}
-            disabled={metadataMutation.isPending || !canCollectPayment}
+            disabled={
+              metadataMutation.isPending ||
+              !canCollectPayment ||
+              !hasCollectionFollowUpDraft({
+                collectionStatus,
+                collectionReminderAt,
+                collectionNotes,
+              })
+            }
             className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
           >
             {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}

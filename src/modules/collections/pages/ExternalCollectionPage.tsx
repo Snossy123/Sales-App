@@ -9,11 +9,11 @@ import { InstallmentCollectionPanel } from '../../../components/installments/Ins
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import {
+  buildCollectionFollowUpPayload,
   filterRowsByContractTier,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../../../lib/collectionHelpers'
-import { formatDatetimeLocal, parseDatetimeLocal } from '../../../lib/datetime12h'
 import { normalizeInstallmentItem } from '../../../lib/sales'
 import { openCollectionReceipts } from '../../../lib/paymentReceipt'
 
@@ -239,18 +239,26 @@ export function ExternalCollectionPage() {
   const metadataMutation = useMutation({
     mutationFn: async () => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
-      const { data } = await api.patch(`/sales-invoices/${selected.sales_invoice_id}/collection-metadata`, {
-        collection_status: collectionStatus || null,
-        collection_reminder_at: collectionReminderAt || null,
-        collection_notes: collectionNotes.trim() || null,
+      const payload = buildCollectionFollowUpPayload({
+        collectionStatus,
+        collectionReminderAt,
+        collectionNotes,
       })
+      if (Object.keys(payload).length === 0) throw new Error('أضف حالة أو ميعاد تذكير أو ملاحظة')
+      const { data } = await api.patch(
+        `/sales-invoices/${selected.sales_invoice_id}/collection-metadata`,
+        payload,
+      )
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      setCollectionStatus('')
+      setCollectionReminderAt('')
+      setCollectionNotes('')
     },
   })
 
@@ -322,16 +330,9 @@ export function ExternalCollectionPage() {
     setSenderNumber('')
     setShowReconcile(false)
     setAdjustNextDueDate(false)
-    setCollectionStatus(String(row.collection_status ?? ''))
-    setCollectionReminderAt(
-      row.collection_reminder_at
-        ? (() => {
-            const parts = parseDatetimeLocal(String(row.collection_reminder_at))
-            return parts ? formatDatetimeLocal(parts) : ''
-          })()
-        : '',
-    )
-    setCollectionNotes(String(row.collection_notes ?? ''))
+    setCollectionStatus('')
+    setCollectionReminderAt('')
+    setCollectionNotes('')
     const edits: Record<number, string> = {}
     ;((installmentsQuery.data ?? []) as InstallmentRow[])
       .filter((r) => r.sales_invoice_id === row.sales_invoice_id && r.status !== 'paid')
