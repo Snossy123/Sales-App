@@ -397,7 +397,8 @@ export function ExternalCollectionPage() {
             >
               <option value="all">كل العقود</option>
               <option value="overdue">متأخرة</option>
-              <option value="due_soon">مستحقة / فترة سماح</option>
+              <option value="due_soon">مستحقة</option>
+              <option value="upcoming">قادمة</option>
               <option value="open_reconciliation">تصالح مفتوح</option>
             </select>
             <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">

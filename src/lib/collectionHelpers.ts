@@ -1,4 +1,4 @@
-export type ContractTierFilter = 'all' | 'overdue' | 'due_soon' | 'open_reconciliation'
+export type ContractTierFilter = 'all' | 'overdue' | 'due_soon' | 'upcoming' | 'open_reconciliation'
 
 export type FirstDueStatus = 'upcoming' | 'due' | 'overdue'
 
@@ -33,7 +33,8 @@ export const collectionStatusOptions = [
 export const contractTierFilterOptions = [
   { value: 'all', label: 'كل العقود' },
   { value: 'overdue', label: 'متأخرة' },
-  { value: 'due_soon', label: 'مستحقة اليوم / فترة السماح' },
+  { value: 'due_soon', label: 'مستحقة' },
+  { value: 'upcoming', label: 'قادمة' },
   { value: 'open_reconciliation', label: 'تصالح مفتوح' },
 ] as const
 
@@ -176,19 +177,26 @@ export function getCurrentInstallment(rows: InstallmentCollectionRow[]): Install
     })[0]
 }
 
-export function contractFilterTier(rows: InstallmentCollectionRow[]): ContractTierFilter | 'suspended' | 'other' {
+export function contractFilterTier(
+  rows: InstallmentCollectionRow[],
+  today?: string,
+): 'overdue' | 'due_soon' | 'upcoming' {
   const unpaid = rows.filter((r) => r.status !== 'paid')
   if (unpaid.length > 0 && unpaid.every((r) => r.is_suspended || r.suspended_at)) {
-    return 'suspended'
+    return 'upcoming'
   }
 
   const current = getCurrentInstallment(rows)
-  if (!current) return 'other'
+  if (!current) return 'upcoming'
 
-  const tier = current.display_tier ?? current.status
-  if (tier === 'overdue') return 'overdue'
-  if (tier === 'upcoming' || tier === 'grace') return 'due_soon'
-  return 'other'
+  const dueStatus = firstDueStatus(current, today)
+  if (dueStatus === 'overdue' || current.display_tier === 'overdue' || current.status === 'overdue') {
+    return 'overdue'
+  }
+  if (dueStatus === 'due' || current.display_tier === 'grace') {
+    return 'due_soon'
+  }
+  return 'upcoming'
 }
 
 export function rowAllowsReconciliation(row: Pick<InstallmentCollectionRow, 'reconciliation_enabled'>): boolean {
@@ -198,6 +206,7 @@ export function rowAllowsReconciliation(row: Pick<InstallmentCollectionRow, 'rec
 export function filterRowsByContractTier(
   rows: InstallmentCollectionRow[],
   tier: ContractTierFilter,
+  today?: string,
 ): InstallmentCollectionRow[] {
   if (tier === 'all') return rows
 
@@ -211,11 +220,14 @@ export function filterRowsByContractTier(
 
   const matchingInvoiceIds = new Set<number>()
   for (const [invoiceId, invoiceRows] of byInvoice) {
-    const contractTier = contractFilterTier(invoiceRows)
+    const contractTier = contractFilterTier(invoiceRows, today)
     if (tier === 'overdue' && contractTier === 'overdue') {
       matchingInvoiceIds.add(invoiceId)
     }
     if (tier === 'due_soon' && contractTier === 'due_soon') {
+      matchingInvoiceIds.add(invoiceId)
+    }
+    if (tier === 'upcoming' && contractTier === 'upcoming') {
       matchingInvoiceIds.add(invoiceId)
     }
     if (tier === 'open_reconciliation' && invoiceRows.some((row) => row.has_open_reconciliation)) {
@@ -339,16 +351,40 @@ export function filterRowsWithoutFutureReminder(
   return rows.filter((row) => !hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
 }
 
+export function filterRowsWithFutureReminder(
+  rows: InstallmentCollectionRow[],
+  now: number = Date.now(),
+): InstallmentCollectionRow[] {
+  const hiddenInvoiceIds = new Set<number>()
+  const byInvoice = new Map<number, InstallmentCollectionRow[]>()
+
+  for (const row of rows) {
+    const invoiceId = Number(row.sales_invoice_id ?? 0)
+    const list = byInvoice.get(invoiceId) ?? []
+    list.push(row)
+    byInvoice.set(invoiceId, list)
+  }
+
+  for (const [invoiceId, invoiceRows] of byInvoice) {
+    if (hasFutureCollectionReminder(invoiceRows, now)) {
+      hiddenInvoiceIds.add(invoiceId)
+    }
+  }
+
+  return rows.filter((row) => hiddenInvoiceIds.has(Number(row.sales_invoice_id ?? 0)))
+}
+
 export interface ContractCollectionStats {
   total_contracts: number
   overdue_contracts: number
   due_soon_contracts: number
-  upcoming_follow_ups: number
+  upcoming_contracts: number
 }
 
 export function computeContractStats(
   rows: InstallmentCollectionRow[],
   now: number = Date.now(),
+  today?: string,
 ): ContractCollectionStats {
   const byInvoice = new Map<number, InstallmentCollectionRow[]>()
   for (const row of rows.filter((r) => r.status !== 'paid')) {
@@ -360,26 +396,24 @@ export function computeContractStats(
 
   let overdue = 0
   let dueSoon = 0
-  let upcomingFollowUps = 0
-  let visibleContracts = 0
+  let upcoming = 0
 
   for (const invoiceRows of byInvoice.values()) {
     if (hasFutureCollectionReminder(invoiceRows, now)) {
-      upcomingFollowUps++
       continue
     }
 
-    visibleContracts++
-    const tier = contractFilterTier(invoiceRows)
+    const tier = contractFilterTier(invoiceRows, today)
     if (tier === 'overdue') overdue++
-    if (tier === 'due_soon') dueSoon++
+    else if (tier === 'due_soon') dueSoon++
+    else upcoming++
   }
 
   return {
-    total_contracts: visibleContracts,
+    total_contracts: overdue + dueSoon + upcoming,
     overdue_contracts: overdue,
     due_soon_contracts: dueSoon,
-    upcoming_follow_ups: upcomingFollowUps,
+    upcoming_contracts: upcoming,
   }
 }
 

@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { AdminUser, Branch, CollectionPaymentAccount, CollectorOption, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { CollectionFollowUpSidebar } from '../components/installments/CollectionFollowUpSidebar'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
 import {
   InstallmentCollectionPanel,
@@ -23,8 +24,8 @@ import {
   computeContractStats,
   filterRowsByContractTier,
   filterInstallmentCollectionRows,
+  filterRowsWithFutureReminder,
   filterRowsWithoutFutureReminder,
-  hasFutureCollectionReminder,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
@@ -43,7 +44,7 @@ interface BranchStats {
   contractsCount: number
   overdueCount: number
   dueSoonCount: number
-  upcomingFollowUps: number
+  upcomingCount: number
 }
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
@@ -74,14 +75,16 @@ function BranchInstallmentCard({
   activeFilter,
   onSelectBranch,
   onFilter,
+  onOpenFollowUps,
 }: {
   stats: BranchStats
   selected: boolean
   activeFilter: ContractTierFilter
   onSelectBranch: () => void
   onFilter: (tier: ContractTierFilter) => void
+  onOpenFollowUps: () => void
 }) {
-  const { branch, contractsCount, overdueCount, dueSoonCount, upcomingFollowUps } = stats
+  const { branch, contractsCount, overdueCount, dueSoonCount, upcomingCount } = stats
 
   const statButtonClass = (tier: ContractTierFilter, overdueTone = false) => {
     const isActive = selected && activeFilter === tier
@@ -103,25 +106,39 @@ function BranchInstallmentCard({
           : 'border-outline-variant bg-surface-container-lowest'
       }`}
     >
-      <button
-        type="button"
-        onClick={onSelectBranch}
-        className="mb-sm flex w-full items-start justify-between gap-sm text-right"
-      >
-        <div className="min-w-0 flex-1">
+      <div className="mb-sm flex w-full items-start justify-between gap-sm">
+        <button
+          type="button"
+          onClick={onSelectBranch}
+          className="min-w-0 flex-1 text-right"
+        >
           <p className="truncate font-semibold text-on-surface">
             {branch.name_ar || branch.name}
           </p>
           <p className="text-xs text-on-surface-variant">{branch.code}</p>
+        </button>
+        <div className="flex shrink-0 items-center gap-xs">
+          <button
+            type="button"
+            title="المتابعات القادمة"
+            aria-label="فتح المتابعات القادمة"
+            onClick={onOpenFollowUps}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+          >
+            <Icon name="schedule" size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onSelectBranch}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+              selected ? 'bg-primary text-on-primary' : 'bg-primary/10 text-primary'
+            }`}
+            aria-label={`اختيار فرع ${branch.name_ar || branch.name}`}
+          >
+            <Icon name="store" size={20} />
+          </button>
         </div>
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-            selected ? 'bg-primary text-on-primary' : 'bg-primary/10 text-primary'
-          }`}
-        >
-          <Icon name="store" size={20} />
-        </div>
-      </button>
+      </div>
 
       <div className="grid grid-cols-4 gap-xs text-center">
         <button
@@ -150,12 +167,14 @@ function BranchInstallmentCard({
           <p className="tabular-nums text-lg font-bold text-on-surface">{dueSoonCount}</p>
           <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
         </button>
-        <div className="rounded-lg bg-surface-container-low px-xs py-sm text-center">
-          <p className={`tabular-nums text-lg font-bold ${upcomingFollowUps > 0 ? 'text-primary' : 'text-on-surface'}`}>
-            {upcomingFollowUps}
-          </p>
-          <p className="text-[11px] text-on-surface-variant">متابعة قادمة</p>
-        </div>
+        <button
+          type="button"
+          onClick={() => onFilter('upcoming')}
+          className={statButtonClass('upcoming')}
+        >
+          <p className="tabular-nums text-lg font-bold text-on-surface">{upcomingCount}</p>
+          <p className="text-[11px] text-on-surface-variant">قسط قادم</p>
+        </button>
       </div>
     </div>
   )
@@ -183,6 +202,7 @@ export function InstallmentCollectionPage() {
   const [collectorFilter, setCollectorFilter] = useState('')
   const [sortByReminder, setSortByReminder] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [showFollowUps, setShowFollowUps] = useState(false)
   const [collectionStatus, setCollectionStatus] = useState(() => savedDraft?.collectionStatus ?? '')
   const [collectionReminderAt, setCollectionReminderAt] = useState(
     () => savedDraft?.collectionReminderAt ?? '',
@@ -311,14 +331,14 @@ export function InstallmentCollectionPage() {
           total_contracts: contractsCount,
           overdue_contracts: overdueCount,
           due_soon_contracts: dueSoonCount,
-          upcoming_follow_ups: upcomingFollowUps,
+          upcoming_contracts: upcomingCount,
         } = computeContractStats(rows)
         return {
           branch,
           contractsCount,
           overdueCount,
           dueSoonCount,
-          upcomingFollowUps,
+          upcomingCount,
         }
       })
       .filter(
@@ -326,13 +346,14 @@ export function InstallmentCollectionPage() {
           s.contractsCount > 0 ||
           s.overdueCount > 0 ||
           s.dueSoonCount > 0 ||
-          s.upcomingFollowUps > 0 ||
+          s.upcomingCount > 0 ||
           branches.length <= 6,
       )
       .sort(
         (a, b) =>
           b.overdueCount - a.overdueCount ||
           b.dueSoonCount - a.dueSoonCount ||
+          b.upcomingCount - a.upcomingCount ||
           b.contractsCount - a.contractsCount,
       )
   }, [branchesQuery.data, installmentsByBranch])
@@ -455,18 +476,10 @@ export function InstallmentCollectionPage() {
     return filterRowsWithoutFutureReminder(rows)
   }, [branchRows, contractTierFilter, customerSearch])
 
-  const upcomingFollowUpCount = useMemo(
-    () => computeContractStats(branchRows).upcoming_follow_ups,
-    [branchRows],
+  const followUpRows = useMemo(
+    () => filterRowsWithFutureReminder(filterInstallmentCollectionRows(branchRows, customerSearch)),
+    [branchRows, customerSearch],
   )
-
-  useEffect(() => {
-    if (!selected?.sales_invoice_id) return
-    const contractRows = branchRows.filter((row) => row.sales_invoice_id === selected.sales_invoice_id)
-    if (contractRows.length > 0 && hasFutureCollectionReminder(contractRows)) {
-      setSelected(null)
-    }
-  }, [branchRows, selected?.sales_invoice_id])
 
   const selectedContractRows = useMemo(() => {
     if (!selected?.sales_invoice_id) return []
@@ -594,7 +607,7 @@ export function InstallmentCollectionPage() {
       setCollectionReminderAt('')
       setCollectionNotes('')
       if (reminderIsFuture) {
-        setSelected(null)
+        setShowFollowUps(true)
       }
     },
   })
@@ -765,7 +778,8 @@ export function InstallmentCollectionPage() {
               options: [
                 { value: 'all', label: 'كل العقود' },
                 { value: 'overdue', label: 'متأخرة' },
-                { value: 'due_soon', label: 'مستحقة / فترة سماح' },
+                { value: 'due_soon', label: 'مستحقة' },
+                { value: 'upcoming', label: 'قادمة' },
                 { value: 'open_reconciliation', label: 'تصالح مفتوح' },
               ],
             },
@@ -841,6 +855,10 @@ export function InstallmentCollectionPage() {
                 activeFilter={contractTierFilter}
                 onSelectBranch={() => selectBranch(stats.branch.id)}
                 onFilter={(tier) => applyBranchStatFilter(stats.branch.id, tier)}
+                onOpenFollowUps={() => {
+                  setSelectedBranchId(stats.branch.id)
+                  setShowFollowUps(true)
+                }}
               />
             ))}
           </div>
@@ -852,11 +870,21 @@ export function InstallmentCollectionPage() {
               <h2 className="text-lg font-semibold text-on-surface">
                 أقساط فرع {selectedBranch.name_ar || selectedBranch.name}
               </h2>
-              <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
-                {filteredRows.length} قسط ·{' '}
-                {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
-                {upcomingFollowUpCount > 0 ? ` · متابعة قادمة: ${upcomingFollowUpCount}` : ''}
-              </span>
+              <div className="flex items-center gap-sm">
+                <button
+                  type="button"
+                  title="المتابعات القادمة"
+                  aria-label="فتح المتابعات القادمة"
+                  onClick={() => setShowFollowUps(true)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                >
+                  <Icon name="schedule" size={18} />
+                </button>
+                <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
+                  {filteredRows.length} قسط ·{' '}
+                  {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
+                </span>
+              </div>
             </div>
 
             <FilterBar
@@ -951,6 +979,27 @@ export function InstallmentCollectionPage() {
           )
         )}
       </AsyncState>
+      <CollectionFollowUpSidebar
+        open={showFollowUps}
+        onClose={() => setShowFollowUps(false)}
+        rows={followUpRows}
+        selectedId={selected?.id as number | undefined}
+        onSelect={selectRow}
+        onReconcile={(row) => {
+          selectRow(row)
+          setShowReconcile(true)
+        }}
+        collectors={collectorsQuery.data ?? []}
+        canAssign={canAssignCollectors}
+        onAssignCollector={(invoiceId, collectorUserId) =>
+          assignCollectorMutation.mutate({ invoiceId, collectorUserId })
+        }
+        assigningInvoiceId={
+          assignCollectorMutation.isPending
+            ? (assignCollectorMutation.variables?.invoiceId ?? null)
+            : null
+        }
+      />
     </SalesPageShell>
   )
 }

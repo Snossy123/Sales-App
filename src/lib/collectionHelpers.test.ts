@@ -5,6 +5,7 @@ import {
   contractFilterTier,
   filterInstallmentCollectionRows,
   filterRowsByContractTier,
+  filterRowsWithFutureReminder,
   filterRowsWithoutFutureReminder,
   hasCollectionFollowUpDraft,
   hasFutureCollectionReminder,
@@ -71,7 +72,7 @@ describe('collectionHelpers', () => {
         makeRow({ id: 1, status: 'pending', is_suspended: true }),
         makeRow({ id: 2, status: 'pending', suspended_at: '2026-05-01' }),
       ]),
-    ).toBe('suspended')
+    ).toBe('upcoming')
 
     expect(
       contractFilterTier([
@@ -81,23 +82,37 @@ describe('collectionHelpers', () => {
     ).toBe('overdue')
 
     expect(
-      contractFilterTier([makeRow({ id: 1, status: 'pending', display_tier: 'grace' })]),
+      contractFilterTier(
+        [makeRow({ id: 1, status: 'pending', display_tier: 'grace', due_date: '2026-09-19' })],
+        '2026-09-19',
+      ),
     ).toBe('due_soon')
 
     expect(
-      contractFilterTier([makeRow({ id: 1, status: 'pending', display_tier: 'upcoming' })]),
-    ).toBe('due_soon')
+      contractFilterTier(
+        [makeRow({ id: 1, status: 'pending', display_tier: 'upcoming', due_date: '2026-10-01' })],
+        '2026-09-19',
+      ),
+    ).toBe('upcoming')
   })
 
   it('filters rows to matching contract tiers', () => {
     const rows = [
       makeRow({ id: 1, sales_invoice_id: 10, status: 'pending', display_tier: 'overdue' }),
-      makeRow({ id: 2, sales_invoice_id: 20, status: 'pending', display_tier: 'upcoming' }),
+      makeRow({
+        id: 2,
+        sales_invoice_id: 20,
+        status: 'pending',
+        display_tier: 'upcoming',
+        due_date: '2026-10-01',
+      }),
+      makeRow({ id: 3, sales_invoice_id: 30, status: 'pending', display_tier: 'grace', due_date: '2026-09-19' }),
     ]
 
-    expect(filterRowsByContractTier(rows, 'all')).toHaveLength(2)
-    expect(filterRowsByContractTier(rows, 'overdue').map((row) => row.id)).toEqual([1])
-    expect(filterRowsByContractTier(rows, 'due_soon').map((row) => row.id)).toEqual([2])
+    expect(filterRowsByContractTier(rows, 'all', '2026-09-19')).toHaveLength(3)
+    expect(filterRowsByContractTier(rows, 'overdue', '2026-09-19').map((row) => row.id)).toEqual([1])
+    expect(filterRowsByContractTier(rows, 'due_soon', '2026-09-19').map((row) => row.id)).toEqual([3])
+    expect(filterRowsByContractTier(rows, 'upcoming', '2026-09-19').map((row) => row.id)).toEqual([2])
   })
 
   it('filters contracts that have an open reconciliation', () => {
@@ -137,11 +152,36 @@ describe('collectionHelpers', () => {
       total_contracts: 2,
       overdue_contracts: 1,
       due_soon_contracts: 1,
-      upcoming_follow_ups: 0,
+      upcoming_contracts: 0,
     })
   })
 
-  it('hides contracts with a future reminder and counts them separately', () => {
+  it('counts upcoming visible contracts separately from due and overdue', () => {
+    const stats = computeContractStats(
+      [
+        makeRow({
+          id: 1,
+          sales_invoice_id: 10,
+          status: 'pending',
+          display_tier: 'upcoming',
+          due_date: '2026-10-01',
+        }),
+        makeRow({ id: 2, sales_invoice_id: 20, status: 'pending', is_suspended: true }),
+        makeRow({ id: 3, sales_invoice_id: 30, status: 'pending', display_tier: 'overdue' }),
+      ],
+      Date.now(),
+      '2026-09-19',
+    )
+
+    expect(stats).toEqual({
+      total_contracts: 3,
+      overdue_contracts: 1,
+      due_soon_contracts: 0,
+      upcoming_contracts: 2,
+    })
+  })
+
+  it('hides contracts with a future reminder from card stats', () => {
     const now = new Date('2026-09-19T12:00:00.000Z').getTime()
     const future = '2026-09-20T10:00:00.000Z'
     const past = '2026-09-18T10:00:00.000Z'
@@ -171,12 +211,13 @@ describe('collectionHelpers', () => {
     expect(hasFutureCollectionReminder([rows[0]], now)).toBe(true)
     expect(hasFutureCollectionReminder([rows[1]], now)).toBe(false)
     expect(filterRowsWithoutFutureReminder(rows, now).map((row) => row.id)).toEqual([2, 3])
+    expect(filterRowsWithFutureReminder(rows, now).map((row) => row.id)).toEqual([1])
 
     const stats = computeContractStats(rows, now)
-    expect(stats.upcoming_follow_ups).toBe(1)
     expect(stats.total_contracts).toBe(2)
     expect(stats.overdue_contracts).toBe(1)
     expect(stats.due_soon_contracts).toBe(1)
+    expect(stats.upcoming_contracts).toBe(0)
   })
 
   it('builds a follow-up payload from filled fields only', () => {
