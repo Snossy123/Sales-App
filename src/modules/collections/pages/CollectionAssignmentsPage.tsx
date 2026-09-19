@@ -10,7 +10,17 @@ import type {
 import { AsyncState } from '../../../components/AsyncState'
 import { FilterBar } from '../../../components/FilterBar'
 import { SalesPageShell } from '../../../components/SalesPageShell'
-import { collectionStatusLabels } from '../../../lib/collectionHelpers'
+import { StatusBadge } from '../../../components/StatusBadge'
+import { formatDate } from '../../../lib/accounting'
+import {
+  collectionStatusLabels,
+  firstDueStatus,
+  firstDueStatusLabels,
+  firstDueStatusOptions,
+  getCurrentInstallment,
+  type FirstDueStatus,
+  type InstallmentCollectionRow,
+} from '../../../lib/collectionHelpers'
 import { normalizeInstallmentItem } from '../../../lib/sales'
 
 interface AssignmentContract {
@@ -23,12 +33,23 @@ interface AssignmentContract {
   collectorUserId?: number | null
   collectorName?: string | null
   remaining: number
+  firstDueDate?: string
+  firstDueStatus?: FirstDueStatus
+}
+
+const dueStatusBadgeStatus: Record<FirstDueStatus, string> = {
+  upcoming: 'upcoming',
+  due: 'due_soon',
+  overdue: 'overdue',
 }
 
 export function CollectionAssignmentsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [collectorFilter, setCollectorFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [dueStatusFilter, setDueStatusFilter] = useState('')
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [bulkCollectorId, setBulkCollectorId] = useState<number | ''>('')
   const [error, setError] = useState('')
@@ -65,39 +86,52 @@ export function CollectionAssignmentsPage() {
   })
 
   const contracts = useMemo((): AssignmentContract[] => {
-    const map = new Map<number, AssignmentContract>()
+    const rowsByInvoice = new Map<number, InstallmentItem[]>()
     for (const row of installmentsQuery.data ?? []) {
       if (row.status === 'paid') continue
       const invoiceId = Number(row.sales_invoice_id ?? 0)
       if (!invoiceId) continue
-      const remaining = Number(row.remaining ?? 0)
-      const existing = map.get(invoiceId)
-      if (existing) {
-        existing.remaining += remaining
-        continue
-      }
-      map.set(invoiceId, {
+      const list = rowsByInvoice.get(invoiceId) ?? []
+      list.push(row)
+      rowsByInvoice.set(invoiceId, list)
+    }
+
+    const built: AssignmentContract[] = []
+    for (const [invoiceId, rows] of rowsByInvoice) {
+      const remaining = rows.reduce((sum, row) => sum + Number(row.remaining ?? 0), 0)
+      const current = getCurrentInstallment(rows as InstallmentCollectionRow[])
+      const sample = current ?? rows[0]
+      built.push({
         invoiceId,
-        invoiceNumber: String(row.invoice_number ?? `#${invoiceId}`),
-        customerName: String(row.customer_name ?? '—'),
-        customerId: row.customer_id,
-        branchId: row.branch_id,
-        collectionStatus: row.collection_status,
-        collectorUserId: row.collector_user_id ?? null,
-        collectorName: row.collector_name ?? null,
+        invoiceNumber: String(sample?.invoice_number ?? `#${invoiceId}`),
+        customerName: String(sample?.customer_name ?? '—'),
+        customerId: sample?.customer_id,
+        branchId: sample?.branch_id,
+        collectionStatus: sample?.collection_status,
+        collectorUserId: sample?.collector_user_id ?? null,
+        collectorName: sample?.collector_name ?? null,
         remaining,
+        firstDueDate: current?.due_date,
+        firstDueStatus: current ? firstDueStatus(current) : undefined,
       })
     }
 
     const q = search.trim().toLowerCase()
-    return Array.from(map.values()).filter((contract) => {
-      if (!q) return true
-      return (
-        contract.customerName.toLowerCase().includes(q) ||
-        contract.invoiceNumber.toLowerCase().includes(q)
-      )
+    return built.filter((contract) => {
+      if (q) {
+        const matchesSearch =
+          contract.customerName.toLowerCase().includes(q) ||
+          contract.invoiceNumber.toLowerCase().includes(q)
+        if (!matchesSearch) return false
+      }
+
+      const due = contract.firstDueDate?.slice(0, 10) ?? ''
+      if (dateFrom && (!due || due < dateFrom)) return false
+      if (dateTo && (!due || due > dateTo)) return false
+      if (dueStatusFilter && contract.firstDueStatus !== dueStatusFilter) return false
+      return true
     })
-  }, [installmentsQuery.data, search])
+  }, [installmentsQuery.data, search, dateFrom, dateTo, dueStatusFilter])
 
   const selectedIds = Object.entries(selected)
     .filter(([, checked]) => checked)
@@ -157,6 +191,18 @@ export function CollectionAssignmentsPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="بحث بالعميل أو رقم العقد..."
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={(value) => {
+            setDateFrom(value)
+            setSelected({})
+          }}
+          onDateToChange={(value) => {
+            setDateTo(value)
+            setSelected({})
+          }}
+          dateFromLabel="من تاريخ أول قسط"
+          dateToLabel="إلى تاريخ أول قسط"
           selects={[
             {
               id: 'collector',
@@ -168,11 +214,24 @@ export function CollectionAssignmentsPage() {
               },
               options: collectorOptions,
             },
+            {
+              id: 'due-status',
+              label: 'حالة القسط',
+              value: dueStatusFilter,
+              onChange: (value) => {
+                setDueStatusFilter(value)
+                setSelected({})
+              },
+              options: [...firstDueStatusOptions],
+            },
           ]}
-          showClear={Boolean(search || collectorFilter)}
+          showClear={Boolean(search || collectorFilter || dateFrom || dateTo || dueStatusFilter)}
           onClear={() => {
             setSearch('')
             setCollectorFilter('')
+            setDateFrom('')
+            setDateTo('')
+            setDueStatusFilter('')
           }}
         />
       }
@@ -248,7 +307,7 @@ export function CollectionAssignmentsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
-            <table className="w-full min-w-[44rem] text-sm">
+            <table className="w-full min-w-[56rem] text-sm">
               <thead>
                 <tr className="border-b border-outline-variant bg-surface-container-low text-xs text-on-surface-variant">
                   <th className="px-sm py-2">
@@ -266,6 +325,8 @@ export function CollectionAssignmentsPage() {
                   </th>
                   <th className="px-sm py-2 text-start">العميل</th>
                   <th className="px-sm py-2 text-start">العقد</th>
+                  <th className="px-sm py-2 text-start">تاريخ أول قسط مستحق</th>
+                  <th className="px-sm py-2 text-start">حالة القسط</th>
                   <th className="px-sm py-2 text-start">حالة التحصيل</th>
                   <th className="px-sm py-2 text-start">المتبقي</th>
                   <th className="px-sm py-2 text-start">المحصل</th>
@@ -293,6 +354,19 @@ export function CollectionAssignmentsPage() {
                       )}
                     </td>
                     <td className="px-sm py-2 font-medium">{contract.invoiceNumber}</td>
+                    <td className="px-sm py-2 tabular-nums">
+                      {contract.firstDueDate ? formatDate(contract.firstDueDate) : '—'}
+                    </td>
+                    <td className="px-sm py-2">
+                      {contract.firstDueStatus ? (
+                        <StatusBadge
+                          status={dueStatusBadgeStatus[contract.firstDueStatus]}
+                          label={firstDueStatusLabels[contract.firstDueStatus]}
+                        />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-sm py-2">
                       {contract.collectionStatus
                         ? (collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus)

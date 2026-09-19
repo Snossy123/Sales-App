@@ -4,6 +4,7 @@ import {
   contractFilterTier,
   filterInstallmentCollectionRows,
   filterRowsByContractTier,
+  firstDueStatus,
   getCurrentInstallment,
   rowRemaining,
   tierSortOrder,
@@ -102,6 +103,19 @@ describe('collectionHelpers', () => {
       overdue_contracts: 1,
       due_soon_contracts: 1,
     })
+  })
+
+  it('classifies first due installment as upcoming, due, or overdue', () => {
+    const today = '2026-09-19'
+
+    expect(firstDueStatus(makeRow({ id: 1, due_date: '2026-09-20', display_tier: 'upcoming' }), today)).toBe(
+      'upcoming',
+    )
+    expect(firstDueStatus(makeRow({ id: 2, due_date: '2026-09-19', display_tier: 'upcoming' }), today)).toBe('due')
+    expect(firstDueStatus(makeRow({ id: 3, due_date: '2026-09-18', display_tier: 'grace' }), today)).toBe('due')
+    expect(firstDueStatus(makeRow({ id: 4, due_date: '2026-09-01', display_tier: 'overdue' }), today)).toBe(
+      'overdue',
+    )
   })
 
   it('orders display tiers for sorting', () => {

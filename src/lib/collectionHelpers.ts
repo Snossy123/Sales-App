@@ -1,5 +1,20 @@
 export type ContractTierFilter = 'all' | 'overdue' | 'due_soon'
 
+export type FirstDueStatus = 'upcoming' | 'due' | 'overdue'
+
+export const firstDueStatusLabels: Record<FirstDueStatus, string> = {
+  upcoming: 'قادم',
+  due: 'مستحق',
+  overdue: 'متأخر',
+}
+
+export const firstDueStatusOptions = [
+  { value: '', label: 'كل حالات القسط' },
+  { value: 'upcoming', label: firstDueStatusLabels.upcoming },
+  { value: 'due', label: firstDueStatusLabels.due },
+  { value: 'overdue', label: firstDueStatusLabels.overdue },
+] as const
+
 export type CollectionSortMode = 'priority' | 'reminder'
 
 export const collectionStatusLabels: Record<string, string> = {
@@ -65,6 +80,31 @@ export function rowRemaining(row: InstallmentCollectionRow): number {
       row.total_due ??
       Math.max(0, Number(row.amount) - Number(row.paid_amount ?? 0)),
   )
+}
+
+function dateOnly(value: string | undefined): string {
+  return String(value ?? '').slice(0, 10)
+}
+
+function localTodayDate(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+/** Calendar status of the next collectible installment (not the API display_tier). */
+export function firstDueStatus(
+  row: Pick<InstallmentCollectionRow, 'due_date' | 'display_tier' | 'status'>,
+  today?: string,
+): FirstDueStatus {
+  const todayStr = dateOnly(today ?? localTodayDate())
+  const due = dateOnly(row.due_date)
+  const tier = row.display_tier ?? row.status
+
+  if (tier === 'overdue') return 'overdue'
+  if (due && due > todayStr) return 'upcoming'
+  return 'due'
 }
 
 export function getCurrentInstallment(rows: InstallmentCollectionRow[]): InstallmentCollectionRow | undefined {
