@@ -176,14 +176,14 @@ describe('collectionHelpers', () => {
     )
 
     expect(stats).toEqual({
-      total_contracts: 2,
+      total_contracts: 3,
       overdue_contracts: 1,
       due_soon_contracts: 0,
-      upcoming_contracts: 1,
+      upcoming_contracts: 2,
     })
   })
 
-  it('parks fully suspended contracts in follow-up instead of upcoming', () => {
+  it('parks fully suspended contracts in the list but counts them as upcoming on the card', () => {
     const now = new Date('2026-09-19T12:00:00.000Z').getTime()
     const rows = [
       makeRow({ id: 1, sales_invoice_id: 10, status: 'pending', is_suspended: true }),
@@ -192,11 +192,11 @@ describe('collectionHelpers', () => {
 
     expect(filterRowsWithoutParkedFollowUp(rows, now).map((row) => row.id)).toEqual([2])
     expect(filterRowsWithParkedFollowUp(rows, now).map((row) => row.id)).toEqual([1])
-    expect(computeContractStats(rows, now).upcoming_contracts).toBe(0)
-    expect(computeContractStats(rows, now).total_contracts).toBe(1)
+    expect(computeContractStats(rows, now).upcoming_contracts).toBe(1)
+    expect(computeContractStats(rows, now).total_contracts).toBe(2)
   })
 
-  it('hides contracts with a future reminder from card stats', () => {
+  it('counts a future reminder as upcoming on the card and hides it from the list', () => {
     const now = new Date('2026-09-19T12:00:00.000Z').getTime()
     const future = '2026-09-20T10:00:00.000Z'
     const past = '2026-09-18T10:00:00.000Z'
@@ -229,10 +229,42 @@ describe('collectionHelpers', () => {
     expect(filterRowsWithFutureReminder(rows, now).map((row) => row.id)).toEqual([1])
 
     const stats = computeContractStats(rows, now)
-    expect(stats.total_contracts).toBe(2)
+    expect(stats.total_contracts).toBe(3)
     expect(stats.overdue_contracts).toBe(1)
     expect(stats.due_soon_contracts).toBe(1)
-    expect(stats.upcoming_contracts).toBe(0)
+    expect(stats.upcoming_contracts).toBe(1)
+  })
+
+  it('matches branch card totals: 6 = 2 overdue + 0 due + 4 upcoming', () => {
+    const now = new Date('2026-09-19T12:00:00.000Z').getTime()
+    const rows = [
+      makeRow({ id: 1, sales_invoice_id: 1, status: 'pending', display_tier: 'overdue' }),
+      makeRow({ id: 2, sales_invoice_id: 2, status: 'pending', display_tier: 'overdue' }),
+      makeRow({
+        id: 3,
+        sales_invoice_id: 3,
+        status: 'pending',
+        display_tier: 'upcoming',
+        due_date: '2026-10-01',
+      }),
+      makeRow({
+        id: 4,
+        sales_invoice_id: 4,
+        status: 'pending',
+        display_tier: 'overdue',
+        collection_reminder_at: '2026-09-20T10:00:00.000Z',
+      }),
+      makeRow({ id: 5, sales_invoice_id: 5, status: 'pending', is_suspended: true }),
+      makeRow({ id: 6, sales_invoice_id: 6, status: 'pending', suspended_at: '2026-09-01' }),
+    ]
+
+    expect(computeContractStats(rows, now, '2026-09-19')).toEqual({
+      total_contracts: 6,
+      overdue_contracts: 2,
+      due_soon_contracts: 0,
+      upcoming_contracts: 4,
+    })
+    expect(filterRowsWithoutParkedFollowUp(rows, now).map((row) => row.id)).toEqual([1, 2, 3])
   })
 
   it('builds a follow-up payload from filled fields only', () => {

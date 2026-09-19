@@ -415,6 +415,7 @@ export function computeContractStats(
 
   for (const invoiceRows of byInvoice.values()) {
     if (isParkedFollowUpContract(invoiceRows, now)) {
+      upcoming++
       continue
     }
 
