@@ -1,13 +1,15 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractFollowUpTab } from '../components/contracts/ContractFollowUpTab'
+import { ContractInstallmentsTab } from '../components/contracts/ContractInstallmentsTab'
+import { ContractPaymentsTab } from '../components/contracts/ContractPaymentsTab'
 import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
-import { CollectionFollowUpHistoryModal } from '../components/installments/CollectionFollowUpHistoryModal'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
@@ -28,6 +30,19 @@ import { canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
+const CONTRACT_TABS = [
+  { id: 'details', label: 'التفاصيل' },
+  { id: 'installments', label: 'الأقساط' },
+  { id: 'payments', label: 'سجل المدفوعات' },
+  { id: 'follow_up', label: 'متابعة التحصيل' },
+] as const
+
+type ContractTabId = (typeof CONTRACT_TABS)[number]['id']
+
+function isContractTabId(value: string | null): value is ContractTabId {
+  return CONTRACT_TABS.some((tab) => tab.id === value)
+}
+
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
@@ -35,10 +50,35 @@ export function ContractDetailPage() {
   const canManageCases = userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
   const canPrint = userHasPermission(user, 'review.print')
   const canViewFollowUpHistory = userCanPerform(user, 'installments.view')
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [wizardCaseType, setWizardCaseType] = useState<ContractProblemCaseType | null>(null)
-  const [followUpHistoryOpen, setFollowUpHistoryOpen] = useState(false)
+
+  const visibleTabs = useMemo(
+    () =>
+      CONTRACT_TABS.filter(
+        (tab) => tab.id !== 'follow_up' || canViewFollowUpHistory,
+      ),
+    [canViewFollowUpHistory],
+  )
+
+  const tabParam = searchParams.get('tab')
+  const activeTab: ContractTabId =
+    isContractTabId(tabParam) && visibleTabs.some((tab) => tab.id === tabParam)
+      ? tabParam
+      : 'details'
+
+  const setActiveTab = (tab: ContractTabId) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (tab === 'details') next.delete('tab')
+        else next.set('tab', tab)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   useEffect(() => {
     if (searchParams.get('resume') === 'problem') {
@@ -52,7 +92,7 @@ export function ContractDetailPage() {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
         params: {
           include:
-            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan,sourceInvoice.customer',
+            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan.items,sourceInvoice.customer,paymentTransactions.user,paymentTransactions.installmentItem',
         },
       })
       return data
@@ -188,36 +228,38 @@ export function ContractDetailPage() {
                 {invoice.problem_reason}
               </div>
             )}
-            {canViewFollowUpHistory && (
-              <div className="mb-md flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-sm">
-                <div>
-                  <p className="text-sm font-bold text-on-surface">متابعة التحصيل</p>
-                  <p className="text-xs text-on-surface-variant">سجل الحالة والتذكير والملاحظات</p>
-                </div>
-                <button
-                  type="button"
-                  title="سجل متابعة التحصيل"
-                  aria-label="سجل متابعة التحصيل"
-                  onClick={() => setFollowUpHistoryOpen(true)}
-                  className="inline-flex items-center gap-xs rounded-lg border border-primary/30 bg-primary/10 px-sm py-1 text-sm font-medium text-primary hover:bg-primary/20"
-                >
-                  <Icon name="history" size={18} />
-                  السجل
-                </button>
+            <div className="mb-md overflow-x-auto border-b border-outline-variant">
+              <div className="flex min-w-max gap-xs" role="tablist" aria-label="أقسام تفاصيل العقد">
+                {visibleTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`border-b-2 px-md py-sm text-sm font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {activeTab === 'details' && <ContractReviewDetails invoice={invoice} />}
+            {activeTab === 'installments' && <ContractInstallmentsTab invoice={invoice} />}
+            {activeTab === 'payments' && (
+              <ContractPaymentsTab invoice={invoice} active={activeTab === 'payments'} />
             )}
-            <ContractReviewDetails invoice={invoice} />
+            {activeTab === 'follow_up' && canViewFollowUpHistory && (
+              <ContractFollowUpTab invoiceId={invoice.id} active={activeTab === 'follow_up'} />
+            )}
           </>
         )}
       </AsyncState>
-
-      {invoice && canViewFollowUpHistory && (
-        <CollectionFollowUpHistoryModal
-          invoiceId={invoice.id}
-          open={followUpHistoryOpen}
-          onClose={() => setFollowUpHistoryOpen(false)}
-        />
-      )}
 
       {invoice && (
         <ContractProblemWizard
