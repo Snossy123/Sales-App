@@ -928,6 +928,7 @@ export interface SalesInvoice {
   installation_fee?: string | number | null
   transportation_fee?: string | number | null
   is_order_request?: boolean
+  use_cash_price_for_installments?: boolean
   created_by?: number
   reviewed_by?: number
   reviewed_at?: string
@@ -1182,6 +1183,7 @@ export interface CheckoutPayload {
   invoice_date?: string
   notes?: string
   collection_scope?: 'service' | 'contract'
+  use_cash_price_for_installments?: boolean
   distributor_balance_amount?: number
   lines: {
     line_type?: 'device' | 'service'
@@ -1237,6 +1239,7 @@ export interface ServiceCheckoutPayload {
   notes?: string
   distributor_balance_amount?: number
   collection_scope?: 'service' | 'contract'
+  use_cash_price_for_installments?: boolean
   payment_term?: 'cash' | 'installment'
   technician_id?: number
   down_payment?: number

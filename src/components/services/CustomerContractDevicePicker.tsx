@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CustomerContractDevice, DeviceOrigin } from '../../api/types'
-import { normalizeScannedInput } from '../../lib/scanner'
+import { normalizeScannedDigits } from '../../lib/scanner'
 import { isGpsUsernameComplete } from '../../lib/gpsUsername'
 import type { DeviceLineDraft } from '../pos/DeviceLineCard'
 import { GpsUsernameInput } from '../pos/GpsUsernameInput'
@@ -230,10 +230,11 @@ export function CustomerContractDevicePicker({
             <label className={posLabelClass}>السريال</label>
             <input
               value={serialNumber}
-              onChange={(e) => onSerialChange(normalizeScannedInput(e.target.value))}
+              onChange={(e) => onSerialChange(normalizeScannedDigits(e.target.value))}
               placeholder="امسح أو أدخل السريال"
               className={`${posScanClass}${serialError ? ' border-error' : ''}`}
               dir="ltr"
+              inputMode="numeric"
               autoComplete="off"
               spellCheck={false}
               disabled={identityLocked}
@@ -244,7 +245,7 @@ export function CustomerContractDevicePicker({
             <label className={posLabelClass}>رقم الشريحة / الكارت</label>
             <input
               value={simNumber}
-              onChange={(e) => onSimChange(normalizeScannedInput(e.target.value))}
+              onChange={(e) => onSimChange(normalizeScannedDigits(e.target.value))}
               placeholder="امسح أو أدخل رقم الشريحة"
               className={`${posScanClass}${simError ? ' border-error' : ''}`}
               dir="ltr"
@@ -272,7 +273,12 @@ export function CustomerContractDevicePicker({
         <div className="space-y-xs">
           <button
             type="button"
-            disabled={registering || !serialNumber.trim()}
+            disabled={
+              registering ||
+              !serialNumber.trim() ||
+              !simNumber.trim() ||
+              !isGpsUsernameComplete(username)
+            }
             onClick={() =>
               onRegister({
                 origin: registerOrigin,

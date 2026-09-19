@@ -5,7 +5,7 @@ import type { Customer, CustodyVoucher, Employee, PaginatedResponse, ProductUnit
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { CUSTODY_BUCKET_OPTIONS, productUnitDisplayCode } from '../../lib/inventoryBuckets'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
-import { normalizeScannedInput } from '../../lib/scanner'
+import { normalizeScannedDigits } from '../../lib/scanner'
 import { Modal } from '../Modal'
 import { InventoryUnitTags } from './InventoryUnitTags'
 
@@ -82,7 +82,7 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   })
 
   const lookupUnit = async (raw: string) => {
-    const code = normalizeScannedInput(raw)
+    const code = normalizeScannedDigits(raw)
     setSerialCode(code)
     setResolvedUnit(null)
     setNeedsRegister(false)
@@ -202,10 +202,11 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
             type="text"
             autoComplete="off"
             placeholder="امسح أو اكتب السريال ثم Enter"
+            inputMode="numeric"
             className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-sm tracking-wide focus:border-primary focus:outline-none"
             value={serialCode}
             onChange={(e) => {
-              setSerialCode(normalizeScannedInput(e.target.value))
+              setSerialCode(normalizeScannedDigits(e.target.value))
               setLookupError(null)
               setResolvedUnit(null)
               setNeedsRegister(false)

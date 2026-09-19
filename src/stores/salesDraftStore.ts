@@ -33,6 +33,7 @@ export interface DeviceContractDraft {
   applyInstallationFee: boolean
   installationFee: number
   applyTransportationFee: boolean
+  useCashPriceForInstallments: boolean
   transportationFee: number
   feeDiscountAmount: number
   feeDiscountPercent: number
@@ -64,6 +65,7 @@ export interface ServiceContractDraft {
   feeLines: FeeLineInstance[]
   distributorBalanceAmount: number
   collectionScope: 'contract' | 'service'
+  useCashPriceForInstallments: boolean
   contractPayment: ServicePaymentState
   feeTechnician: Employee | null
   technicianSearch: string

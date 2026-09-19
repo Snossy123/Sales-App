@@ -15,6 +15,7 @@ import {
   uploadCustomerAttachments,
   type PendingAttachment,
 } from '../components/customers/CustomerAttachmentsSection'
+import { CustomerLegacyDevicesFields } from '../components/customers/CustomerLegacyDevicesFields'
 import { CustomerPhoneFields } from '../components/customers/CustomerPhoneFields'
 import { Icon } from '../components/Icon'
 import { TextArea } from '../components/ui/TextArea'
@@ -28,6 +29,12 @@ import {
   type CustomerPhoneEntry,
   type GuarantorFormState,
 } from '../lib/customerForm'
+import {
+  emptyLegacyDeviceDraft,
+  legacyDevicesAreComplete,
+  registerCustomerLegacyDevices,
+  type LegacyDeviceDraft,
+} from '../lib/customerLegacyDevices'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
@@ -36,6 +43,8 @@ type CustomerCreateDraft = {
   phones: CustomerPhoneEntry[]
   withGuarantor: boolean
   guarantor: GuarantorFormState
+  isLegacyCustomer: boolean
+  legacyDevices: LegacyDeviceDraft[]
 }
 
 const emptyCustomerFields = { name: '', national_id: '', address: '', distinctive_mark: '' }
@@ -43,16 +52,23 @@ const emptyCustomerFields = { name: '', national_id: '', address: '', distinctiv
 export function CustomerAddPage() {
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id ?? null)
+  const branchId = useAuthStore((s) => s.branchId)
   const saved = readProcedureDraft<CustomerCreateDraft>(PROCEDURE_DRAFT_IDS.customerCreate, userId)
   const [phones, setPhones] = useState<CustomerPhoneEntry[]>(() => saved?.phones ?? defaultPhoneEntries())
   const [form, setForm] = useState(() => saved?.form ?? emptyCustomerFields)
   const [withGuarantor, setWithGuarantor] = useState(() => saved?.withGuarantor ?? false)
   const [guarantor, setGuarantor] = useState(() => saved?.guarantor ?? emptyGuarantorForm)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
+  const [isLegacyCustomer, setIsLegacyCustomer] = useState(() => saved?.isLegacyCustomer ?? false)
+  const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>(
+    () => saved?.legacyDevices ?? [emptyLegacyDeviceDraft()],
+  )
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [deviceWarning, setDeviceWarning] = useState<string | null>(null)
 
   const customerDraftSnapshot = useMemo<CustomerCreateDraft>(
-    () => ({ form, phones, withGuarantor, guarantor }),
-    [form, phones, withGuarantor, guarantor],
+    () => ({ form, phones, withGuarantor, guarantor, isLegacyCustomer, legacyDevices }),
+    [form, phones, withGuarantor, guarantor, isLegacyCustomer, legacyDevices],
   )
   const isCustomerDraftMeaningful = Boolean(
     form.name.trim() ||
@@ -60,7 +76,8 @@ export function CustomerAddPage() {
       form.address.trim() ||
       form.distinctive_mark.trim() ||
       phones.some((phone) => phone.number.trim()) ||
-      withGuarantor,
+      withGuarantor ||
+      isLegacyCustomer,
   )
 
   useProcedureDraft({
@@ -84,6 +101,7 @@ export function CustomerAddPage() {
       const payload: Record<string, unknown> = {
         ...form,
         ...phoneEntriesToPayload(phones),
+        ...(branchId ? { branch_id: branchId } : {}),
       }
 
       if (withGuarantor && hasGuarantorData(guarantor)) {
@@ -96,16 +114,31 @@ export function CustomerAddPage() {
         await uploadCustomerAttachments(data.id, pendingFiles)
       }
 
-      return data
+      let deviceError: string | null = null
+      if (isLegacyCustomer) {
+        const result = await registerCustomerLegacyDevices(data.id, legacyDevices, {
+          afterCustomerCreate: true,
+        })
+        deviceError = result.error
+      }
+
+      return { customer: data, deviceError }
     },
-    onSuccess: (customer) => {
+    onSuccess: ({ customer, deviceError }) => {
       useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.customerCreate, userId)
+      if (deviceError) {
+        setDeviceWarning(deviceError)
+        navigate(`/customers/${customer.id}`, { state: { deviceWarning: deviceError } })
+        return
+      }
       navigate(`/customers/${customer.id}`)
     },
   })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    setSubmitAttempted(true)
+    if (isLegacyCustomer && !legacyDevicesAreComplete(legacyDevices)) return
     createMutation.mutate()
   }
 
@@ -250,6 +283,14 @@ export function CustomerAddPage() {
         </section>
         )}
 
+        <CustomerLegacyDevicesFields
+          enabled={isLegacyCustomer}
+          onEnabledChange={setIsLegacyCustomer}
+          devices={legacyDevices}
+          onChange={setLegacyDevices}
+          showErrors={submitAttempted && isLegacyCustomer}
+        />
+
         <CustomerAttachmentsSection
           mode="create"
           pendingFiles={pendingFiles}
@@ -259,6 +300,7 @@ export function CustomerAddPage() {
         {createMutation.isError && (
           <p className="text-sm text-error">{getErrorMessage(createMutation.error)}</p>
         )}
+        {deviceWarning && <p className="text-sm text-error">{deviceWarning}</p>}
 
         <button
           type="submit"

@@ -2189,7 +2189,11 @@ export function handleMockRequest(
       username?: string
     }
     const serial = String(body.serial_number ?? '').trim()
+    const sim = String(body.sim_number ?? '').trim()
+    const username = String(body.username ?? '').trim()
     if (!serial) throw mockError(422, 'السريال مطلوب لتسجيل الجهاز.')
+    if (!sim) throw mockError(422, 'رقم الشريحة مطلوب لتسجيل الجهاز.')
+    if (!username) throw mockError(422, 'اسم المستخدم مطلوب لتسجيل الجهاز.')
     const origin = body.origin === 'external' ? 'external' : 'legacy'
     const existing = mockRegisteredDevices.find(
       (entry) => entry.device.serial_number === serial && entry.customer_id !== customerId,
@@ -2206,8 +2210,8 @@ export function handleMockRequest(
       origin,
       owner_customer_id: customerId,
       serial_number: serial,
-      sim_number: body.sim_number ?? null,
-      username: body.username ?? serial,
+      sim_number: sim,
+      username,
       sales_invoice_id: null,
       sales_invoice_line_id: null,
       invoice_number: null,
@@ -3011,6 +3015,7 @@ export function handleMockRequest(
         status: 'confirmed',
         review_status: 'pending',
         contract_kind: contractKind,
+        use_cash_price_for_installments: Boolean(body.use_cash_price_for_installments),
         source_sales_invoice_id: body.source_sales_invoice_id ?? null,
         payment_term: paymentTerm,
         payment_status: paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
@@ -3234,6 +3239,7 @@ export function handleMockRequest(
         created_by: ctx.user?.id,
         status: 'confirmed',
         sale_category: body.sale_category,
+        use_cash_price_for_installments: Boolean(body.use_cash_price_for_installments),
         payment_term: paymentTerm,
         payment_status:
           paymentTerm === 'cash' ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
@@ -3325,6 +3331,8 @@ export function handleMockRequest(
       invoice.distributor_id = body.distributor_id ?? invoice.distributor_id
       invoice.sales_user_id = body.sales_user_id ?? invoice.sales_user_id
       invoice.contract_kind = body.contract_kind ?? invoice.contract_kind
+      invoice.use_cash_price_for_installments =
+        body.use_cash_price_for_installments ?? invoice.use_cash_price_for_installments
       invoice.notes = body.notes ?? invoice.notes
       invoice.installation_fee = body.installation_fee ?? invoice.installation_fee
       invoice.transportation_fee = body.transportation_fee ?? invoice.transportation_fee

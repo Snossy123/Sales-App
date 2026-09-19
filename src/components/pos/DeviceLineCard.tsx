@@ -6,7 +6,7 @@ import {
 } from '../../lib/discount'
 import { isGpsUsernameComplete } from '../../lib/gpsUsername'
 import { parseLocalizedNumber } from '../../lib/normalizeDigits'
-import { normalizeScannedInput } from '../../lib/scanner'
+import { normalizeScannedDigits, normalizeScannedInput } from '../../lib/scanner'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
@@ -208,6 +208,7 @@ interface DeviceLineCardProps {
   hidePaymentSection?: boolean
   lockedFromSource?: boolean
   annualRenewalOnly?: boolean
+  useCashPriceForInstallments?: boolean
 }
 
 function priceForLine(
@@ -217,11 +218,17 @@ function priceForLine(
   renewalType: RenewalType,
   cashPrice: number,
   installmentPrice: number,
+  useCashPriceForInstallments = false,
 ): number {
   if (!product) {
-    return paymentTerm === 'cash' ? cashPrice : installmentPrice
+    return paymentTerm === 'cash' || useCashPriceForInstallments ? cashPrice : installmentPrice
   }
-  return resolveGpsUnitPrice(product, { contractKind, paymentTerm, renewalType })
+  return resolveGpsUnitPrice(product, {
+    contractKind,
+    paymentTerm,
+    renewalType,
+    useCashPriceForInstallments,
+  })
 }
 
 export function DeviceLineCard({
@@ -242,6 +249,7 @@ export function DeviceLineCard({
   hidePaymentSection = false,
   lockedFromSource = false,
   annualRenewalOnly = false,
+  useCashPriceForInstallments = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -257,7 +265,8 @@ export function DeviceLineCard({
   }, [index, expanded, lockedFromSource])
 
   const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
-    patch({ [field]: normalizeScannedInput(raw) } as Partial<DeviceLineDraft>)
+    const next = field === 'username' ? normalizeScannedInput(raw) : normalizeScannedDigits(raw)
+    patch({ [field]: next } as Partial<DeviceLineDraft>)
   }
 
   const focusNextAfterScan = (
@@ -309,6 +318,7 @@ export function DeviceLineCard({
       line.renewalType,
       cashPrice,
       installmentPrice,
+      useCashPriceForInstallments,
     )
     const minDown = computeMinDownPayment(price, minDownPercent)
     patch({
@@ -330,6 +340,7 @@ export function DeviceLineCard({
       line.renewalType,
       cashPrice,
       installmentPrice,
+      useCashPriceForInstallments,
     )
     patch({
       paymentTerm: 'cash',
@@ -349,6 +360,7 @@ export function DeviceLineCard({
       renewalType,
       cashPrice,
       installmentPrice,
+      useCashPriceForInstallments,
     )
     const partial: Partial<DeviceLineDraft> = { renewalType, unitPrice: price }
     if (line.paymentTerm === 'installment') {
@@ -418,6 +430,7 @@ export function DeviceLineCard({
                     placeholder="امسح أو أدخل السريال"
                     className={fieldErrorClass(Boolean(fieldErrors.serialNumber), posScanClass)}
                     dir="ltr"
+                    inputMode="numeric"
                     autoComplete="off"
                     spellCheck={false}
                     data-tour={index === 0 ? 'pos-serial-scan' : undefined}

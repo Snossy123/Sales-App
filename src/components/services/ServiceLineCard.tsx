@@ -11,6 +11,7 @@ import {
   type CashSchedule,
 } from '../../lib/cashSchedule'
 import { nextInstallmentInterval } from '../../lib/installmentSchedule'
+import { catalogTermPrice } from '../../lib/gpsProductPricing'
 import type { CustomerContractDevice } from '../../api/types'
 import { contractDeviceLabel } from './CustomerContractDevicePicker'
 import { Icon } from '../Icon'
@@ -126,6 +127,7 @@ interface ServiceLineCardProps {
   devices?: CustomerContractDevice[]
   productUnitId?: number
   onSelectDevice?: (device: CustomerContractDevice | null) => void
+  useCashPriceForInstallments?: boolean
 }
 
 export function ServiceLineCard({
@@ -141,6 +143,7 @@ export function ServiceLineCard({
   devices,
   productUnitId,
   onSelectDevice,
+  useCashPriceForInstallments = false,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
   const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
@@ -154,7 +157,12 @@ export function ServiceLineCard({
   const patch = (partial: Partial<ServiceLineDraft>) => onChange({ ...line, ...partial })
 
   const switchToInstallment = () => {
-    const price = line.installmentPrice
+    const price = catalogTermPrice(
+      line.cashPrice,
+      line.installmentPrice,
+      'installment',
+      useCashPriceForInstallments,
+    )
     patch({
       paymentTerm: 'installment',
       unit_price: price,
@@ -402,14 +410,23 @@ export function createServiceLine(
     ServiceLineDraft,
     'id' | 'paymentTerm' | 'cashSchedule' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
   >,
-  options?: { contractDate?: string; minDownPercent?: number; paymentTerm?: ServiceLinePaymentTerm },
+  options?: {
+    contractDate?: string
+    minDownPercent?: number
+    paymentTerm?: ServiceLinePaymentTerm
+    useCashPriceForInstallments?: boolean
+  },
 ): ServiceLineDraft {
   lineId += 1
   const contractDate = options?.contractDate ?? new Date().toISOString().split('T')[0]
   const minDownPercent = options?.minDownPercent ?? 10
   const paymentTerm = options?.paymentTerm ?? 'cash'
-  const unitPrice =
-    paymentTerm === 'installment' ? partial.installmentPrice : partial.cashPrice
+  const unitPrice = catalogTermPrice(
+    partial.cashPrice,
+    partial.installmentPrice,
+    paymentTerm,
+    options?.useCashPriceForInstallments,
+  )
 
   return {
     id: lineId,

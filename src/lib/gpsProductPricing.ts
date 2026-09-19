@@ -7,6 +7,17 @@ export interface GpsUnitPriceContext {
   contractKind: ContractKind
   paymentTerm: 'cash' | 'installment'
   renewalType: RenewalType
+  useCashPriceForInstallments?: boolean
+}
+
+export function catalogTermPrice(
+  cashPrice: number,
+  installmentPrice: number,
+  paymentTerm: 'cash' | 'installment',
+  useCashPriceForInstallments = false,
+): number {
+  if (paymentTerm === 'cash' || useCashPriceForInstallments) return cashPrice
+  return installmentPrice
 }
 
 function num(value: number | string | null | undefined, fallback = 0): number {
@@ -19,6 +30,8 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
   const cashPermanent = num(product?.cash_permanent_price, cashAnnual)
   const installmentAnnual = num(product?.installment_annual_price, num(product?.installment_price, cashAnnual))
   const installmentPermanent = num(product?.installment_permanent_price, installmentAnnual)
+  const paymentTerm =
+    ctx.useCashPriceForInstallments && ctx.paymentTerm === 'installment' ? 'cash' : ctx.paymentTerm
 
   if (ctx.contractKind === 'subscription_renewal') {
     if (ctx.renewalType === 'permanent') {
@@ -28,7 +41,7 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
   }
 
   if (ctx.contractKind === 'external_device') {
-    if (ctx.paymentTerm === 'cash') {
+    if (paymentTerm === 'cash') {
       return ctx.renewalType === 'permanent'
         ? num(product?.external_cash_permanent_price, cashPermanent)
         : num(product?.external_cash_annual_price, cashAnnual)
@@ -38,7 +51,7 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
       : num(product?.external_installment_annual_price, installmentAnnual)
   }
 
-  if (ctx.paymentTerm === 'cash') {
+  if (paymentTerm === 'cash') {
     return ctx.renewalType === 'permanent' ? cashPermanent : cashAnnual
   }
 

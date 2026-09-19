@@ -12,7 +12,7 @@ import type { AdminUser, DeviceMovement, PaginatedResponse, ProductUnit, Warehou
 import { AsyncState } from '../components/AsyncState'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { getUserRole, userHasPermission } from '../lib/access'
-import { normalizeScannedInput } from '../lib/scanner'
+import { normalizeScannedDigits } from '../lib/scanner'
 import { useAuthStore } from '../stores/authStore'
 import { NumericInput } from '../components/ui/NumericInput'
 
@@ -214,7 +214,7 @@ export function DeviceMovementNewPage() {
   }
 
   const lookupSerial = async (raw: string) => {
-    const code = normalizeScannedInput(raw)
+    const code = normalizeScannedDigits(raw)
     setSerialCode(code)
     setScanError(null)
     if (!code || !fromWarehouseId) return
@@ -428,7 +428,8 @@ export function DeviceMovementNewPage() {
                     <span className="mb-xs block text-on-surface-variant">مسح السيريال / IMEI</span>
                     <input
                       value={serialCode}
-                      onChange={(e) => setSerialCode(e.target.value)}
+                      onChange={(e) => setSerialCode(normalizeScannedDigits(e.target.value))}
+                      inputMode="numeric"
                       onBlur={() => {
                         if (serialCode.trim()) void lookupSerial(serialCode)
                       }}

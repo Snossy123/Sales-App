@@ -100,13 +100,14 @@ export function DistributorAddPage() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!branchId) return
+    if (!form.customer_id && !form.phone.trim()) return
     createMutation.mutate()
   }
 
   return (
     <SalesPageShell
       title="إضافة موزع"
-      subtitle="تسجيل بيانات الموزع وربطه بعميل موجود إن وُجد"
+      subtitle="تسجيل بيانات الموزع. يُنشأ عميل بنفس البيانات تلقائياً إن لم يُربط عميل موجود"
       actions={
         <Link
           to="/distributors"
@@ -162,12 +163,13 @@ export function DistributorAddPage() {
               </label>
 
               <label className={labelClass}>
-                <span className={labelTextClass}>الهاتف</span>
+                <span className={labelTextClass}>الهاتف{form.customer_id ? '' : ' *'}</span>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   dir="ltr"
                   placeholder="01xxxxxxxxx"
+                  required={!form.customer_id}
                   className={inputClass}
                 />
               </label>

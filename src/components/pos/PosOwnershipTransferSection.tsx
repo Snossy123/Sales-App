@@ -7,6 +7,7 @@ import { formatInvoiceDate } from '../../lib/sales'
 import { SearchableSelect } from '../SearchableSelect'
 import { Icon } from '../Icon'
 import { PosSectionCard } from './PosSectionCard'
+import { normalizeScannedDigits } from '../../lib/scanner'
 import { posInputClass, posLabelClass } from './posFormStyles'
 
 export interface PosOwnershipTransferSectionProps {
@@ -121,9 +122,10 @@ export function PosOwnershipTransferSection({
             type="text"
             value={serialSearch}
             onChange={(e) => {
-              setSerialSearch(e.target.value)
+              setSerialSearch(normalizeScannedDigits(e.target.value))
               onSourceInvoiceChange(null)
             }}
+            inputMode="numeric"
             className={posInputClass}
             placeholder="ابحث بالرقم التسلسلي..."
           />

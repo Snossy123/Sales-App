@@ -17,7 +17,7 @@ import {
 } from '../../lib/collectionHelpers'
 import { CollectionFollowUpHistoryModal } from './CollectionFollowUpHistoryModal'
 import { OverpaymentConfirmDialog } from './OverpaymentConfirmDialog'
-import { normalizeScannedInput } from '../../lib/scanner'
+import { normalizeScannedDigits } from '../../lib/scanner'
 import { formatInvoiceDate } from '../../lib/sales'
 import { TextArea } from '../ui/TextArea'
 import { NumericInput } from '../ui/NumericInput'
@@ -687,7 +687,8 @@ export function InstallmentCollectionPanel({
                       type="text"
                       autoComplete="off"
                       value={suspendSerial}
-                      onChange={(e) => setSuspendSerial(normalizeScannedInput(e.target.value))}
+                      onChange={(e) => setSuspendSerial(normalizeScannedDigits(e.target.value))}
+                      inputMode="numeric"
                       onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === 'Enter') e.preventDefault()
                       }}

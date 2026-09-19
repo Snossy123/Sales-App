@@ -29,6 +29,7 @@ function emptyDeviceDraft(overrides: Partial<DeviceContractDraft> = {}): DeviceC
     applyInstallationFee: false,
     installationFee: 0,
     applyTransportationFee: false,
+    useCashPriceForInstallments: false,
     transportationFee: 0,
     feeDiscountAmount: 0,
     feeDiscountPercent: 0,
@@ -63,6 +64,7 @@ function emptyServiceDraft(overrides: Partial<ServiceContractDraft> = {}): Servi
     feeLines: [],
     distributorBalanceAmount: 0,
     collectionScope: 'contract',
+    useCashPriceForInstallments: false,
     contractPayment: {
       paymentTerm: 'cash',
       downPayment: 0,

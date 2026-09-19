@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   filterByMode,
+  filterLatinDigitsOnly,
   normalizeDigits,
   parseLocalizedNumber,
   stripNonLatinNumber,
@@ -12,6 +13,12 @@ describe('normalizeDigits', () => {
     expect(normalizeDigits('١٢٣')).toBe('123')
     expect(normalizeDigits('۱۲۳')).toBe('123')
     expect(normalizeDigits('12٣')).toBe('123')
+  })
+
+  it('keeps western digits only after converting Arabic and Persian', () => {
+    expect(filterLatinDigitsOnly('١٢٣٤abc')).toBe('1234')
+    expect(filterLatinDigitsOnly('SN-۱۲۳')).toBe('123')
+    expect(filterLatinDigitsOnly('010-99')).toBe('01099')
   })
 
   it('strips non-latin characters from numbers and phones', () => {

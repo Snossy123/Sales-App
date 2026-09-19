@@ -15,10 +15,17 @@ import type {
   Service,
   CustomerContractDevice,
 } from '../api/types'
-import { computeInstallmentCount, distributorLabel, type ApiPaginated, serviceContractPrintPath } from '../lib/sales'
+import {
+  computeInstallmentCount,
+  computeMinDownPayment,
+  distributorLabel,
+  suggestInstallmentAmount,
+  type ApiPaginated,
+  serviceContractPrintPath,
+} from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { linePaidNow } from '../lib/cashSchedule'
-import { resolveGpsUnitPrice } from '../lib/gpsProductPricing'
+import { catalogTermPrice, resolveGpsUnitPrice } from '../lib/gpsProductPricing'
 import {
   COMBINER_CHIPS,
   COMBINER_FEE_CHIPS,
@@ -219,6 +226,9 @@ export function ServiceCombinerPage() {
   const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>(
     () => serviceDraft?.collectionScope ?? 'contract',
   )
+  const [useCashPriceForInstallments, setUseCashPriceForInstallments] = useState(
+    () => serviceDraft?.useCashPriceForInstallments ?? false,
+  )
   const [contractPayment, setContractPayment] = useState<ServicePaymentState>(
     () => serviceDraft?.contractPayment ?? createDefaultServicePayment(0, minDownPercent),
   )
@@ -252,6 +262,7 @@ export function ServiceCombinerPage() {
       feeLines,
       distributorBalanceAmount,
       collectionScope,
+      useCashPriceForInstallments,
       contractPayment,
       feeTechnician,
       technicianSearch,
@@ -279,6 +290,7 @@ export function ServiceCombinerPage() {
       feeLines,
       distributorBalanceAmount,
       collectionScope,
+      useCashPriceForInstallments,
       contractPayment,
       feeTechnician,
       technicianSearch,
@@ -322,6 +334,7 @@ export function ServiceCombinerPage() {
     setLastInstallmentSale(false)
     setDistributorBalanceAmount(0)
     setCollectionScope('contract')
+    setUseCashPriceForInstallments(false)
     setContractPayment(createDefaultServicePayment(0, minDownPercent))
     setFeeTechnician(null)
     setTechnicianSearch('')
@@ -548,14 +561,16 @@ export function ServiceCombinerPage() {
       {
         service_id: service.id,
         description: service.name_ar || service.name,
-        unit_price:
-          term === 'installment'
-            ? Number(service.installment_price ?? service.default_price)
-            : Number(service.cash_price ?? service.default_price),
+        unit_price: catalogTermPrice(
+          Number(service.cash_price ?? service.default_price),
+          Number(service.installment_price ?? service.default_price),
+          term,
+          useCashPriceForInstallments,
+        ),
         cashPrice: Number(service.cash_price ?? service.default_price),
         installmentPrice: Number(service.installment_price ?? service.default_price),
       },
-      { contractDate, minDownPercent },
+      { contractDate, minDownPercent, paymentTerm: term, useCashPriceForInstallments },
     )
     setFeeLines((prev) => [
       ...prev,
@@ -565,7 +580,12 @@ export function ServiceCombinerPage() {
         line: {
           ...line,
           paymentTerm: term,
-          unit_price: term === 'installment' ? line.installmentPrice : line.cashPrice,
+          unit_price: catalogTermPrice(
+            line.cashPrice,
+            line.installmentPrice,
+            term,
+            useCashPriceForInstallments,
+          ),
         },
         productUnitId: defaultFeeProductUnitId,
       },
@@ -693,8 +713,9 @@ export function ServiceCombinerPage() {
           const price = product
             ? resolveGpsUnitPrice(product, {
                 contractKind: 'subscription_renewal',
-                paymentTerm: 'cash',
+                paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
                 renewalType: 'annual',
+                useCashPriceForInstallments,
               })
             : annualRenewalPrice
           setRenewalLine(
@@ -713,8 +734,9 @@ export function ServiceCombinerPage() {
           const price = product
             ? resolveGpsUnitPrice(product, {
                 contractKind: 'external_device',
-                paymentTerm: 'cash',
+                paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
                 renewalType: 'annual',
+                useCashPriceForInstallments,
               })
             : externalCashPrice
           setExternalLine(
@@ -799,14 +821,19 @@ export function ServiceCombinerPage() {
       setRenewalLine({
         ...renewalLine,
         paymentTerm: term,
-        unitPrice: term === 'installment' ? annualRenewalPrice : annualRenewalPrice,
+        unitPrice: annualRenewalPrice,
       })
     }
     if (externalLine) {
       setExternalLine({
         ...externalLine,
         paymentTerm: term,
-        unitPrice: term === 'installment' ? externalInstallmentPrice : externalCashPrice,
+        unitPrice: catalogTermPrice(
+          externalCashPrice,
+          externalInstallmentPrice,
+          term,
+          useCashPriceForInstallments,
+        ),
       })
     }
     setFeeLines((prev) =>
@@ -815,7 +842,12 @@ export function ServiceCombinerPage() {
         line: {
           ...item.line,
           paymentTerm: term,
-          unit_price: term === 'installment' ? item.line.installmentPrice : item.line.cashPrice,
+          unit_price: catalogTermPrice(
+            item.line.cashPrice,
+            item.line.installmentPrice,
+            term,
+            useCashPriceForInstallments,
+          ),
         },
       })),
     )
@@ -826,6 +858,51 @@ export function ServiceCombinerPage() {
     if (scope === 'contract') {
       applyContractTerm(contractPayment.paymentTerm)
     }
+  }
+
+  const applyUseCashPriceForInstallments = (enabled: boolean) => {
+    setUseCashPriceForInstallments(enabled)
+    const term =
+      collectionScope === 'contract' ? contractPayment.paymentTerm : undefined
+    if (externalLine && (term === 'installment' || externalLine.paymentTerm === 'installment')) {
+      const price = catalogTermPrice(
+        externalCashPrice,
+        externalInstallmentPrice,
+        term ?? externalLine.paymentTerm,
+        enabled,
+      )
+      setExternalLine({
+        ...externalLine,
+        unitPrice: price,
+        ...(externalLine.paymentTerm === 'installment' || term === 'installment'
+          ? {
+              downPayment: computeMinDownPayment(price, minDownPercent),
+              installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
+            }
+          : {}),
+      })
+    }
+    setFeeLines((prev) =>
+      prev.map((item) => {
+        const lineTerm = term ?? item.line.paymentTerm
+        if (lineTerm !== 'installment') return item
+        const price = catalogTermPrice(
+          item.line.cashPrice,
+          item.line.installmentPrice,
+          'installment',
+          enabled,
+        )
+        return {
+          ...item,
+          line: {
+            ...item.line,
+            unit_price: price,
+            downPayment: computeMinDownPayment(price, minDownPercent),
+            installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
+          },
+        }
+      }),
+    )
   }
 
   const handleContractPaymentChange = (patch: Partial<ServicePaymentState>) => {
@@ -980,6 +1057,7 @@ export function ServiceCombinerPage() {
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
         collection_scope: collectionScope,
+        use_cash_price_for_installments: useCashPriceForInstallments,
         lines,
       }
 
@@ -1213,6 +1291,7 @@ export function ServiceCombinerPage() {
               showPayment={collectionScope === 'service'}
               lockedFromSource={listedDeviceSelected}
               annualRenewalOnly
+              useCashPriceForInstallments={useCashPriceForInstallments}
             />
           )}
 
@@ -1248,6 +1327,7 @@ export function ServiceCombinerPage() {
               showPayment={collectionScope === 'service'}
               lockedFromSource={listedDeviceSelected}
               annualRenewalOnly
+              useCashPriceForInstallments={useCashPriceForInstallments}
             />
           )}
 
@@ -1302,6 +1382,7 @@ export function ServiceCombinerPage() {
                 onRemove={() => removeFeeLine(item.key)}
                 showPayment={collectionScope === 'service'}
                 showErrors={submitAttempted}
+                useCashPriceForInstallments={useCashPriceForInstallments}
                 devices={customerDevices}
                 productUnitId={item.productUnitId}
                 onSelectDevice={(device) =>
@@ -1332,6 +1413,15 @@ export function ServiceCombinerPage() {
                 </button>
               ))}
             </div>
+            <label className="mt-sm flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
+              <input
+                type="checkbox"
+                checked={useCashPriceForInstallments}
+                onChange={(e) => applyUseCashPriceForInstallments(e.target.checked)}
+                className="h-4 w-4 rounded border-outline-variant accent-primary"
+              />
+              سعر التقسيط بنفس سعر الكاش
+            </label>
           </PosSectionCard>
 
           {collectionScope === 'contract' && selectedChips.size > 0 ? (

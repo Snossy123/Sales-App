@@ -146,6 +146,11 @@ export function ContractDetailPage() {
               label={contractStatusLabel(invoice.contract_status)}
             />
             {invoice.payment_status ? <StatusBadge status={invoice.payment_status} /> : null}
+            {invoice.use_cash_price_for_installments ? (
+              <span className="rounded-md bg-surface-container px-2 py-0.5 text-xs font-bold text-on-surface-variant">
+                تقسيط بسعر الكاش
+              </span>
+            ) : null}
           </div>
         ) : undefined
       }

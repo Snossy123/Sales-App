@@ -18,7 +18,12 @@ import type {
   Promotion,
   SubscriptionRenewalCandidate,
 } from '../api/types'
-import { contractPrintPath, isServiceInvoiceLine } from '../lib/sales'
+import {
+  computeMinDownPayment,
+  contractPrintPath,
+  isServiceInvoiceLine,
+  suggestInstallmentAmount,
+} from '../lib/sales'
 import { linePaidNow } from '../lib/cashSchedule'
 import {
   resolveCustomerTransactionSource,
@@ -147,6 +152,9 @@ export function PosPage() {
   const [applyTransportationFee, setApplyTransportationFee] = useState(
     () => deviceDraft?.applyTransportationFee ?? false,
   )
+  const [useCashPriceForInstallments, setUseCashPriceForInstallments] = useState(
+    () => deviceDraft?.useCashPriceForInstallments ?? false,
+  )
   const [transportationFee, setTransportationFee] = useState(() => deviceDraft?.transportationFee ?? 0)
   const [feeDiscountAmount, setFeeDiscountAmount] = useState(() => deviceDraft?.feeDiscountAmount ?? 0)
   const [feeDiscountPercent, setFeeDiscountPercent] = useState(
@@ -188,6 +196,7 @@ export function PosPage() {
       applyInstallationFee,
       installationFee,
       applyTransportationFee,
+      useCashPriceForInstallments,
       transportationFee,
       feeDiscountAmount,
       feeDiscountPercent,
@@ -213,6 +222,7 @@ export function PosPage() {
       applyInstallationFee,
       installationFee,
       applyTransportationFee,
+      useCashPriceForInstallments,
       transportationFee,
       feeDiscountAmount,
       feeDiscountPercent,
@@ -250,6 +260,7 @@ export function PosPage() {
     setApplyInstallationFee(true)
     setInstallationFee(defaultInstallationFee)
     setApplyTransportationFee(false)
+    setUseCashPriceForInstallments(false)
     setTransportationFee(0)
     setFeeDiscountAmount(0)
     setFeeDiscountPercent(0)
@@ -317,6 +328,7 @@ export function PosPage() {
     const transport = Number(invoice.transportation_fee ?? 0)
     setApplyTransportationFee(transport > 0)
     setTransportationFee(transport)
+    setUseCashPriceForInstallments(Boolean(invoice.use_cash_price_for_installments))
     setFeeDiscountAmount(Number(invoice.discount_amount ?? 0))
     if (invoice.source_invoice && invoice.contract_kind === 'ownership_transfer') {
       setSourceTransferInvoice(invoice.source_invoice)
@@ -673,6 +685,7 @@ export function PosPage() {
               contractKind,
               paymentTerm,
               renewalType,
+              useCashPriceForInstallments,
             })
           : paymentTerm === 'cash'
             ? contractKind === 'subscription_renewal'
@@ -688,7 +701,9 @@ export function PosPage() {
                 : annualRenewalPrice
               : contractKind === 'ownership_transfer'
                 ? 0
-                : installmentPrice
+                : useCashPriceForInstallments
+                  ? cashPrice
+                  : installmentPrice
         if (existing) {
           next.push({
             ...existing,
@@ -722,6 +737,7 @@ export function PosPage() {
     contractKind,
     manualDeviceEntry,
     productQuery.data,
+    useCashPriceForInstallments,
     isEditMode,
   ])
 
@@ -767,6 +783,7 @@ export function PosPage() {
           contractKind: 'subscription_renewal',
           paymentTerm: deviceLines[0]?.paymentTerm ?? 'installment',
           renewalType,
+          useCashPriceForInstallments,
         })
       : renewalType === 'permanent'
         ? subscriptionRenewalUnitPrice(cashAnnual)
@@ -814,7 +831,37 @@ export function PosPage() {
     productQuery.data,
     cashAnnual,
     annualRenewalPrice,
+    useCashPriceForInstallments,
   ])
+
+  const applyUseCashPriceForInstallments = (enabled: boolean) => {
+    setUseCashPriceForInstallments(enabled)
+    setDeviceLines((prev) =>
+      prev.map((line) => {
+        if (line.paymentTerm !== 'installment') return line
+        const price = productQuery.data
+          ? resolveGpsUnitPrice(productQuery.data, {
+              contractKind,
+              paymentTerm: 'installment',
+              renewalType: line.renewalType,
+              useCashPriceForInstallments: enabled,
+            })
+          : contractKind === 'subscription_renewal'
+            ? line.renewalType === 'permanent'
+              ? subscriptionRenewalUnitPrice(cashAnnual)
+              : annualRenewalPrice
+            : enabled
+              ? cashPrice
+              : installmentPrice
+        return {
+          ...line,
+          unitPrice: price,
+          downPayment: computeMinDownPayment(price, minDownPercent),
+          installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
+        }
+      }),
+    )
+  }
 
   const grossInstallationFeePerUnit =
     contractKind === 'new_contract' && enableInstallationFee && applyInstallationFee
@@ -995,6 +1042,7 @@ export function PosPage() {
       customer_id: customerId,
       branch_id: resolvedBranchId || undefined,
       contract_kind: contractKind,
+      use_cash_price_for_installments: useCashPriceForInstallments,
       installation_fee: grossInstallationFeePerUnit,
       transportation_fee: transportationFeeAmount,
       discount_amount: feeDiscountAmount,
@@ -1322,6 +1370,9 @@ export function PosPage() {
                   showTransportationFee={contractKind === 'new_contract'}
                   applyTransportationFee={applyTransportationFee}
                   onApplyTransportationFeeChange={setApplyTransportationFee}
+                  showCashInstallmentPriceOption={contractKind !== 'ownership_transfer'}
+                  useCashPriceForInstallments={useCashPriceForInstallments}
+                  onUseCashPriceForInstallmentsChange={applyUseCashPriceForInstallments}
                   transportationFee={transportationFee}
                   onTransportationFeeChange={setTransportationFee}
                 />
@@ -1346,6 +1397,7 @@ export function PosPage() {
                       employeesLoading={employeesQuery.isLoading}
                       showErrors={submitAttempted}
                       hidePaymentSection={contractKind === 'ownership_transfer'}
+                      useCashPriceForInstallments={useCashPriceForInstallments}
                       lockedFromSource={
                         contractKind === 'subscription_renewal' && Boolean(sourceRenewalCandidate)
                       }

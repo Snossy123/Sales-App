@@ -8,6 +8,11 @@ export function normalizeDigits(value: string): string {
     .replace(/[۰-۹]/g, (d) => String(PERSIAN.indexOf(d)))
 }
 
+/** Keep Latin digits 0-9 only. Converts Arabic/Persian digits first. */
+export function filterLatinDigitsOnly(value: string): string {
+  return normalizeDigits(value).replace(/\D/g, '')
+}
+
 /** Keep Latin digits and numeric punctuation only. Converts Arabic/Persian digits first. */
 export function stripNonLatinNumber(value: string): string {
   return normalizeDigits(value).replace(/[^\d.-]/g, '')

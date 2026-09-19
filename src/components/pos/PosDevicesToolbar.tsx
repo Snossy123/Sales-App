@@ -31,6 +31,9 @@ export interface PosDevicesToolbarProps {
   onApplyTransportationFeeChange?: (apply: boolean) => void
   transportationFee?: number
   onTransportationFeeChange?: (fee: number) => void
+  showCashInstallmentPriceOption?: boolean
+  useCashPriceForInstallments?: boolean
+  onUseCashPriceForInstallmentsChange?: (apply: boolean) => void
 }
 
 export function PosDevicesToolbar({
@@ -51,6 +54,9 @@ export function PosDevicesToolbar({
   onApplyTransportationFeeChange,
   transportationFee = 0,
   onTransportationFeeChange,
+  showCashInstallmentPriceOption = false,
+  useCashPriceForInstallments = false,
+  onUseCashPriceForInstallmentsChange,
 }: PosDevicesToolbarProps) {
   const decQty = () => onQuantityChange(Math.max(0, quantity - 1))
   const incQty = () => onQuantityChange(Math.min(maxQuantity, quantity + 1))
@@ -128,6 +134,20 @@ export function PosDevicesToolbar({
             </div>
           </>
         )}
+
+        {showCashInstallmentPriceOption && onUseCashPriceForInstallmentsChange ? (
+          <div className={`flex items-center ${posControlHeightClass}`}>
+            <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
+              <input
+                type="checkbox"
+                checked={useCashPriceForInstallments}
+                onChange={(e) => onUseCashPriceForInstallmentsChange(e.target.checked)}
+                className="h-4 w-4 rounded border-outline-variant accent-primary"
+              />
+              سعر التقسيط بنفس سعر الكاش
+            </label>
+          </div>
+        ) : null}
 
         {showTransport ? (
           <>

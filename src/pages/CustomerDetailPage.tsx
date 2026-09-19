@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
@@ -110,6 +110,11 @@ function ProfileDetailItem({
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const deviceWarning =
+    typeof (location.state as { deviceWarning?: string } | null)?.deviceWarning === 'string'
+      ? (location.state as { deviceWarning: string }).deviceWarning
+      : null
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
   const crudConfig = getEntityCrudConfig('customers')
@@ -450,7 +455,11 @@ export function CustomerDetailPage() {
                   </section>
                 )}
 
-                <CustomerDeviceHistorySection customerId={customer.id} invoices={invoices} />
+                <CustomerDeviceHistorySection
+                  customerId={customer.id}
+                  invoices={invoices}
+                  initialWarning={deviceWarning}
+                />
                 <CustomerOwnershipTransfersSection
                   transfersFrom={ownershipTransfersFrom}
                   transfersTo={ownershipTransfersTo}

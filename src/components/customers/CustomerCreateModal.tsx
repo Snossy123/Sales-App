@@ -6,6 +6,7 @@ import type { Customer } from '../../api/types'
 import { Modal } from '../Modal'
 import { TextArea } from '../ui/TextArea'
 import { TextInput } from '../ui/TextInput'
+import { CustomerLegacyDevicesFields } from './CustomerLegacyDevicesFields'
 import { CustomerPhoneFields } from './CustomerPhoneFields'
 import {
   CustomerAttachmentsSection,
@@ -19,6 +20,13 @@ import {
   phoneEntriesToPayload,
   type CustomerPhoneEntry,
 } from '../../lib/customerForm'
+import { useAuthStore } from '../../stores/authStore'
+import {
+  emptyLegacyDeviceDraft,
+  legacyDevicesAreComplete,
+  registerCustomerLegacyDevices,
+  type LegacyDeviceDraft,
+} from '../../lib/customerLegacyDevices'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 
@@ -32,11 +40,15 @@ const emptyForm = { name: '', national_id: '', address: '', distinctive_mark: ''
 
 export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreateModalProps) {
   const queryClient = useQueryClient()
+  const branchId = useAuthStore((s) => s.branchId)
   const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
   const [form, setForm] = useState(emptyForm)
   const [withGuarantor, setWithGuarantor] = useState(false)
   const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
+  const [isLegacyCustomer, setIsLegacyCustomer] = useState(false)
+  const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>([emptyLegacyDeviceDraft()])
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   const resetForm = () => {
     setPhones(defaultPhoneEntries())
@@ -44,6 +56,9 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
     setWithGuarantor(false)
     setGuarantor(emptyGuarantorForm)
     setPendingFiles([])
+    setIsLegacyCustomer(false)
+    setLegacyDevices([emptyLegacyDeviceDraft()])
+    setSubmitAttempted(false)
   }
 
   useEffect(() => {
@@ -60,6 +75,7 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
       const payload: Record<string, unknown> = {
         ...form,
         ...phoneEntriesToPayload(phones),
+        ...(branchId ? { branch_id: branchId } : {}),
       }
       if (withGuarantor && hasGuarantorData(guarantor)) {
         payload.guarantors = [guarantor]
@@ -68,10 +84,16 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
       if (pendingFiles.length > 0) {
         await uploadCustomerAttachments(data.id, pendingFiles)
       }
-      return data
+      if (isLegacyCustomer) {
+        await registerCustomerLegacyDevices(data.id, legacyDevices, {
+          afterCustomerCreate: true,
+        })
+      }
+      return { customer: data }
     },
-    onSuccess: (customer) => {
+    onSuccess: ({ customer }) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['customers', customer.id, 'devices'] })
       onCreated(customer)
       onClose()
     },
@@ -80,6 +102,8 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    setSubmitAttempted(true)
+    if (isLegacyCustomer && !legacyDevicesAreComplete(legacyDevices)) return
     createMutation.mutate()
   }
 
@@ -213,6 +237,15 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
             </div>
           </section>
         )}
+
+        <CustomerLegacyDevicesFields
+          enabled={isLegacyCustomer}
+          onEnabledChange={setIsLegacyCustomer}
+          devices={legacyDevices}
+          onChange={setLegacyDevices}
+          showErrors={submitAttempted && isLegacyCustomer}
+          compact
+        />
 
         <CustomerAttachmentsSection
           mode="create"

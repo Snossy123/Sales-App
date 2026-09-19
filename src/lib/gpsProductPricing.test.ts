@@ -112,4 +112,39 @@ describe('resolveGpsUnitPrice', () => {
       }),
     ).toBe(6500)
   })
+
+  it('uses cash list prices for installment when the contract flag is on', () => {
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'new_contract',
+        paymentTerm: 'installment',
+        renewalType: 'annual',
+        useCashPriceForInstallments: true,
+      }),
+    ).toBe(6000)
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'new_contract',
+        paymentTerm: 'installment',
+        renewalType: 'permanent',
+        useCashPriceForInstallments: true,
+      }),
+    ).toBe(12000)
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'external_device',
+        paymentTerm: 'installment',
+        renewalType: 'annual',
+        useCashPriceForInstallments: true,
+      }),
+    ).toBe(4000)
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'external_device',
+        paymentTerm: 'installment',
+        renewalType: 'permanent',
+        useCashPriceForInstallments: true,
+      }),
+    ).toBe(8000)
+  })
 })
