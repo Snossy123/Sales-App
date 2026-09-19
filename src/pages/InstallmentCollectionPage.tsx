@@ -473,8 +473,8 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selected?.id),
   })
 
-  const collectMutation = useMutation({
-    mutationFn: async (vars?: { applyExcessToFollowing?: boolean }) => {
+  const collectMutation = useMutation<unknown, Error, { applyExcessToFollowing?: boolean } | void>({
+    mutationFn: async (vars) => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
       const payload: Record<string, unknown> = {
         installment_item_id: selected.id,
