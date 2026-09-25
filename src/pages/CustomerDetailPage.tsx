@@ -13,6 +13,7 @@ import { CustomerOwnershipTransfersSection } from '../components/customers/Custo
 import { CustomerEvaluationsSection } from '../components/customers/CustomerEvaluationsSection'
 import { CustomerReferralsSection } from '../components/customers/CustomerReferralsSection'
 import { CustomerWarrantySection } from '../components/customers/CustomerWarrantySection'
+import { PaymentOriginLink } from '../components/payments/PaymentOriginLink'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
@@ -47,7 +48,7 @@ interface PaymentRow {
   status: string
   payment_source?: string
   paid_at?: string
-  sales_invoice?: { invoice_number?: string }
+  sales_invoice?: { id?: number; invoice_number?: string }
 }
 
 const sourceLabels: Record<string, string> = {
@@ -489,13 +490,20 @@ export function CustomerDetailPage() {
                       {
                         key: 'invoice',
                         header: 'فاتورة',
-                        render: (r) => r.sales_invoice?.invoice_number ?? '—',
+                        render: (r) => (
+                          <PaymentOriginLink invoiceId={r.sales_invoice?.id}>
+                            {r.sales_invoice?.invoice_number ?? '—'}
+                          </PaymentOriginLink>
+                        ),
                       },
                       {
                         key: 'source',
                         header: 'المصدر',
-                        render: (r) =>
-                          sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—',
+                        render: (r) => (
+                          <PaymentOriginLink invoiceId={r.sales_invoice?.id}>
+                            {sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—'}
+                          </PaymentOriginLink>
+                        ),
                       },
                       {
                         key: 'amount',

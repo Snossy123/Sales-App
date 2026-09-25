@@ -6,6 +6,7 @@ import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
+import { PaymentOriginLink } from '../components/payments/PaymentOriginLink'
 import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 import { userCanPerform } from '../lib/access'
@@ -21,7 +22,7 @@ export interface PaymentTransactionRow {
   payment_method?: string
   paid_at?: string
   customer?: { name?: string }
-  sales_invoice?: { invoice_number?: string }
+  sales_invoice?: { id?: number; invoice_number?: string }
 }
 
 const sourceLabels: Record<string, string> = {
@@ -97,11 +98,23 @@ export function PaymentsPage() {
           columns={[
             { key: 'transaction_number', header: 'رقم العملية' },
             { key: 'customer', header: 'العميل', render: (r) => r.customer?.name ?? '—' },
-            { key: 'invoice', header: 'فاتورة', render: (r) => r.sales_invoice?.invoice_number ?? '—' },
+            {
+              key: 'invoice',
+              header: 'فاتورة',
+              render: (r) => (
+                <PaymentOriginLink invoiceId={r.sales_invoice?.id}>
+                  {r.sales_invoice?.invoice_number ?? '—'}
+                </PaymentOriginLink>
+              ),
+            },
             {
               key: 'source',
               header: 'المصدر',
-              render: (r) => sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—',
+              render: (r) => (
+                <PaymentOriginLink invoiceId={r.sales_invoice?.id}>
+                  {sourceLabels[r.payment_source ?? ''] ?? r.payment_source ?? '—'}
+                </PaymentOriginLink>
+              ),
             },
             {
               key: 'amount',
