@@ -36,16 +36,5 @@ export const dashboardTour: TourConfig = {
       roles: ['super_admin', 'admin', 'collector'],
       requiresRoute: '/installments',
     },
-    {
-      id: 'charts',
-      target: '[data-tour="dashboard-charts"]',
-      title: { ar: 'الرسوم البيانية', en: 'Charts' },
-      content: {
-        ar: 'رسوم توضيحية لمخزون الفروع وتوزيع العقود.',
-        en: 'Visual charts for branch stock and contract distribution.',
-      },
-      placement: 'top',
-      roles: ['super_admin', 'admin'],
-    },
   ],
 }
