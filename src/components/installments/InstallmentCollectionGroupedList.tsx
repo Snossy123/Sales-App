@@ -690,7 +690,7 @@ export function InstallmentCollectionGroupedList({
                         }
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-6">
                       <ContractMetaCell label="الأقساط">
                         <span className="tabular-nums">{contract.installmentCount}</span>
                       </ContractMetaCell>
