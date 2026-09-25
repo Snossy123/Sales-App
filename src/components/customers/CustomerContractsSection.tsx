@@ -9,7 +9,9 @@ import {
   canTransferContractToProblems,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
+import { canConvertCashToInstallment } from '../../lib/contractEdit'
 import { useAuthStore } from '../../stores/authStore'
+import { ConvertCashToInstallmentModal } from '../contracts/ConvertCashToInstallmentModal'
 import { ContractPrintActions } from '../contracts/ContractPrintActions'
 import { ContractProblemWizard } from '../contracts/ContractProblemWizard'
 import { contractKindLabel } from '../../lib/contractKinds'
@@ -54,6 +56,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
   const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('all')
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
+  const [convertInvoice, setConvertInvoice] = useState<SalesInvoice | null>(null)
 
   const filteredInvoices = useMemo(
     () => filterContracts(invoices, statusFilter),
@@ -168,13 +171,21 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                   <div className="flex flex-wrap gap-sm">
                     <Link
                       to={`/contracts/${invoice.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 rounded-lg border border-primary bg-primary/5 px-md py-sm text-sm font-medium text-primary hover:bg-primary/10"
                     >
                       <Icon name="description" size={18} />
                       تفاصيل العقد
                     </Link>
+                    {canConvertCashToInstallment(user, invoice) && (
+                      <button
+                        type="button"
+                        onClick={() => setConvertInvoice(invoice)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-primary px-md py-sm text-sm font-medium text-primary hover:bg-primary/5"
+                      >
+                        <Icon name="payments" size={18} />
+                        تحويل من كاش لقسط
+                      </button>
+                    )}
                     <ContractPrintActions
                       invoice={invoice}
                       className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
@@ -182,8 +193,6 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                     {canRejectContract(user, invoice) && (
                       <Link
                         to={`/invoices/review/${invoice.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error/5"
                       >
                         <Icon name="cancel" size={18} />
@@ -320,6 +329,12 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
           }}
         />
       )}
+      <ConvertCashToInstallmentModal
+        invoice={convertInvoice}
+        open={Boolean(convertInvoice)}
+        onClose={() => setConvertInvoice(null)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['customer'] })}
+      />
     </section>
   )
 }

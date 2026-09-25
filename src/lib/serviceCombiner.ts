@@ -27,31 +27,81 @@ export interface FeeLineInstance {
   productUnitId?: number
 }
 
+function isFeeChipId(value: unknown): value is CombinerFeeChipId {
+  return COMBINER_FEE_CHIPS.some((chip) => chip.id === value)
+}
+
+function uniqueFeeLinesByChip(items: FeeLineInstance[]): FeeLineInstance[] {
+  const seen = new Set<CombinerFeeChipId>()
+  return items.filter((item) => {
+    if (!isFeeChipId(item.chipId) || seen.has(item.chipId)) return false
+    seen.add(item.chipId)
+    return true
+  })
+}
+
 export function normalizeFeeLineInstances(raw: unknown): FeeLineInstance[] {
   if (Array.isArray(raw)) {
-    return raw.filter(
-      (item): item is FeeLineInstance =>
-        Boolean(item && typeof item === 'object' && 'key' in item && 'chipId' in item && 'line' in item),
+    return uniqueFeeLinesByChip(
+      raw.filter(
+        (item): item is FeeLineInstance =>
+          Boolean(item && typeof item === 'object' && 'key' in item && 'chipId' in item && 'line' in item),
+      ),
     )
   }
   if (raw && typeof raw === 'object') {
-    return Object.entries(raw as Record<string, ServiceLineDraft>).flatMap(([chipId, line]) => {
-      if (!COMBINER_FEE_CHIPS.some((chip) => chip.id === chipId) || !line) return []
-      return [
-        {
-          key: chipId,
-          chipId: chipId as CombinerFeeChipId,
-          line,
-          productUnitId: undefined,
-        },
-      ]
-    })
+    return uniqueFeeLinesByChip(
+      Object.entries(raw as Record<string, ServiceLineDraft>).flatMap(([chipId, line]) => {
+        if (!isFeeChipId(chipId) || !line) return []
+        return [
+          {
+            key: chipId,
+            chipId,
+            line,
+            productUnitId: undefined,
+          },
+        ]
+      }),
+    )
   }
   return []
 }
 
 export function newFeeLineKey(): string {
   return `fee-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+export type CombinerAccessoryLine = {
+  key: string
+  line_type: 'accessory' | 'package'
+  product_model_id?: number
+  accessory_package_id?: number
+  name: string
+  quantity: number
+  unitSellPrice: number
+  line: ServiceLineDraft
+}
+
+export function newAccessoryLineKey(prefix: string, id: number): string {
+  return `${prefix}-${id}-${Date.now().toString(36)}`
+}
+
+export function accessoryLineTotal(item: CombinerAccessoryLine): number {
+  return Math.max(0, item.unitSellPrice * item.quantity)
+}
+
+export function normalizeAccessoryLines(raw: unknown): CombinerAccessoryLine[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((item): item is CombinerAccessoryLine =>
+    Boolean(
+      item &&
+        typeof item === 'object' &&
+        'key' in item &&
+        'line_type' in item &&
+        'name' in item &&
+        'line' in item,
+    ),
+  )
 }
 
 export const COMBINER_FEE_CHIPS: {

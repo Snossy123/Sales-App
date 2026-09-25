@@ -29,7 +29,6 @@ function emptyDeviceDraft(overrides: Partial<DeviceContractDraft> = {}): DeviceC
     applyInstallationFee: false,
     installationFee: 0,
     applyTransportationFee: false,
-    useCashPriceForInstallments: false,
     transportationFee: 0,
     feeDiscountAmount: 0,
     feeDiscountPercent: 0,
@@ -64,7 +63,6 @@ function emptyServiceDraft(overrides: Partial<ServiceContractDraft> = {}): Servi
     feeLines: [],
     distributorBalanceAmount: 0,
     collectionScope: 'contract',
-    useCashPriceForInstallments: false,
     contractPayment: {
       paymentTerm: 'cash',
       downPayment: 0,
@@ -118,6 +116,22 @@ describe('procedureDrafts', () => {
     expect(
       isServiceContractDraftMeaningful(
         emptyServiceDraft({ selectedCustomer: { id: 2 } as ServiceContractDraft['selectedCustomer'] }),
+      ),
+    ).toBe(true)
+    expect(
+      isServiceContractDraftMeaningful(
+        emptyServiceDraft({
+          accessoryLines: [
+            {
+              key: 'acc-1',
+              line_type: 'accessory',
+              name: 'ريموت',
+              quantity: 1,
+              unitSellPrice: 50,
+              line: { description: 'ريموت', unit_price: 50 },
+            } as NonNullable<ServiceContractDraft['accessoryLines']>[number],
+          ],
+        }),
       ),
     ).toBe(true)
   })

@@ -34,13 +34,13 @@ export const DEFAULT_SALES: SalesSettings = {
   default_payment_term: 'installment',
   max_installment_months: 24,
   installment_interval_days: 30,
+  cash_to_installment_grace_days: 7,
   overdue_grace_days: 3,
   late_fee_mode: 'daily_fixed',
   late_fee_daily_amount: 10,
   late_fee_percent: 0,
   min_down_payment_percent: 10,
   enable_installation_fee: true,
-  default_installation_fee: 500,
   allow_disable_installation_fee_in_sale: true,
 }
 

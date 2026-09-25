@@ -10,6 +10,7 @@ import { ContractPaymentsTab } from '../components/contracts/ContractPaymentsTab
 import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { ConvertCashToInstallmentModal } from '../components/contracts/ConvertCashToInstallmentModal'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
@@ -26,7 +27,7 @@ import {
   isContractEligibleForProblems,
   type ContractProblemCaseType,
 } from '../lib/contractCases'
-import { canEditContract, contractEditPath } from '../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
@@ -53,6 +54,7 @@ export function ContractDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [wizardCaseType, setWizardCaseType] = useState<ContractProblemCaseType | null>(null)
+  const [convertOpen, setConvertOpen] = useState(false)
 
   const visibleTabs = useMemo(
     () =>
@@ -146,11 +148,6 @@ export function ContractDetailPage() {
               label={contractStatusLabel(invoice.contract_status)}
             />
             {invoice.payment_status ? <StatusBadge status={invoice.payment_status} /> : null}
-            {invoice.use_cash_price_for_installments ? (
-              <span className="rounded-md bg-surface-container px-2 py-0.5 text-xs font-bold text-on-surface-variant">
-                تقسيط بسعر الكاش
-              </span>
-            ) : null}
           </div>
         ) : undefined
       }
@@ -164,6 +161,16 @@ export function ContractDetailPage() {
               <Icon name="edit" size={18} />
               تعديل العقد
             </Link>
+          ) : null}
+          {invoice && canConvertCashToInstallment(user, invoice) ? (
+            <button
+              type="button"
+              onClick={() => setConvertOpen(true)}
+              className="inline-flex items-center gap-xs rounded-lg border border-primary px-md py-sm text-sm font-medium text-primary hover:bg-primary/5"
+            >
+              <Icon name="payments" size={18} />
+              تحويل من كاش لقسط
+            </button>
           ) : null}
           {canReject && invoice && (
             <Link
@@ -276,6 +283,17 @@ export function ContractDetailPage() {
             setWizardCaseType(null)
           }}
           onComplete={handleWizardComplete}
+        />
+      )}
+      {invoice && (
+        <ConvertCashToInstallmentModal
+          invoice={invoice}
+          open={convertOpen}
+          onClose={() => setConvertOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'contract-detail', id] })
+            setActiveTab('installments')
+          }}
         />
       )}
     </SalesPageShell>

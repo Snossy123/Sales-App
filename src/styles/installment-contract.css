@@ -1564,6 +1564,37 @@
   font-weight: 800;
   flex: 0 0 auto;
 }
+.ownership-transfer-contract .ic-ot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+  margin-bottom: 3mm;
+}
+.ownership-transfer-contract .ic-ot-device {
+  margin-bottom: 3mm;
+}
+.ownership-transfer-contract .ic-ot-summary {
+  margin-bottom: 3mm;
+}
+.ownership-transfer-contract .ic-ot-terms {
+  margin-bottom: 4mm;
+  font-size: 12pt;
+}
+.ic-signatures--triple {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.ic-signatures--triple > div {
+  flex-direction: column;
+  align-items: stretch;
+  white-space: normal;
+}
+.ic-signatures--triple .ic-sign-line {
+  flex: none;
+  width: 100%;
+  margin-inline-start: 0;
+  margin-top: 8mm;
+}
+
 .sr-sign-line {
   width: 48mm;
   margin-top: 5mm;

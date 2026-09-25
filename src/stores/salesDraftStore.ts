@@ -12,7 +12,7 @@ import type {
 import type { DeviceLineDraft } from '../components/pos/DeviceLineCard'
 import type { TransactionSource } from '../components/pos/PosContractHeader'
 import type { ServicePaymentState } from '../components/services/ServicePaymentSection'
-import type { CombinerChipId, FeeLineInstance } from '../lib/serviceCombiner'
+import type { CombinerAccessoryLine, CombinerChipId, FeeLineInstance } from '../lib/serviceCombiner'
 import { PROCEDURE_DRAFT_IDS, readProcedureDraft } from './procedureDraftStore'
 
 export interface DeviceContractDraft {
@@ -33,7 +33,6 @@ export interface DeviceContractDraft {
   applyInstallationFee: boolean
   installationFee: number
   applyTransportationFee: boolean
-  useCashPriceForInstallments: boolean
   transportationFee: number
   feeDiscountAmount: number
   feeDiscountPercent: number
@@ -63,9 +62,9 @@ export interface ServiceContractDraft {
   renewalLine: DeviceLineDraft | null
   externalLine: DeviceLineDraft | null
   feeLines: FeeLineInstance[]
+  accessoryLines?: CombinerAccessoryLine[]
   distributorBalanceAmount: number
   collectionScope: 'contract' | 'service'
-  useCashPriceForInstallments: boolean
   contractPayment: ServicePaymentState
   feeTechnician: Employee | null
   technicianSearch: string

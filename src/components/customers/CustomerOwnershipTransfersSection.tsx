@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { OwnershipTransfer } from '../../api/types'
 import { formatContractMoney } from '../../lib/customerContracts'
-import { formatInvoiceDate } from '../../lib/sales'
+import { formatInvoiceDate, ownershipTransferContractPrintPath } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { DataTable } from '../DataTable'
 import { StatusBadge } from '../StatusBadge'
@@ -107,6 +107,14 @@ export function CustomerOwnershipTransfersSection({
                       <span className="text-on-surface-variant">المتبقي انتقل للمالك الجديد: </span>
                       {formatContractMoney(Number(transfer.remaining_balance_at_transfer ?? 0))}
                     </p>
+                    {transfer.transfer_sales_invoice_id ? (
+                      <Link
+                        to={ownershipTransferContractPrintPath(transfer.transfer_sales_invoice_id)}
+                        className="mt-sm inline-block text-primary hover:underline"
+                      >
+                        طباعة عقد نقل ملكية
+                      </Link>
+                    ) : null}
                   </div>
 
                   <div>
@@ -149,14 +157,24 @@ export function CustomerOwnershipTransfersSection({
                     <span className="text-on-surface-variant">المتبقي بعد النقل: </span>
                     {formatContractMoney(Number(transfer.remaining_balance_at_transfer ?? 0))}
                   </p>
-                  {transfer.source_invoice?.id && (
-                    <Link
-                      to={`/invoices/${transfer.source_invoice.id}/contract-print`}
-                      className="mt-sm inline-block text-primary hover:underline"
-                    >
-                      عرض التعاقد
-                    </Link>
-                  )}
+                  <div className="mt-sm flex flex-wrap gap-sm">
+                    {transfer.source_invoice?.id ? (
+                      <Link
+                        to={`/invoices/${transfer.source_invoice.id}/contract-print`}
+                        className="inline-block text-primary hover:underline"
+                      >
+                        عرض التعاقد
+                      </Link>
+                    ) : null}
+                    {transfer.transfer_sales_invoice_id ? (
+                      <Link
+                        to={ownershipTransferContractPrintPath(transfer.transfer_sales_invoice_id)}
+                        className="inline-block text-primary hover:underline"
+                      >
+                        طباعة عقد نقل ملكية
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </CollapsibleSection>
             ))}

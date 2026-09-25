@@ -44,6 +44,9 @@ function lineDescription(line?: SalesInvoiceLine): string {
     line?.description?.trim() ||
     line?.service?.name_ar?.trim() ||
     line?.service?.name?.trim() ||
+    line?.accessory_package?.name_ar?.trim() ||
+    line?.product_model?.name_ar?.trim() ||
+    line?.product_model?.name?.trim() ||
     ''
   if (catalog) return catalog
   if (line?.line_contract_kind === 'subscription_renewal' || line?.renewal_type === 'annual') {

@@ -637,7 +637,7 @@ export interface OwnershipTransferPaidInstallment {
 
 export interface OwnershipTransfer {
   id: number
-  source_sales_invoice_id: number
+  source_sales_invoice_id?: number | null
   transfer_sales_invoice_id?: number | null
   from_customer_id: number
   to_customer_id: number
@@ -646,8 +646,10 @@ export interface OwnershipTransfer {
   remaining_balance_at_transfer?: string | number
   paid_installments_snapshot?: OwnershipTransferPaidInstallment[]
   notes?: string | null
-  from_customer?: Pick<Customer, 'id' | 'name' | 'phone'>
-  to_customer?: Pick<Customer, 'id' | 'name' | 'phone'>
+  from_customer?: Pick<Customer, 'id' | 'name' | 'phone'> &
+    Partial<Pick<Customer, 'phone_2' | 'national_id'>>
+  to_customer?: Pick<Customer, 'id' | 'name' | 'phone'> &
+    Partial<Pick<Customer, 'phone_2' | 'national_id'>>
   source_invoice?: Pick<
     SalesInvoice,
     'id' | 'invoice_number' | 'payment_term' | 'total' | 'paid_amount' | 'balance_due' | 'lines'
@@ -866,6 +868,7 @@ export interface InstallmentPlan {
   interval_type?: 'monthly' | 'weekly'
   first_due_date?: string
   status?: string
+  custom_schedule?: { amount: number | string; due_date: string }[] | null
   items?: InstallmentItem[]
 }
 
@@ -898,6 +901,7 @@ export interface SalesInvoice {
   source_sales_invoice_id?: number | null
   ownership_transferred_at?: string | null
   source_invoice?: SalesInvoice | null
+  ownership_transfer_record?: OwnershipTransfer | null
   customer_id: number
   distributor_id?: number | null
   sales_user_id?: number | null
@@ -912,6 +916,7 @@ export interface SalesInvoice {
   branch?: Branch
   installment_plan?: InstallmentPlan | null
   installment_plans?: InstallmentPlan[]
+  installment_items?: InstallmentItem[]
   lines?: SalesInvoiceLine[]
   notes?: string | null
   technician_name?: string | null
@@ -928,7 +933,6 @@ export interface SalesInvoice {
   installation_fee?: string | number | null
   transportation_fee?: string | number | null
   is_order_request?: boolean
-  use_cash_price_for_installments?: boolean
   created_by?: number
   reviewed_by?: number
   reviewed_at?: string
@@ -943,6 +947,27 @@ export interface SalesInvoice {
   collection_reviewer?: { id?: number; name?: string } | null
   installment_items?: InstallmentItem[]
   payment_transactions?: PaymentTransaction[]
+}
+
+export interface ConvertToInstallmentPreview {
+  remaining: number
+  cash_price: number
+  installment_price: number
+  price_diff: number
+  financed_amount: number
+  paid_amount: number
+  current_total: number
+  new_total: number
+  grace_days: number
+  grace_days_elapsed: number
+  grace_days_remaining: number
+  within_grace: boolean
+  invoice_date: string
+  max_installment_months: number
+  suggested_first_due_date: {
+    monthly: string
+    weekly: string
+  }
 }
 
 export interface PaymentTransaction {
@@ -988,7 +1013,7 @@ export interface SalesInvoiceLine {
   discount?: string | number
   line_total?: string | number
   payment_term?: 'cash' | 'installment' | null
-  cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | null
+  cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | 'custom' | null
   cash_due_date?: string | null
   technician_id?: number | null
   username?: string | null
@@ -1183,10 +1208,11 @@ export interface CheckoutPayload {
   invoice_date?: string
   notes?: string
   collection_scope?: 'service' | 'contract'
-  use_cash_price_for_installments?: boolean
   distributor_balance_amount?: number
   lines: {
-    line_type?: 'device' | 'service'
+    line_type?: 'device' | 'service' | 'accessory' | 'package'
+    product_model_id?: number
+    accessory_package_id?: number
     line_contract_kind?: 'subscription_renewal' | 'external_device'
     product_unit_id?: number
     product_id?: number
@@ -1200,7 +1226,8 @@ export interface CheckoutPayload {
     sim_number?: string
     username?: string
     payment_term?: 'cash' | 'installment'
-    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
+    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | 'custom'
+    cash_schedule_items?: { amount: number; due_date: string }[]
     down_payment?: number
     technician_id?: number
     vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other'
@@ -1239,7 +1266,6 @@ export interface ServiceCheckoutPayload {
   notes?: string
   distributor_balance_amount?: number
   collection_scope?: 'service' | 'contract'
-  use_cash_price_for_installments?: boolean
   payment_term?: 'cash' | 'installment'
   technician_id?: number
   down_payment?: number
@@ -1257,7 +1283,8 @@ export interface ServiceCheckoutPayload {
     quantity?: number
     unit_price: number
     payment_term?: 'cash' | 'installment'
-    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3'
+    cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | 'custom'
+    cash_schedule_items?: { amount: number; due_date: string }[]
     down_payment?: number
     installment_plan?: {
       down_payment: number
@@ -2421,13 +2448,13 @@ export interface SalesSettings {
   default_payment_term?: 'cash' | 'credit' | 'installment'
   max_installment_months?: number
   installment_interval_days?: number
+  cash_to_installment_grace_days?: number
   overdue_grace_days?: number
   late_fee_mode?: 'daily_fixed' | 'percent'
   late_fee_daily_amount?: number
   late_fee_percent?: number
   min_down_payment_percent?: number
   enable_installation_fee?: boolean
-  default_installation_fee?: number
   allow_disable_installation_fee_in_sale?: boolean
 }
 

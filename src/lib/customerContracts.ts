@@ -110,7 +110,36 @@ export function getInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
   }
 
   const plan = getInstallmentPlan(invoice)
-  return plan?.items ?? []
+  if (plan?.items?.length) {
+    return plan.items
+  }
+
+  return invoice.installment_items ?? []
+}
+
+export function ownershipTransferInstallmentSummary(invoice: SalesInvoice): {
+  paidCount: number
+  remaining: number
+} {
+  const items = getInstallmentItems(invoice)
+  const paid = items.filter(
+    (item) => Number(item.paid_amount ?? 0) > 0 || item.status === 'paid',
+  )
+  let remaining = items.reduce(
+    (sum, item) => sum + installmentRemainingAmount(item),
+    0,
+  )
+
+  if (items.length === 0) {
+    remaining = Number(invoice.balance_due ?? 0)
+    if (remaining <= 0) {
+      const plan = getInstallmentPlan(invoice)
+      const lineTotal = Number(invoice.lines?.[0]?.line_total ?? invoice.total ?? 0)
+      remaining = Math.max(0, lineTotal - Number(plan?.down_payment ?? 0))
+    }
+  }
+
+  return { paidCount: paid.length, remaining }
 }
 
 export function paymentStatusLabel(status?: string | null): string {

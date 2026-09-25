@@ -2,6 +2,7 @@ import {
   cashDueDate,
   cashRemainder,
   cashScheduleOptions,
+  isCustomCashSchedule,
   isDeferredCashSchedule,
   type CashSchedule,
 } from '../../lib/cashSchedule'
@@ -28,7 +29,11 @@ export function CashScheduleSelector({
   const isDeferred = isDeferredCashSchedule(schedule)
 
   let helperText = 'الدفع كاش — يُضاف صافي البند للمطلوب عند التعاقد.'
-  if (isDeferred) {
+  if (isCustomCashSchedule(schedule)) {
+    helperText = hasDown
+      ? 'يُضاف المقدم للمطلوب عند التعاقد. الباقي حسب الجدول الحر.'
+      : 'لا يُضاف للمطلوب عند التعاقد — يُحصّل حسب الجدول الحر.'
+  } else if (isDeferred) {
     helperText = hasDown
       ? 'يُضاف المقدم للمطلوب عند التعاقد. الباقي يُحصّل في تاريخ الاستحقاق.'
       : 'لا يُضاف للمطلوب عند التعاقد — يُحصّل لاحقًا.'

@@ -1,18 +1,25 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import type { Customer, SalesInvoice } from '../../api/types'
-import { formatContractMoney } from '../../lib/customerContracts'
+import type { Customer, CustomerContractDevice, SalesInvoice } from '../../api/types'
+import { formatContractMoney, ownershipTransferInstallmentSummary } from '../../lib/customerContracts'
 import { formatInvoiceDate } from '../../lib/sales'
 import { SearchableSelect } from '../SearchableSelect'
 import { Icon } from '../Icon'
 import { PosSectionCard } from './PosSectionCard'
 import { normalizeScannedDigits } from '../../lib/scanner'
 import { posInputClass, posLabelClass } from './posFormStyles'
+import { CustomerCreateModal } from '../customers/CustomerCreateModal'
+import {
+  contractDeviceLabel,
+  DEVICE_ORIGIN_LABELS,
+} from '../services/CustomerContractDevicePicker'
 
 export interface PosOwnershipTransferSectionProps {
   selectedSourceInvoice: SalesInvoice | null
   onSourceInvoiceChange: (invoice: SalesInvoice | null) => void
+  selectedSourceDevice?: CustomerContractDevice | null
+  onSourceDeviceChange?: (device: CustomerContractDevice | null) => void
   submitAttempted?: boolean
 }
 
@@ -24,31 +31,35 @@ function deviceLine(invoice: SalesInvoice) {
   )
 }
 
-function installmentSummary(invoice: SalesInvoice) {
-  const items =
-    invoice.lines?.flatMap((line) => line.installment_plan?.items ?? []) ??
-    invoice.installment_plan?.items ??
-    invoice.installment_plans?.flatMap((plan) => plan.items ?? []) ??
-    []
+function invoiceForDevice(
+  device: CustomerContractDevice,
+  invoices: SalesInvoice[],
+): SalesInvoice | undefined {
+  if (device.sales_invoice_id) {
+    const byId = invoices.find((invoice) => invoice.id === device.sales_invoice_id)
+    if (byId) return byId
+  }
 
-  const paid = items.filter((item) => Number(item.paid_amount ?? 0) > 0 || item.status === 'paid')
-  const remaining = items.reduce(
-    (sum, item) =>
-      sum + Math.max(0, Number(item.amount ?? 0) - Number(item.paid_amount ?? 0)),
-    0,
-  )
+  const serial = device.serial_number?.trim()
+  if (!serial) return undefined
 
-  return { paidCount: paid.length, remaining }
+  return invoices.find((invoice) => {
+    const line = deviceLine(invoice)
+    return (line?.serial_number ?? '').trim() === serial
+  })
 }
 
 export function PosOwnershipTransferSection({
   selectedSourceInvoice,
   onSourceInvoiceChange,
+  selectedSourceDevice = null,
+  onSourceDeviceChange,
   submitAttempted = false,
 }: PosOwnershipTransferSectionProps) {
   const [serialSearch, setSerialSearch] = useState('')
   const [previousOwnerSearch, setPreviousOwnerSearch] = useState('')
   const [selectedPreviousOwner, setSelectedPreviousOwner] = useState<Customer | null>(null)
+  const [addPreviousOwnerOpen, setAddPreviousOwnerOpen] = useState(false)
 
   const customersQuery = useQuery({
     queryKey: ['customers', 'ownership-transfer', previousOwnerSearch],
@@ -83,12 +94,55 @@ export function PosOwnershipTransferSection({
     enabled: serialSearch.trim().length >= 2 || Boolean(selectedPreviousOwner?.id),
   })
 
-  const sourceError = submitAttempted && !selectedSourceInvoice
+  const devicesQuery = useQuery({
+    queryKey: ['customers', selectedPreviousOwner?.id, 'devices'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CustomerContractDevice[] }>(
+        `/customers/${selectedPreviousOwner!.id}/devices`,
+      )
+      return data.data ?? []
+    },
+    enabled: Boolean(selectedPreviousOwner?.id),
+  })
+
+  const hasSource = Boolean(selectedSourceInvoice || selectedSourceDevice)
+  const sourceError = submitAttempted && !hasSource
   const line = selectedSourceInvoice ? deviceLine(selectedSourceInvoice) : undefined
-  const summary = selectedSourceInvoice ? installmentSummary(selectedSourceInvoice) : null
+  const summary = selectedSourceInvoice
+    ? ownershipTransferInstallmentSummary(selectedSourceInvoice)
+    : null
   const previousOwner =
     selectedSourceInvoice?.customer ??
+    selectedPreviousOwner ??
     (selectedSourceInvoice as SalesInvoice & { customer?: Customer })?.customer
+  const invoices = sourceQuery.data ?? []
+  const devices = devicesQuery.data ?? []
+  const showInvoicePicker = invoices.length > 0 && !hasSource
+  const showDevicePicker = devices.length > 0 && !hasSource && Boolean(selectedPreviousOwner)
+  const searching = sourceQuery.isFetching || devicesQuery.isFetching
+
+  const clearSource = () => {
+    onSourceInvoiceChange(null)
+    onSourceDeviceChange?.(null)
+  }
+
+  const selectInvoice = (invoice: SalesInvoice, device?: CustomerContractDevice | null) => {
+    onSourceInvoiceChange(invoice)
+    onSourceDeviceChange?.(device ?? null)
+    if (!selectedPreviousOwner && invoice.customer) {
+      setSelectedPreviousOwner(invoice.customer)
+    }
+  }
+
+  const selectDevice = (device: CustomerContractDevice) => {
+    const invoice = invoiceForDevice(device, invoices)
+    if (invoice) {
+      selectInvoice(invoice, device)
+      return
+    }
+    onSourceInvoiceChange(null)
+    onSourceDeviceChange?.(device)
+  }
 
   return (
     <PosSectionCard
@@ -106,7 +160,7 @@ export function PosOwnershipTransferSection({
             value={selectedPreviousOwner}
             onChange={(customer) => {
               setSelectedPreviousOwner(customer)
-              onSourceInvoiceChange(null)
+              clearSource()
             }}
             onSearchChange={setPreviousOwnerSearch}
             getOptionValue={(c) => c.id}
@@ -115,6 +169,13 @@ export function PosOwnershipTransferSection({
             loading={customersQuery.isLoading}
             emptyMessage="لا يوجد عميل مطابق"
           />
+          <button
+            type="button"
+            onClick={() => setAddPreviousOwnerOpen(true)}
+            className="mt-xs text-xs font-bold text-primary hover:underline"
+          >
+            إضافة عميل
+          </button>
         </div>
         <div>
           <label className={posLabelClass}>الرقم التسلسلي</label>
@@ -123,7 +184,7 @@ export function PosOwnershipTransferSection({
             value={serialSearch}
             onChange={(e) => {
               setSerialSearch(normalizeScannedDigits(e.target.value))
-              onSourceInvoiceChange(null)
+              clearSource()
             }}
             inputMode="numeric"
             className={posInputClass}
@@ -132,23 +193,43 @@ export function PosOwnershipTransferSection({
         </div>
       </div>
 
-      {sourceQuery.isFetching && (
-        <p className="text-sm text-on-surface-variant">جاري البحث عن التعاقدات...</p>
+      {searching && (
+        <p className="text-sm text-on-surface-variant">جاري البحث عن التعاقدات والأجهزة...</p>
       )}
 
-      {(sourceQuery.data?.length ?? 0) > 0 && !selectedSourceInvoice && (
+      {showDevicePicker && (
+        <div className="space-y-sm">
+          <p className="text-sm font-medium text-on-surface">أجهزة المالك السابق:</p>
+          {devices.map((device) => (
+            <button
+              key={device.id}
+              type="button"
+              onClick={() => selectDevice(device)}
+              className="flex w-full flex-col gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-sm text-start transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span className="font-medium text-on-surface">{contractDeviceLabel(device)}</span>
+              <span className="text-sm text-on-surface-variant">
+                {DEVICE_ORIGIN_LABELS[device.origin ?? 'company_stock']}
+                {device.invoice_number ? ` · ${device.invoice_number}` : ' · بدون تعاقد في السيستم'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showInvoicePicker && (
         <div className="space-y-sm">
           <p className="text-sm font-medium text-on-surface">اختر التعاقد:</p>
-          {sourceQuery.data!.map((invoice) => {
+          {invoices.map((invoice) => {
             const device = deviceLine(invoice)
             const owner = invoice.customer
-            const inst = installmentSummary(invoice)
+            const inst = ownershipTransferInstallmentSummary(invoice)
 
             return (
               <button
                 key={invoice.id}
                 type="button"
-                onClick={() => onSourceInvoiceChange(invoice)}
+                onClick={() => selectInvoice(invoice)}
                 className="flex w-full flex-col gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-sm text-start transition-colors hover:border-primary hover:bg-primary/5"
               >
                 <span className="font-medium text-on-surface">
@@ -168,12 +249,13 @@ export function PosOwnershipTransferSection({
         </div>
       )}
 
-      {sourceQuery.data &&
-        sourceQuery.data.length === 0 &&
+      {!hasSource &&
+        !searching &&
         (serialSearch.trim().length >= 2 || selectedPreviousOwner) &&
-        !sourceQuery.isFetching && (
+        invoices.length === 0 &&
+        devices.length === 0 && (
           <p className="rounded-lg border border-dashed border-outline-variant px-md py-sm text-sm text-on-surface-variant">
-            لا توجد تعاقدات متاحة لنقل الملكية
+            لا توجد تعاقدات أو أجهزة متاحة لنقل الملكية
           </p>
         )}
 
@@ -191,7 +273,7 @@ export function PosOwnershipTransferSection({
             </div>
             <button
               type="button"
-              onClick={() => onSourceInvoiceChange(null)}
+              onClick={clearSource}
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <Icon name="close" size={16} />
@@ -233,9 +315,63 @@ export function PosOwnershipTransferSection({
         </div>
       )}
 
-      {sourceError && (
-        <p className="text-xs text-error">يجب اختيار التعاقد الأصلي لنقل الملكية</p>
+      {!selectedSourceInvoice && selectedSourceDevice && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-md">
+          <div className="mb-sm flex flex-wrap items-start justify-between gap-sm">
+            <div>
+              <p className="font-semibold text-on-surface">
+                {selectedSourceDevice.serial_number?.trim() || 'جهاز قديم'}
+              </p>
+              <p className="mt-xs text-sm text-on-surface-variant">
+                المالك السابق: {previousOwner?.name ?? '—'}
+                {previousOwner?.phone ? ` — ${previousOwner.phone}` : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearSource}
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              <Icon name="close" size={16} />
+              تغيير
+            </button>
+          </div>
+          <dl className="grid gap-sm text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="text-on-surface-variant">التسلسلي</dt>
+              <dd className="font-medium tabular-nums">
+                {selectedSourceDevice.serial_number ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-on-surface-variant">الشريحة</dt>
+              <dd className="font-medium tabular-nums">
+                {selectedSourceDevice.sim_number ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-on-surface-variant">المصدر</dt>
+              <dd className="font-medium">
+                {DEVICE_ORIGIN_LABELS[selectedSourceDevice.origin ?? 'company_stock']}
+              </dd>
+            </div>
+          </dl>
+        </div>
       )}
+
+      {sourceError && (
+        <p className="text-xs text-error">يجب اختيار التعاقد الأصلي أو الجهاز لنقل الملكية</p>
+      )}
+
+      <CustomerCreateModal
+        open={addPreviousOwnerOpen}
+        onClose={() => setAddPreviousOwnerOpen(false)}
+        onCreated={(customer) => {
+          setPreviousOwnerSearch(customer.name)
+          setSelectedPreviousOwner(customer)
+          clearSource()
+        }}
+      />
     </PosSectionCard>
   )
 }

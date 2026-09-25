@@ -49,6 +49,80 @@ export function contractTemplateLabel(key?: string | null): string {
   return TEMPLATE_LABELS[key] ?? key
 }
 
+export function sampleOwnershipTransferInvoice(): SalesInvoice {
+  return {
+    id: 46,
+    invoice_number: 'INV-000046',
+    invoice_date: '2026-06-25',
+    customer_id: 2,
+    payment_term: 'cash',
+    payment_status: 'paid',
+    contract_kind: 'ownership_transfer',
+    total: 200,
+    paid_amount: 200,
+    balance_due: 0,
+    vehicle_info: 'شيفروليه — ب ج د 3456',
+    subscription_renewal_date: '2027-03-15',
+    customer: {
+      id: 2,
+      name: 'منى سعيد',
+      phone: '01033334444',
+      phone_2: '01155556666',
+      national_id: '29202021234567',
+      username: 'mona_gps',
+      status: 'active',
+    },
+    branch: {
+      id: 1,
+      name: 'المعادي',
+      name_ar: 'المعادي',
+      code: 'MAADI',
+    },
+    source_invoice: {
+      id: 12,
+      invoice_number: 'INV-000012',
+      invoice_date: '2026-01-10',
+      customer_id: 1,
+      payment_term: 'installment',
+      payment_status: 'partial',
+      total: 4500,
+      paid_amount: 1500,
+      balance_due: 3000,
+      vehicle_info: 'شيفروليه — ب ج د 3456',
+      subscription_renewal_date: '2027-03-15',
+      customer: {
+        id: 1,
+        name: 'عادل حسن',
+        phone: '01011112222',
+        national_id: '27101011234567',
+        status: 'active',
+      },
+      lines: [
+        {
+          id: 11,
+          line_type: 'device',
+          serial_number: 'SN-2022-003456',
+          sim_number: '01008889999',
+          username: 'mona_gps',
+          unit_price: 4500,
+          line_total: 4500,
+        },
+      ],
+    },
+    lines: [
+      {
+        id: 21,
+        line_type: 'device',
+        serial_number: 'SN-2022-003456',
+        sim_number: '01008889999',
+        username: 'mona_gps',
+        unit_price: 200,
+        line_total: 200,
+      },
+    ],
+  }
+}
+
 export function sampleServiceReceiptInvoice(): SalesInvoice {
   return {
     id: 44,

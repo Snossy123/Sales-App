@@ -3,9 +3,14 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
+import { OwnershipTransferContractDocument } from '../components/contracts/OwnershipTransferContractDocument'
 import { ServiceReceiptDocument } from '../components/contracts/ServiceReceiptDocument'
 import { Icon } from '../components/Icon'
-import { mockContractPreviewHtml, sampleServiceReceiptInvoice } from '../lib/contractTemplates'
+import {
+  mockContractPreviewHtml,
+  sampleOwnershipTransferInvoice,
+  sampleServiceReceiptInvoice,
+} from '../lib/contractTemplates'
 import { printInstallmentContractElement } from '../lib/printInstallmentContract'
 import '../styles/installment-contract.css'
 
@@ -25,11 +30,13 @@ export function ContractTemplatePreviewPage() {
   const contractRef = useRef<HTMLDivElement>(null)
   const didAutoPrint = useRef(false)
   const isServiceReceipt = key === 'service_receipt'
+  const isOwnershipTransfer = key === 'ownership_transfer'
+  const isReactPreview = isServiceReceipt || isOwnershipTransfer
 
   const query = useQuery({
     queryKey: ['contract-template-preview', key],
     queryFn: () => fetchContractPreview(key),
-    enabled: Boolean(key) && !isServiceReceipt,
+    enabled: Boolean(key) && !isReactPreview,
   })
 
   useEffect(() => {
@@ -40,7 +47,7 @@ export function ContractTemplatePreviewPage() {
 
   useEffect(() => {
     if (!autoPrint) return
-    if (isServiceReceipt) {
+    if (isReactPreview) {
       if (didAutoPrint.current) return
       didAutoPrint.current = true
       const timer = window.setTimeout(() => {
@@ -57,10 +64,10 @@ export function ContractTemplatePreviewPage() {
       }, 500)
       return () => window.clearTimeout(timer)
     }
-  }, [autoPrint, isServiceReceipt, query.data])
+  }, [autoPrint, isReactPreview, query.data])
 
   const handlePrint = () => {
-    if (isServiceReceipt) {
+    if (isReactPreview) {
       const el = contractRef.current?.querySelector('.installment-contract')
       if (el instanceof HTMLElement) {
         void printInstallmentContractElement(el)
@@ -71,10 +78,10 @@ export function ContractTemplatePreviewPage() {
   }
 
   return (
-    <div className={isServiceReceipt ? 'installment-contract-page' : 'min-h-screen bg-surface-container-low p-md'}>
+    <div className={isReactPreview ? 'installment-contract-page' : 'min-h-screen bg-surface-container-low p-md'}>
       <div
         className={
-          isServiceReceipt
+          isReactPreview
             ? 'installment-contract-toolbar no-print'
             : 'mx-auto mb-md flex max-w-[210mm] items-center justify-between gap-sm'
         }
@@ -89,9 +96,9 @@ export function ContractTemplatePreviewPage() {
         <button
           type="button"
           onClick={handlePrint}
-          disabled={!isServiceReceipt && !query.data}
+          disabled={!isReactPreview && !query.data}
           className={
-            isServiceReceipt
+            isReactPreview
               ? undefined
               : 'flex items-center gap-1 rounded-lg bg-secondary px-md py-sm text-sm font-bold text-on-secondary disabled:opacity-50'
           }
@@ -101,9 +108,13 @@ export function ContractTemplatePreviewPage() {
         </button>
       </div>
 
-      {isServiceReceipt ? (
+      {isReactPreview ? (
         <div ref={contractRef}>
-          <ServiceReceiptDocument invoice={sampleServiceReceiptInvoice()} />
+          {isOwnershipTransfer ? (
+            <OwnershipTransferContractDocument invoice={sampleOwnershipTransferInvoice()} />
+          ) : (
+            <ServiceReceiptDocument invoice={sampleServiceReceiptInvoice()} />
+          )}
         </div>
       ) : (
         <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>

@@ -523,6 +523,22 @@ export function AdminSystemSettingsPage() {
                         dir="ltr"
                       />
                     </SettingsField>
+                    <SettingsField
+                      label="أيام السماح للتحويل من كاش لقسط"
+                      hint="من تاريخ التعاقد — لا يخفي الإجراء"
+                    >
+                      <NumericInput
+                        type="number"
+                        min={0}
+                        max={365}
+                        value={form.sales.cash_to_installment_grace_days ?? 7}
+                        onChange={(e) =>
+                          patchSales({ cash_to_installment_grace_days: Number(e.target.value) })
+                        }
+                        className={settingsInputClass}
+                        dir="ltr"
+                      />
+                    </SettingsField>
                     <SettingsField label="أيام السماح قبل التأخير">
                       <NumericInput
                         type="number"
@@ -534,7 +550,7 @@ export function AdminSystemSettingsPage() {
                         className={settingsInputClass}
                         dir="ltr"
                       />
-                    </SettingsField>
+                    </SettingsField
                     <SettingsField label="غرامة التأخير (%)" hint="0 = بدون غرامة">
                       <NumericInput
                         type="number"
@@ -589,19 +605,6 @@ export function AdminSystemSettingsPage() {
                         dir="ltr"
                       />
                     </SettingsField>
-                    <SettingsField label="رسوم التركيب الافتراضية (ج.م)">
-                      <NumericInput
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={form.sales.default_installation_fee ?? 500}
-                        onChange={(e) =>
-                          patchSales({ default_installation_fee: Number(e.target.value) })
-                        }
-                        className={settingsInputClass}
-                        dir="ltr"
-                      />
-                    </SettingsField>
                   </div>
 
                   <label className="mb-sm flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
@@ -613,7 +616,9 @@ export function AdminSystemSettingsPage() {
                     />
                     <div>
                       <p className="text-sm font-medium text-on-surface">تفعيل رسوم التركيب</p>
-                      <p className="text-xs text-on-surface-variant">إظهار رسوم التركيب في نقطة البيع</p>
+                      <p className="text-xs text-on-surface-variant">
+                        إظهار رسوم التركيب في نقطة البيع. السعر من خدمة التركيب في صفحة الخدمات
+                      </p>
                     </div>
                   </label>
 

@@ -7,14 +7,19 @@ import {
 } from '../../lib/sales'
 import {
   cashRemainder,
+  isCustomCashSchedule,
   linePaidNow as cashLinePaidNow,
+  seedCashScheduleItems,
+  validateCashScheduleItems,
   type CashSchedule,
+  type CashScheduleItem,
 } from '../../lib/cashSchedule'
 import { nextInstallmentInterval } from '../../lib/installmentSchedule'
 import { catalogTermPrice } from '../../lib/gpsProductPricing'
 import type { CustomerContractDevice } from '../../api/types'
 import { contractDeviceLabel } from './CustomerContractDevicePicker'
 import { Icon } from '../Icon'
+import { CashInstallmentScheduleEditor } from '../pos/CashInstallmentScheduleEditor'
 import { CashScheduleSelector } from '../pos/CashScheduleSelector'
 import { PosMoneyInput } from '../pos/PosMoneyInput'
 import {
@@ -39,6 +44,7 @@ export interface ServiceLineDraft {
   installmentPrice: number
   paymentTerm: ServiceLinePaymentTerm
   cashSchedule: CashSchedule
+  cashScheduleItems: CashScheduleItem[]
   downPayment: number
   installmentAmount: number
   intervalType: ServiceIntervalType
@@ -62,6 +68,7 @@ export function lineInstallmentCount(
 
 export function validateServiceLineCash(
   line: ServiceLineDraft,
+  maxInstallmentCount = 24,
 ): { valid: boolean; errors: string[] } {
   if (line.paymentTerm !== 'cash') return { valid: true, errors: [] }
 
@@ -72,6 +79,15 @@ export function validateServiceLineCash(
   }
   if (line.downPayment > total + 0.009) {
     errors.push('المقدم يجب أن يكون أقل من أو يساوي إجمالي البند')
+  }
+  if (isCustomCashSchedule(line.cashSchedule)) {
+    errors.push(
+      ...validateCashScheduleItems(
+        line.cashScheduleItems,
+        cashRemainder(total, line.downPayment),
+        maxInstallmentCount,
+      ),
+    )
   }
 
   return { valid: errors.length === 0, errors }
@@ -122,12 +138,12 @@ interface ServiceLineCardProps {
   maxInstallmentCount: number
   onChange: (line: ServiceLineDraft) => void
   onRemove: () => void
+  heading?: string
   showErrors?: boolean
   showPayment?: boolean
   devices?: CustomerContractDevice[]
   productUnitId?: number
   onSelectDevice?: (device: CustomerContractDevice | null) => void
-  useCashPriceForInstallments?: boolean
 }
 
 export function ServiceLineCard({
@@ -138,16 +154,16 @@ export function ServiceLineCard({
   maxInstallmentCount,
   onChange,
   onRemove,
+  heading,
   showErrors = false,
   showPayment = true,
   devices,
   productUnitId,
   onSelectDevice,
-  useCashPriceForInstallments = false,
 }: ServiceLineCardProps) {
   const total = lineTotal(line)
   const installmentValidation = validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount)
-  const cashValidation = validateServiceLineCash(line)
+  const cashValidation = validateServiceLineCash(line, maxInstallmentCount)
   const remainderAmount = cashRemainder(total, line.downPayment)
   const computedCount = useMemo(
     () => lineInstallmentCount(line, maxInstallmentCount),
@@ -157,16 +173,12 @@ export function ServiceLineCard({
   const patch = (partial: Partial<ServiceLineDraft>) => onChange({ ...line, ...partial })
 
   const switchToInstallment = () => {
-    const price = catalogTermPrice(
-      line.cashPrice,
-      line.installmentPrice,
-      'installment',
-      useCashPriceForInstallments,
-    )
+    const price = catalogTermPrice(line.cashPrice, line.installmentPrice, 'installment')
     patch({
       paymentTerm: 'installment',
       unit_price: price,
       downPayment: computeMinDownPayment(price, minDownPercent),
+      cashScheduleItems: [],
       installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
       firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
     })
@@ -177,6 +189,7 @@ export function ServiceLineCard({
       paymentTerm: 'cash',
       unit_price: line.cashPrice,
       cashSchedule: 'immediate',
+      cashScheduleItems: [],
       downPayment: 0,
     })
   }
@@ -205,7 +218,9 @@ export function ServiceLineCard({
           hasLineErrors ? 'bg-error/10' : 'bg-primary/10'
         }`}
       >
-        <span className="shrink-0 font-semibold text-on-surface">خدمة {index + 1}</span>
+        <span className="shrink-0 font-semibold text-on-surface">
+          {heading ?? `خدمة ${index + 1}`}
+        </span>
         <span className="min-w-0 flex-1 truncate text-sm text-on-surface-variant">
           {line.description || '—'}
         </span>
@@ -367,8 +382,26 @@ export function ServiceLineCard({
                 contractDate={contractDate}
                 lineTotal={total}
                 downPayment={line.downPayment}
-                onChange={(cashSchedule) => patch({ cashSchedule })}
+                onChange={(cashSchedule) => {
+                  const downPayment = cashSchedule === 'immediate' ? 0 : line.downPayment
+                  patch({
+                    cashSchedule,
+                    downPayment,
+                    cashScheduleItems: isCustomCashSchedule(cashSchedule)
+                      ? seedCashScheduleItems(cashRemainder(total, downPayment), contractDate)
+                      : [],
+                  })
+                }}
               />
+              {isCustomCashSchedule(line.cashSchedule) ? (
+                <CashInstallmentScheduleEditor
+                  items={line.cashScheduleItems}
+                  remainder={remainderAmount}
+                  maxCount={maxInstallmentCount}
+                  contractDate={contractDate}
+                  onChange={(cashScheduleItems) => patch({ cashScheduleItems })}
+                />
+              ) : null}
               <div>
                 <label className={posLabelClass}>مقدم (اختياري)</label>
                 <PosMoneyInput
@@ -408,25 +441,26 @@ let lineId = 0
 export function createServiceLine(
   partial: Omit<
     ServiceLineDraft,
-    'id' | 'paymentTerm' | 'cashSchedule' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
+    | 'id'
+    | 'paymentTerm'
+    | 'cashSchedule'
+    | 'cashScheduleItems'
+    | 'downPayment'
+    | 'installmentAmount'
+    | 'intervalType'
+    | 'firstDueDate'
   >,
   options?: {
     contractDate?: string
     minDownPercent?: number
     paymentTerm?: ServiceLinePaymentTerm
-    useCashPriceForInstallments?: boolean
   },
 ): ServiceLineDraft {
   lineId += 1
   const contractDate = options?.contractDate ?? new Date().toISOString().split('T')[0]
   const minDownPercent = options?.minDownPercent ?? 10
   const paymentTerm = options?.paymentTerm ?? 'cash'
-  const unitPrice = catalogTermPrice(
-    partial.cashPrice,
-    partial.installmentPrice,
-    paymentTerm,
-    options?.useCashPriceForInstallments,
-  )
+  const unitPrice = catalogTermPrice(partial.cashPrice, partial.installmentPrice, paymentTerm)
 
   return {
     id: lineId,
@@ -434,6 +468,7 @@ export function createServiceLine(
     unit_price: unitPrice,
     paymentTerm,
     cashSchedule: 'immediate',
+    cashScheduleItems: [],
     downPayment: paymentTerm === 'cash' ? 0 : computeMinDownPayment(unitPrice, minDownPercent),
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     intervalType: 'monthly',

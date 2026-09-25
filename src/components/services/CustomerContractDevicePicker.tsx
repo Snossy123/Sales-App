@@ -198,7 +198,7 @@ export function CustomerContractDevicePicker({
         </p>
       )}
 
-      {manual && (
+      {manual && onRegisterOriginChange && (
         <div className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-sm">
           <p className="text-sm font-medium">مصدر الجهاز</p>
           <div className="flex flex-wrap gap-sm">

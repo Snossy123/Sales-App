@@ -48,6 +48,7 @@ import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
 import { installmentDueDate } from '../../lib/installmentSchedule'
 import { collectionStatusLabels } from '../../lib/collectionHelpers'
+import { COMBINER_FEE_CHIPS, findCombinerService } from '../../lib/serviceCombiner'
 
 type MockCollectionActionLog = {
   customer_id: number
@@ -177,10 +178,12 @@ function mockDebitDistributorBalance(
   })
 }
 
-function resolveMockInvoiceLineType(line: SalesInvoiceLine): 'device' | 'service' {
-  if (line.line_type === 'service' || line.line_type === 'device') {
+function resolveMockInvoiceLineType(line: SalesInvoiceLine): 'device' | 'service' | 'accessory' | 'package' {
+  if (line.line_type === 'service' || line.line_type === 'device' || line.line_type === 'accessory' || line.line_type === 'package') {
     return line.line_type
   }
+  if (line.accessory_package_id) return 'package'
+  if (line.product_model_id && !line.product_unit_id && !line.service_id) return 'accessory'
   if (line.service_id) return 'service'
   if (line.product_unit_id) return 'device'
   if (line.serial_number || line.sim_number || line.renewal_type) return 'device'
@@ -606,6 +609,27 @@ function generateInstallmentItems(
 ): void {
   const plan = planOverride ?? line?.installment_plan ?? invoice.installment_plan
   if (!plan) return
+
+  if (plan.custom_schedule && plan.custom_schedule.length > 0) {
+    const items = plan.custom_schedule.map((entry, i) => {
+      const dueDate = entry.due_date
+      const isPast = new Date(dueDate) < new Date()
+      return {
+        id: state.counters.installmentItem++,
+        sales_invoice_id: invoice.id,
+        installment_plan_id: plan.id,
+        installment_number: i + 1,
+        due_date: dueDate,
+        amount: Number(entry.amount),
+        paid_amount: 0,
+        status: isPast ? 'overdue' : 'pending',
+      }
+    })
+    plan.items = items
+    plan.status = 'active'
+    refreshInvoicePayment(invoice)
+    return
+  }
 
   const financedBase = line
     ? Number(line.line_total ?? 0)
@@ -2882,13 +2906,22 @@ export function handleMockRequest(
       const warehouseId = body.warehouse_id ?? ctx.warehouseId
       const contractKind = body.contract_kind ?? 'new_contract'
       const manualDeviceKind = contractKind !== 'new_contract'
+      const hasAccessoryLines = body.lines.some(
+        (line) => line.line_type === 'accessory' || line.line_type === 'package',
+      )
       const hasDeviceLines = body.lines.some(
         (line) =>
           line.line_type === 'device' ||
-          (line.line_type !== 'service' && (line.product_unit_id != null || manualDeviceKind)),
+          (line.line_type !== 'service' &&
+            line.line_type !== 'accessory' &&
+            line.line_type !== 'package' &&
+            (line.product_unit_id != null || manualDeviceKind)),
       )
 
       let stock: ReturnType<typeof getStock>
+      if (hasAccessoryLines && warehouseId == null) {
+        throw mockError(422, 'المخزن مطلوب')
+      }
       if (hasDeviceLines && !manualDeviceKind) {
         if (warehouseId == null) throw mockError(422, 'المخزن مطلوب')
         stock = getStock(s, warehouseId)
@@ -2898,20 +2931,35 @@ export function handleMockRequest(
       body.lines.forEach((line, index) => {
         const isDeviceLine =
           line.line_type === 'device' ||
-          (line.line_type !== 'service' && line.product_unit_id != null)
+          (line.line_type !== 'service' &&
+            line.line_type !== 'accessory' &&
+            line.line_type !== 'package' &&
+            line.product_unit_id != null)
         if (contractKind === 'new_contract' && isDeviceLine && !line.technician_id) {
           throw mockError(422, `جهاز ${index + 1}: الفني مطلوب`)
         }
       })
 
+      const installationChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === 'installation')
+      const catalogInstall = installationChip
+        ? findCombinerService(s.services ?? [], installationChip)
+        : undefined
+      const catalogInstallPrice = Number(
+        catalogInstall?.cash_price ?? catalogInstall?.default_price ?? 0,
+      )
       const installationFeeGross =
-        contractKind === 'new_contract' ? Number(body.installation_fee ?? 0) : 0
+        contractKind === 'new_contract'
+          ? Number(body.installation_fee ?? catalogInstallPrice)
+          : 0
       const feeDiscount = Number(body.discount_amount ?? 0)
       const installationFeePerUnit = Math.max(0, installationFeeGross - feeDiscount)
       const deviceLineCount = body.lines.filter(
         (line) =>
           line.line_type === 'device' ||
-          (line.line_type !== 'service' && line.product_unit_id != null),
+          (line.line_type !== 'service' &&
+            line.line_type !== 'accessory' &&
+            line.line_type !== 'package' &&
+            line.product_unit_id != null),
       ).length
       const installationFee = installationFeePerUnit * deviceLineCount
       const transportationFee =
@@ -2920,29 +2968,46 @@ export function handleMockRequest(
           : 0
       let subtotal = 0
       const invoiceLines: SalesInvoiceLine[] = body.lines.map((line, index) => {
+        const isAccessoryLine = line.line_type === 'accessory' || line.line_type === 'package'
         const isServiceLine =
-          line.line_type === 'service' ||
-          (line.line_type !== 'device' && !line.product_unit_id && Boolean(line.description))
+          !isAccessoryLine &&
+          (line.line_type === 'service' ||
+            (line.line_type !== 'device' && !line.product_unit_id && Boolean(line.description)))
+        const accessory = line.product_model_id
+          ? s.accessories.find((item) => item.id === line.product_model_id)
+          : undefined
+        const accessoryPackage = line.accessory_package_id
+          ? s.accessoryPackages.find((item) => item.id === line.accessory_package_id)
+          : undefined
         const price = Number(
-          line.unit_price ?? (isServiceLine ? 0 : s.gpsProduct.sell_price),
+          line.unit_price ??
+            (isAccessoryLine
+              ? accessoryPackage?.sell_price ?? accessory?.sell_price ?? 0
+              : isServiceLine
+                ? 0
+                : s.gpsProduct.sell_price),
         )
         const discount = Number(line.discount ?? 0)
         const quantity = line.quantity ?? 1
-        const lineTotal = isServiceLine
-          ? Math.max(0, price - discount)
-          : Math.max(0, price - discount)
+        const lineTotal = Math.max(0, (isAccessoryLine ? price * quantity : price) - discount)
         subtotal += lineTotal
         const technician = line.technician_id
           ? s.employees.find((e) => e.id === line.technician_id)
           : undefined
         return {
           id: s.counters.invoice * 100 + index + 1,
-          line_type: isServiceLine ? 'service' : 'device',
-          line_contract_kind: isServiceLine ? undefined : line.line_contract_kind,
-          product_id: isServiceLine ? undefined : s.gpsProduct.id,
-          product_unit_id: isServiceLine ? undefined : line.product_unit_id,
+          line_type: isAccessoryLine ? line.line_type : isServiceLine ? 'service' : 'device',
+          line_contract_kind: isServiceLine || isAccessoryLine ? undefined : line.line_contract_kind,
+          product_id: isServiceLine || isAccessoryLine ? undefined : s.gpsProduct.id,
+          product_unit_id: isServiceLine || isAccessoryLine ? undefined : line.product_unit_id,
+          product_model_id: line.product_model_id,
+          accessory_package_id: line.accessory_package_id,
           service_id: isServiceLine ? line.service_id : undefined,
-          description: line.description,
+          description:
+            line.description ||
+            accessoryPackage?.name_ar ||
+            accessory?.name_ar ||
+            accessory?.name,
           quantity,
           unit_price: price,
           discount,
@@ -2961,7 +3026,13 @@ export function handleMockRequest(
           engine_number: line.engine_number ?? null,
           renewal_type: line.renewal_type ?? null,
           subscription_renewal_date: line.subscription_renewal_date ?? null,
-          product_name_ar: isServiceLine ? line.description : s.gpsProduct.name_ar,
+          product_name_ar: isAccessoryLine
+            ? accessoryPackage?.name_ar || accessory?.name_ar || accessory?.name
+            : isServiceLine
+              ? line.description
+              : s.gpsProduct.name_ar,
+          product_model: accessory,
+          accessory_package: accessoryPackage,
         }
       })
 
@@ -2972,6 +3043,42 @@ export function handleMockRequest(
         }
 
         stock.reserved += deviceLineCount
+      }
+
+      if (hasAccessoryLines && warehouseId != null) {
+        const requirements = new Map<number, number>()
+        for (const line of body.lines) {
+          if (line.line_type === 'package') {
+            const pkg = s.accessoryPackages.find((item) => item.id === line.accessory_package_id)
+            const qty = Math.max(1, line.quantity ?? 1)
+            for (const item of pkg?.items ?? []) {
+              requirements.set(
+                item.product_model_id,
+                (requirements.get(item.product_model_id) ?? 0) + item.quantity * qty,
+              )
+            }
+          } else if (line.line_type === 'accessory' && line.product_model_id) {
+            const qty = Math.max(1, line.quantity ?? 1)
+            requirements.set(
+              line.product_model_id,
+              (requirements.get(line.product_model_id) ?? 0) + qty,
+            )
+          }
+        }
+        for (const [productId, need] of requirements) {
+          const accessoryStock = s.accessoryStocks.find(
+            (row) => row.warehouse_id === warehouseId && row.product_model_id === productId,
+          )
+          const available = accessoryStock
+            ? (accessoryStock.available ?? Math.max(0, accessoryStock.quantity - accessoryStock.reserved))
+            : 0
+          if (available < need) {
+            throw mockError(422, 'رصيد الإكسسوار غير كافٍ.')
+          }
+          if (accessoryStock) {
+            accessoryStock.quantity -= need
+          }
+        }
       }
 
       if (body.promotion_id) {
@@ -3015,7 +3122,6 @@ export function handleMockRequest(
         status: 'confirmed',
         review_status: 'pending',
         contract_kind: contractKind,
-        use_cash_price_for_installments: Boolean(body.use_cash_price_for_installments),
         source_sales_invoice_id: body.source_sales_invoice_id ?? null,
         payment_term: paymentTerm,
         payment_status: paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
@@ -3072,17 +3178,24 @@ export function handleMockRequest(
         const deferred = isDeferredCashSchedule(schedule)
         if (!deferred && down <= 0) return
 
-        const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
+        const customItems = schedule === 'custom' ? (lineInput.cash_schedule_items ?? []) : []
+        const dueDate =
+          schedule === 'custom'
+            ? customItems.map((item) => item.due_date).sort()[0]
+            : deferred
+              ? cashDueDate(schedule, invoiceDate)
+              : invoiceDate
         if (!dueDate) return
 
         const plan: InstallmentPlan = {
           id: invoiceId * 100 + index + 50,
           down_payment: down,
-          installment_count: 1,
-          installment_amount: remainder,
+          installment_count: customItems.length > 0 ? customItems.length : 1,
+          installment_amount: customItems.length > 0 ? null : remainder,
           interval_type: 'monthly',
           interval_days: 30,
           first_due_date: dueDate,
+          custom_schedule: customItems.length > 0 ? customItems : null,
           status: 'draft' as const,
           items: [],
         }
@@ -3204,17 +3317,24 @@ export function handleMockRequest(
             const deferred = isDeferredCashSchedule(schedule)
             if (remainder > 0 && (deferred || down > 0)) {
               const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
-              const dueDate = deferred ? cashDueDate(schedule, invoiceDate) : invoiceDate
+              const customItems = schedule === 'custom' ? (item.cash_schedule_items ?? []) : []
+              const dueDate =
+                schedule === 'custom'
+                  ? customItems.map((entry) => entry.due_date).sort()[0]
+                  : deferred
+                    ? cashDueDate(schedule, invoiceDate)
+                    : invoiceDate
               if (dueDate) {
                 const plan: InstallmentPlan = {
                   id: lineId,
                   sales_invoice_line_id: lineId,
                   down_payment: down,
-                  installment_count: 1,
-                  installment_amount: remainder,
+                  installment_count: customItems.length > 0 ? customItems.length : 1,
+                  installment_amount: customItems.length > 0 ? null : remainder,
                   interval_days: 30,
                   interval_type: 'monthly',
                   first_due_date: dueDate,
+                  custom_schedule: customItems.length > 0 ? customItems : null,
                   status: 'active',
                   items: [],
                 }
@@ -3239,7 +3359,6 @@ export function handleMockRequest(
         created_by: ctx.user?.id,
         status: 'confirmed',
         sale_category: body.sale_category,
-        use_cash_price_for_installments: Boolean(body.use_cash_price_for_installments),
         payment_term: paymentTerm,
         payment_status:
           paymentTerm === 'cash' ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
@@ -3331,8 +3450,6 @@ export function handleMockRequest(
       invoice.distributor_id = body.distributor_id ?? invoice.distributor_id
       invoice.sales_user_id = body.sales_user_id ?? invoice.sales_user_id
       invoice.contract_kind = body.contract_kind ?? invoice.contract_kind
-      invoice.use_cash_price_for_installments =
-        body.use_cash_price_for_installments ?? invoice.use_cash_price_for_installments
       invoice.notes = body.notes ?? invoice.notes
       invoice.installation_fee = body.installation_fee ?? invoice.installation_fee
       invoice.transportation_fee = body.transportation_fee ?? invoice.transportation_fee

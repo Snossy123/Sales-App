@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   cashDueDate,
   cashRemainder,
+  isCustomCashSchedule,
   isDeferredCashSchedule,
   linePaidNow,
+  resizeCashScheduleItems,
+  seedCashScheduleItems,
+  validateCashScheduleItems,
 } from './cashSchedule'
 
 describe('cashSchedule', () => {
@@ -12,6 +16,9 @@ describe('cashSchedule', () => {
     expect(isDeferredCashSchedule(undefined)).toBe(false)
     expect(isDeferredCashSchedule('month_1')).toBe(true)
     expect(isDeferredCashSchedule('month_3')).toBe(true)
+    expect(isDeferredCashSchedule('custom')).toBe(true)
+    expect(isCustomCashSchedule('custom')).toBe(true)
+    expect(isCustomCashSchedule('month_1')).toBe(false)
   })
 
   it('pays the full cash line immediately when there is no down payment', () => {
@@ -43,5 +50,37 @@ describe('cashSchedule', () => {
     expect(cashDueDate('month_1', '2026-01-15')).toBe('2026-02-15')
     expect(cashDueDate('month_2', '2026-01-15')).toBe('2026-03-15')
     expect(cashDueDate('month_3', '2026-01-15')).toBe('2026-04-15')
+    expect(cashDueDate('custom', '2026-01-15')).toBeNull()
+  })
+
+  it('pays only the down payment for a custom cash schedule', () => {
+    expect(linePaidNow('cash', 'custom', 5000, 0)).toBe(0)
+    expect(linePaidNow('cash', 'custom', 5000, 800)).toBe(800)
+  })
+
+  it('validates custom cash schedule items against the remainder', () => {
+    expect(validateCashScheduleItems([], 1000, 12)).toEqual(['أضف قسطًا واحدًا على الأقل'])
+    expect(
+      validateCashScheduleItems(
+        [
+          { amount: 400, dueDate: '2026-02-01' },
+          { amount: 600, dueDate: '2026-03-01' },
+        ],
+        1000,
+        12,
+      ),
+    ).toEqual([])
+    expect(
+      validateCashScheduleItems([{ amount: 400, dueDate: '2026-02-01' }], 1000, 12),
+    ).toContain('مجموع الأقساط يجب أن يساوي المتبقي بعد المقدم')
+  })
+
+  it('resizes custom schedule rows from the end', () => {
+    const seeded = seedCashScheduleItems(1200, '2026-01-15')
+    expect(seeded).toEqual([{ amount: 1200, dueDate: '2026-01-15' }])
+    expect(resizeCashScheduleItems(seeded, 2, '2026-01-15')).toEqual([
+      { amount: 1200, dueDate: '2026-01-15' },
+      { amount: 0, dueDate: '2026-01-15' },
+    ])
   })
 })

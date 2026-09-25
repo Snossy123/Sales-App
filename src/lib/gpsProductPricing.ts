@@ -7,16 +7,14 @@ export interface GpsUnitPriceContext {
   contractKind: ContractKind
   paymentTerm: 'cash' | 'installment'
   renewalType: RenewalType
-  useCashPriceForInstallments?: boolean
 }
 
 export function catalogTermPrice(
   cashPrice: number,
   installmentPrice: number,
   paymentTerm: 'cash' | 'installment',
-  useCashPriceForInstallments = false,
 ): number {
-  if (paymentTerm === 'cash' || useCashPriceForInstallments) return cashPrice
+  if (paymentTerm === 'cash') return cashPrice
   return installmentPrice
 }
 
@@ -30,8 +28,7 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
   const cashPermanent = num(product?.cash_permanent_price, cashAnnual)
   const installmentAnnual = num(product?.installment_annual_price, num(product?.installment_price, cashAnnual))
   const installmentPermanent = num(product?.installment_permanent_price, installmentAnnual)
-  const paymentTerm =
-    ctx.useCashPriceForInstallments && ctx.paymentTerm === 'installment' ? 'cash' : ctx.paymentTerm
+  const paymentTerm = ctx.paymentTerm
 
   if (ctx.contractKind === 'subscription_renewal') {
     if (ctx.renewalType === 'permanent') {

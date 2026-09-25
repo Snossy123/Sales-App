@@ -141,7 +141,14 @@ export function resolveRoutePermissions(path: string): string[] | null {
     return ['review.view_evaluation_queue', 'review.record_evaluation']
   }
   if (normalized.match(/^\/contracts\/\d+/)) {
-    return ['contract_cases.manage', 'sales.invoices.view', 'customers.manage', 'installments.view']
+    return [
+      'contract_cases.manage',
+      'sales.invoices.view',
+      'customers.manage',
+      'installments.view',
+      'review.view_subscription_renewals',
+      'review.view_contracts',
+    ]
   }
   if (normalized.match(/^\/invoices\/\d+/)) {
     return ['review.view_contracts', 'sales.invoices.view', 'review.view_detail']

@@ -6,7 +6,7 @@ import {
   type RenewalType,
   type VehicleType,
 } from '../components/pos/DeviceLineCard'
-import type { CashSchedule } from './cashSchedule'
+import { fromPlanCashScheduleItems, type CashSchedule } from './cashSchedule'
 import { isServiceInvoiceLine } from './sales'
 
 function technicianFromLine(line: SalesInvoiceLine): Employee | null {
@@ -52,6 +52,7 @@ export function deviceDraftsFromInvoice(
       discountAmount: Number(line.discount ?? 0),
       paymentTerm,
       cashSchedule: (line.cash_schedule as CashSchedule) || 'immediate',
+      cashScheduleItems: fromPlanCashScheduleItems(plan),
       installmentAmount: Number(plan?.installment_amount ?? draft.installmentAmount),
       downPayment: Number(plan?.down_payment ?? draft.downPayment),
       intervalType: (plan?.interval_type as IntervalType) || 'monthly',

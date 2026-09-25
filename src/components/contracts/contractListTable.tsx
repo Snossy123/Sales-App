@@ -21,7 +21,7 @@ import {
   canTransferContractToProblems,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
-import { canEditContract, contractEditPath } from '../../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
   if (reviewStatus === 'pending') return 'bg-error/20'
@@ -170,22 +170,28 @@ export function defaultContractListActions(
   row: SalesInvoice,
   user?: AuthUser | null,
   onOpenProblems?: (invoice: SalesInvoice, caseType?: ContractProblemCaseType) => void,
+  onConvertCash?: (invoice: SalesInvoice) => void,
 ): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
       <Link
         to={`/invoices/${row.id}`}
-        target="_blank"
-        rel="noopener noreferrer"
         className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
       >
         تفاصيل
       </Link>
+      {onConvertCash && canConvertCashToInstallment(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onConvertCash(row)}
+          className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+        >
+          تحويل من كاش لقسط
+        </button>
+      )}
       {canEditContract(user ?? null, row) && (
         <Link
           to={contractEditPath(row.id)}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
           تعديل
@@ -195,8 +201,6 @@ export function defaultContractListActions(
         userHasPermission(user ?? null, 'review.view_queue') && (
         <Link
           to={`/invoices/review/${row.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm font-medium text-error hover:underline whitespace-nowrap"
         >
           مراجعة
@@ -205,8 +209,6 @@ export function defaultContractListActions(
       {canRejectContract(user ?? null, row) && (
         <Link
           to={`/invoices/review/${row.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm font-medium text-error hover:underline whitespace-nowrap"
         >
           رفض
@@ -251,14 +253,22 @@ export function reviewOnlyContractListActions(
   row: SalesInvoice,
   user?: AuthUser | null,
   onOpenProblems?: (invoice: SalesInvoice, caseType?: ContractProblemCaseType) => void,
+  onConvertCash?: (invoice: SalesInvoice) => void,
 ): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-sm">
+      {onConvertCash && canConvertCashToInstallment(user ?? null, row) && (
+        <button
+          type="button"
+          onClick={() => onConvertCash(row)}
+          className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+        >
+          تحويل من كاش لقسط
+        </button>
+      )}
       {canEditContract(user ?? null, row) && (
         <Link
           to={contractEditPath(row.id)}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
           تعديل
@@ -266,8 +276,6 @@ export function reviewOnlyContractListActions(
       )}
       <Link
         to={`/invoices/review/${row.id}`}
-        target="_blank"
-        rel="noopener noreferrer"
         className="text-sm font-medium text-error hover:underline whitespace-nowrap"
       >
         مراجعة
@@ -275,8 +283,6 @@ export function reviewOnlyContractListActions(
       {canRejectContract(user ?? null, row) && (
         <Link
           to={`/invoices/review/${row.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm font-medium text-error hover:underline whitespace-nowrap"
         >
           رفض

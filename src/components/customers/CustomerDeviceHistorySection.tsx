@@ -148,8 +148,6 @@ export function CustomerDeviceHistorySection({
                       <span className="text-on-surface-variant">·</span>
                       <Link
                         to={`/contracts/${device.sales_invoice_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
                         {device.invoice_number}

@@ -131,8 +131,6 @@ export function DailyBranchReportPage() {
         reportId ? (
           <Link
             to={dailyReportPrintPath(reportId, true)}
-            target="_blank"
-            rel="noopener noreferrer"
             className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
           >
             <Icon name="print" size={18} />
@@ -540,8 +538,6 @@ export function DailyBranchReportPage() {
           {reportId && (
             <Link
               to={dailyReportPrintPath(reportId, true)}
-              target="_blank"
-              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-lg border border-primary px-md py-3 font-bold text-primary"
             >
               <Icon name="print" size={18} />

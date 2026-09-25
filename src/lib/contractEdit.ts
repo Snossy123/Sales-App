@@ -25,3 +25,16 @@ export function canEditContract(user: AuthUser | null, invoice?: SalesInvoice | 
   return false
 }
 
+export function canConvertCashToInstallment(
+  user: AuthUser | null,
+  invoice?: SalesInvoice | null,
+): boolean {
+  if (!canEditContract(user, invoice) || !invoice) return false
+  if (invoice.payment_term !== 'cash') return false
+  if (invoice.ownership_transferred_at) return false
+  if (invoice.status && invoice.status !== 'confirmed') return false
+
+  const contractStatus = invoice.contract_status ?? 'active'
+  return contractStatus === 'active' || contractStatus === 'in_problem'
+}
+

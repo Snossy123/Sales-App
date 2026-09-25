@@ -309,12 +309,10 @@ export function EmployeeAttachmentsSection({
             )}
             <a
               href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <Icon name="open_in_new" size={16} />
-              فتح في نافذة جديدة
+              فتح الملف
             </a>
           </div>
         )}

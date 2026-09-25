@@ -34,6 +34,7 @@ export function isServiceContractDraftMeaningful(draft: ServiceContractDraft): b
       draft.renewalLine ||
       draft.externalLine ||
       draft.feeLines.length > 0 ||
+      (draft.accessoryLines?.length ?? 0) > 0 ||
       draft.selectedDistributor ||
       draft.selectedSalesRep ||
       draft.distributorBalanceAmount > 0 ||

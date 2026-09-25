@@ -14,13 +14,21 @@ import {
   suggestInstallmentAmount,
 } from '../../lib/sales'
 import { renewalTypeLabels } from '../../lib/contractFields'
-import { cashRemainder, type CashSchedule } from '../../lib/cashSchedule'
+import {
+  cashRemainder,
+  isCustomCashSchedule,
+  seedCashScheduleItems,
+  validateCashScheduleItems,
+  type CashSchedule,
+  type CashScheduleItem,
+} from '../../lib/cashSchedule'
 import {
   addDays,
   lastInstallmentDate,
   nextInstallmentInterval,
 } from '../../lib/installmentSchedule'
 import { Icon } from '../Icon'
+import { CashInstallmentScheduleEditor } from './CashInstallmentScheduleEditor'
 import { CashScheduleSelector } from './CashScheduleSelector'
 import { GpsUsernameInput } from './GpsUsernameInput'
 import { OptionalDiscountFields } from './OptionalDiscountFields'
@@ -55,6 +63,7 @@ export interface DeviceLineDraft {
   discountMode: DiscountMode
   paymentTerm: LinePaymentTerm
   cashSchedule: CashSchedule
+  cashScheduleItems: CashScheduleItem[]
   installmentAmount: number
   downPayment: number
   intervalType: IntervalType
@@ -106,7 +115,10 @@ export function lineInstallmentCount(
   )
 }
 
-export function validateCashLine(line: DeviceLineDraft): { valid: boolean; errors: string[] } {
+export function validateCashLine(
+  line: DeviceLineDraft,
+  maxInstallmentCount = 24,
+): { valid: boolean; errors: string[] } {
   if (line.paymentTerm !== 'cash') return { valid: true, errors: [] }
 
   const errors: string[] = []
@@ -116,6 +128,15 @@ export function validateCashLine(line: DeviceLineDraft): { valid: boolean; error
   }
   if (line.downPayment > net + 0.009) {
     errors.push('المقدم يجب أن يكون أقل من أو يساوي صافي الجهاز')
+  }
+  if (isCustomCashSchedule(line.cashSchedule)) {
+    errors.push(
+      ...validateCashScheduleItems(
+        line.cashScheduleItems,
+        cashRemainder(net, line.downPayment),
+        maxInstallmentCount,
+      ),
+    )
   }
 
   return { valid: errors.length === 0, errors }
@@ -175,7 +196,7 @@ export function validateDeviceLine(
     fieldErrors.technician = 'الفني مطلوب'
   }
 
-  const cashValidation = validateCashLine(line)
+  const cashValidation = validateCashLine(line, maxInstallmentCount)
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
   const paymentErrors = options?.skipPayment
     ? []
@@ -208,7 +229,6 @@ interface DeviceLineCardProps {
   hidePaymentSection?: boolean
   lockedFromSource?: boolean
   annualRenewalOnly?: boolean
-  useCashPriceForInstallments?: boolean
 }
 
 function priceForLine(
@@ -218,16 +238,14 @@ function priceForLine(
   renewalType: RenewalType,
   cashPrice: number,
   installmentPrice: number,
-  useCashPriceForInstallments = false,
 ): number {
   if (!product) {
-    return paymentTerm === 'cash' || useCashPriceForInstallments ? cashPrice : installmentPrice
+    return paymentTerm === 'cash' ? cashPrice : installmentPrice
   }
   return resolveGpsUnitPrice(product, {
     contractKind,
     paymentTerm,
     renewalType,
-    useCashPriceForInstallments,
   })
 }
 
@@ -249,7 +267,6 @@ export function DeviceLineCard({
   hidePaymentSection = false,
   lockedFromSource = false,
   annualRenewalOnly = false,
-  useCashPriceForInstallments = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
   const [technicianSearch, setTechnicianSearch] = useState('')
@@ -285,11 +302,12 @@ export function DeviceLineCard({
     [line, maxInstallmentCount],
   )
   const deviceValidation = validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
-    requireTechnician: !lockedFromSource,
+    requireTechnician: !lockedFromSource && !hidePaymentSection,
+    skipPayment: hidePaymentSection,
   })
   const fieldErrors = showErrors ? deviceValidation.fieldErrors : {}
   const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
-  const cashValidation = validateCashLine(line)
+  const cashValidation = validateCashLine(line, maxInstallmentCount)
   const cashRemainderAmount = cashRemainder(net, line.downPayment)
   const totalAfterDown = Math.max(0, net - line.downPayment)
   const lastDueDate =
@@ -318,7 +336,6 @@ export function DeviceLineCard({
       line.renewalType,
       cashPrice,
       installmentPrice,
-      useCashPriceForInstallments,
     )
     const minDown = computeMinDownPayment(price, minDownPercent)
     patch({
@@ -327,6 +344,7 @@ export function DeviceLineCard({
       discountAmount: 0,
       discountPercent: 0,
       downPayment: minDown,
+      cashScheduleItems: [],
       installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
       firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
     })
@@ -340,7 +358,6 @@ export function DeviceLineCard({
       line.renewalType,
       cashPrice,
       installmentPrice,
-      useCashPriceForInstallments,
     )
     patch({
       paymentTerm: 'cash',
@@ -348,6 +365,7 @@ export function DeviceLineCard({
       discountAmount: 0,
       discountPercent: 0,
       cashSchedule: 'immediate',
+      cashScheduleItems: [],
       downPayment: price,
     })
   }
@@ -360,7 +378,6 @@ export function DeviceLineCard({
       renewalType,
       cashPrice,
       installmentPrice,
-      useCashPriceForInstallments,
     )
     const partial: Partial<DeviceLineDraft> = { renewalType, unitPrice: price }
     if (line.paymentTerm === 'installment') {
@@ -761,9 +778,21 @@ export function DeviceLineCard({
                     patch({
                       cashSchedule,
                       downPayment: cashSchedule === 'immediate' ? net : 0,
+                      cashScheduleItems: isCustomCashSchedule(cashSchedule)
+                        ? seedCashScheduleItems(net, contractDate)
+                        : [],
                     })
                   }
                 />
+                {isCustomCashSchedule(line.cashSchedule) ? (
+                  <CashInstallmentScheduleEditor
+                    items={line.cashScheduleItems}
+                    remainder={cashRemainderAmount}
+                    maxCount={maxInstallmentCount}
+                    contractDate={contractDate}
+                    onChange={(cashScheduleItems) => patch({ cashScheduleItems })}
+                  />
+                ) : null}
                 <div>
                   <label className={posLabelClass}>مقدم (اختياري)</label>
                   <PosMoneyInput
@@ -826,6 +855,7 @@ export function createDeviceLine(
     discountMode: 'amount',
     paymentTerm: 'installment',
     cashSchedule: 'immediate',
+    cashScheduleItems: [],
     installmentAmount: suggestInstallmentAmount(unitPrice, 6, minDownPercent),
     downPayment: minDown,
     intervalType: 'monthly',

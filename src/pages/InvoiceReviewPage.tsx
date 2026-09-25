@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { ConvertCashToInstallmentModal } from '../components/contracts/ConvertCashToInstallmentModal'
 import {
   buildContractListColumns,
   contractDateFilterParams,
@@ -25,6 +26,7 @@ export function InvoiceReviewPage() {
   const user = useAuthStore((s) => s.user)
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
+  const [convertInvoice, setConvertInvoice] = useState<SalesInvoice | null>(null)
   const listScopeKey = getListScopeQueryKey(user)
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -68,10 +70,15 @@ export function InvoiceReviewPage() {
     () =>
       buildContractListColumns({
         renderActions: (row) =>
-          reviewOnlyContractListActions(row, user, (invoice, caseType) => {
-            setProblemInvoice(invoice)
-            setProblemCaseType(caseType ?? null)
-          }),
+          reviewOnlyContractListActions(
+            row,
+            user,
+            (invoice, caseType) => {
+              setProblemInvoice(invoice)
+              setProblemCaseType(caseType ?? null)
+            },
+            setConvertInvoice,
+          ),
       }),
     [user],
   )
@@ -137,6 +144,12 @@ export function InvoiceReviewPage() {
           }}
         />
       )}
+      <ConvertCashToInstallmentModal
+        invoice={convertInvoice}
+        open={Boolean(convertInvoice)}
+        onClose={() => setConvertInvoice(null)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })}
+      />
     </SalesPageShell>
   )
 }

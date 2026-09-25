@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
+  AccessoryPackage,
+  AccessoryWarehouseStock,
   Branch,
   CheckoutPayload,
   Customer,
@@ -10,6 +12,7 @@ import type {
   Employee,
   GpsProduct,
   PaginatedResponse,
+  ProductModel,
   SalesInvoice,
   SalesRep,
   Service,
@@ -17,22 +20,24 @@ import type {
 } from '../api/types'
 import {
   computeInstallmentCount,
-  computeMinDownPayment,
   distributorLabel,
-  suggestInstallmentAmount,
   type ApiPaginated,
   serviceContractPrintPath,
 } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
-import { linePaidNow } from '../lib/cashSchedule'
+import { cashLineCheckoutFields, linePaidNow } from '../lib/cashSchedule'
 import { catalogTermPrice, resolveGpsUnitPrice } from '../lib/gpsProductPricing'
 import {
+  accessoryLineTotal,
   COMBINER_CHIPS,
   COMBINER_FEE_CHIPS,
   deriveCombinerContractKind,
   findCombinerService,
+  newAccessoryLineKey,
   newFeeLineKey,
+  normalizeAccessoryLines,
   normalizeFeeLineInstances,
+  type CombinerAccessoryLine,
   type CombinerChipId,
   type CombinerFeeChipId,
   type FeeLineInstance,
@@ -126,7 +131,6 @@ function deviceCheckoutLine(
     sim_number: line.simNumber.trim() || undefined,
     username: line.username.trim() || undefined,
     payment_term: line.paymentTerm,
-    cash_schedule: line.paymentTerm === 'cash' ? line.cashSchedule : undefined,
     technician_id: line.technician?.id,
     vehicle_type: line.vehicleType || undefined,
     vehicle_plate_letters: line.vehiclePlateLetters.trim() || undefined,
@@ -157,7 +161,7 @@ function deviceCheckoutLine(
 
   return {
     ...base,
-    down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+    ...cashLineCheckoutFields(line),
   }
 }
 
@@ -215,6 +219,10 @@ export function ServiceCombinerPage() {
   const [feeLines, setFeeLines] = useState<FeeLineInstance[]>(() =>
     normalizeFeeLineInstances(serviceDraft?.feeLines),
   )
+  const [accessoryLines, setAccessoryLines] = useState<CombinerAccessoryLine[]>(() =>
+    normalizeAccessoryLines(serviceDraft?.accessoryLines),
+  )
+  const warehouseId = useAuthStore((s) => s.warehouseId)
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
@@ -225,9 +233,6 @@ export function ServiceCombinerPage() {
   )
   const [collectionScope, setCollectionScope] = useState<'contract' | 'service'>(
     () => serviceDraft?.collectionScope ?? 'contract',
-  )
-  const [useCashPriceForInstallments, setUseCashPriceForInstallments] = useState(
-    () => serviceDraft?.useCashPriceForInstallments ?? false,
   )
   const [contractPayment, setContractPayment] = useState<ServicePaymentState>(
     () => serviceDraft?.contractPayment ?? createDefaultServicePayment(0, minDownPercent),
@@ -260,9 +265,9 @@ export function ServiceCombinerPage() {
       renewalLine,
       externalLine,
       feeLines,
+      accessoryLines,
       distributorBalanceAmount,
       collectionScope,
-      useCashPriceForInstallments,
       contractPayment,
       feeTechnician,
       technicianSearch,
@@ -288,9 +293,9 @@ export function ServiceCombinerPage() {
       renewalLine,
       externalLine,
       feeLines,
+      accessoryLines,
       distributorBalanceAmount,
       collectionScope,
-      useCashPriceForInstallments,
       contractPayment,
       feeTechnician,
       technicianSearch,
@@ -327,6 +332,7 @@ export function ServiceCombinerPage() {
     setRenewalLine(null)
     setExternalLine(null)
     setFeeLines([])
+    setAccessoryLines([])
     setSubmitAttempted(false)
     setSuccessMsg('')
     setLastInvoice(null)
@@ -334,7 +340,6 @@ export function ServiceCombinerPage() {
     setLastInstallmentSale(false)
     setDistributorBalanceAmount(0)
     setCollectionScope('contract')
-    setUseCashPriceForInstallments(false)
     setContractPayment(createDefaultServicePayment(0, minDownPercent))
     setFeeTechnician(null)
     setTechnicianSearch('')
@@ -529,6 +534,45 @@ export function ServiceCombinerPage() {
     },
   })
 
+  const accessoriesQuery = useQuery({
+    queryKey: ['accessories', 'combiner'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ProductModel>>('/accessories', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
+
+  const packagesQuery = useQuery({
+    queryKey: ['accessory-packages', 'combiner'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<AccessoryPackage>>('/accessory-packages', {
+        params: { per_page: 100, 'filter[is_active]': 1, include: 'items.productModel' },
+      })
+      return data.data
+    },
+  })
+
+  const accessoryStocksQuery = useQuery({
+    queryKey: ['accessories', 'stocks', warehouseId],
+    enabled: warehouseId != null,
+    queryFn: async () => {
+      const { data } = await api.get<{ data: AccessoryWarehouseStock[] }>('/accessories/stocks', {
+        params: { warehouse_id: warehouseId },
+      })
+      return data.data
+    },
+  })
+
+  const stockByProduct = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const row of accessoryStocksQuery.data ?? []) {
+      map.set(row.product_model_id, row.available ?? Math.max(0, row.quantity - row.reserved))
+    }
+    return map
+  }, [accessoryStocksQuery.data])
+
   const catalogServices = servicesQuery.data?.data ?? []
   const product = productQuery.data
   const hasFeeChips = feeLines.length > 0 || COMBINER_FEE_CHIPS.some((chip) => selectedChips.has(chip.id))
@@ -552,6 +596,7 @@ export function ServiceCombinerPage() {
   const defaultFeeProductUnitId = selectedCustomerDevice?.product_unit_id ?? undefined
 
   const appendFeeLine = (chipId: CombinerFeeChipId) => {
+    if (feeLines.some((item) => item.chipId === chipId)) return false
     const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === chipId)
     if (!feeChip) return false
     const service = findCombinerService(catalogServices, feeChip)
@@ -565,12 +610,11 @@ export function ServiceCombinerPage() {
           Number(service.cash_price ?? service.default_price),
           Number(service.installment_price ?? service.default_price),
           term,
-          useCashPriceForInstallments,
         ),
         cashPrice: Number(service.cash_price ?? service.default_price),
         installmentPrice: Number(service.installment_price ?? service.default_price),
       },
-      { contractDate, minDownPercent, paymentTerm: term, useCashPriceForInstallments },
+      { contractDate, minDownPercent, paymentTerm: term },
     )
     setFeeLines((prev) => [
       ...prev,
@@ -580,17 +624,114 @@ export function ServiceCombinerPage() {
         line: {
           ...line,
           paymentTerm: term,
-          unit_price: catalogTermPrice(
-            line.cashPrice,
-            line.installmentPrice,
-            term,
-            useCashPriceForInstallments,
-          ),
+          unit_price: catalogTermPrice(line.cashPrice, line.installmentPrice, term),
         },
         productUnitId: defaultFeeProductUnitId,
       },
     ])
     return true
+  }
+
+  const addAccessoryProduct = (productModel: ProductModel) => {
+    const sell = Number(productModel.sell_price ?? 0)
+    const name = productModel.name_ar || productModel.name
+    const term = collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash'
+    setAccessoryLines((prev) => {
+      const existing = prev.find(
+        (item) => item.line_type === 'accessory' && item.product_model_id === productModel.id,
+      )
+      if (existing) {
+        return prev.map((item) => {
+          if (item.key !== existing.key) return item
+          const quantity = item.quantity + 1
+          const lineTotal = item.unitSellPrice * quantity
+          return {
+            ...item,
+            quantity,
+            line: { ...item.line, unit_price: lineTotal, cashPrice: lineTotal, installmentPrice: lineTotal },
+          }
+        })
+      }
+      const line = createServiceLine(
+        {
+          description: name,
+          unit_price: sell,
+          cashPrice: sell,
+          installmentPrice: sell,
+        },
+        { contractDate, minDownPercent, paymentTerm: term },
+      )
+      return [
+        ...prev,
+        {
+          key: newAccessoryLineKey('acc', productModel.id),
+          line_type: 'accessory',
+          product_model_id: productModel.id,
+          name,
+          quantity: 1,
+          unitSellPrice: sell,
+          line,
+        },
+      ]
+    })
+  }
+
+  const addAccessoryPackage = (pkg: AccessoryPackage) => {
+    const sell = Number(pkg.sell_price ?? 0)
+    const term = collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash'
+    setAccessoryLines((prev) => {
+      const existing = prev.find(
+        (item) => item.line_type === 'package' && item.accessory_package_id === pkg.id,
+      )
+      if (existing) {
+        return prev.map((item) => {
+          if (item.key !== existing.key) return item
+          const quantity = item.quantity + 1
+          const lineTotal = item.unitSellPrice * quantity
+          return {
+            ...item,
+            quantity,
+            line: { ...item.line, unit_price: lineTotal, cashPrice: lineTotal, installmentPrice: lineTotal },
+          }
+        })
+      }
+      const line = createServiceLine(
+        {
+          description: pkg.name_ar,
+          unit_price: sell,
+          cashPrice: sell,
+          installmentPrice: sell,
+        },
+        { contractDate, minDownPercent, paymentTerm: term },
+      )
+      return [
+        ...prev,
+        {
+          key: newAccessoryLineKey('pkg', pkg.id),
+          line_type: 'package',
+          accessory_package_id: pkg.id,
+          name: pkg.name_ar,
+          quantity: 1,
+          unitSellPrice: sell,
+          line,
+        },
+      ]
+    })
+  }
+
+  const updateAccessoryQuantity = (key: string, quantity: number) => {
+    const nextQty = Math.max(1, quantity)
+    setAccessoryLines((prev) =>
+      prev.map((item) => {
+        if (item.key !== key) return item
+        const lineTotal = item.unitSellPrice * nextQty
+        return {
+          ...item,
+          quantity: nextQty,
+          line: { ...item.line, unit_price: lineTotal, cashPrice: lineTotal, installmentPrice: lineTotal },
+        }
+      }),
+    )
   }
 
   const customerDevices = customerDevicesQuery.data ?? []
@@ -695,8 +836,18 @@ export function ServiceCombinerPage() {
   const toggleChip = (id: CombinerChipId) => {
     const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === id)
     if (feeChip) {
+      const alreadyAdded = feeLines.some((item) => item.chipId === feeChip.id)
+      if (alreadyAdded) {
+        setFeeLines((prev) => prev.filter((item) => item.chipId !== feeChip.id))
+        setSelectedChips((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        return
+      }
       const created = appendFeeLine(feeChip.id)
-      if (created || feeLines.every((item) => item.chipId !== feeChip.id)) {
+      if (created) {
         setSelectedChips((prev) => new Set(prev).add(id))
       }
       return
@@ -715,7 +866,6 @@ export function ServiceCombinerPage() {
                 contractKind: 'subscription_renewal',
                 paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
                 renewalType: 'annual',
-                useCashPriceForInstallments,
               })
             : annualRenewalPrice
           setRenewalLine(
@@ -736,7 +886,6 @@ export function ServiceCombinerPage() {
                 contractKind: 'external_device',
                 paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
                 renewalType: 'annual',
-                useCashPriceForInstallments,
               })
             : externalCashPrice
           setExternalLine(
@@ -773,7 +922,8 @@ export function ServiceCombinerPage() {
     (renewalLine && selectedChips.has('annual_renewal') ? lineNetTotal(renewalLine) : 0) +
     (externalLine && selectedChips.has('external_device') ? lineNetTotal(externalLine) : 0)
   const feesSubtotal = activeFeeLines.reduce((sum, line) => sum + serviceLineTotal(line), 0)
-  const total = devicesSubtotal + feesSubtotal
+  const accessoriesSubtotal = accessoryLines.reduce((sum, item) => sum + accessoryLineTotal(item), 0)
+  const total = devicesSubtotal + feesSubtotal + accessoriesSubtotal
 
   const paidNow =
     collectionScope === 'contract'
@@ -796,7 +946,8 @@ export function ServiceCombinerPage() {
               externalLine.downPayment,
             )
           : 0) +
-        activeFeeLines.reduce((sum, line) => sum + serviceLinePaidNow(line), 0)
+        activeFeeLines.reduce((sum, line) => sum + serviceLinePaidNow(line), 0) +
+        accessoryLines.reduce((sum, item) => sum + serviceLinePaidNow(item.line), 0)
 
   const balanceDue = Math.max(0, total - paidNow)
 
@@ -828,12 +979,7 @@ export function ServiceCombinerPage() {
       setExternalLine({
         ...externalLine,
         paymentTerm: term,
-        unitPrice: catalogTermPrice(
-          externalCashPrice,
-          externalInstallmentPrice,
-          term,
-          useCashPriceForInstallments,
-        ),
+        unitPrice: catalogTermPrice(externalCashPrice, externalInstallmentPrice, term),
       })
     }
     setFeeLines((prev) =>
@@ -842,14 +988,24 @@ export function ServiceCombinerPage() {
         line: {
           ...item.line,
           paymentTerm: term,
-          unit_price: catalogTermPrice(
-            item.line.cashPrice,
-            item.line.installmentPrice,
-            term,
-            useCashPriceForInstallments,
-          ),
+          unit_price: catalogTermPrice(item.line.cashPrice, item.line.installmentPrice, term),
         },
       })),
+    )
+    setAccessoryLines((prev) =>
+      prev.map((item) => {
+        const lineTotal = item.unitSellPrice * item.quantity
+        return {
+          ...item,
+          line: {
+            ...item.line,
+            paymentTerm: term,
+            unit_price: lineTotal,
+            cashPrice: lineTotal,
+            installmentPrice: lineTotal,
+          },
+        }
+      }),
     )
   }
 
@@ -858,51 +1014,6 @@ export function ServiceCombinerPage() {
     if (scope === 'contract') {
       applyContractTerm(contractPayment.paymentTerm)
     }
-  }
-
-  const applyUseCashPriceForInstallments = (enabled: boolean) => {
-    setUseCashPriceForInstallments(enabled)
-    const term =
-      collectionScope === 'contract' ? contractPayment.paymentTerm : undefined
-    if (externalLine && (term === 'installment' || externalLine.paymentTerm === 'installment')) {
-      const price = catalogTermPrice(
-        externalCashPrice,
-        externalInstallmentPrice,
-        term ?? externalLine.paymentTerm,
-        enabled,
-      )
-      setExternalLine({
-        ...externalLine,
-        unitPrice: price,
-        ...(externalLine.paymentTerm === 'installment' || term === 'installment'
-          ? {
-              downPayment: computeMinDownPayment(price, minDownPercent),
-              installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
-            }
-          : {}),
-      })
-    }
-    setFeeLines((prev) =>
-      prev.map((item) => {
-        const lineTerm = term ?? item.line.paymentTerm
-        if (lineTerm !== 'installment') return item
-        const price = catalogTermPrice(
-          item.line.cashPrice,
-          item.line.installmentPrice,
-          'installment',
-          enabled,
-        )
-        return {
-          ...item,
-          line: {
-            ...item.line,
-            unit_price: price,
-            downPayment: computeMinDownPayment(price, minDownPercent),
-            installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
-          },
-        }
-      }),
-    )
   }
 
   const handleContractPaymentChange = (patch: Partial<ServicePaymentState>) => {
@@ -947,11 +1058,22 @@ export function ServiceCombinerPage() {
     (item) =>
       (skipLinePayment ||
         (validateServiceLineInstallment(item.line, minDownPercent, maxInstallmentCount).valid &&
-          validateServiceLineCash(item.line).valid)) &&
+          validateServiceLineCash(item.line, maxInstallmentCount).valid)) &&
       item.line.description.trim() &&
       item.line.unit_price > 0 &&
       (customerDevices.length === 0 || Boolean(item.productUnitId)),
   )
+
+  const accessoriesValid = accessoryLines.every(
+    (item) =>
+      item.quantity >= 1 &&
+      item.unitSellPrice > 0 &&
+      (skipLinePayment ||
+        (validateServiceLineInstallment(item.line, minDownPercent, maxInstallmentCount).valid &&
+          validateServiceLineCash(item.line, maxInstallmentCount).valid)),
+  )
+
+  const accessoriesNeedWarehouse = accessoryLines.length > 0 && warehouseId == null
 
   const contractPaymentValid =
     collectionScope !== 'contract' ||
@@ -971,6 +1093,8 @@ export function ServiceCombinerPage() {
     renewalValid &&
     externalValid &&
     feesValid &&
+    accessoriesValid &&
+    !accessoriesNeedWarehouse &&
     contractPaymentValid &&
     !missingFeeService &&
     (!hasFeeChips || Boolean(feeTechnician))
@@ -1021,10 +1145,6 @@ export function ServiceCombinerPage() {
           sim_number: identity.simNumber.trim() || undefined,
           username: identity.username.trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
-          cash_schedule:
-            collectionScope === 'service' && line.paymentTerm === 'cash'
-              ? line.cashSchedule
-              : undefined,
         }
         if (collectionScope === 'contract') {
           lines.push(base)
@@ -1045,7 +1165,42 @@ export function ServiceCombinerPage() {
         } else {
           lines.push({
             ...base,
-            down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+            ...cashLineCheckoutFields(line),
+          })
+        }
+      }
+
+      for (const item of accessoryLines) {
+        const paymentLine = item.line
+        const base = {
+          line_type: item.line_type,
+          product_model_id: item.product_model_id,
+          accessory_package_id: item.accessory_package_id,
+          description: item.name,
+          quantity: item.quantity,
+          unit_price: item.unitSellPrice,
+          payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : paymentLine.paymentTerm,
+        }
+        if (collectionScope === 'contract') {
+          lines.push(base)
+          continue
+        }
+        if (paymentLine.paymentTerm === 'installment') {
+          lines.push({
+            ...base,
+            installment_plan: {
+              down_payment: paymentLine.downPayment,
+              installment_amount: paymentLine.installmentAmount,
+              installment_count: serviceLineInstallmentCount(paymentLine, maxInstallmentCount),
+              interval_type: paymentLine.intervalType,
+              interval_days: paymentLine.intervalType === 'weekly' ? 7 : 30,
+              first_due_date: paymentLine.firstDueDate,
+            },
+          })
+        } else {
+          lines.push({
+            ...base,
+            ...cashLineCheckoutFields(paymentLine),
           })
         }
       }
@@ -1053,11 +1208,11 @@ export function ServiceCombinerPage() {
       const payload: CheckoutPayload = {
         customer_id: selectedCustomer.id,
         branch_id: resolvedBranchId ? Number(resolvedBranchId) : undefined,
+        warehouse_id: accessoryLines.length > 0 && warehouseId != null ? warehouseId : undefined,
         contract_kind: deriveCombinerContractKind(selectedChips),
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
         collection_scope: collectionScope,
-        use_cash_price_for_installments: useCashPriceForInstallments,
         lines,
       }
 
@@ -1101,7 +1256,8 @@ export function ServiceCombinerPage() {
           ? contractPayment.paymentTerm === 'installment'
           : (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
             (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
-            activeFeeLines.some((line) => line.paymentTerm === 'installment')
+            activeFeeLines.some((line) => line.paymentTerm === 'installment') ||
+            accessoryLines.some((item) => item.line.paymentTerm === 'installment')
       const hasUninstall =
         selectedChips.has('uninstall') ||
         feeLines.some((item) => item.chipId === 'uninstall') ||
@@ -1119,6 +1275,7 @@ export function ServiceCombinerPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['customers', customerId, 'devices'] })
+      queryClient.invalidateQueries({ queryKey: ['accessories'] })
     },
   })
 
@@ -1225,8 +1382,9 @@ export function ServiceCombinerPage() {
           >
             <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
               {COMBINER_CHIPS.map((chip) => {
-                const feeCount = feeLines.filter((item) => item.chipId === chip.id).length
-                const active = selectedChips.has(chip.id) || feeCount > 0
+                const active =
+                  selectedChips.has(chip.id) ||
+                  feeLines.some((item) => item.chipId === chip.id)
                 return (
                   <button
                     key={chip.id}
@@ -1238,11 +1396,6 @@ export function ServiceCombinerPage() {
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
                     }`}
                   >
-                    {feeCount > 1 ? (
-                      <span className="absolute start-2 top-2 rounded-full bg-on-primary/20 px-1.5 text-[11px] font-extrabold tabular-nums">
-                        {feeCount}
-                      </span>
-                    ) : null}
                     <Icon name={CHIP_ICONS[chip.id]} size={22} filled={active} />
                     {chip.label}
                   </button>
@@ -1291,7 +1444,6 @@ export function ServiceCombinerPage() {
               showPayment={collectionScope === 'service'}
               lockedFromSource={listedDeviceSelected}
               annualRenewalOnly
-              useCashPriceForInstallments={useCashPriceForInstallments}
             />
           )}
 
@@ -1327,7 +1479,6 @@ export function ServiceCombinerPage() {
               showPayment={collectionScope === 'service'}
               lockedFromSource={listedDeviceSelected}
               annualRenewalOnly
-              useCashPriceForInstallments={useCashPriceForInstallments}
             />
           )}
 
@@ -1382,7 +1533,6 @@ export function ServiceCombinerPage() {
                 onRemove={() => removeFeeLine(item.key)}
                 showPayment={collectionScope === 'service'}
                 showErrors={submitAttempted}
-                useCashPriceForInstallments={useCashPriceForInstallments}
                 devices={customerDevices}
                 productUnitId={item.productUnitId}
                 onSelectDevice={(device) =>
@@ -1397,7 +1547,121 @@ export function ServiceCombinerPage() {
               />
           ))}
 
-          <PosSectionCard number={3} title="التحصيل" subtitle="كيف يُحسب الدفع لهذا العقد">
+          <PosSectionCard
+            number={3}
+            title="إكسسوارات"
+            subtitle="اختياري — تُضاف على نفس العقد وتُخصم من مخزن الفرع الحالي"
+            highlighted={submitAttempted && accessoriesNeedWarehouse}
+          >
+            {accessoriesNeedWarehouse ? (
+              <p
+                className={`mb-sm rounded-lg border p-sm text-sm ${
+                  submitAttempted
+                    ? 'border-error/30 bg-error/[0.07] text-error'
+                    : 'border-tertiary/30 bg-tertiary/5 text-on-surface-variant'
+                }`}
+              >
+                يرجى اختيار مخزن من الشريط العلوي لإضافة إكسسوارات على هذا العقد.
+              </p>
+            ) : null}
+            <div className="space-y-md">
+              <div>
+                <h3 className="mb-sm text-sm font-bold text-on-surface">قطع</h3>
+                <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+                  {(accessoriesQuery.data ?? []).map((productModel) => {
+                    const available = stockByProduct.get(productModel.id)
+                    return (
+                      <button
+                        key={productModel.id}
+                        type="button"
+                        onClick={() => addAccessoryProduct(productModel)}
+                        className="rounded-lg border border-outline-variant p-sm text-start text-sm hover:border-primary"
+                      >
+                        <div className="font-medium">{productModel.name_ar || productModel.name}</div>
+                        <div className="text-on-surface-variant">
+                          {Number(productModel.sell_price ?? 0).toLocaleString('ar-EG', {
+                            numberingSystem: 'latn',
+                          })}{' '}
+                          ج.م
+                          {warehouseId != null ? (
+                            <span className="mr-sm">· متاح: {available ?? 0}</span>
+                          ) : null}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-sm text-sm font-bold text-on-surface">باكدجات</h3>
+                <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+                  {(packagesQuery.data ?? []).map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => addAccessoryPackage(pkg)}
+                      className="rounded-lg border border-outline-variant p-sm text-start text-sm hover:border-primary"
+                    >
+                      <div className="font-medium">{pkg.name_ar}</div>
+                      <div className="text-on-surface-variant">
+                        {Number(pkg.sell_price).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                      </div>
+                      <div className="mt-1 text-xs text-on-surface-variant">
+                        {(pkg.items ?? [])
+                          .map(
+                            (entry) =>
+                              `${entry.product_model?.name_ar || entry.product_model_id}×${entry.quantity}`,
+                          )
+                          .join(' · ')}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </PosSectionCard>
+
+          {accessoryLines.map((item, index) => (
+            <div key={item.key} className="space-y-sm">
+              <label className="flex items-center gap-sm text-sm">
+                <span className="text-on-surface-variant">الكمية</span>
+                <NumericInput
+                  type="number"
+                  min={1}
+                  className="w-20 rounded-lg border border-outline-variant px-sm py-1.5 text-sm tabular-nums"
+                  value={item.quantity}
+                  onChange={(e) => updateAccessoryQuantity(item.key, Number(e.target.value) || 1)}
+                />
+              </label>
+              <ServiceLineCard
+                heading={item.line_type === 'package' ? `باكدج ${index + 1}` : `إكسسوار ${index + 1}`}
+                line={item.line}
+                index={index}
+                contractDate={contractDate}
+                minDownPercent={minDownPercent}
+                maxInstallmentCount={maxInstallmentCount}
+                onChange={(updated) =>
+                  setAccessoryLines((prev) =>
+                    prev.map((entry) => {
+                      if (entry.key !== item.key) return entry
+                      const nextSell = Math.max(0, updated.unit_price / Math.max(1, entry.quantity))
+                      return {
+                        ...entry,
+                        unitSellPrice: nextSell,
+                        name: updated.description || entry.name,
+                        line: updated,
+                      }
+                    }),
+                  )
+                }
+                onRemove={() => setAccessoryLines((prev) => prev.filter((entry) => entry.key !== item.key))}
+                showPayment={collectionScope === 'service'}
+                showErrors={submitAttempted}
+              />
+            </div>
+          ))}
+
+          <PosSectionCard number={4} title="التحصيل" subtitle="كيف يُحسب الدفع لهذا العقد">
             <div className="flex h-11 gap-xs">
               {([
                 { id: 'contract', label: 'تحصيل على الإجمالي' },
@@ -1413,15 +1677,6 @@ export function ServiceCombinerPage() {
                 </button>
               ))}
             </div>
-            <label className="mt-sm flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
-              <input
-                type="checkbox"
-                checked={useCashPriceForInstallments}
-                onChange={(e) => applyUseCashPriceForInstallments(e.target.checked)}
-                className="h-4 w-4 rounded border-outline-variant accent-primary"
-              />
-              سعر التقسيط بنفس سعر الكاش
-            </label>
           </PosSectionCard>
 
           {collectionScope === 'contract' && selectedChips.size > 0 ? (
@@ -1434,7 +1689,7 @@ export function ServiceCombinerPage() {
             />
           ) : null}
 
-          <PosSectionCard number={4} title="ملاحظات">
+          <PosSectionCard number={5} title="ملاحظات">
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -1530,8 +1785,6 @@ export function ServiceCombinerPage() {
               <p>{successMsg}</p>
               <Link
                 to={serviceContractPrintPath(lastInvoice.id, undefined, { autoPrint: false })}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
               >
                 <Icon name="print" size={18} />
@@ -1540,8 +1793,6 @@ export function ServiceCombinerPage() {
               {lastInstallmentSale && (
                 <Link
                   to="/installments"
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-bold text-primary"
                 >
                   <Icon name="payments" size={18} />

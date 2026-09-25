@@ -5,6 +5,7 @@ import { api } from '../api/client'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { ConvertCashToInstallmentModal } from '../components/contracts/ConvertCashToInstallmentModal'
 import {
   buildContractListColumns,
   contractDateFilterParams,
@@ -35,6 +36,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const user = useAuthStore((s) => s.user)
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
+  const [convertInvoice, setConvertInvoice] = useState<SalesInvoice | null>(null)
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -120,10 +122,15 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     () =>
       buildContractListColumns({
         renderActions: (row) =>
-          defaultContractListActions(row, user, (invoice, caseType) => {
-            setProblemInvoice(invoice)
-            setProblemCaseType(caseType ?? null)
-          }),
+          defaultContractListActions(
+            row,
+            user,
+            (invoice, caseType) => {
+              setProblemInvoice(invoice)
+              setProblemCaseType(caseType ?? null)
+            },
+            setConvertInvoice,
+          ),
       }),
     [user],
   )
@@ -223,6 +230,12 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
           }}
         />
       )}
+      <ConvertCashToInstallmentModal
+        invoice={convertInvoice}
+        open={Boolean(convertInvoice)}
+        onClose={() => setConvertInvoice(null)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })}
+      />
     </SalesPageShell>
   )
 }

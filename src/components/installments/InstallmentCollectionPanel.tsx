@@ -292,14 +292,12 @@ export function InstallmentCollectionPanel({
             <dd className="flex items-center gap-2">
               <span dir="ltr">{String(selected.invoice_number ?? '—')}</span>
               {selected.sales_invoice_id ? (
-                <a
-                  href={`/contracts/${selected.sales_invoice_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to={`/contracts/${selected.sales_invoice_id}`}
                   className="text-xs text-primary hover:underline"
                 >
                   التفاصيل
-                </a>
+                </Link>
               ) : null}
             </dd>
           </div>

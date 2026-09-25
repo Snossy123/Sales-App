@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthUser, SalesInvoice } from '../api/types'
-import { canEditContract, contractEditPath } from './contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath } from './contractEdit'
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -13,8 +13,8 @@ function user(overrides: Partial<AuthUser> = {}): AuthUser {
   }
 }
 
-function invoice(review_status: string): SalesInvoice {
-  return { id: 12, review_status } as SalesInvoice
+function invoice(review_status: string, overrides: Partial<SalesInvoice> = {}): SalesInvoice {
+  return { id: 12, review_status, payment_term: 'cash', status: 'confirmed', ...overrides } as SalesInvoice
 }
 
 describe('contractEdit', () => {
@@ -51,5 +51,20 @@ describe('contractEdit', () => {
     expect(
       canEditContract(user({ permissions: ['sales.invoices.edit_before_review'] }), invoice('draft')),
     ).toBe(false)
+  })
+
+  it('shows cash-to-installment only for editable cash contracts', () => {
+    const admin = user({ demo_role: 'admin' })
+    expect(canConvertCashToInstallment(admin, invoice('pending'))).toBe(true)
+    expect(canConvertCashToInstallment(admin, invoice('pending', { payment_term: 'installment' }))).toBe(
+      false,
+    )
+    expect(canConvertCashToInstallment(admin, invoice('pending', { contract_status: 'cancelled' }))).toBe(
+      false,
+    )
+    expect(
+      canConvertCashToInstallment(admin, invoice('pending', { ownership_transferred_at: '2026-01-01' })),
+    ).toBe(false)
+    expect(canConvertCashToInstallment(user(), invoice('pending'))).toBe(false)
   })
 })

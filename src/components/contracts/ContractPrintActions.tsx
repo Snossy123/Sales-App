@@ -42,8 +42,6 @@ export function ContractPrintActions({
     return (
       <Link
         to={ownershipTransferContractPrintPath(invoice.id, { autoPrint })}
-        target="_blank"
-        rel="noopener noreferrer"
         className={className}
       >
         <Icon name="print" size={20} />
@@ -60,8 +58,6 @@ export function ContractPrintActions({
     return (
       <Link
         to={contractPrintPath(invoice.id, { autoPrint, lineId: line.id })}
-        target="_blank"
-        rel="noopener noreferrer"
         className={className}
       >
         <Icon name="print" size={20} />
@@ -76,8 +72,6 @@ export function ContractPrintActions({
         <Link
           key={line.id}
           to={contractPrintPath(invoice.id, { autoPrint, lineId: line.id })}
-          target="_blank"
-          rel="noopener noreferrer"
           className={className}
         >
           <Icon name="print" size={20} />

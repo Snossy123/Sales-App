@@ -15,6 +15,7 @@ import type {
   ServiceCheckoutPayload,
 } from '../api/types'
 import { type ApiPaginated, computeInstallmentCount, serviceContractPrintPath } from '../lib/sales'
+import { cashLineCheckoutFields } from '../lib/cashSchedule'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -54,7 +55,14 @@ interface ServiceSalesPageProps {
   saleCategory: 'accessories' | 'maintenance'
   defaultLines?: Omit<
     ServiceLineDraft,
-    'id' | 'paymentTerm' | 'cashSchedule' | 'downPayment' | 'installmentAmount' | 'intervalType' | 'firstDueDate'
+    | 'id'
+    | 'paymentTerm'
+    | 'cashSchedule'
+    | 'cashScheduleItems'
+    | 'downPayment'
+    | 'installmentAmount'
+    | 'intervalType'
+    | 'firstDueDate'
   >[]
   notesPlaceholder?: string
   useCatalog?: boolean
@@ -358,7 +366,7 @@ export function ServiceSalesPage({
       : lines.every(
           (line) =>
             validateServiceLineInstallment(line, minDownPercent, maxInstallmentCount).valid &&
-            validateServiceLineCash(line).valid,
+            validateServiceLineCash(line, maxInstallmentCount).valid,
         )
 
   const sourceReady =
@@ -409,8 +417,7 @@ export function ServiceSalesPage({
           return {
             ...base,
             payment_term: line.paymentTerm,
-            cash_schedule: line.cashSchedule,
-            down_payment: line.downPayment > 0 ? line.downPayment : undefined,
+            ...cashLineCheckoutFields(line),
           }
         }),
       }
@@ -759,8 +766,6 @@ export function ServiceSalesPage({
                   <Link
                     key={line.id}
                     to={serviceContractPrintPath(lastInvoice.id, line.id, { autoPrint: false })}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
                   >
                     <Icon name="print" size={18} />

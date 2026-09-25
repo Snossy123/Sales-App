@@ -6,6 +6,7 @@ import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractPrintActions } from '../components/contracts/ContractPrintActions'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { ConvertCashToInstallmentModal } from '../components/contracts/ConvertCashToInstallmentModal'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 import { ContractReviewDetails } from '../components/contracts/ContractReviewDetails'
 import { Icon } from '../components/Icon'
@@ -16,7 +17,7 @@ import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel, reviewApproveLabel } from '../lib/contractKinds'
 import { canExchangeContract } from '../lib/contractCases'
-import { canEditContract, contractEditPath } from '../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../lib/contractEdit'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 
 export function InvoiceReviewDetailPage() {
@@ -25,6 +26,7 @@ export function InvoiceReviewDetailPage() {
   const queryClient = useQueryClient()
   const [rejectReason, setRejectReason] = useState('')
   const [exchangeOpen, setExchangeOpen] = useState(false)
+  const [convertOpen, setConvertOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
   const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
   const canApprove = userHasPermission(user, 'review.approve') || reviewRole
@@ -120,6 +122,16 @@ export function InvoiceReviewDetailPage() {
               <Icon name="edit" size={18} />
               تعديل العقد
             </Link>
+          ) : null}
+          {invoice && canConvertCashToInstallment(user, invoice) ? (
+            <button
+              type="button"
+              onClick={() => setConvertOpen(true)}
+              className="inline-flex items-center gap-xs rounded-lg border border-primary px-md py-sm text-sm font-medium text-primary hover:bg-primary/5"
+            >
+              <Icon name="payments" size={18} />
+              تحويل من كاش لقسط
+            </button>
           ) : null}
           {invoice && canExchangeContract(user, invoice) ? (
             <button
@@ -217,6 +229,16 @@ export function InvoiceReviewDetailPage() {
             setExchangeOpen(false)
             queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'review', id] })
             queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+          }}
+        />
+      )}
+      {invoice && (
+        <ConvertCashToInstallmentModal
+          invoice={invoice}
+          open={convertOpen}
+          onClose={() => setConvertOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['sales-invoice', 'review', id] })
           }}
         />
       )}

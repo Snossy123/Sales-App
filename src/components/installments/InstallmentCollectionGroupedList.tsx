@@ -684,8 +684,6 @@ export function InstallmentCollectionGroupedList({
                         {contract.invoiceId > 0 ? (
                           <Link
                             to={`/contracts/${contract.invoiceId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             dir="ltr"
                             className="text-primary hover:underline"
                             onClick={(e) => e.stopPropagation()}

@@ -6,12 +6,10 @@ import type {
   AccessoryCheckoutPayload,
   AccessoryPackage,
   AccessoryWarehouseStock,
-  Branch,
   Customer,
   PaginatedResponse,
   ProductModel,
   SalesInvoice,
-  Warehouse,
 } from '../api/types'
 import { CustomerCreateModal } from '../components/customers/CustomerCreateModal'
 import { Icon } from '../components/Icon'
@@ -81,6 +79,7 @@ function cartFromDraft(draft: AccessoriesDraft | null): CartLine[] {
 export function AccessoriesSalesPage() {
   const queryClient = useQueryClient()
   const contextBranchId = useAuthStore((s) => s.branchId)
+  const warehouseId = useAuthStore((s) => s.warehouseId)
   const draftUserId = useAuthStore((s) => s.user?.id ?? null)
   const accessoriesDraft = readAccessoriesDraft(draftUserId)
 
@@ -88,12 +87,7 @@ export function AccessoriesSalesPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     () => accessoriesDraft?.selectedCustomer ?? null,
   )
-  const [branchId, setBranchId] = useState<number | ''>(
-    () => accessoriesDraft?.branchId ?? contextBranchId ?? '',
-  )
-  const [warehouseId, setWarehouseId] = useState<number | ''>(
-    () => accessoriesDraft?.warehouseId ?? '',
-  )
+  const branchId = contextBranchId ?? ''
   const [cart, setCart] = useState<CartLine[]>(() => cartFromDraft(accessoriesDraft))
   const [notes, setNotes] = useState(() => accessoriesDraft?.notes ?? '')
   const [error, setError] = useState('')
@@ -105,8 +99,8 @@ export function AccessoriesSalesPage() {
     () => ({
       customerSearch,
       selectedCustomer,
-      branchId,
-      warehouseId,
+      branchId: branchId === '' ? '' : branchId,
+      warehouseId: warehouseId ?? '',
       cart: cart.map(
         (line): AccessoriesCartLine =>
           line.line_type === 'accessory'
@@ -144,8 +138,6 @@ export function AccessoriesSalesPage() {
   const resetAccessoriesForm = () => {
     setCustomerSearch('')
     setSelectedCustomer(null)
-    setBranchId(contextBranchId ?? '')
-    setWarehouseId('')
     setCart([])
     setNotes('')
     setError('')
@@ -162,27 +154,6 @@ export function AccessoriesSalesPage() {
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', {
         params: { per_page: 10, 'filter[name]': debouncedCustomerSearch.trim() },
-      })
-      return data.data
-    },
-  })
-
-  const branchesQuery = useQuery({
-    queryKey: ['branches', 'accessory-sale'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
-        params: { per_page: 100 },
-      })
-      return data.data
-    },
-  })
-
-  const warehousesQuery = useQuery({
-    queryKey: ['warehouses', 'accessory-sale', branchId],
-    enabled: branchId !== '',
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Warehouse>>('/warehouses', {
-        params: { per_page: 100, 'filter[branch_id]': branchId },
       })
       return data.data
     },
@@ -210,7 +181,7 @@ export function AccessoriesSalesPage() {
 
   const stocksQuery = useQuery({
     queryKey: ['accessories', 'stocks', warehouseId],
-    enabled: warehouseId !== '',
+    enabled: warehouseId != null,
     queryFn: async () => {
       const { data } = await api.get<{ data: AccessoryWarehouseStock[] }>('/accessories/stocks', {
         params: { warehouse_id: warehouseId },
@@ -284,13 +255,13 @@ export function AccessoriesSalesPage() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedCustomer || branchId === '' || warehouseId === '' || cart.length < 1) {
-        throw new Error('أكمل العميل والفرع والمخزن وبنود البيع')
+      if (!selectedCustomer || branchId === '' || warehouseId == null || cart.length < 1) {
+        throw new Error('أكمل العميل وبنود البيع، وتأكد من اختيار مخزن الفرع الحالي')
       }
       const payload: AccessoryCheckoutPayload = {
         customer_id: selectedCustomer.id,
         branch_id: Number(branchId),
-        warehouse_id: Number(warehouseId),
+        warehouse_id: warehouseId,
         notes: notes.trim() || undefined,
         lines: cart.map((line) =>
           line.line_type === 'accessory'
@@ -368,8 +339,6 @@ export function AccessoriesSalesPage() {
           {Number(lastInvoice.total).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
           <Link
             to={`/invoices/${lastInvoice.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="mr-sm text-primary"
           >
             عرض
@@ -380,7 +349,7 @@ export function AccessoriesSalesPage() {
       <form onSubmit={onSubmit} className="grid grid-cols-1 gap-md lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-md">
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-            <h2 className="mb-sm font-medium">العميل والفرع</h2>
+            <h2 className="mb-sm font-medium">العميل</h2>
             <div className="mb-sm">
               <div className="mb-xs flex items-center justify-between gap-sm">
                 <span className="text-sm">بحث عميل</span>
@@ -409,7 +378,6 @@ export function AccessoriesSalesPage() {
                       onClick={() => {
                         setSelectedCustomer(customer)
                         setCustomerSearch(customer.name)
-                        if (customer.branch_id) setBranchId(customer.branch_id)
                       }}
                     >
                       {customer.name} — {customer.phone}
@@ -423,44 +391,11 @@ export function AccessoriesSalesPage() {
                 المحدد: {selectedCustomer.name}
               </p>
             )}
-
-            <div className="grid grid-cols-1 gap-sm md:grid-cols-2">
-              <label className="text-sm">
-                الفرع
-                <select
-                  className={inputClass}
-                  value={branchId}
-                  onChange={(e) => {
-                    setBranchId(e.target.value ? Number(e.target.value) : '')
-                    setWarehouseId('')
-                  }}
-                  required
-                >
-                  <option value="">اختر</option>
-                  {(branchesQuery.data ?? []).map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name_ar || branch.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                المخزن
-                <select
-                  className={inputClass}
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value ? Number(e.target.value) : '')}
-                  required
-                >
-                  <option value="">اختر</option>
-                  {(warehousesQuery.data ?? []).map((wh) => (
-                    <option key={wh.id} value={wh.id}>
-                      {wh.name_ar || wh.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            {warehouseId == null ? (
+              <p className="rounded-lg border border-tertiary/30 bg-tertiary/5 p-sm text-sm text-on-surface-variant">
+                يرجى اختيار مخزن من الشريط العلوي لبدء بيع الإكسسوارات.
+              </p>
+            ) : null}
           </section>
 
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
@@ -478,7 +413,7 @@ export function AccessoriesSalesPage() {
                     <div className="font-medium">{product.name_ar || product.name}</div>
                     <div className="text-on-surface-variant">
                       {Number(product.sell_price ?? 0).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
-                      {warehouseId !== '' && (
+                      {warehouseId != null && (
                         <span className="mr-sm">· متاح: {available ?? 0}</span>
                       )}
                     </div>
@@ -575,7 +510,7 @@ export function AccessoriesSalesPage() {
 
           <button
             type="submit"
-            disabled={checkoutMutation.isPending || cart.length < 1}
+            disabled={checkoutMutation.isPending || cart.length < 1 || warehouseId == null}
             className="flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-2 text-sm text-on-primary"
           >
             <Icon name="point_of_sale" size={18} />
@@ -589,7 +524,6 @@ export function AccessoriesSalesPage() {
         onCreated={(customer) => {
           setSelectedCustomer(customer)
           setCustomerSearch(customer.name)
-          if (customer.branch_id) setBranchId(customer.branch_id)
         }}
       />
     </div>
