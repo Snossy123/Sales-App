@@ -11,6 +11,7 @@ interface CollectionFollowUpSidebarProps {
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
   sortMode?: CollectionSortMode
+  pageKey?: string | number
 }
 
 export function CollectionFollowUpSidebar({
@@ -21,6 +22,7 @@ export function CollectionFollowUpSidebar({
   onSelect,
   onReconcile,
   sortMode = 'reminder',
+  pageKey,
 }: CollectionFollowUpSidebarProps) {
   useEffect(() => {
     if (!open) return
@@ -82,6 +84,7 @@ export function CollectionFollowUpSidebar({
             onReconcile={onReconcile}
             emptyMessage="لا توجد متابعات قادمة لهذا الفرع"
             compact
+            pageKey={pageKey}
           />
         </div>
       </aside>

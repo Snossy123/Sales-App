@@ -18,8 +18,11 @@ import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/custo
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { Icon } from '../Icon'
+import { Pagination } from '../Pagination'
 import { StatusBadge } from '../StatusBadge'
 import { ContractCollectionActions } from './CustomerCollectionActions'
+
+const DEFAULT_PAGE_SIZE = 10
 
 interface ContractGroup {
   invoiceId: number
@@ -193,6 +196,8 @@ interface InstallmentCollectionGroupedListProps {
   onAssignCollector?: (invoiceId: number, collectorUserId: number | null) => void
   assigningInvoiceId?: number | null
   compact?: boolean
+  pageSize?: number
+  pageKey?: string | number
 }
 
 function InstallmentMetricCell({
@@ -560,10 +565,30 @@ export function InstallmentCollectionGroupedList({
   onAssignCollector,
   assigningInvoiceId = null,
   compact = false,
+  pageSize = DEFAULT_PAGE_SIZE,
+  pageKey,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
   const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
+  const [page, setPage] = useState(1)
+
+  const paginate = pageSize > 0
+  const total = groups.length
+  const lastPage = paginate ? Math.max(1, Math.ceil(total / pageSize)) : 1
+
+  useEffect(() => {
+    setPage(1)
+  }, [pageKey])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, lastPage))
+  }, [lastPage, total])
+
+  const currentPage = Math.min(page, lastPage)
+  const visibleGroups = paginate
+    ? groups.slice((currentPage - 1) * pageSize, (currentPage - 1) * pageSize + pageSize)
+    : groups
 
   const toggleView = (key: string, view: ContractExpandView) => {
     setExpandedViews((prev) => {
@@ -586,7 +611,7 @@ export function InstallmentCollectionGroupedList({
 
   return (
     <div className="space-y-sm">
-      {groups.map((customer, index) => (
+      {visibleGroups.map((customer, index) => (
         <CollapsibleSection
           key={customer.customerKey}
           title={customer.customerName}
@@ -793,6 +818,14 @@ export function InstallmentCollectionGroupedList({
           </div>
         </CollapsibleSection>
       ))}
+      {paginate && lastPage > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          lastPage={lastPage}
+          total={total}
+          onPageChange={setPage}
+        />
+      )}
     </div>
   )
 }

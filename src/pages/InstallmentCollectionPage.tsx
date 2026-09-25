@@ -914,6 +914,7 @@ export function InstallmentCollectionPage() {
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
                   sortMode={sortByReminder ? 'reminder' : 'priority'}
+                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
@@ -997,6 +998,7 @@ export function InstallmentCollectionPage() {
         open={showFollowUps}
         onClose={() => setShowFollowUps(false)}
         rows={followUpRows}
+        pageKey={`${selectedBranchId}-${customerSearch}`}
         selectedId={selected?.id as number | undefined}
         onSelect={selectRow}
         onReconcile={(row) => {
