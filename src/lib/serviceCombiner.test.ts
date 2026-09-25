@@ -24,7 +24,7 @@ function draftLine(description: string): ServiceLineDraft {
   }
 }
 
-function feeInstance(chipId: CombinerFeeChipId, key: string, description = chipId) {
+function feeInstance(chipId: CombinerFeeChipId, key: string, description: string = chipId) {
   return { key, chipId, line: draftLine(description) }
 }
 

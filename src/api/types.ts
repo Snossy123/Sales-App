@@ -945,7 +945,6 @@ export interface SalesInvoice {
   collection_reviewed_by?: number | null
   collection_review_notes?: string | null
   collection_reviewer?: { id?: number; name?: string } | null
-  installment_items?: InstallmentItem[]
   payment_transactions?: PaymentTransaction[]
 }
 
