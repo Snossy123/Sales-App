@@ -1280,22 +1280,37 @@ export interface DailyMissionCard {
   customer_name: string
   customer_phone: string
   subtitle?: string | null
+  href?: string
   meta?: Record<string, unknown>
 }
 
+export type DailyMissionRole = 'sales' | 'collector' | 'reviewer'
+
 export interface DailyMissionResponse {
   date: string
+  role: DailyMissionRole
+  summary: Record<string, number>
   calls: DailyMissionCard[]
   viewings: DailyMissionCard[]
   ready_to_contract: DailyMissionCard[]
   overdue: DailyMissionCard[]
   vip: DailyMissionCard[]
+  collection_overdue: DailyMissionCard[]
+  collection_due_today: DailyMissionCard[]
+  collected_today: DailyMissionCard[]
+  review_pending: DailyMissionCard[]
+  reviewed_today: DailyMissionCard[]
   counts: {
     calls: number
     viewings: number
     ready_to_contract: number
     overdue: number
     vip: number
+    collection_overdue: number
+    collection_due_today: number
+    collected_today: number
+    review_pending: number
+    reviewed_today: number
   }
 }
 

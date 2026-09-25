@@ -5,7 +5,6 @@ import { api } from '../api/client'
 import type { Administration, Branch, InventoryOverviewRow, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
-import { SalesTrendChart } from '../components/enterprise/SalesTrendChart'
 import { GpsKpiRow } from '../components/enterprise/GpsKpiRow'
 import { DeviceHealthCards } from '../components/enterprise/DeviceHealthCards'
 import { GpsDeviceTable } from '../components/enterprise/GpsDeviceTable'
@@ -116,10 +115,6 @@ export function DepartmentDetailPage() {
             </div>
           </section>
 
-          <SalesTrendChart
-            completionRate={dashboard.completionRate}
-            chartData={dashboard.branchChartData}
-          />
           <GpsKpiRow kpis={dashboard.kpis} />
           <DeviceHealthCards cards={dashboard.healthCards} />
           <GpsDeviceTable rows={dashboard.deviceRows} totalCount={dashboard.totalDevices} />

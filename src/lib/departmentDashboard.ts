@@ -21,19 +21,10 @@ export interface DepartmentHealthCard {
   iconColor: string
 }
 
-export interface BranchStockChartRow {
-  name: string
-  sold: number
-  available: number
-  reserved: number
-}
-
 export interface DepartmentDashboardData {
   kpis: DepartmentKpi[]
   healthCards: DepartmentHealthCard[]
-  branchChartData: BranchStockChartRow[]
   deviceRows: (GpsDeviceRow & { branchId?: number })[]
-  completionRate: number
   totalDevices: number
 }
 
@@ -134,26 +125,6 @@ export function buildDepartmentDashboard(
     },
   ]
 
-  const inventoryByBranch = new Map(
-    branchInventory
-      .filter((row) => row.branch_id != null)
-      .map((row) => [row.branch_id!, row]),
-  )
-
-  const branchChartData: BranchStockChartRow[] = branches.map((branch) => {
-    const row = inventoryByBranch.get(branch.id)
-    const quantity = row?.quantity ?? 0
-    const sold = row?.sold ?? 0
-    const reserved = row?.reserved ?? 0
-
-    return {
-      name: branch.name_ar || branch.name,
-      sold,
-      available: row?.available ?? Math.max(0, quantity - sold - reserved),
-      reserved,
-    }
-  })
-
   const deviceRows = branches.map((branch) => ({
     code: branch.code,
     model: branch.name_ar || branch.name,
@@ -164,9 +135,7 @@ export function buildDepartmentDashboard(
   return {
     kpis,
     healthCards,
-    branchChartData,
     deviceRows,
-    completionRate: distributionRate,
     totalDevices: totalStock,
   }
 }

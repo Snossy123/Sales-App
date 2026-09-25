@@ -36,7 +36,7 @@ export const navEntries: NavEntry[] = [
       icon: 'flag',
       label: 'مهمة اليوم',
       end: true,
-      roles: ['super_admin', 'admin', 'sales'],
+      roles: ['sales', 'collector', 'reviewer'],
     },
   },
   {
@@ -292,7 +292,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/pricing/promotions': ['super_admin', 'admin', 'sales'],
   '/sales/accessories': ['super_admin', 'admin', 'sales'],
   '/sales/maintenance': ['super_admin', 'admin', 'sales'],
-  '/sales/mission': ['super_admin', 'admin', 'sales'],
+  '/sales/mission': ['sales', 'collector', 'reviewer'],
   '/services': ['super_admin', 'admin'],
   '/services/add': ['super_admin', 'admin'],
   '/contract-templates': ['super_admin', 'admin'],
@@ -581,8 +581,8 @@ export function getNavEntriesForUser(user: AuthUser | null): NavEntry[] {
 
 export function getDefaultRoute(user: AuthUser | null): string {
   const role = getUserRole(user)
-  if (role === 'reviewer') return '/invoices/review'
-  if (role === 'collector') return '/installments'
+  if (role === 'reviewer') return '/sales/mission'
+  if (role === 'collector') return '/sales/mission'
   if (role === 'call_center') return '/call-center/collections'
   if (role === 'crm') return CRM_DEFAULT_ROUTE
   if (role === 'hr_manager') return '/hrm'

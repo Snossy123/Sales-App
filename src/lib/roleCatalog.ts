@@ -24,6 +24,7 @@ export const MANAGER_DENIED_PERMISSIONS = new Set([
   'scope.organization',
   'roles.manage',
   'payments.refund',
+  'sales.daily_mission',
 ])
 
 /** Build manager permission keys: all catalog keys except denylist + exclusive scope. */

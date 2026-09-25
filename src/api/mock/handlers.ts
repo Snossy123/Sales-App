@@ -5464,19 +5464,47 @@ export function handleMockRequest(
         meta: { credit_score: c.credit_score },
       }))
 
+    const demoRole = ctx.user?.demo_role
+    const role =
+      demoRole === 'collector' ? 'collector' : demoRole === 'reviewer' ? 'reviewer' : 'sales'
+    const salesSummary = {
+      invoices_today: state.invoices.filter(
+        (inv) => inv.sales_user_id === userId && inv.invoice_date?.slice(0, 10) === today.toISOString().slice(0, 10),
+      ).length,
+      customers_added_today: state.customers.filter((c) => c.sales_user_id === userId).length,
+      open_followups: callCards.length + viewingCards.length + overdueCards.length,
+    }
+
     return {
       date: today.toISOString().slice(0, 10),
+      role,
+      summary:
+        role === 'collector'
+          ? { collection_overdue: 0, collection_due_today: 0, collected_today: 0 }
+          : role === 'reviewer'
+            ? { review_pending: 0, reviewed_today: 0 }
+            : salesSummary,
       calls: callCards,
       viewings: viewingCards,
       ready_to_contract: readyCards,
       overdue: overdueCards,
       vip: vipCards,
+      collection_overdue: [],
+      collection_due_today: [],
+      collected_today: [],
+      review_pending: [],
+      reviewed_today: [],
       counts: {
         calls: callCards.length,
         viewings: viewingCards.length,
         ready_to_contract: readyCards.length,
         overdue: overdueCards.length,
         vip: vipCards.length,
+        collection_overdue: 0,
+        collection_due_today: 0,
+        collected_today: 0,
+        review_pending: 0,
+        reviewed_today: 0,
       },
     }
   }
