@@ -11,17 +11,11 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { formatDate } from '../../../lib/accounting'
+import { formatTime } from '../../../lib/format'
 
 type AttendanceRow = HrmAttendance & Record<string, unknown>
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
-
-function formatTime(value?: string | null): string {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
-}
 
 function attendanceSource(row: HrmAttendance): string {
   const note = row.clock_in_note ?? ''

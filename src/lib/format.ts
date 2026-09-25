@@ -1,4 +1,5 @@
 export const DISPLAY_LOCALE = 'ar-EG'
+export const DISPLAY_TIMEZONE = 'Africa/Cairo'
 
 const LATN: Intl.NumberFormatOptions & Intl.DateTimeFormatOptions = {
   numberingSystem: 'latn',
@@ -95,6 +96,23 @@ export function formatDateTime(
         hour: 'numeric',
         minute: '2-digit',
       }),
+    }).format(d),
+  )
+}
+
+export function formatTime(
+  value: string | Date | null | undefined,
+  locale = DISPLAY_LOCALE,
+): string {
+  if (value == null || value === '') return '—'
+  const d = parseDisplayDate(value)
+  if (Number.isNaN(d.getTime())) return typeof value === 'string' ? value : '—'
+  return stripBidiMarks(
+    new Intl.DateTimeFormat(locale, {
+      ...LATN,
+      timeZone: DISPLAY_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
     }).format(d),
   )
 }

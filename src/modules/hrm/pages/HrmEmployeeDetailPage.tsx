@@ -28,6 +28,7 @@ import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 import { NumericInput } from '../../../components/ui/NumericInput'
+import { formatTime } from '../../../lib/format'
 
 
 type TabId = 'attendance' | 'leaves' | 'allowances' | 'payroll' | 'sales-targets' | 'debts'
@@ -76,13 +77,6 @@ function leaveDays(start: string, end: string): number {
   const s = new Date(start)
   const e = new Date(end)
   return Math.round((e.getTime() - s.getTime()) / 86400000) + 1
-}
-
-function formatTime(value?: string | null): string {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleTimeString('ar-EG', { numberingSystem: 'latn', hour: '2-digit', minute: '2-digit' })
 }
 
 export function HrmEmployeeDetailPage() {
