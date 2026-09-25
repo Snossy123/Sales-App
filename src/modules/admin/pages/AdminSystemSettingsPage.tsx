@@ -550,7 +550,7 @@ export function AdminSystemSettingsPage() {
                         className={settingsInputClass}
                         dir="ltr"
                       />
-                    </SettingsField
+                    </SettingsField>
                     <SettingsField label="غرامة التأخير (%)" hint="0 = بدون غرامة">
                       <NumericInput
                         type="number"
