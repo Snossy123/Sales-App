@@ -13,6 +13,7 @@ const LEGACY_SALES_DRAFT_KEY = 'sales-form-drafts'
 export const PROCEDURE_DRAFT_IDS = {
   posDevice: 'pos.device',
   posService: 'pos.service',
+  posFlow: 'pos.flow',
   accessories: 'sales.accessories',
   customerCreate: 'customers.create',
   customerEdit: (id: string | number) => `customers.edit:${id}`,

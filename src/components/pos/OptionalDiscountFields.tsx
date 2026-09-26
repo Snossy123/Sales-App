@@ -30,12 +30,12 @@ export function OptionalDiscountFields({
   if (!open) {
     return (
       <div>
-        <label className={posLabelClass}>&nbsp;</label>
+        <label className={posLabelClass}>{label}</label>
         <button
           type="button"
           disabled={disabled}
           onClick={() => setOpen(true)}
-          className={`flex h-[var(--pos-control-h)] w-full items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low text-[14px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50`}
+          className="flex h-[var(--pos-control-h)] w-full items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low text-[14px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
         >
           + إضافة خصم
         </button>
@@ -58,7 +58,7 @@ export function OptionalDiscountFields({
           onClick={handleClear}
           className="text-xs font-medium text-on-surface-variant hover:text-error"
         >
-          إلغاء الخصم
+          إلغاء
         </button>
       </div>
       <DiscountInput

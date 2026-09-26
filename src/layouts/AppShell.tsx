@@ -58,6 +58,7 @@ export function AppShell() {
   const posDraftIds = new Set<string>([
     PROCEDURE_DRAFT_IDS.posDevice,
     PROCEDURE_DRAFT_IDS.posService,
+    PROCEDURE_DRAFT_IDS.posFlow,
     PROCEDURE_DRAFT_IDS.accessories,
   ])
   const hasPosDraft = selectUserDrafts(procedureDrafts, user?.id ?? null).some((draft) =>

@@ -139,6 +139,10 @@
   .pb-md { padding-bottom: var(--spacing-stitch-md); }
 
   .m-md { margin: var(--spacing-stitch-md); }
+  .-mx-md { margin-inline: calc(var(--spacing-stitch-md) * -1); }
+  .-mt-md { margin-top: calc(var(--spacing-stitch-md) * -1); }
+  .-mx-lg { margin-inline: calc(var(--spacing-stitch-lg) * -1); }
+  .-mt-lg { margin-top: calc(var(--spacing-stitch-lg) * -1); }
   .mb-xs { margin-bottom: var(--spacing-stitch-xs); }
   .mb-sm { margin-bottom: var(--spacing-stitch-sm); }
   .mb-md { margin-bottom: var(--spacing-stitch-md); }
@@ -232,6 +236,16 @@
   .pos-form input.pos-control[type='number'] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+
+  .pos-flow-fields .pos-label {
+    margin-bottom: 0.375rem;
+  }
+
+  .pos-flow-fields .pos-control,
+  .pos-flow-fields .pos-money-field {
+    border-color: color-mix(in srgb, var(--color-outline-variant) 40%, transparent);
+    background-color: var(--color-surface);
   }
 
   .stock-ticker-track {

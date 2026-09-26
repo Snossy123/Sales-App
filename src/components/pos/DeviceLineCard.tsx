@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useState } from 'react'
 import type { ContractKind, Employee, GpsProduct } from '../../api/types'
-import { resolveGpsUnitPrice } from '../../lib/gpsProductPricing'
-import {
-  type DiscountMode,
-} from '../../lib/discount'
+import type { DiscountMode } from '../../lib/discount'
 import { isGpsUsernameComplete } from '../../lib/gpsUsername'
-import { parseLocalizedNumber } from '../../lib/normalizeDigits'
-import { normalizeScannedDigits, normalizeScannedInput } from '../../lib/scanner'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
@@ -17,17 +12,18 @@ import { renewalTypeLabels } from '../../lib/contractFields'
 import {
   cashRemainder,
   isCustomCashSchedule,
-  seedCashScheduleItems,
   validateCashScheduleItems,
   type CashSchedule,
   type CashScheduleItem,
 } from '../../lib/cashSchedule'
-import {
-  addDays,
-  lastInstallmentDate,
-  nextInstallmentInterval,
-} from '../../lib/installmentSchedule'
+import { nextInstallmentInterval } from '../../lib/installmentSchedule'
 import { Icon } from '../Icon'
+import {
+  DEVICE_INTERVAL_TYPES,
+  DEVICE_PAYMENT_TERMS,
+  fieldErrorClass,
+  useDeviceLineEditor,
+} from './useDeviceLineEditor'
 import { CashInstallmentScheduleEditor } from './CashInstallmentScheduleEditor'
 import { CashScheduleSelector } from './CashScheduleSelector'
 import { GpsUsernameInput } from './GpsUsernameInput'
@@ -91,13 +87,6 @@ export interface DeviceLineFieldErrors {
 
 const colBox =
   'rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm sm:p-md'
-
-function fieldErrorClass(hasError: boolean, baseClass: string): string {
-  return hasError ? `${baseClass} border-error` : baseClass
-}
-
-const PAYMENT_TERMS: LinePaymentTerm[] = ['installment', 'cash']
-const INTERVAL_TYPES: IntervalType[] = ['weekly', 'monthly']
 
 export function lineNetTotal(line: DeviceLineDraft): number {
   return Math.max(0, line.unitPrice - line.discountAmount)
@@ -229,24 +218,7 @@ interface DeviceLineCardProps {
   hidePaymentSection?: boolean
   lockedFromSource?: boolean
   annualRenewalOnly?: boolean
-}
-
-function priceForLine(
-  product: GpsProduct | undefined,
-  contractKind: ContractKind,
-  paymentTerm: LinePaymentTerm,
-  renewalType: RenewalType,
-  cashPrice: number,
-  installmentPrice: number,
-): number {
-  if (!product) {
-    return paymentTerm === 'cash' ? cashPrice : installmentPrice
-  }
-  return resolveGpsUnitPrice(product, {
-    contractKind,
-    paymentTerm,
-    renewalType,
-  })
+  embedded?: boolean
 }
 
 export function DeviceLineCard({
@@ -267,176 +239,69 @@ export function DeviceLineCard({
   hidePaymentSection = false,
   lockedFromSource = false,
   annualRenewalOnly = false,
+  embedded = false,
 }: DeviceLineCardProps) {
   const [expanded, setExpanded] = useState(true)
-  const [technicianSearch, setTechnicianSearch] = useState('')
-  const serialInputRef = useRef<HTMLInputElement>(null)
-  const simInputRef = useRef<HTMLInputElement>(null)
-  const usernameInputRef = useRef<HTMLInputElement>(null)
-  const patch = (partial: Partial<DeviceLineDraft>) => onChange({ ...line, ...partial })
-
-  useEffect(() => {
-    if (index === 0 && expanded && !lockedFromSource) {
-      serialInputRef.current?.focus()
-    }
-  }, [index, expanded, lockedFromSource])
-
-  const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
-    const next = field === 'username' ? normalizeScannedInput(raw) : normalizeScannedDigits(raw)
-    patch({ [field]: next } as Partial<DeviceLineDraft>)
-  }
-
-  const focusNextAfterScan = (
-    e: KeyboardEvent<HTMLInputElement>,
-    nextRef: RefObject<HTMLInputElement | null>,
-  ) => {
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    nextRef.current?.focus()
-    nextRef.current?.select()
-  }
-  const net = lineNetTotal(line)
-  const renewalDate = line.renewalType === 'annual' ? addDays(contractDate, 365) : undefined
-  const computedCount = useMemo(
-    () => lineInstallmentCount(line, maxInstallmentCount),
-    [line, maxInstallmentCount],
-  )
-  const deviceValidation = validateDeviceLine(line, minDownPercent, maxInstallmentCount, {
-    requireTechnician: !lockedFromSource && !hidePaymentSection,
-    skipPayment: hidePaymentSection,
+  const {
+    patch,
+    patchScanned,
+    focusNextAfterScan,
+    serialInputRef,
+    simInputRef,
+    usernameInputRef,
+    setTechnicianSearch,
+    filteredEmployees,
+    net,
+    renewalDate,
+    computedCount,
+    fieldErrors,
+    installmentValidation,
+    cashValidation,
+    cashRemainderAmount,
+    totalAfterDown,
+    lastDueDate,
+    hasDeviceErrors,
+    hasPaymentErrors,
+    switchToInstallment,
+    switchToCash,
+    handleRenewalTypeChange,
+    handleDiscountChange,
+    applyCashSchedule,
+    setIntervalType,
+    setDownPayment,
+    setInstallmentAmount,
+    isCustomSchedule,
+  } = useDeviceLineEditor({
+    index,
+    line,
+    contractDate,
+    contractKind,
+    product,
+    cashPrice,
+    installmentPrice,
+    onChange,
+    minDownPercent,
+    maxInstallmentCount,
+    employees,
+    showErrors,
+    hidePaymentSection,
+    lockedFromSource,
+    autoFocusSerial: embedded || expanded,
   })
-  const fieldErrors = showErrors ? deviceValidation.fieldErrors : {}
-  const installmentValidation = validateInstallmentLine(line, minDownPercent, maxInstallmentCount)
-  const cashValidation = validateCashLine(line, maxInstallmentCount)
-  const cashRemainderAmount = cashRemainder(net, line.downPayment)
-  const totalAfterDown = Math.max(0, net - line.downPayment)
-  const lastDueDate =
-    line.paymentTerm === 'installment'
-      ? lastInstallmentDate(line.firstDueDate, computedCount, line.intervalType)
-      : null
 
-  const filteredEmployees = useMemo(() => {
-    const q = technicianSearch.trim().toLowerCase()
-    if (!q) return employees
-    return employees.filter((e) => e.name.toLowerCase().includes(q))
-  }, [employees, technicianSearch])
+  const fieldGap = embedded ? 'gap-md' : 'gap-sm'
+  const paymentBox = embedded
+    ? `rounded-xl bg-surface-container-low p-md ${hasPaymentErrors ? 'bg-error/[0.06]' : ''}`
+    : `${colBox} ${hasPaymentErrors ? 'border-error/25 bg-error/[0.06]' : ''}`
+  const totalsBox = embedded
+    ? 'grid grid-cols-1 gap-md rounded-xl bg-tertiary/10 px-md py-sm text-sm sm:grid-cols-3'
+    : 'grid grid-cols-1 gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3'
 
-  const hasDeviceErrors = showErrors && !deviceValidation.valid
-  const hasPaymentErrors =
-    showErrors &&
-    (line.paymentTerm === 'installment'
-      ? !installmentValidation.valid
-      : !cashValidation.valid)
-
-  const switchToInstallment = () => {
-    const price = priceForLine(
-      product,
-      contractKind,
-      'installment',
-      line.renewalType,
-      cashPrice,
-      installmentPrice,
-    )
-    const minDown = computeMinDownPayment(price, minDownPercent)
-    patch({
-      paymentTerm: 'installment',
-      unitPrice: price,
-      discountAmount: 0,
-      discountPercent: 0,
-      downPayment: minDown,
-      cashScheduleItems: [],
-      installmentAmount: suggestInstallmentAmount(price, 6, minDownPercent),
-      firstDueDate: nextInstallmentInterval(contractDate, 'monthly'),
-    })
-  }
-
-  const switchToCash = () => {
-    const price = priceForLine(
-      product,
-      contractKind,
-      'cash',
-      line.renewalType,
-      cashPrice,
-      installmentPrice,
-    )
-    patch({
-      paymentTerm: 'cash',
-      unitPrice: price,
-      discountAmount: 0,
-      discountPercent: 0,
-      cashSchedule: 'immediate',
-      cashScheduleItems: [],
-      downPayment: price,
-    })
-  }
-
-  const handleRenewalTypeChange = (renewalType: RenewalType) => {
-    const price = priceForLine(
-      product,
-      contractKind,
-      line.paymentTerm,
-      renewalType,
-      cashPrice,
-      installmentPrice,
-    )
-    const partial: Partial<DeviceLineDraft> = { renewalType, unitPrice: price }
-    if (line.paymentTerm === 'installment') {
-      partial.downPayment = computeMinDownPayment(price, minDownPercent)
-      partial.installmentAmount = suggestInstallmentAmount(price, 6, minDownPercent)
-    } else if (line.cashSchedule === 'immediate') {
-      // Discounts reset only on term switch; net follows unit price for immediate cash.
-      const nextNet = Math.max(0, price - line.discountAmount)
-      partial.downPayment = nextNet
-    }
-    patch(partial)
-  }
-
-  const handleDiscountChange = (next: {
-    amount: number
-    percent: number
-    mode: DiscountMode
-  }) => {
-    const partial: Partial<DeviceLineDraft> = {
-      discountAmount: next.amount,
-      discountPercent: next.percent,
-      discountMode: next.mode,
-    }
-    if (line.paymentTerm === 'cash' && line.cashSchedule === 'immediate') {
-      partial.downPayment = Math.max(0, line.unitPrice - next.amount)
-    }
-    patch(partial)
-  }
-
-  return (
-    <div
-      className={`rounded-lg border shadow-sm ${
-        hasDeviceErrors
-          ? 'border-error/35 bg-error/[0.04]'
-          : 'border-outline-variant bg-surface-container-low'
-      }`}
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={`flex w-full flex-wrap items-center gap-sm px-sm py-sm transition-colors sm:px-md ${
-          hasDeviceErrors ? 'bg-error/10 hover:bg-error/15' : 'bg-primary/10 hover:bg-primary/15'
-        }`}
-      >
-        <Icon
-          name="expand_more"
-          size={22}
-          className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
-        />
-        <span className="font-semibold text-on-surface">
-          {lockedFromSource ? 'تجديد الاشتراك' : `جهاز ${index + 1}`}
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="space-y-md p-sm sm:p-md">
+  const fields = (
+    <>
           {!lockedFromSource && (
             <>
-              <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
+              <div className={`grid grid-cols-1 ${fieldGap} sm:grid-cols-2 lg:grid-cols-3`}>
                 <div className={posRequiredWrap(Boolean(fieldErrors.serialNumber))}>
                   <label className={posLabelClass}>السريال</label>
                   <input
@@ -489,7 +354,7 @@ export function DeviceLineCard({
               </div>
 
               <div
-                className={`grid grid-cols-1 gap-sm sm:grid-cols-2 ${
+                className={`grid grid-cols-1 ${fieldGap} sm:grid-cols-2 ${
                   line.vehicleType === 'car' ||
                   line.vehicleType === 'motorcycle' ||
                   line.vehicleType === 'tuk_tuk'
@@ -582,7 +447,7 @@ export function DeviceLineCard({
           )}
 
           <div
-            className={`grid grid-cols-1 gap-sm ${lockedFromSource ? '' : 'sm:grid-cols-2'}`}
+            className={`grid grid-cols-1 ${fieldGap} ${lockedFromSource ? '' : 'sm:grid-cols-2'}`}
           >
             {!lockedFromSource && (
               <div className={posRequiredWrap(Boolean(fieldErrors.technician))}>
@@ -638,7 +503,7 @@ export function DeviceLineCard({
 
           {showPayment ? (
           <div
-            className={`${colBox} ${hasPaymentErrors ? 'border-error/25 bg-error/[0.06]' : ''}`}
+            className={paymentBox}
             data-tour={index === 0 ? 'pos-payment' : undefined}
           >
             {hidePaymentSection ? (
@@ -652,7 +517,7 @@ export function DeviceLineCard({
               <h4 className={posSectionTitleClass}>طريقة الدفع — الجهاز</h4>
               <div className="flex w-full flex-col gap-sm sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                 <div className={`${posModeToggleGroupClass} w-full sm:w-[11rem] text-xs`}>
-                  {PAYMENT_TERMS.map((term) => (
+                  {DEVICE_PAYMENT_TERMS.map((term) => (
                     <button
                       key={term}
                       type="button"
@@ -671,16 +536,11 @@ export function DeviceLineCard({
                 </div>
                 {line.paymentTerm === 'installment' && (
                   <div className={`${posModeToggleGroupClass} w-full sm:w-[11rem] text-xs`}>
-                    {INTERVAL_TYPES.map((type) => (
+                    {DEVICE_INTERVAL_TYPES.map((type) => (
                       <button
                         key={type}
                         type="button"
-                        onClick={() =>
-                          patch({
-                            intervalType: type,
-                            firstDueDate: nextInstallmentInterval(contractDate, type),
-                          })
-                        }
+                        onClick={() => setIntervalType(type)}
                         className={`flex h-full flex-1 items-center justify-center rounded-md text-xs font-medium transition-colors ${
                           line.intervalType === type
                             ? 'bg-primary text-on-primary'
@@ -696,17 +556,15 @@ export function DeviceLineCard({
             </div>
 
             {line.paymentTerm === 'installment' ? (
-              <div className="space-y-sm">
-                <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-4">
+              <div className={embedded ? 'space-y-md' : 'space-y-sm'}>
+                <div className={`grid grid-cols-1 ${fieldGap} sm:grid-cols-2 xl:grid-cols-4`}>
                   <div>
                     <label className={posLabelClass}>المقدم</label>
                     <PosMoneyInput
                       min={0}
                       step="0.01"
                       value={line.downPayment}
-                      onChange={(e) =>
-                        patch({ downPayment: parseLocalizedNumber(e.target.value) })
-                      }
+                      onChange={(e) => setDownPayment(e.target.value)}
                     />
                   </div>
                   <div>
@@ -715,9 +573,7 @@ export function DeviceLineCard({
                       min={0}
                       step="0.01"
                       value={line.installmentAmount}
-                      onChange={(e) =>
-                        patch({ installmentAmount: parseLocalizedNumber(e.target.value) })
-                      }
+                      onChange={(e) => setInstallmentAmount(e.target.value)}
                     />
                   </div>
                   <div>
@@ -738,7 +594,7 @@ export function DeviceLineCard({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-sm rounded-lg border border-tertiary/25 bg-tertiary/10 px-sm py-sm text-sm sm:grid-cols-3">
+                <div className={totalsBox}>
                   <div className="tabular-nums">
                     <span className="text-on-surface-variant">قيمة القسط: </span>
                     <strong className="text-on-surface">
@@ -768,23 +624,15 @@ export function DeviceLineCard({
                   ))}
               </div>
             ) : (
-              <div className="space-y-sm">
+              <div className={embedded ? 'space-y-md' : 'space-y-sm'}>
                 <CashScheduleSelector
                   schedule={line.cashSchedule}
                   contractDate={contractDate}
                   lineTotal={net}
                   downPayment={line.downPayment}
-                  onChange={(cashSchedule) =>
-                    patch({
-                      cashSchedule,
-                      downPayment: cashSchedule === 'immediate' ? net : 0,
-                      cashScheduleItems: isCustomCashSchedule(cashSchedule)
-                        ? seedCashScheduleItems(net, contractDate)
-                        : [],
-                    })
-                  }
+                  onChange={applyCashSchedule}
                 />
-                {isCustomCashSchedule(line.cashSchedule) ? (
+                {isCustomSchedule ? (
                   <CashInstallmentScheduleEditor
                     items={line.cashScheduleItems}
                     remainder={cashRemainderAmount}
@@ -801,9 +649,7 @@ export function DeviceLineCard({
                     step="0.01"
                     value={line.downPayment || ''}
                     disabled={line.cashSchedule === 'immediate'}
-                    onChange={(e) =>
-                      patch({ downPayment: parseLocalizedNumber(e.target.value) })
-                    }
+                    onChange={(e) => setDownPayment(e.target.value)}
                   />
                   {line.downPayment > 0 && cashRemainderAmount > 0 && (
                     <p className="mt-xs text-xs text-on-surface-variant">
@@ -827,8 +673,41 @@ export function DeviceLineCard({
             )}
           </div>
           ) : null}
-        </div>
-      )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-md">{fields}</div>
+    )
+  }
+
+  return (
+    <div
+      className={`rounded-lg border shadow-sm ${
+        hasDeviceErrors
+          ? 'border-error/35 bg-error/[0.04]'
+          : 'border-outline-variant bg-surface-container-low'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`flex w-full flex-wrap items-center gap-sm px-sm py-sm transition-colors sm:px-md ${
+          hasDeviceErrors ? 'bg-error/10 hover:bg-error/15' : 'bg-primary/10 hover:bg-primary/15'
+        }`}
+      >
+        <Icon
+          name="expand_more"
+          size={22}
+          className={`shrink-0 text-primary transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+        <span className="font-semibold text-on-surface">
+          {lockedFromSource ? 'تجديد الاشتراك' : `جهاز ${index + 1}`}
+        </span>
+      </button>
+
+      {expanded ? <div className="space-y-md p-sm sm:p-md">{fields}</div> : null}
     </div>
   )
 }

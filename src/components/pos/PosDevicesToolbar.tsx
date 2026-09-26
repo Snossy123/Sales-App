@@ -3,11 +3,7 @@ import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { Icon } from '../Icon'
 import { OptionalDiscountFields } from './OptionalDiscountFields'
 import { PosMoneyInput } from './PosMoneyInput'
-import {
-  posControlHeightClass,
-  posLabelClass,
-  posStepperClass,
-} from './posFormStyles'
+import { posLabelClass, posStepperClass } from './posFormStyles'
 
 export interface PosDevicesToolbarProps {
   quantity: number
@@ -60,9 +56,9 @@ export function PosDevicesToolbar({
     showTransportationFee && onTransportationFeeChange && onApplyTransportationFeeChange
 
   return (
-    <div className="space-y-sm" data-tour="pos-product">
-      <div className="grid grid-cols-1 items-end gap-md sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <div className="shrink-0">
+    <div data-tour="pos-product">
+      <div className="grid grid-cols-1 items-start gap-md sm:grid-cols-2 xl:grid-cols-4">
+        <div>
           <label className={posLabelClass}>عدد الأجهزة</label>
           <div className={posStepperClass}>
             <button
@@ -74,7 +70,7 @@ export function PosDevicesToolbar({
             >
               <Icon name="remove" size={20} />
             </button>
-            <span className="min-w-[2.5rem] text-center text-[16px] font-extrabold tabular-nums">
+            <span className="min-w-[2.5rem] flex-1 text-center text-[16px] font-extrabold tabular-nums">
               {quantity}
             </span>
             <button
@@ -89,71 +85,59 @@ export function PosDevicesToolbar({
           </div>
         </div>
 
-        {enableInstallationFee && (
-          <>
-            {allowDisableFeeInSale && (
-              <div className={`flex items-center ${posControlHeightClass}`}>
-                <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
-                  <input
-                    type="checkbox"
-                    checked={applyInstallationFee}
-                    onChange={(e) => onApplyInstallationFeeChange(e.target.checked)}
-                    className="h-4 w-4 rounded border-outline-variant accent-primary"
-                  />
-                  تطبيق رسوم التركيب
-                </label>
-              </div>
-            )}
-
-            <div className="min-w-[7rem] shrink-0">
-              <label className={posLabelClass}>رسوم التركيب</label>
-              <PosMoneyInput
-                min={0}
-                step="0.01"
-                value={installationFeePerUnit}
-                disabled={feeFieldsDisabled}
-                onChange={(e) => onInstallationFeeChange(parseLocalizedNumber(e.target.value))}
-              />
-            </div>
-
-            <div className="min-w-0">
-              <OptionalDiscountFields
-                label="خصم عام"
-                baseAmount={installationFeePerUnit}
-                amount={feeDiscountAmount}
-                percent={feeDiscountPercent}
-                disabled={feeFieldsDisabled}
-                onChange={onFeeDiscountChange}
-              />
-            </div>
-          </>
-        )}
-
-        {showTransport ? (
-          <>
-            <div className={`flex items-center ${posControlHeightClass}`}>
-              <label className="flex cursor-pointer items-center gap-xs text-[14px] font-bold text-on-surface">
+        {enableInstallationFee ? (
+          <div>
+            <label className={`${posLabelClass} flex items-center gap-xs`}>
+              {allowDisableFeeInSale ? (
                 <input
                   type="checkbox"
-                  checked={applyTransportationFee}
-                  onChange={(e) => onApplyTransportationFeeChange(e.target.checked)}
+                  checked={applyInstallationFee}
+                  onChange={(e) => onApplyInstallationFeeChange(e.target.checked)}
                   className="h-4 w-4 rounded border-outline-variant accent-primary"
                 />
-                تطبيق رسوم التنقلات
-              </label>
-            </div>
+              ) : null}
+              رسوم التركيب
+            </label>
+            <PosMoneyInput
+              min={0}
+              step="0.01"
+              value={installationFeePerUnit}
+              disabled={feeFieldsDisabled}
+              onChange={(e) => onInstallationFeeChange(parseLocalizedNumber(e.target.value))}
+            />
+          </div>
+        ) : null}
 
-            <div className="min-w-[7rem] shrink-0">
-              <label className={posLabelClass}>رسوم التنقلات</label>
-              <PosMoneyInput
-                min={0}
-                step="0.01"
-                value={transportationFee}
-                disabled={transportationFieldsDisabled}
-                onChange={(e) => onTransportationFeeChange(parseLocalizedNumber(e.target.value))}
+        {enableInstallationFee ? (
+          <OptionalDiscountFields
+            label="خصم عام"
+            baseAmount={installationFeePerUnit}
+            amount={feeDiscountAmount}
+            percent={feeDiscountPercent}
+            disabled={feeFieldsDisabled}
+            onChange={onFeeDiscountChange}
+          />
+        ) : null}
+
+        {showTransport ? (
+          <div>
+            <label className={`${posLabelClass} flex items-center gap-xs`}>
+              <input
+                type="checkbox"
+                checked={applyTransportationFee}
+                onChange={(e) => onApplyTransportationFeeChange(e.target.checked)}
+                className="h-4 w-4 rounded border-outline-variant accent-primary"
               />
-            </div>
-          </>
+              رسوم التنقلات
+            </label>
+            <PosMoneyInput
+              min={0}
+              step="0.01"
+              value={transportationFee}
+              disabled={transportationFieldsDisabled}
+              onChange={(e) => onTransportationFeeChange(parseLocalizedNumber(e.target.value))}
+            />
+          </div>
         ) : null}
       </div>
     </div>

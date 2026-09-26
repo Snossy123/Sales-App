@@ -12,6 +12,7 @@ import { InventoryProductSettingsPage } from '../pages/InventoryProductSettingsP
 import { WarehousesPage } from '../pages/WarehousesPage'
 import { PosPage } from '../pages/PosPage'
 import { PosServicesPage } from '../pages/PosServicesPage'
+import { PosFlowPage } from '../modules/sales/flow/PosFlowPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
 import { AccessoriesCatalogPage } from '../pages/AccessoriesCatalogPage'
 import { AccessoryPackagesPage } from '../pages/AccessoryPackagesPage'
@@ -218,6 +219,7 @@ export function AppRoutes() {
             <Route path="inventory/accessory-stock" element={<AccessoryStockPage />} />
             <Route path="pos" element={<PosPage />} />
             <Route path="pos/services" element={<PosServicesPage />} />
+            <Route path="pos/flow" element={<PosFlowPage />} />
             <Route path="pricing/catalog" element={<PricingCatalogPage />} />
             <Route path="pricing/promotions" element={<PromotionsPage />} />
             <Route path="sales/accessories" element={<AccessoriesSalesPage />} />

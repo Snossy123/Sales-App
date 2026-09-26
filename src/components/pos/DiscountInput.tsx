@@ -41,9 +41,11 @@ export function DiscountInput({
   }
 
   const fields = (
-    <div className={`grid gap-xs ${compact ? 'grid-cols-2' : 'grid-cols-2'}`}>
+    <div className="grid grid-cols-2 gap-xs">
       <div>
-        <label className="mb-xs block text-xs text-on-surface-variant">الخصم (ج.م)</label>
+        {compact ? null : (
+          <label className="mb-xs block text-xs text-on-surface-variant">الخصم (ج.م)</label>
+        )}
         <PosMoneyInput
           min={0}
           max={baseAmount}
@@ -54,7 +56,9 @@ export function DiscountInput({
         />
       </div>
       <div>
-        <label className="mb-xs block text-xs text-on-surface-variant">الخصم (%)</label>
+        {compact ? null : (
+          <label className="mb-xs block text-xs text-on-surface-variant">الخصم (%)</label>
+        )}
         <PosMoneyInput
           suffix="%"
           min={0}

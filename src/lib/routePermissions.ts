@@ -3,6 +3,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/': 'dashboard.view',
   '/pos': ['sales.pos.new', 'sales.pos'],
   '/pos/services': ['sales.pos.services', 'sales.pos'],
+  '/pos/flow': ['sales.pos.new', 'sales.pos.services', 'sales.pos.accessories', 'sales.pos'],
   '/pricing/catalog': ['sales.pos.catalog', 'sales.pos'],
   '/pricing/promotions': 'promotions.view',
   '/sales/accessories': ['sales.pos.accessories', 'sales.pos'],
