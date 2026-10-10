@@ -211,15 +211,6 @@ export function CustomerContractDevicePicker({
               />
               جهاز قديم من الشركة
             </label>
-            <label className="flex items-center gap-xs text-sm">
-              <input
-                type="radio"
-                name="device-origin"
-                checked={registerOrigin === 'external'}
-                onChange={() => onRegisterOriginChange?.('external')}
-              />
-              جهاز خارج الشركة
-            </label>
           </div>
         </div>
       )}

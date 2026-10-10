@@ -52,9 +52,6 @@ function lineDescription(line?: SalesInvoiceLine): string {
   if (line?.line_contract_kind === 'subscription_renewal' || line?.renewal_type === 'annual') {
     return 'تجديد اشتراك سنوي'
   }
-  if (line?.line_contract_kind === 'external_device') {
-    return 'جهاز خارج الشركة'
-  }
   return ''
 }
 

@@ -6,7 +6,6 @@ import {
   emptyLegacyDeviceDraft,
   validateLegacyDeviceDraft,
   type LegacyDeviceDraft,
-  type LegacyDeviceOrigin,
 } from '../../lib/customerLegacyDevices'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
@@ -112,15 +111,6 @@ export function CustomerLegacyDevicesFields({
                       onChange={() => patchDevice(device.key, { origin: 'legacy' })}
                     />
                     جهاز قديم من الشركة
-                  </label>
-                  <label className="flex items-center gap-xs">
-                    <input
-                      type="radio"
-                      name={`legacy-origin-${device.key}`}
-                      checked={device.origin === 'external'}
-                      onChange={() => patchDevice(device.key, { origin: 'external' as LegacyDeviceOrigin })}
-                    />
-                    جهاز خارج الشركة
                   </label>
                 </div>
 

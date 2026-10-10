@@ -55,9 +55,6 @@ function deviceLinesPayload(
       ...(kind === 'subscription_renewal'
         ? { line_contract_kind: 'subscription_renewal' as const, description: 'تجديد اشتراك سنوي' }
         : {}),
-      ...(kind === 'external_device'
-        ? { line_contract_kind: 'external_device' as const, description: 'جهاز خارج الشركة' }
-        : {}),
     }
     if (line.paymentTerm === 'installment') {
       return {
@@ -184,23 +181,6 @@ export function buildServiceCheckout(
     payload.distributor_balance_amount = draft.distributorBalanceAmount
   }
   return payload
-}
-
-export function buildExternalDeviceCheckout(
-  draft: PosFlowDraft,
-  input: { contextBranchId: number | null; maxInstallmentCount: number },
-): CheckoutPayload {
-  return {
-    customer_id: draft.selectedCustomer!.id,
-    ...sourceFields(draft, input.contextBranchId),
-    contract_kind: 'external_device',
-    invoice_date: draft.contractDate,
-    notes: draft.notes.trim() || undefined,
-    lines: deviceLinesPayload(draft, [], input.maxInstallmentCount, 'external_device'),
-    ...(draft.distributorBalanceAmount > 0
-      ? { distributor_balance_amount: draft.distributorBalanceAmount }
-      : {}),
-  }
 }
 
 export function buildOwnershipTransferCheckout(
