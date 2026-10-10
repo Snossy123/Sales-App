@@ -6,7 +6,6 @@ import {
   emptyLegacyDeviceDraft,
   validateLegacyDeviceDraft,
   type LegacyDeviceDraft,
-  type LegacyDeviceOrigin,
 } from '../../lib/customerLegacyDevices'
 
 const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
