@@ -19,7 +19,6 @@ import { PosFlowStepper } from './PosFlowStepper'
 import {
   buildAccessoryCheckout,
   buildDeviceCheckout,
-  buildExternalDeviceCheckout,
   buildMixedCatalogCheckout,
   buildOwnershipTransferCheckout,
   buildRenewalCheckout,
@@ -31,7 +30,6 @@ import {
 import { ActionStep } from './steps/ActionStep'
 import { CatalogDetailsStep } from './steps/CatalogDetailsStep'
 import { DeviceDetailsStep } from './steps/DeviceDetailsStep'
-import { ExternalDeviceDetailsStep } from './steps/ExternalDeviceDetailsStep'
 import { IntakeStep } from './steps/IntakeStep'
 import { OwnershipTransferDetailsStep } from './steps/OwnershipTransferDetailsStep'
 import { RenewalDetailsStep } from './steps/RenewalDetailsStep'
@@ -115,9 +113,7 @@ export function PosFlowPage() {
       const payload: CheckoutPayload =
         draft.action === 'renewal'
           ? buildRenewalCheckout(draft, { contextBranchId, maxInstallmentCount })
-          : draft.action === 'external_device'
-            ? buildExternalDeviceCheckout(draft, { contextBranchId, maxInstallmentCount })
-            : draft.action === 'ownership_transfer'
+          : draft.action === 'ownership_transfer'
               ? buildOwnershipTransferCheckout(draft, { contextBranchId, maxInstallmentCount })
               : draft.action === 'catalog' && draft.accessoryCart.length === 0
                 ? buildServiceCheckout(draft, {
@@ -217,9 +213,6 @@ export function PosFlowPage() {
         ) : null}
         {!success && draft.step === 'details' && draft.action === 'new_device' ? (
           <DeviceDetailsStep draft={draft} onPatch={patch} showErrors={submitAttempted} />
-        ) : null}
-        {!success && draft.step === 'details' && draft.action === 'external_device' ? (
-          <ExternalDeviceDetailsStep draft={draft} onPatch={patch} showErrors={submitAttempted} />
         ) : null}
         {!success && draft.step === 'details' && draft.action === 'renewal' ? (
           <RenewalDetailsStep draft={draft} onPatch={patch} showErrors={submitAttempted} />

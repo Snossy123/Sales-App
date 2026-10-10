@@ -14,11 +14,6 @@ export const CONTRACT_KINDS: { value: ContractKind; label: string; description: 
     description: 'تجديد اشتراك جهاز موجود — السنوي بسعر ثابت من الإعدادات، ومدى الحياة 25% من كاش الاشتراك السنوي',
   },
   {
-    value: 'external_device',
-    label: 'جهاز خارج الشركة',
-    description: 'إضافة جهاز لم يُبَع من الشركة إلى النظام',
-  },
-  {
     value: 'ownership_transfer',
     label: 'نقل ملكية',
     description: 'نقل ملكية الجهاز من عميل إلى آخر',
@@ -51,9 +46,6 @@ export function allowsManualDeviceEntry(kind: ContractKind): boolean {
 
 export function reviewApproveLabel(kind?: string | null): string {
   if (kind === 'ownership_transfer') {
-    return `اعتماد ${contractKindLabel(kind)}`
-  }
-  if (kind === 'external_device') {
     return `اعتماد ${contractKindLabel(kind)}`
   }
   if (kind === 'subscription_renewal') {

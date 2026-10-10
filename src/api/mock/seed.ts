@@ -439,7 +439,6 @@ export function createSeedState(): DemoState {
     { id: 8, code: 'SRV-USR', name: 'رسوم نقل يوزر', name_ar: 'رسوم نقل يوزر', category: 'transfer', default_price: 100, is_active: true },
     { id: 9, code: 'SRV-OWN', name: 'رسوم نقل ملكية', name_ar: 'رسوم نقل ملكية', category: 'transfer', default_price: 200, is_active: true },
     { id: 10, code: 'SRV-SIM', name: 'رسوم برمجة شريحة', name_ar: 'رسوم برمجة شريحة', category: 'software', default_price: 150, is_active: true },
-    { id: 11, code: 'SRV-EXT', name: 'إضافة جهاز خارج الشركة', name_ar: 'إضافة جهاز خارج الشركة', category: 'other', default_price: 250, is_active: true },
   ]
 
   const customers: Customer[] = [

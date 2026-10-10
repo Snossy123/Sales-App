@@ -22,7 +22,6 @@ describe('contractKinds', () => {
   it('labels known kinds and falls back for mixed', () => {
     expect(contractKindLabel('new_contract')).toBe('تعاقد جديد')
     expect(contractKindLabel('subscription_renewal')).toBe('تجديد اشتراك')
-    expect(contractKindLabel('external_device')).toBe('جهاز خارج الشركة')
     expect(contractKindLabel('ownership_transfer')).toBe('نقل ملكية')
     expect(contractKindLabel('mixed')).toBe('خدمات مجمّعة')
     expect(contractKindLabel(null)).toBe('تعاقد جديد')
@@ -55,7 +54,6 @@ describe('contractKinds', () => {
   it('uses kind-specific review approve labels', () => {
     expect(reviewApproveLabel('new_contract')).toBe('تأكيد وإرسال الأقساط')
     expect(reviewApproveLabel('ownership_transfer')).toBe('اعتماد نقل ملكية')
-    expect(reviewApproveLabel('external_device')).toBe('اعتماد جهاز خارج الشركة')
     expect(reviewApproveLabel('subscription_renewal')).toBe('اعتماد تجديد اشتراك')
     expect(reviewApproveLabel('mixed')).toBe('اعتماد خدمات مجمّعة')
   })

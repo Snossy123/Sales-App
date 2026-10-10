@@ -11,7 +11,6 @@ export type CombinerChipId =
 
 export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'annual_renewal', label: 'تجديد اشتراك سنوي' },
-  { id: 'external_device', label: 'جهاز خارج الشركة' },
   { id: 'uninstall', label: 'فك' },
   { id: 'installation', label: 'تركيب' },
   { id: 'programming', label: 'برمجة' },

@@ -43,12 +43,6 @@ export const POS_FLOW_ACTIONS: {
     icon: 'sensors',
   },
   {
-    id: 'external_device',
-    label: 'جهاز خارج الشركة',
-    description: 'تسجيل جهاز العميل مع اشتراك كاش أو تقسيط',
-    icon: 'devices_other',
-  },
-  {
     id: 'renewal',
     label: 'تجديد اشتراك',
     description: 'تجديد سنوي أو مدى الحياة لجهاز موجود',

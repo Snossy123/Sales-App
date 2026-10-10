@@ -113,15 +113,6 @@ export function CustomerLegacyDevicesFields({
                     />
                     جهاز قديم من الشركة
                   </label>
-                  <label className="flex items-center gap-xs">
-                    <input
-                      type="radio"
-                      name={`legacy-origin-${device.key}`}
-                      checked={device.origin === 'external'}
-                      onChange={() => patchDevice(device.key, { origin: 'external' as LegacyDeviceOrigin })}
-                    />
-                    جهاز خارج الشركة
-                  </label>
                 </div>
 
                 <div className="grid grid-cols-1 gap-sm sm:grid-cols-3">
