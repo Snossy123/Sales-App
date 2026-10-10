@@ -1,4 +1,4 @@
-import type { ChangeEvent, InputHTMLAttributes } from 'react'
+import type { ChangeEvent, ClipboardEvent, InputHTMLAttributes } from 'react'
 import { stripNonLatinNumber } from '../../lib/normalizeDigits'
 
 type NumericInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
@@ -6,10 +6,11 @@ type NumericInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
 }
 
 export function NumericInput({
-  type = 'number',
+  type = 'text',
   dir = 'ltr',
   inputMode = 'decimal',
   onChange,
+  onPaste,
   ...props
 }: NumericInputProps) {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -21,5 +22,25 @@ export function NumericInput({
     })
   }
 
-  return <input type={type} dir={dir} inputMode={inputMode} {...props} onChange={handleChange} />
+  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    onPaste?.(e)
+    if (e.defaultPrevented) return
+    const text = e.clipboardData.getData('text')
+    if (text && /[٠-٩۰-۹]/.test(text)) {
+      e.preventDefault()
+      const normalized = stripNonLatinNumber(text)
+      document.execCommand('insertText', false, normalized)
+    }
+  }
+
+  return (
+    <input
+      type={type === 'number' ? 'text' : type}
+      dir={dir}
+      inputMode={inputMode}
+      {...props}
+      onChange={handleChange}
+      onPaste={handlePaste}
+    />
+  )
 }

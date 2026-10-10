@@ -108,8 +108,9 @@ export function PosOwnershipTransferSection({
   const hasSource = Boolean(selectedSourceInvoice || selectedSourceDevice)
   const sourceError = submitAttempted && !hasSource
   const line = selectedSourceInvoice ? deviceLine(selectedSourceInvoice) : undefined
+  const targetSerial = selectedSourceDevice?.serial_number || line?.serial_number || serialSearch.trim() || undefined
   const summary = selectedSourceInvoice
-    ? ownershipTransferInstallmentSummary(selectedSourceInvoice)
+    ? ownershipTransferInstallmentSummary(selectedSourceInvoice, targetSerial)
     : null
   const previousOwner =
     selectedSourceInvoice?.customer ??

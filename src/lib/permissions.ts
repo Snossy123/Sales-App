@@ -77,6 +77,7 @@ export const navEntries: NavEntry[] = [
         { to: '/pos/services', icon: 'home_repair_service', label: 'تعاقد خدمات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/accessories', icon: 'headphones', label: 'بيع إكسسوارات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pos/flow', icon: 'experiment', label: 'تعاقد تجريبي', roles: ['super_admin', 'admin', 'sales'] },
+        { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'sales', 'collector'] },
         { to: '/pricing/catalog', icon: 'sell', label: 'دليل الأسعار', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pricing/promotions', icon: 'local_offer', label: 'العروض', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/review/subscription-renewals', icon: 'autorenew', label: 'تجديد الاشتراكات', roles: ['super_admin', 'admin', 'reviewer'] },
@@ -93,7 +94,6 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/installments', icon: 'payments', label: 'تحصيل الأقساط', end: true, roles: ['super_admin', 'admin', 'collector'] },
         { to: '/installments/assignments', icon: 'group', label: 'توزيع التحصيل', roles: ['super_admin', 'admin'] },
-        { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'collector'] },
         { to: '/call-center/collections', icon: 'phone_in_talk', label: 'التحصيلات الخارجية', roles: ['super_admin', 'admin', 'call_center'] },
         { to: '/admin/collection-accounts', icon: 'account_balance', label: 'حسابات التحويل', roles: ['super_admin', 'admin'] },
       ],

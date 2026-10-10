@@ -55,7 +55,7 @@ const sourceLabels: Record<string, string> = {
   installment: 'قسط',
   external: 'تحصيل خارجي',
   down_payment: 'مقدم',
-  pos_cash: 'كاش POS',
+  pos_cash: 'دفعة تعاقد كاش',
   transportation_fee: 'رسوم تنقلات',
   contract_disbursement: 'أمر دفع',
 }

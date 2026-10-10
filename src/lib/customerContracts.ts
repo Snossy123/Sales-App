@@ -117,10 +117,50 @@ export function getInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
   return invoice.installment_items ?? []
 }
 
-export function ownershipTransferInstallmentSummary(invoice: SalesInvoice): {
+export function ownershipTransferInstallmentSummary(
+  invoice: SalesInvoice,
+  targetLineIdOrSerial?: number | string | null,
+): {
   paidCount: number
   remaining: number
 } {
+  const lines = invoice.lines ?? []
+  let targetLine = lines.find(
+    (l) =>
+      (targetLineIdOrSerial && l.id === Number(targetLineIdOrSerial)) ||
+      (targetLineIdOrSerial && l.serial_number === String(targetLineIdOrSerial)),
+  )
+
+  if (!targetLine && lines.length === 1) {
+    targetLine = lines[0]
+  }
+
+  if (targetLine) {
+    const targetPlan = resolveLinePlan(targetLine, invoice)
+    if (targetPlan?.items?.length) {
+      const paid = targetPlan.items.filter(
+        (item) => Number(item.paid_amount ?? 0) > 0 || item.status === 'paid',
+      )
+      const remaining = targetPlan.items.reduce(
+        (sum, item) => sum + installmentRemainingAmount(item),
+        0,
+      )
+      return { paidCount: paid.length, remaining }
+    }
+
+    if (lines.length > 1 && invoice.total) {
+      const lineTotal = Number(targetLine.line_total ?? targetLine.unit_price ?? 0)
+      const lineShare = lineTotal / Number(invoice.total || 1)
+      const lineRemaining = Math.round(Number(invoice.balance_due ?? 0) * lineShare * 100) / 100
+      const plan = resolveLinePlan(targetLine, invoice)
+      const calculatedRemaining = Math.max(
+        0,
+        lineRemaining > 0 ? lineRemaining : lineTotal - Number(plan?.down_payment ?? 0),
+      )
+      return { paidCount: 0, remaining: calculatedRemaining }
+    }
+  }
+
   const items = getInstallmentItems(invoice)
   const paid = items.filter(
     (item) => Number(item.paid_amount ?? 0) > 0 || item.status === 'paid',

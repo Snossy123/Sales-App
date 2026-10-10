@@ -71,6 +71,7 @@ export interface DeviceLineDraft {
   chassisNumber: string
   engineNumber: string
   renewalType: RenewalType
+  subscriptionRenewalDate?: string
 }
 
 export interface DeviceLineFieldErrors {

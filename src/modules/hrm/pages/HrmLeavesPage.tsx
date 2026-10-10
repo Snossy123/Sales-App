@@ -107,6 +107,19 @@ export function HrmLeavesPage() {
 
   const rows = query.data ?? []
 
+  const selectedEmployee = (employeesQuery.data ?? []).find((e) => e.id === Number(form.employee_id))
+  const overlappingLeaves = (query.data ?? []).filter((leave) => {
+    if (!selectedEmployee?.department_id || !form.start_date || !form.end_date) return false
+    if (leave.employee_id === selectedEmployee.id) return false
+    if (leave.status === 'rejected') return false
+    const emp = leave.employee as Employee | undefined
+    if (!emp || emp.department_id !== selectedEmployee.department_id) return false
+
+    const lStart = String(leave.start_date).slice(0, 10)
+    const lEnd = String(leave.end_date).slice(0, 10)
+    return form.start_date <= lEnd && form.end_date >= lStart
+  })
+
   return (
     <div>
       <PageHeader
@@ -149,7 +162,38 @@ export function HrmLeavesPage() {
           emptyMessage="لا توجد طلبات إجازة"
           columns={[
             { key: 'ref_no', header: 'المرجع', render: (row) => row.ref_no || `#${row.id}` },
-            { key: 'employee', header: 'الموظف', render: (row) => row.employee?.name ?? '—' },
+            {
+              key: 'employee',
+              header: 'الموظف',
+              render: (row) => {
+                const emp = row.employee as Employee | undefined
+                const rStart = String(row.start_date).slice(0, 10)
+                const rEnd = String(row.end_date).slice(0, 10)
+                const hasDeptOverlap = rows.some((other) => {
+                  if (other.id === row.id || other.status === 'rejected') return false
+                  const otherEmp = other.employee as Employee | undefined
+                  if (!emp?.department_id || otherEmp?.department_id !== emp.department_id) return false
+                  const oStart = String(other.start_date).slice(0, 10)
+                  const oEnd = String(other.end_date).slice(0, 10)
+                  return rStart <= oEnd && rEnd >= oStart
+                })
+
+                return (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span>{emp?.name ?? '—'}</span>
+                    {hasDeptOverlap && (
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400"
+                        title="يوجد أكثر من موظف في نفس القسم في إجازة في نفس اليوم"
+                      >
+                        <Icon name="warning" size={13} />
+                        تزامن بالقسم
+                      </span>
+                    )}
+                  </div>
+                )
+              },
+            },
             { key: 'leaveType', header: 'النوع', render: (row) => hrmLeaveTypeLabel(row.leaveType) },
             { key: 'start_date', header: 'من' },
             { key: 'end_date', header: 'إلى' },
@@ -191,6 +235,23 @@ export function HrmLeavesPage() {
           </select>
           <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className={inputClass} dir="ltr" />
           <input type="date" min={form.start_date || undefined} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} dir="ltr" />
+
+          {overlappingLeaves.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-sm text-xs text-amber-800 dark:text-amber-200">
+              <Icon name="warning" size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="font-bold">تنبيه: يوجد موظف آخر في نفس القسم في إجازة بنفس اليوم / الفترة:</p>
+                <ul className="mt-1 list-disc pe-4">
+                  {overlappingLeaves.map((l) => (
+                    <li key={l.id}>
+                      {l.employee?.name} (من {l.start_date} إلى {l.end_date})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           <TextArea mode="arabic" placeholder="السبب" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={inputClass} rows={2} />
           <button type="submit" disabled={createMutation.isPending} className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary">تقديم</button>
         </form>
