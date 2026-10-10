@@ -114,6 +114,16 @@ export interface PosFlowDraft {
   sourceRenewalCandidate: SubscriptionRenewalCandidate | null
   sourceTransferInvoice: SalesInvoice | null
   sourceTransferDevice: CustomerContractDevice | null
+  transferIncludeDisassemblyAndAssembly?: boolean
+  transferPaymentTerm?: 'cash' | 'installment'
+  transferDownPayment?: number
+  transferInstallmentCount?: number
+  transferIntervalType?: 'monthly' | 'weekly'
+  transferFirstDueDate?: string
+  /** Resolved fee amounts from active services — stored to drive flowTotals */
+  transferOwnershipFeeAmount?: number
+  transferUninstallFeeAmount?: number
+  transferInstallationFeeAmount?: number
   feeLines: FeeLineInstance[]
   feeTechnician: Employee | null
   contractPayment: ServicePaymentState
@@ -164,6 +174,12 @@ export function emptyPosFlowDraft(): PosFlowDraft {
     sourceRenewalCandidate: null,
     sourceTransferInvoice: null,
     sourceTransferDevice: null,
+    transferIncludeDisassemblyAndAssembly: false,
+    transferPaymentTerm: 'cash',
+    transferDownPayment: 0,
+    transferInstallmentCount: 1,
+    transferIntervalType: 'monthly',
+    transferFirstDueDate: todayIso(),
     feeLines: [],
     feeTechnician: null,
     contractPayment: {

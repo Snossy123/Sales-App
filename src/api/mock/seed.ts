@@ -437,8 +437,9 @@ export function createSeedState(): DemoState {
     { id: 6, code: 'SRV-MNT', name: 'رسوم صيانة', name_ar: 'رسوم صيانة', category: 'maintenance', default_price: 300, is_active: true },
     { id: 7, code: 'SRV-RST', name: 'رسوم رسيت', name_ar: 'رسوم رسيت', category: 'software', default_price: 150, is_active: true },
     { id: 8, code: 'SRV-USR', name: 'رسوم نقل يوزر', name_ar: 'رسوم نقل يوزر', category: 'transfer', default_price: 100, is_active: true },
-    { id: 9, code: 'SRV-OWN', name: 'رسوم نقل ملكية', name_ar: 'رسوم نقل ملكية', category: 'transfer', default_price: 200, is_active: true },
-    { id: 10, code: 'SRV-SIM', name: 'رسوم برمجة شريحة', name_ar: 'رسوم برمجة شريحة', category: 'software', default_price: 150, is_active: true },
+    { id: 9, code: 'SRV-OWN', name: 'رسوم نقل ملكية', name_ar: 'رسوم نقل ملكية', category: 'ownership_transfer', default_price: 200, is_active: true },
+    { id: 10, code: 'SRV-SIM', name: 'رسوم برمجة شريحة', name_ar: 'رسوم برمجة شريحة', category: 'programming', default_price: 150, is_active: true },
+    { id: 11, code: 'SRV-SIT', name: 'رسوم نقل على الموقع', name_ar: 'رسوم نقل على الموقع', category: 'site_transfer', default_price: 250, is_active: true },
   ]
 
   const customers: Customer[] = [

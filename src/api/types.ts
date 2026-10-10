@@ -709,6 +709,9 @@ export type ServiceCategory =
   | 'installation'
   | 'uninstall'
   | 'transfer'
+  | 'site_transfer'
+  | 'ownership_transfer'
+  | 'programming'
   | 'other'
 
 export interface Service {

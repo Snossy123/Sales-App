@@ -7,14 +7,20 @@ export const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: 'installation', label: 'تركيب' },
   { value: 'uninstall', label: 'فك' },
   { value: 'transfer', label: 'نقل' },
+  { value: 'site_transfer', label: 'نقل على الموقع' },
+  { value: 'ownership_transfer', label: 'نقل ملكية' },
+  { value: 'programming', label: 'برمجة' },
   { value: 'other', label: 'أخرى' },
 ]
 
-const CATEGORY_LABELS: Record<ServiceCategory, string> = SERVICE_CATEGORIES.reduce(
-  (acc, item) => ({ ...acc, [item.value]: item.label }),
-  {} as Record<ServiceCategory, string>,
-)
+const CATEGORY_LABELS: Record<string, string> = {
+  ...SERVICE_CATEGORIES.reduce(
+    (acc, item) => ({ ...acc, [item.value]: item.label }),
+    {} as Record<string, string>,
+  ),
+  on_site_transfer: 'نقل على الموقع',
+}
 
 export function serviceCategoryLabel(category: ServiceCategory | string): string {
-  return CATEGORY_LABELS[category as ServiceCategory] ?? category
+  return CATEGORY_LABELS[category] ?? category
 }

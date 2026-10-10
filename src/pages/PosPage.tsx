@@ -75,6 +75,7 @@ import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
 import { PosStockInfoBar } from '../components/pos/PosStockInfoBar'
 import { PosSectionCard } from '../components/pos/PosSectionCard'
 import { PosOwnershipTransferSection } from '../components/pos/PosOwnershipTransferSection'
+import { PosOwnershipTransferFeesSection } from '../components/pos/PosOwnershipTransferFeesSection'
 import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscriptionRenewalSection'
 import {
   applyContractDeviceIdentity,
@@ -135,6 +136,49 @@ export function PosPage() {
   const defaultInstallationFee = Number(
     installationService?.cash_price ?? installationService?.default_price ?? 0,
   )
+
+  const allServices = servicesQuery.data?.data ?? []
+  const ownershipTransferService = allServices.find(
+    (s) =>
+      s.category === 'ownership_transfer' ||
+      s.code === 'SRV-OWN' ||
+      (s.name_ar || s.name).includes('نقل ملكية'),
+  )
+  const uninstallService = allServices.find(
+    (s) =>
+      s.category === 'uninstall' ||
+      s.code === 'SRV-FK' ||
+      (s.name_ar || s.name).includes('فك'),
+  )
+  const installationServiceForTransfer = allServices.find(
+    (s) =>
+      s.category === 'installation' ||
+      s.code === 'SRV-TRK' ||
+      (s.name_ar || s.name).includes('تركيب'),
+  )
+
+  const [transferIncludeDisassemblyAndAssembly, setTransferIncludeDisassemblyAndAssembly] = useState(false)
+  const [transferPaymentTerm, setTransferPaymentTerm] = useState<'cash' | 'installment'>('cash')
+  const [transferDownPayment, setTransferDownPayment] = useState(0)
+  const [transferInstallmentCount, setTransferInstallmentCount] = useState(1)
+  const [transferIntervalType, setTransferIntervalType] = useState<'monthly' | 'weekly'>('monthly')
+  const [transferFirstDueDate, setTransferFirstDueDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  const ownershipFeeAmount = Number(
+    ownershipTransferService?.cash_price ?? ownershipTransferService?.default_price ?? 200,
+  )
+  const uninstallFeeAmount = Number(
+    uninstallService?.cash_price ?? uninstallService?.default_price ?? 100,
+  )
+  const installationFeeAmount = Number(
+    installationServiceForTransfer?.cash_price ?? installationServiceForTransfer?.default_price ?? 500,
+  )
+
+  const transferServicesTotal = useMemo(() => {
+    const base = ownershipFeeAmount
+    if (!transferIncludeDisassemblyAndAssembly) return base
+    return base + uninstallFeeAmount + installationFeeAmount
+  }, [ownershipFeeAmount, transferIncludeDisassemblyAndAssembly, uninstallFeeAmount, installationFeeAmount])
 
   const draftUserId = user?.id ?? null
   const deviceDraft = readDeviceDraft(draftUserId, isEditMode)
@@ -1056,16 +1100,30 @@ export function PosPage() {
       : 0
 
   const devicesSubtotal = deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)
-  const totalEstimate = devicesSubtotal + netInstallationFeeTotal
+  const isOwnershipTransfer = contractKind === 'ownership_transfer'
+  const totalEstimate = isOwnershipTransfer
+    ? transferServicesTotal
+    : devicesSubtotal + netInstallationFeeTotal
 
   const paidAtCheckout = useMemo(() => {
+    if (isOwnershipTransfer) {
+      return transferPaymentTerm === 'cash' ? transferServicesTotal : transferDownPayment
+    }
     let paid = netInstallationFeeTotal + transportationFeeAmount
     for (const line of deviceLines) {
       const net = lineNetTotal(line)
       paid += linePaidNow(line.paymentTerm, line.cashSchedule, net, line.downPayment)
     }
     return paid
-  }, [deviceLines, netInstallationFeeTotal, transportationFeeAmount])
+  }, [
+    isOwnershipTransfer,
+    transferServicesTotal,
+    transferPaymentTerm,
+    transferDownPayment,
+    deviceLines,
+    netInstallationFeeTotal,
+    transportationFeeAmount,
+  ])
 
   const customerDistributorQuery = useQuery({
     queryKey: ['customer', selectedCustomer?.id, 'distributor-profile-pos'],
@@ -1082,7 +1140,6 @@ export function PosPage() {
     selectedCustomer?.distributor_profile ?? customerDistributorQuery.data ?? null
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
 
-  const isOwnershipTransfer = contractKind === 'ownership_transfer'
   const hasTransferSource = Boolean(sourceTransferInvoice || sourceTransferDevice)
   const deviceLineValidationOptions = {
     requireTechnician: contractKind !== 'subscription_renewal' && !isOwnershipTransfer,
@@ -1226,6 +1283,102 @@ export function PosPage() {
       }
     }
 
+    if (contractKind === 'ownership_transfer') {
+      const transferCount = Math.max(1, transferInstallmentCount || 1)
+      const transferFinanced = Math.max(0, transferServicesTotal - transferDownPayment)
+      const transferInstallmentAmount =
+        Math.round((transferFinanced / transferCount) * 100) / 100
+
+      if (ownershipFeeAmount > 0) {
+        lines.push({
+          line_type: 'service',
+          service_id: ownershipTransferService?.id,
+          description:
+            ownershipTransferService?.name_ar ||
+            ownershipTransferService?.name ||
+            'رسوم نقل ملكية',
+          service_category: 'ownership_transfer',
+          quantity: 1,
+          unit_price: ownershipFeeAmount,
+          payment_term: transferPaymentTerm,
+          cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
+          down_payment:
+            transferPaymentTerm === 'installment'
+              ? (transferIncludeDisassemblyAndAssembly ? 0 : transferDownPayment)
+              : undefined,
+          installment_plan:
+            transferPaymentTerm === 'installment'
+              ? {
+                  installment_count: transferCount,
+                  installment_amount: transferIncludeDisassemblyAndAssembly
+                    ? Math.round((ownershipFeeAmount / transferCount) * 100) / 100
+                    : transferInstallmentAmount,
+                  down_payment: transferIncludeDisassemblyAndAssembly ? 0 : transferDownPayment,
+                  interval_type: transferIntervalType,
+                  interval_days: transferIntervalType === 'weekly' ? 7 : 30,
+                  first_due_date: transferFirstDueDate,
+                }
+              : undefined,
+        })
+      }
+
+      if (transferIncludeDisassemblyAndAssembly) {
+        if (uninstallFeeAmount > 0) {
+          lines.push({
+            line_type: 'service',
+            service_id: uninstallService?.id,
+            description:
+              uninstallService?.name_ar || uninstallService?.name || 'رسوم فك',
+            service_category: 'uninstall',
+            quantity: 1,
+            unit_price: uninstallFeeAmount,
+            payment_term: transferPaymentTerm,
+            cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
+            installment_plan:
+              transferPaymentTerm === 'installment'
+                ? {
+                    installment_count: transferCount,
+                    installment_amount:
+                      Math.round((uninstallFeeAmount / transferCount) * 100) / 100,
+                    down_payment: 0,
+                    interval_type: transferIntervalType,
+                    interval_days: transferIntervalType === 'weekly' ? 7 : 30,
+                    first_due_date: transferFirstDueDate,
+                  }
+                : undefined,
+          })
+        }
+
+        if (installationFeeAmount > 0) {
+          lines.push({
+            line_type: 'service',
+            service_id: installationServiceForTransfer?.id,
+            description:
+              installationServiceForTransfer?.name_ar ||
+              installationServiceForTransfer?.name ||
+              'رسوم تركيب',
+            service_category: 'installation',
+            quantity: 1,
+            unit_price: installationFeeAmount,
+            payment_term: transferPaymentTerm,
+            cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
+            installment_plan:
+              transferPaymentTerm === 'installment'
+                ? {
+                    installment_count: transferCount,
+                    installment_amount:
+                      Math.round((installationFeeAmount / transferCount) * 100) / 100,
+                    down_payment: 0,
+                    interval_type: transferIntervalType,
+                    interval_days: transferIntervalType === 'weekly' ? 7 : 30,
+                    first_due_date: transferFirstDueDate,
+                  }
+                : undefined,
+          })
+        }
+      }
+    }
+
     if (
       !manualDeviceEntry &&
       !allowNegativeInventory &&
@@ -1238,10 +1391,11 @@ export function PosPage() {
       customer_id: customerId,
       branch_id: resolvedBranchId || undefined,
       contract_kind: contractKind,
-      installation_fee: grossInstallationFeePerUnit,
-      transportation_fee: transportationFeeAmount,
-      discount_amount: feeDiscountAmount,
+      installation_fee: contractKind === 'ownership_transfer' ? 0 : grossInstallationFeePerUnit,
+      transportation_fee: contractKind === 'ownership_transfer' ? 0 : transportationFeeAmount,
+      discount_amount: contractKind === 'ownership_transfer' ? 0 : feeDiscountAmount,
       invoice_date: contractDate,
+      payment_term: contractKind === 'ownership_transfer' ? transferPaymentTerm : undefined,
       lines,
     }
 
@@ -1549,6 +1703,29 @@ export function PosPage() {
                 customerLocked={isEditMode || renewalCustomerLocked}
               />
 
+            {contractKind === 'ownership_transfer' && (
+              <PosOwnershipTransferFeesSection
+                includeDisassemblyAndAssembly={transferIncludeDisassemblyAndAssembly}
+                onIncludeDisassemblyAndAssemblyChange={setTransferIncludeDisassemblyAndAssembly}
+                paymentTerm={transferPaymentTerm}
+                onPaymentTermChange={setTransferPaymentTerm}
+                downPayment={transferDownPayment}
+                onDownPaymentChange={setTransferDownPayment}
+                installmentCount={transferInstallmentCount}
+                onInstallmentCountChange={setTransferInstallmentCount}
+                intervalType={transferIntervalType}
+                onIntervalTypeChange={setTransferIntervalType}
+                firstDueDate={transferFirstDueDate}
+                onFirstDueDateChange={setTransferFirstDueDate}
+                ownershipFee={ownershipFeeAmount}
+                uninstallFee={uninstallFeeAmount}
+                installationFee={installationFeeAmount}
+                ownershipServiceName={ownershipTransferService?.name_ar || ownershipTransferService?.name}
+                uninstallServiceName={uninstallService?.name_ar || uninstallService?.name}
+                installationServiceName={installationServiceForTransfer?.name_ar || installationServiceForTransfer?.name}
+              />
+            )}
+
             {contractKind === 'subscription_renewal' && (
               <PosSubscriptionRenewalSection
                 customer={selectedCustomer}
@@ -1665,9 +1842,9 @@ export function PosPage() {
             branchLabel={branchLabel}
             contractDate={contractDate}
             devicesSubtotal={devicesSubtotal}
-            servicesSubtotal={0}
-            netInstallationFeeTotal={netInstallationFeeTotal}
-            transportationFee={transportationFeeAmount}
+            servicesSubtotal={isOwnershipTransfer ? transferServicesTotal : 0}
+            netInstallationFeeTotal={isOwnershipTransfer ? 0 : netInstallationFeeTotal}
+            transportationFee={isOwnershipTransfer ? 0 : transportationFeeAmount}
             deviceCount={deviceLines.length}
             paidAtCheckout={paidAtCheckout}
             totalEstimate={totalEstimate}
@@ -1677,8 +1854,8 @@ export function PosPage() {
               hasAutoSelectedPromotion.current = true
               setSelectedPromotionId(id)
             }}
-            showPromotions={deviceLines.length > 0}
-            devicesOnly
+            showPromotions={deviceLines.length > 0 && !isOwnershipTransfer}
+            devicesOnly={!isOwnershipTransfer}
             validationSummary={validationSummary}
             checkoutError={
               checkoutMutation.isError ? getErrorMessage(checkoutMutation.error) : undefined
@@ -1724,7 +1901,7 @@ export function PosPage() {
             submitDisabled={submitDisabled}
             submitPending={checkoutMutation.isPending}
             submitInvalid={submitInvalid}
-            actionLabel={isEditMode ? 'حفظ التعديل' : 'إتمام التعاقد'}
+            actionLabel={isEditMode ? 'حفظ التعديل' : isOwnershipTransfer ? 'إتمام نقل الملكية' : 'إتمام التعاقد'}
             distributorBalanceAvailable={distributorBalanceAvailable}
             distributorBalanceAmount={distributorBalanceAmount}
             onDistributorBalanceAmountChange={setDistributorBalanceAmount}
@@ -1736,7 +1913,7 @@ export function PosPage() {
           submitDisabled={submitDisabled}
           submitPending={checkoutMutation.isPending}
           submitInvalid={submitInvalid}
-          actionLabel={isEditMode ? 'حفظ التعديل' : 'إتمام التعاقد'}
+          actionLabel={isEditMode ? 'حفظ التعديل' : isOwnershipTransfer ? 'إتمام نقل الملكية' : 'إتمام التعاقد'}
         />
       </form>
       <CustomerCreateModal

@@ -40,6 +40,7 @@ const CHIP_ICONS: Record<CombinerFeeChipId, string> = {
   installation: 'home_repair_service',
   programming: 'memory',
   software: 'tune',
+  site_transfer: 'swap_horiz',
 }
 
 interface ServiceDetailsStepProps {

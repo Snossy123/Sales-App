@@ -10,11 +10,10 @@ import {
 } from './contractKinds'
 
 describe('contractKinds', () => {
-  it('exposes the four POS service types', () => {
+  it('exposes the POS service types', () => {
     expect(CONTRACT_KINDS.map((kind) => kind.value)).toEqual([
       'new_contract',
       'subscription_renewal',
-      'external_device',
       'ownership_transfer',
     ])
   })
