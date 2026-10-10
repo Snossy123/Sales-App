@@ -191,7 +191,7 @@ export function buildOwnershipTransferCheckout(
   const downPayment = draft.transferDownPayment ?? 0
   const installmentCount = Math.max(1, draft.transferInstallmentCount ?? 1)
   const intervalType = draft.transferIntervalType ?? 'monthly'
-  const firstDueDate = draft.transferFirstDueDate
+  const firstDueDate = draft.transferFirstDueDate ?? new Date().toISOString().split('T')[0]
 
   // Resolve service IDs from services list
   const findService = (category: string) =>

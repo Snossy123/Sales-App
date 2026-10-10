@@ -57,10 +57,9 @@ export function PosOwnershipTransferFeesSection({
 
   return (
     <PosSectionCard
+      number={3}
       title="رسوم نقل الملكية والخدمات"
       subtitle="تحديد رسوم نقل الملكية، خدمات الفك والتركيب، وطريقة الدفع (كاش أو قسط إضافي)"
-      icon={<Icon name="payments" size={20} className="text-primary" />}
-      sectionNumber={3}
     >
       <div className="space-y-md">
         {/* Fees summary table */}

@@ -1140,7 +1140,6 @@ export function PosPage() {
     selectedCustomer?.distributor_profile ?? customerDistributorQuery.data ?? null
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
 
-  const isOwnershipTransfer = contractKind === 'ownership_transfer'
   const hasTransferSource = Boolean(sourceTransferInvoice || sourceTransferDevice)
   const deviceLineValidationOptions = {
     requireTechnician: contractKind !== 'subscription_renewal' && !isOwnershipTransfer,
