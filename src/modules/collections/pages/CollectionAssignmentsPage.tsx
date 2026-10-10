@@ -353,7 +353,19 @@ export function CollectionAssignmentsPage() {
                         contract.customerName
                       )}
                     </td>
-                    <td className="px-sm py-2 font-medium">{contract.invoiceNumber}</td>
+                    <td className="px-sm py-2 font-medium">
+                      {contract.invoiceId ? (
+                        <Link
+                          to={`/contracts/${contract.invoiceId}`}
+                          dir="ltr"
+                          className="text-primary hover:underline"
+                        >
+                          {contract.invoiceNumber}
+                        </Link>
+                      ) : (
+                        contract.invoiceNumber
+                      )}
+                    </td>
                     <td className="px-sm py-2 tabular-nums">
                       {contract.firstDueDate ? formatDate(contract.firstDueDate) : '—'}
                     </td>

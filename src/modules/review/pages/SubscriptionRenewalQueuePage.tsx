@@ -84,7 +84,22 @@ export function SubscriptionRenewalQueuePage() {
                   '—'
                 ),
             },
-            { key: 'invoice_number', header: 'العقد', render: (row) => row.invoice_number ?? '—' },
+            {
+              key: 'invoice_number',
+              header: 'العقد',
+              render: (row) =>
+                row.sales_invoice_id ? (
+                  <Link
+                    to={`/contracts/${row.sales_invoice_id}`}
+                    dir="ltr"
+                    className="text-primary hover:underline"
+                  >
+                    {row.invoice_number ?? `#${row.sales_invoice_id}`}
+                  </Link>
+                ) : (
+                  row.invoice_number ?? '—'
+                ),
+            },
             {
               key: 'subscription_renewal_date',
               header: 'تاريخ التجديد',

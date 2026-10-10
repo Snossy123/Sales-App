@@ -149,8 +149,17 @@ export function DashboardPage() {
           key: 'invoice_number',
           header: 'رقم العقد',
           render: (row: Record<string, unknown>) => {
-            const inv = row.sales_invoice as { invoice_number?: string } | undefined
-            return String(row.invoice_number ?? inv?.invoice_number ?? '—')
+            const inv = row.sales_invoice as { id?: number; invoice_number?: string } | undefined
+            const invoiceId = Number(row.sales_invoice_id ?? inv?.id ?? 0)
+            const num = String(row.invoice_number ?? inv?.invoice_number ?? (invoiceId ? `#${invoiceId}` : '—'))
+            if (invoiceId) {
+              return (
+                <Link to={`/contracts/${invoiceId}`} dir="ltr" className="text-primary hover:underline">
+                  {num}
+                </Link>
+              )
+            }
+            return num
           },
         },
         {
@@ -432,7 +441,18 @@ export function DashboardPage() {
                   {
                     key: 'invoice_number',
                     header: 'العقد',
-                    render: (row) => String(row.invoice_number ?? '—'),
+                    render: (row) => {
+                      const id = Number((row as { id?: number }).id)
+                      const num = String((row as { invoice_number?: string }).invoice_number ?? (id ? `#${id}` : '—'))
+                      if (id) {
+                        return (
+                          <Link to={`/contracts/${id}`} dir="ltr" className="text-primary hover:underline">
+                            {num}
+                          </Link>
+                        )
+                      }
+                      return num
+                    },
                   },
                   {
                     key: 'customer',

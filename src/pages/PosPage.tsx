@@ -917,6 +917,11 @@ export function PosPage() {
           chassisNumber: sourceLine?.chassis_number ?? '',
           engineNumber: sourceLine?.engine_number ?? '',
           renewalType: sourceLine?.renewal_type ?? 'annual',
+          subscriptionRenewalDate:
+            sourceLine?.subscription_renewal_date ||
+            sourceTransferInvoice?.subscription_renewal_date ||
+            sourceTransferInvoice?.invoice_date ||
+            '',
         },
       ])
       return

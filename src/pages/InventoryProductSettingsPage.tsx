@@ -27,6 +27,7 @@ const emptyForm = {
   external_installment_annual_price: '',
   external_installment_permanent_price: '',
   monthly_interest_amount: '',
+  installation_commission: '',
   min_stock_level: '',
 }
 
@@ -64,6 +65,7 @@ function toForm(product: GpsProduct): GpsProductForm {
       product.external_installment_permanent_price ?? installmentAnnual,
     ),
     monthly_interest_amount: String(product.monthly_interest_amount ?? 0),
+    installation_commission: String(product.installation_commission ?? 0),
     min_stock_level: String(product.min_stock_level ?? 0),
   }
 }
@@ -89,6 +91,7 @@ function toPayload(form: GpsProductForm) {
     external_installment_annual_price: Number(form.external_installment_annual_price),
     external_installment_permanent_price: Number(form.external_installment_permanent_price),
     monthly_interest_amount: Number(form.monthly_interest_amount || 0),
+    installation_commission: Number(form.installation_commission || 0),
     min_stock_level: Math.max(0, Math.floor(Number(form.min_stock_level || 0))),
   }
 }
@@ -400,6 +403,21 @@ export function InventoryProductSettingsPage() {
                 أسعار الفك/السوفت تُسحب من أول خدمة مفعّلة لكل تصنيف في صفحة الخدمات.
               </p>
             </div>
+          </section>
+
+          <section className="space-y-sm rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-sm">
+            <h3 className="text-sm font-bold text-on-surface">عمولة تنفيذ التركيب</h3>
+            <p className="text-xs text-on-surface-variant">
+              تُحسب واحتسابها بعد تنفيذ أمر التركيب: تُخصم من الأقساط إذا وُجد قسط، أو تُضاف إلى رصيده ليتمكن من سحبها من صفحة المصروفات.
+            </p>
+            <PriceField
+              id="gps-installation-commission"
+              label="عمولة تنفيذ التركيب (ج.م)"
+              value={form.installation_commission}
+              onChange={(value) => setForm({ ...form, installation_commission: value })}
+              required={false}
+              min={0}
+            />
           </section>
 
           <p className="text-xs text-on-surface-variant">

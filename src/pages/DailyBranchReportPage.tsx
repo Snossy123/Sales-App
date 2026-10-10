@@ -150,12 +150,21 @@ export function DailyBranchReportPage() {
               className={inputClass}
             />
           </label>
-          <div className="rounded-lg bg-surface-container-lowest px-md py-2 text-sm">
-            <span className="text-on-surface-variant">الإجمالي: </span>
-            <strong className="tabular-nums">{form.total_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</strong>
-            <span className="mx-sm text-on-surface-variant">|</span>
-            <span className="text-on-surface-variant">الصافي: </span>
-            <strong className="tabular-nums">{form.net_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })}</strong>
+          <div className="flex flex-wrap items-center gap-md rounded-lg bg-surface-container-lowest px-md py-2 text-sm">
+            <div>
+              <span className="text-on-surface-variant">المدفوعات (إجمالي): </span>
+              <strong className="tabular-nums text-primary">{form.total_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
+            </div>
+            <span className="text-outline-variant">|</span>
+            <div>
+              <span className="text-on-surface-variant">المصروفات (إجمالي): </span>
+              <strong className="tabular-nums text-error">{form.expenses_total.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
+            </div>
+            <span className="text-outline-variant">|</span>
+            <div>
+              <span className="text-on-surface-variant">الصافي: </span>
+              <strong className="tabular-nums text-emerald-600 dark:text-emerald-400 font-bold">{form.net_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
+            </div>
           </div>
         </div>
 
