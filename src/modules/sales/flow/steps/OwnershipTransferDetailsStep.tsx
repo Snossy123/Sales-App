@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../../api/client'
-import type { Employee, PaginatedResponse } from '../../../../api/types'
+import type { Employee, PaginatedResponse, Service } from '../../../../api/types'
+import type { ApiPaginated } from '../../../../lib/sales'
 import {
   createDeviceLine,
   DeviceLineCard,
 } from '../../../../components/pos/DeviceLineCard'
 import { PosOwnershipTransferSection } from '../../../../components/pos/PosOwnershipTransferSection'
+import { PosOwnershipTransferFeesSection } from '../../../../components/pos/PosOwnershipTransferFeesSection'
 import {
   applyContractDeviceIdentity,
   identityFromCustomerDevice,
@@ -90,6 +92,56 @@ export function OwnershipTransferDetailsStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.sourceTransferInvoice, draft.sourceTransferDevice, draft.contractDate])
 
+  const servicesQuery = useQuery({
+    queryKey: ['services', 'pos-transfer-fees'],
+    queryFn: async () => {
+      const { data } = await api.get<ApiPaginated<Service>>('/services', {
+        params: { per_page: 100, 'filter[is_active]': '1' },
+      })
+      return data
+    },
+  })
+
+  const allServices = servicesQuery.data?.data ?? []
+  const ownershipTransferService = allServices.find(
+    (s) =>
+      s.category === 'ownership_transfer' ||
+      s.code === 'SRV-OWN' ||
+      (s.name_ar || s.name).includes('نقل ملكية'),
+  )
+  const uninstallService = allServices.find(
+    (s) =>
+      s.category === 'uninstall' ||
+      s.code === 'SRV-FK' ||
+      (s.name_ar || s.name).includes('فك'),
+  )
+  const installationService = allServices.find(
+    (s) =>
+      s.category === 'installation' ||
+      s.code === 'SRV-TRK' ||
+      (s.name_ar || s.name).includes('تركيب'),
+  )
+
+  const ownershipFee = Number(
+    ownershipTransferService?.cash_price ?? ownershipTransferService?.default_price ?? 200,
+  )
+  const uninstallFee = Number(
+    uninstallService?.cash_price ?? uninstallService?.default_price ?? 100,
+  )
+  const installationFee = Number(
+    installationService?.cash_price ?? installationService?.default_price ?? 500,
+  )
+
+  // Persist resolved fee amounts into draft so flowTotals can compute correct totals
+  useEffect(() => {
+    onPatch({
+      transferOwnershipFeeAmount: ownershipFee,
+      transferUninstallFeeAmount: uninstallFee,
+      transferInstallationFeeAmount: installationFee,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownershipFee, uninstallFee, installationFee])
+
   const line = draft.deviceLines[0]
 
   return (
@@ -104,6 +156,29 @@ export function OwnershipTransferDetailsStep({
           onPatch({ sourceTransferDevice, sourceTransferInvoice: null })
         }
         submitAttempted={showErrors}
+      />
+
+      <PosOwnershipTransferFeesSection
+        includeDisassemblyAndAssembly={Boolean(draft.transferIncludeDisassemblyAndAssembly)}
+        onIncludeDisassemblyAndAssemblyChange={(val) =>
+          onPatch({ transferIncludeDisassemblyAndAssembly: val })
+        }
+        paymentTerm={draft.transferPaymentTerm ?? 'cash'}
+        onPaymentTermChange={(val) => onPatch({ transferPaymentTerm: val })}
+        downPayment={draft.transferDownPayment ?? 0}
+        onDownPaymentChange={(val) => onPatch({ transferDownPayment: val })}
+        installmentCount={draft.transferInstallmentCount ?? 1}
+        onInstallmentCountChange={(val) => onPatch({ transferInstallmentCount: val })}
+        intervalType={draft.transferIntervalType ?? 'monthly'}
+        onIntervalTypeChange={(val) => onPatch({ transferIntervalType: val })}
+        firstDueDate={draft.transferFirstDueDate ?? draft.contractDate}
+        onFirstDueDateChange={(val) => onPatch({ transferFirstDueDate: val })}
+        ownershipFee={ownershipFee}
+        uninstallFee={uninstallFee}
+        installationFee={installationFee}
+        ownershipServiceName={ownershipTransferService?.name_ar || ownershipTransferService?.name}
+        uninstallServiceName={uninstallService?.name_ar || uninstallService?.name}
+        installationServiceName={installationService?.name_ar || installationService?.name}
       />
 
       {line ? (

@@ -1,4 +1,4 @@
-import type { AccessoryCheckoutPayload, CheckoutPayload, ProductUnit } from '../../../api/types'
+import type { AccessoryCheckoutPayload, CheckoutPayload, ProductUnit, Service } from '../../../api/types'
 import {
   lineInstallmentCount,
   lineNetTotal,
@@ -185,8 +185,59 @@ export function buildServiceCheckout(
 
 export function buildOwnershipTransferCheckout(
   draft: PosFlowDraft,
-  input: { contextBranchId: number | null; maxInstallmentCount: number },
+  input: { contextBranchId: number | null; maxInstallmentCount: number; services?: Service[] },
 ): CheckoutPayload {
+  const paymentTerm = draft.transferPaymentTerm ?? 'cash'
+  const downPayment = draft.transferDownPayment ?? 0
+  const installmentCount = Math.max(1, draft.transferInstallmentCount ?? 1)
+  const intervalType = draft.transferIntervalType ?? 'monthly'
+  const firstDueDate = draft.transferFirstDueDate
+
+  // Resolve service IDs from services list
+  const findService = (category: string) =>
+    input.services?.find((s) => s.category === category)
+
+  const ownershipSvc = findService('ownership_transfer')
+  const uninstallSvc = findService('uninstall')
+  const installationSvc = findService('installation')
+
+  // Helper to build a single service line
+  const buildServiceLine = (
+    svc: Service,
+  ): NonNullable<CheckoutPayload['lines']>[number] => {
+    const lineTotal = Number(svc.default_price) || 0
+    const baseLine = {
+      line_type: 'service' as const,
+      service_id: svc.id,
+      unit_price: lineTotal,
+      payment_term: paymentTerm,
+    }
+    if (paymentTerm === 'installment' && lineTotal > 0) {
+      const financedAmount = Math.max(0, lineTotal - downPayment)
+      const installmentAmount = Math.round((financedAmount / installmentCount) * 100) / 100
+      return {
+        ...baseLine,
+        installment_plan: {
+          down_payment: downPayment,
+          installment_amount: installmentAmount,
+          installment_count: installmentCount,
+          interval_type: intervalType,
+          interval_days: intervalType === 'weekly' ? 7 : 30,
+          first_due_date: firstDueDate,
+        },
+      }
+    }
+    return { ...baseLine, cash_schedule: 'immediate' as const }
+  }
+
+  // Build transfer fee lines
+  const transferServiceLines: NonNullable<CheckoutPayload['lines']> = []
+  if (ownershipSvc) transferServiceLines.push(buildServiceLine(ownershipSvc))
+  if (draft.transferIncludeDisassemblyAndAssembly) {
+    if (uninstallSvc) transferServiceLines.push(buildServiceLine(uninstallSvc))
+    if (installationSvc) transferServiceLines.push(buildServiceLine(installationSvc))
+  }
+
   return {
     customer_id: draft.selectedCustomer!.id,
     ...sourceFields(draft, input.contextBranchId),
@@ -195,7 +246,10 @@ export function buildOwnershipTransferCheckout(
     notes: draft.notes.trim() || undefined,
     source_sales_invoice_id:
       draft.sourceTransferInvoice?.id ?? draft.sourceTransferDevice?.sales_invoice_id ?? undefined,
-    lines: deviceLinesPayload(draft, [], input.maxInstallmentCount, 'ownership_transfer'),
+    lines: [
+      ...deviceLinesPayload(draft, [], input.maxInstallmentCount, 'ownership_transfer'),
+      ...transferServiceLines,
+    ],
   }
 }
 
@@ -298,7 +352,17 @@ export function flowTotals(draft: PosFlowDraft, enableInstallationFee: boolean) 
     return { subtotal, fees: 0, paidNow, remaining: Math.max(0, subtotal - paidNow) }
   }
   if (draft.action === 'ownership_transfer') {
-    return { subtotal: 0, fees: 0, paidNow: 0, remaining: 0 }
+    const ownershipFee = draft.transferOwnershipFeeAmount ?? 0
+    const uninstallFee = draft.transferUninstallFeeAmount ?? 0
+    const installationFee = draft.transferInstallationFeeAmount ?? 0
+    const subtotal =
+      ownershipFee +
+      (draft.transferIncludeDisassemblyAndAssembly ? uninstallFee + installationFee : 0)
+    const paidNow =
+      draft.transferPaymentTerm === 'installment'
+        ? draft.transferDownPayment ?? 0
+        : subtotal
+    return { subtotal, fees: 0, paidNow, remaining: Math.max(0, subtotal - paidNow) }
   }
 
   const devicesSubtotal = draft.deviceLines.reduce((sum, line) => sum + lineNetTotal(line), 0)

@@ -8,6 +8,7 @@ export type CombinerChipId =
   | 'installation'
   | 'programming'
   | 'software'
+  | 'site_transfer'
 
 export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'annual_renewal', label: 'تجديد اشتراك سنوي' },
@@ -15,6 +16,7 @@ export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'installation', label: 'تركيب' },
   { id: 'programming', label: 'برمجة' },
   { id: 'software', label: 'سوفت' },
+  { id: 'site_transfer', label: 'نقل على الموقع' },
 ]
 
 export type CombinerFeeChipId = Exclude<CombinerChipId, 'annual_renewal' | 'external_device'>
@@ -112,8 +114,9 @@ export const COMBINER_FEE_CHIPS: {
 }[] = [
   { id: 'uninstall', label: 'فك', code: 'SRV-FK', category: 'uninstall' },
   { id: 'installation', label: 'تركيب', code: 'SRV-TRK', category: 'installation' },
-  { id: 'programming', label: 'برمجة', code: 'SRV-SIM', category: 'software', nameHint: 'برمجة' },
+  { id: 'programming', label: 'برمجة', code: 'SRV-SIM', category: 'programming', nameHint: 'برمجة' },
   { id: 'software', label: 'سوفت', code: 'SRV-SFT', category: 'software', nameHint: 'سوفت' },
+  { id: 'site_transfer', label: 'نقل على الموقع', code: 'SRV-SIT', category: 'site_transfer', nameHint: 'نقل على الموقع' },
 ]
 
 export function findCombinerService(
@@ -124,7 +127,10 @@ export function findCombinerService(
   if (byCode) return byCode
 
   const inCategory = services.filter(
-    (service) => service.category === chip.category && service.is_active,
+    (service) =>
+      (service.category === chip.category ||
+        (chip.id === 'programming' && service.category === 'software')) &&
+      service.is_active,
   )
   if (chip.nameHint) {
     const hinted = inCategory.find((service) =>

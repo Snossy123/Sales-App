@@ -9,6 +9,7 @@ import type {
   ProductUnit,
   Promotion,
   SalesInvoice,
+  Service,
 } from '../../../api/types'
 import { MyContractsButton } from '../../../components/contracts/MyContractsButton'
 import { SalesPageShell } from '../../../components/SalesPageShell'
@@ -86,6 +87,17 @@ export function PosFlowPage() {
     enabled: Boolean(draft.selectedCustomer?.id) && draft.step === 'review',
   })
 
+  const servicesQuery = useQuery({
+    queryKey: ['services', 'pos-flow-transfer-checkout'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Service[] }>('/services', {
+        params: { per_page: 100, 'filter[is_active]': '1' },
+      })
+      return data.data ?? []
+    },
+    enabled: draft.action === 'ownership_transfer',
+  })
+
   const totals = flowTotals(draft, enableInstallationFee)
   const detailErrors = detailsReady(draft, {
     warehouseId: warehouseId ?? null,
@@ -114,7 +126,11 @@ export function PosFlowPage() {
         draft.action === 'renewal'
           ? buildRenewalCheckout(draft, { contextBranchId, maxInstallmentCount })
           : draft.action === 'ownership_transfer'
-              ? buildOwnershipTransferCheckout(draft, { contextBranchId, maxInstallmentCount })
+              ? buildOwnershipTransferCheckout(draft, {
+                  contextBranchId,
+                  maxInstallmentCount,
+                  services: servicesQuery.data,
+                })
               : draft.action === 'catalog' && draft.accessoryCart.length === 0
                 ? buildServiceCheckout(draft, {
                     contextBranchId,
