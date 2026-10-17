@@ -150,8 +150,7 @@
   width: 37mm;
   height: 24mm;
   object-fit: contain;
-  margin-top: 3.5mm;
-  margin-bottom: 2mm;
+  margin: 0;
 }
 .ic-title-badge {
   position: relative;
