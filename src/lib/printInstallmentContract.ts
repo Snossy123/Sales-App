@@ -75,7 +75,7 @@ function buildPrintDocument(contractHtml: string): string {
   const origin = window.location.origin
   const css = absolutizeCssUrls(installmentContractCss, origin)
   return `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
+<html dir="ltr" lang="ar">
 <head>
   <meta charset="UTF-8" />
   <base href="${origin}/" />
@@ -88,6 +88,8 @@ function buildPrintDocument(contractHtml: string): string {
       width: 210mm !important;
       height: 297mm !important;
       overflow: hidden !important;
+      /* Root must stay LTR. RTL on html/body prints the sheet upside down on macOS. */
+      direction: ltr !important;
     }
     ${css}
     .installment-contract {

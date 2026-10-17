@@ -581,31 +581,31 @@
   padding: 0 1.8mm;
 }
 .ic-below .ic-summary {
-  gap: 1.8mm;
+  gap: 1mm;
   margin-bottom: 0;
 }
 .ic-below .ic-pill-label {
-  font-size: 12.5pt;
+  font-size: 11.5pt;
 }
 .ic-below .ic-pill,
 .ic-below .ic-exclude-pill,
 .ic-below .ic-note-pill,
 .ic-below .ic-note-text {
-  min-height: 9.2mm;
+  min-height: 7.2mm;
 }
 .ic-below .ic-pill {
-  font-size: 16pt;
-  padding-inline: 3mm;
+  font-size: 13.5pt;
+  padding-inline: 2.5mm;
 }
 .ic-below .ic-pill--date {
-  font-size: 14.5pt;
-  min-height: 9.2mm;
-  padding-inline: 3mm;
+  font-size: 12.5pt;
+  min-height: 7.2mm;
+  padding-inline: 2.5mm;
 }
 .ic-below .ic-pill--num-sm {
-  font-size: 16pt;
-  min-width: 18mm;
-  padding-inline: 3.5mm;
+  font-size: 13.5pt;
+  min-width: 16mm;
+  padding-inline: 3mm;
 }
 .ic-below .ic-srow--money > .ic-srow-item--amount {
   flex: 1 1 0;
@@ -616,9 +616,9 @@
 }
 .ic-below .ic-pill--schedule,
 .ic-below .ic-exclude-pill {
-  min-height: 9.2mm;
-  padding-inline: 3mm;
-  font-size: 15pt;
+  min-height: 7.2mm;
+  padding-inline: 2.5mm;
+  font-size: 12.5pt;
 }
 .ic-below .ic-srow--renewal {
   flex-wrap: nowrap;
@@ -626,8 +626,8 @@
 }
 .ic-below .ic-pill--renewal-date {
   flex: 0 0 auto;
-  min-height: 9.2mm;
-  max-height: 9.2mm;
+  min-height: 7.2mm;
+  max-height: 7.2mm;
   min-width: 0;
   width: max-content;
   padding-inline: 3mm;
@@ -638,11 +638,11 @@
   justify-content: center;
   flex: 1 1 auto;
   min-width: 0;
-  height: 9.2mm;
-  min-height: 9.2mm;
-  max-height: 9.2mm;
-  padding: 0 3.5mm;
-  font-size: 11pt;
+  height: 7.2mm;
+  min-height: 7.2mm;
+  max-height: 7.2mm;
+  padding: 0 3mm;
+  font-size: 10pt;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -1763,6 +1763,8 @@
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+    /* Root must stay LTR. RTL on html/body prints the sheet upside down on macOS. */
+    direction: ltr !important;
   }
 
   .app-shell {
