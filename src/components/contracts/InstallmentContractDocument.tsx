@@ -63,10 +63,12 @@ function FitOneLine({
   className,
   children,
   spread = false,
+  dir,
 }: {
   className?: string
   children: ReactNode
   spread?: boolean
+  dir?: 'ltr' | 'rtl'
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLSpanElement>(null)
@@ -140,7 +142,7 @@ function FitOneLine({
       if (raf) cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [children, spread])
+  }, [children, dir, spread])
 
   const textStyle: CSSProperties | undefined =
     fontPx || wordSpacingPx != null || spread
@@ -152,7 +154,7 @@ function FitOneLine({
       : undefined
 
   return (
-    <div ref={boxRef} className={className}>
+    <div ref={boxRef} className={className} dir={dir}>
       <span ref={textRef} style={textStyle}>
         {children}
       </span>
@@ -501,47 +503,51 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">السيد :</span>
-                  <span className="ic-field-value">{customer?.name ?? ''}</span>
+                  <FitOneLine className="ic-field-value">
+                    {customer?.name ?? ''}
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">الرقم القومي :</span>
-                  <span className="ic-field-value" dir="ltr">
+                  <FitOneLine className="ic-field-value" dir="ltr">
                     {customer?.national_id ?? ''}
-                  </span>
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">رقم العميل 1 :</span>
-                  <span className="ic-field-value" dir="ltr">
+                  <FitOneLine className="ic-field-value" dir="ltr">
                     {customer?.phone ?? ''}
-                  </span>
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">رقم العميل 2 :</span>
-                  <span className="ic-field-value" dir="ltr">
+                  <FitOneLine className="ic-field-value" dir="ltr">
                     {customer?.phone_2 ?? ''}
-                  </span>
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">رقم الشريحة :</span>
-                  <span className="ic-field-value" dir="ltr">
+                  <FitOneLine className="ic-field-value" dir="ltr">
                     {resolveSim(line, customer)}
-                  </span>
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">اسم المستخدم :</span>
-                  <span className="ic-field-value">{resolveUsername(line, customer)}</span>
+                  <FitOneLine className="ic-field-value">
+                    {resolveUsername(line, customer)}
+                  </FitOneLine>
                 </div>
                 <div className="ic-field-row">
                   <span className="ic-field-diamond">◆</span>
                   <span className="ic-field-label">السريال :</span>
-                  <span className="ic-field-value" dir="ltr">
+                  <FitOneLine className="ic-field-value" dir="ltr">
                     {resolveSerial(line, customer)}
-                  </span>
+                  </FitOneLine>
                 </div>
               </div>
 

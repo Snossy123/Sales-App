@@ -143,7 +143,8 @@
   -webkit-text-stroke: 0;
 }
 .ic-brandwords span {
-  font-size: 1.7mm;
+  font-size: 2.2mm;
+  white-space: nowrap;
 }
 .ic-logo-img {
   width: 37mm;
@@ -164,13 +165,14 @@
   border: 1.5px solid #333;
   color: var(--ic-red);
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 15pt;
+  font-size: 18pt;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
-  padding: 1.5mm 5mm 1mm;
+  padding: 0.8mm 4mm 0.7mm;
   border-radius: 8px;
   box-shadow: 0 0 0 2mm #fff;
+  white-space: nowrap;
   -webkit-text-stroke: 0.28px currentColor;
 }
 
@@ -328,12 +330,12 @@
 .ic-cash-below .ic-warning {
   font-size: 10.5pt;
   padding: 1.2mm 4mm;
-  margin: 0 1mm;
+  margin: 0;
   min-height: 7mm;
 }
 .ic-cash-below .ic-warning-row {
   gap: 1.8mm;
-  margin: 0 1mm;
+  margin: 0;
 }
 .ic-cash-below .ic-warning-row .ic-warning {
   font-size: 9.5pt;
@@ -348,7 +350,7 @@
 }
 .ic-cash-below .ic-alert-grid .ic-alert-box {
   font-size: 10pt;
-  padding: 1.5mm 2mm;
+  padding: 0.5mm;
   line-height: 1.2;
 }
 .ic-cash-below .ic-alert-grid .ic-alert-warn {
@@ -411,7 +413,7 @@
   text-align: right;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 11pt;
+  font-size: 13pt;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -782,7 +784,7 @@
   border: 2.5px solid var(--ic-red);
   border-radius: 999px;
   padding: 0mm 4mm;
-  margin: 0 1.5mm 0.7mm;
+  margin: 0 0 0.7mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 10.5pt;
   font-weight: 400;
@@ -810,7 +812,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.8mm;
-  margin: 0 1mm 0.7mm;
+  margin: 0 0 0.7mm;
 }
 .ic-warning-row .ic-warning {
   margin: 0;
@@ -834,7 +836,7 @@
 .ic-alert-box {
   border: 1.5px solid var(--ic-red);
   background: var(--ic-alert-bg);
-  padding: 0mm 1.6mm;
+  padding: 0 0.5mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 9.5pt;
   font-weight: 400;
@@ -850,6 +852,9 @@
   gap: 0.25mm;
   box-sizing: border-box;
   -webkit-text-stroke: 0.3px currentColor;
+}
+.ic-alert-box p {
+  margin: 0;
 }
 .ic-alert-line {
   display: block;
