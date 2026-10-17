@@ -57,6 +57,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     label: (row) => (row as { name?: string }).name ?? `#${row.id}`,
     permissions: { create: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
     editMode: 'modal',
+    deleteConfirmMessage: (row) => `حذف الموظف "${(row as { name?: string }).name}"؟`,
   },
   leads: {
     resource: 'leads',
@@ -198,7 +199,7 @@ export const entityCrudRegistry: Record<EntityCrudKey, EntityCrudConfig> = {
     trashType: 'admin-users',
     listPath: '/admin/users',
     label: (row) => (row as { name?: string }).name ?? `#${row.id}`,
-    permissions: { create: [...adminRoles], edit: [...adminRoles], delete: ['super_admin'] },
+    permissions: { create: [...adminRoles], edit: [...adminRoles], delete: [...adminRoles] },
     editMode: 'modal',
     deleteConfirmMessage: (row) => `حذف المستخدم "${(row as { name?: string }).name}"؟`,
   },
