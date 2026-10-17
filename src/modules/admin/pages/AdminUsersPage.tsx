@@ -430,8 +430,8 @@ export function AdminUsersPage() {
 
       <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null); setFormError('') }} title={editId ? 'تعديل مستخدم' : 'مستخدم جديد'}>
         {formError && (
-          <div className="mb-sm">
-            <ToastBanner message={formError} onDismiss={() => setFormError('')} />
+          <div className="mb-sm max-h-[150px] overflow-y-auto">
+            <ToastBanner message={formError} onDismiss={() => setFormError('')} variant="error" />
           </div>
         )}
         <form onSubmit={(e) => { e.preventDefault(); setFormError(''); saveMutation.mutate() }} className="grid gap-sm sm:grid-cols-2">
