@@ -329,7 +329,7 @@
 }
 .ic-cash-below .ic-warning {
   font-size: 10.5pt;
-  padding: 1.2mm 4mm;
+  padding: 1.2mm 0;
   margin: 0;
   min-height: 7mm;
 }
@@ -339,7 +339,7 @@
 }
 .ic-cash-below .ic-warning-row .ic-warning {
   font-size: 9.5pt;
-  padding: 1.4mm 2.5mm;
+  padding: 1.4mm 0;
   min-height: 6.5mm;
 }
 .ic-cash-below .ic-alert-grid {
@@ -783,7 +783,7 @@
 .ic-warning {
   border: 2.5px solid var(--ic-red);
   border-radius: 999px;
-  padding: 0mm 4mm;
+  padding: 0;
   margin: 0 0 0.7mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 10.5pt;
@@ -817,11 +817,11 @@
 .ic-warning-row .ic-warning {
   margin: 0;
   font-size: 8.5pt;
-  padding: 1.2mm 2.5mm;
+  padding: 1.2mm 0;
   min-height: 6.5mm;
 }
 .ic-warning-row .ic-warning--line {
-  padding: 0mm 2.5mm;
+  padding: 0;
 }
 
 /* ===== Alert boxes ===== */
