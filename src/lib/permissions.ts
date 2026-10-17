@@ -178,7 +178,7 @@ export const navEntries: NavEntry[] = [
         { to: '/hrm/leave-types', icon: 'category', label: 'أنواع الإجازة', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/shifts', icon: 'calendar_month', label: 'الورديات', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/holidays', icon: 'celebration', label: 'العطلات', roles: ['super_admin', 'admin', 'hr_manager'] },
-        { to: '/hrm/allowances', icon: 'payments', label: 'البدلات', roles: ['super_admin', 'admin', 'hr_manager'] },
+        { to: '/hrm/allowances', icon: 'payments', label: 'البنود المالية والسلَف', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/payroll', icon: 'account_balance_wallet', label: 'الرواتب', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/payroll-groups', icon: 'folder_shared', label: 'مسيرات الرواتب', roles: ['super_admin', 'admin', 'hr_manager'] },
         { to: '/hrm/settings', icon: 'settings', label: 'الإعدادات', roles: ['super_admin', 'admin', 'hr_manager'] },
