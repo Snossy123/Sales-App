@@ -18,6 +18,7 @@ export const CATEGORY_LABELS: Record<PermissionCategory, string> = {
 
 export const MODULE_LABELS: Record<string, string> = {
   dashboard: 'لوحة التحكم',
+  daily_reports: 'البيان اليومي',
   branches: 'الفروع',
   warehouses: 'المخازن',
   inventory: 'مخزون GPS',
@@ -67,7 +68,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     id: 'general',
     label: 'عام',
     icon: 'dashboard',
-    modules: ['dashboard'],
+    modules: ['dashboard', 'daily_reports'],
   },
   {
     id: 'management',
@@ -170,6 +171,8 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'dashboard.sales_by_payment_term', module: 'dashboard', category: 'view', label: 'مخطط المبيعات حسب طريقة الدفع', description: 'عرض الرسم البياني لمبيعات الكاش مقابل مبيعات التقسيط' },
   { key: 'dashboard.sales_by_source', module: 'dashboard', category: 'view', label: 'مخطط المبيعات حسب المصدر', description: 'عرض الرسم البياني لمبيعات الشركة بناءً على مصادر استقطاب العملاء' },
   { key: 'dashboard.last_3_months', module: 'dashboard', category: 'view', label: 'مخطط ملخص آخر 3 أشهر', description: 'عرض الرسم البياني للمبيعات والفواتير والتحصيلات في آخر 3 أشهر' },
+  { key: 'daily_reports.view', module: 'daily_reports', category: 'view', label: 'عرض البيان اليومي', description: 'عرض وطباعة البيان اليومي المستنتج للفروع' },
+  { key: 'daily_reports.manage', module: 'daily_reports', category: 'edit', label: 'إدارة البيان اليومي', description: 'حفظ وتعديل الحقول اليدوية ولقطة البيان اليومي' },
   { key: 'branches.manage', module: 'branches', category: 'other', label: 'إدارة الفروع', description: 'إنشاء وتعديل وإدارة فروع الإدارات' },
   { key: 'warehouses.manage', module: 'warehouses', category: 'other', label: 'إدارة المخازن', description: 'إنشاء وتعديل مخازن الفروع' },
   { key: 'inventory.manage', module: 'inventory', category: 'other', label: 'إدارة المخزون', description: 'عرض وإدارة مخزون أجهزة GPS' },

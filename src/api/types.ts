@@ -1044,6 +1044,7 @@ export interface SalesInvoiceLine {
 }
 
 export interface DailyReportTransaction {
+  payment_transaction_id?: number
   customer_name?: string
   promoter_name?: string
   distributor_id?: number | null
@@ -1052,23 +1053,28 @@ export interface DailyReportTransaction {
 }
 
 export interface DailyReportTransfer {
+  payment_transaction_id?: number
   customer_name?: string
   amount?: number | string
   reference?: string
 }
 
 export interface DailyReportAttendance {
+  employee_id?: number
   employee_name?: string
   check_in?: string
   check_out?: string
 }
 
 export interface DailyReportExpenseLine {
+  expense_request_id?: number
   description?: string
   amount?: number | string
 }
 
 export interface DailyReportMovement {
+  source_type?: string
+  source_id?: number
   description?: string
 }
 
@@ -1102,6 +1108,21 @@ export interface DailyBranchReport {
   expense_lines?: DailyReportExpenseLine[]
   movements?: DailyReportMovement[]
   branch?: Branch
+}
+
+export interface DailyBranchReportInference {
+  branch_id: number
+  report_date: string
+  inferred: Omit<
+    DailyBranchReport,
+    'id' | 'branch_id' | 'report_date' | 'branch' | 'percentage' | 'notes' | 'vodafone_other_notes' |
+      'renewal_notes' | 'reviewer_name' | 'branch_manager_name' | 'accessories_tape' |
+      'accessories_cable_ties' | 'accessories_bulb'
+  >
+  sources: Record<string, number>
+  warnings: string[]
+  existing_report_id?: number | null
+  existing_updated_at?: string | null
 }
 
 export interface HrmUserSalesTarget {

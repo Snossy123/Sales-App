@@ -311,8 +311,8 @@ export function lineFinancialSummary(
 }
 
 export function installmentTableColumnCount(count: number): 1 | 2 | 3 {
-  if (count <= 15) return 1
-  if (count <= 30) return 2
+  if (count <= 12) return 1
+  if (count <= 24) return 2
   return 3
 }
 
@@ -365,7 +365,7 @@ export function buildInstallmentRows(
   )
   const count = Math.max(plan?.installment_count ?? 0, items.length, maxItemNum)
   const cols = installmentTableColumnCount(count || 1)
-  const capacity = cols * 15
+  const capacity = cols * 12
   const rows: InstallmentTableCell[] = Array.from({ length: capacity }, emptyInstallmentCell)
 
   items.forEach((item) => {

@@ -1,12 +1,46 @@
 import { describe, expect, it } from 'vitest'
 import type { InstallmentItem, InstallmentPlan, SalesInvoice, SalesInvoiceLine } from '../api/types'
-import { displayPersonName, lineFinancialSummary } from './contractFields'
+import {
+  buildInstallmentRows,
+  displayPersonName,
+  installmentTableColumnCount,
+  lineFinancialSummary,
+} from './contractFields'
 
 describe('displayPersonName', () => {
   it('keeps the first two words of a full name', () => {
     expect(displayPersonName('أحمد محمد علي')).toBe('أحمد محمد')
     expect(displayPersonName('  سارة  ')).toBe('سارة')
     expect(displayPersonName(null)).toBe('')
+  })
+})
+
+describe('installment table sizing', () => {
+  it('uses one column per 12 installments, up to three columns', () => {
+    expect(installmentTableColumnCount(12)).toBe(1)
+    expect(installmentTableColumnCount(13)).toBe(2)
+    expect(installmentTableColumnCount(24)).toBe(2)
+    expect(installmentTableColumnCount(25)).toBe(3)
+    expect(installmentTableColumnCount(36)).toBe(3)
+  })
+
+  it.each([
+    [12, 12],
+    [13, 24],
+    [24, 24],
+    [25, 36],
+    [36, 36],
+  ])('builds a %i-installment plan with %i table cells', (count, capacity) => {
+    const plan: InstallmentPlan = {
+      id: 1,
+      sales_invoice_line_id: 1,
+      down_payment: 0,
+      installment_count: count,
+      items: [],
+    }
+    const line = makeLine(1, 36000, 'installment', plan)
+
+    expect(buildInstallmentRows(line, makeInvoice([line]))).toHaveLength(capacity)
   })
 })
 

@@ -41,7 +41,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/payments': 'payments.view',
   '/call-center/collections': 'external_collections.collect',
   '/admin/collection-accounts': ['collection_accounts.manage', 'collection_accounts.view'],
-  '/daily-reports': 'dashboard.view',
+  '/daily-reports': 'daily_reports.view',
   '/departments': 'branches.manage',
   '/branches': 'branches.manage',
   '/sections': 'branches.manage',
@@ -130,7 +130,7 @@ export function resolveRoutePermissions(path: string): string[] | null {
     return ['payments.view']
   }
   if (normalized.startsWith('/daily-reports')) {
-    return ['dashboard.view']
+    return ['daily_reports.view']
   }
   if (normalized.match(/^\/invoices\/\d+\/edit$/)) {
     return ['sales.invoices.edit_before_review', 'review.edit_after_review']

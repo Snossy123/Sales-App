@@ -25,7 +25,7 @@ export function DailyBranchReportPrintDocument({ report }: Props) {
   const expenseLines = report.expense_lines ?? []
   const movements = report.movements ?? []
 
-  const transactionRows = Array.from({ length: TRANSACTION_ROW_COUNT }, (_, index) => {
+  const transactionRows = Array.from({ length: Math.max(TRANSACTION_ROW_COUNT, transactions.length) }, (_, index) => {
     return transactions[index] ?? { customer_name: '', promoter_name: '', transaction_type: '', amount: 0 }
   })
 

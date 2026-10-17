@@ -83,6 +83,7 @@ import { HrmLeaveTypesPage } from '../modules/hrm/pages/HrmLeaveTypesPage'
 import { HrmJobsPage } from '../modules/hrm/pages/HrmJobsPage'
 import { HrmAllowancesPage } from '../modules/hrm/pages/HrmAllowancesPage'
 import { HrmPayrollGroupsPage } from '../modules/hrm/pages/HrmPayrollGroupsPage'
+import { HrmReportsPage } from '../modules/hrm/pages/HrmReportsPage'
 import { AccountingDashboardPage } from '../modules/accounting/pages/AccountingDashboardPage'
 import { ChartOfAccountsPage } from '../modules/accounting/pages/ChartOfAccountsPage'
 import { AccountLedgerPage } from '../modules/accounting/pages/AccountLedgerPage'
@@ -292,6 +293,7 @@ export function AppRoutes() {
             <Route path="hrm/allowances" element={<HrmAllowancesPage />} />
             <Route path="hrm/payroll" element={<HrmPayrollPage />} />
             <Route path="hrm/payroll-groups" element={<HrmPayrollGroupsPage />} />
+            <Route path="hrm/reports" element={<HrmReportsPage />} />
             <Route path="hrm/settings" element={<HrmSettingsPage />} />
             <Route path="admin/users" element={<AdminUsersPage />} />
             <Route path="admin/roles" element={<AdminRolesPage />} />

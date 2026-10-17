@@ -2,20 +2,18 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { Branch, DailyBranchReport, Distributor } from '../api/types'
+import type { Branch, DailyBranchReport, DailyBranchReportInference, Distributor } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
-  ATTENDANCE_ROW_COUNT,
-  EXPENSE_LINE_COUNT,
-  MOVEMENT_LINE_COUNT,
   TRANSACTION_ROW_COUNT,
   arabicDayName,
   branchDisplayName,
   createEmptyDailyReportForm,
   dailyReportPrintPath,
   formToPayload,
+  mergeDailyReportInference,
   recalcDailyReportTotals,
   reportToForm,
   transactionTypeSuggestions,
@@ -23,6 +21,7 @@ import {
 } from '../lib/dailyBranchReport'
 import { useAuthStore } from '../stores/authStore'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanPerform } from '../lib/access'
 
 
 type Tab = 'transactions' | 'summary'
@@ -30,6 +29,8 @@ type Tab = 'transactions' | 'summary'
 export function DailyBranchReportPage() {
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
+  const user = useAuthStore((s) => s.user)
+  const canManage = userCanPerform(user, 'daily_reports.manage')
   const [tab, setTab] = useState<Tab>('transactions')
   const [reportId, setReportId] = useState<number | null>(null)
   const [form, setForm] = useState<DailyBranchReportFormState>(() => createEmptyDailyReportForm())
@@ -67,18 +68,37 @@ export function DailyBranchReportPage() {
     enabled: Boolean(branchId),
   })
 
+  const inferenceQuery = useQuery({
+    queryKey: ['daily-branch-reports', 'inference', branchId, form.report_date],
+    queryFn: async () => {
+      const { data } = await api.get<DailyBranchReportInference>('/daily-branch-reports/inference', {
+        params: { branch_id: branchId, report_date: form.report_date },
+      })
+      return data
+    },
+    enabled: Boolean(branchId),
+  })
+
   useEffect(() => {
-    if (existingQuery.isFetching) return
-    if (existingQuery.data) {
-      setReportId(existingQuery.data.id)
-      setForm(reportToForm(existingQuery.data))
-      return
-    }
-    if (existingQuery.isSuccess) {
-      setReportId(null)
-      setForm(createEmptyDailyReportForm(form.report_date))
-    }
-  }, [existingQuery.data, existingQuery.isSuccess, existingQuery.isFetching, form.report_date])
+    if (existingQuery.isFetching || inferenceQuery.isFetching) return
+    if (!existingQuery.isSuccess || !inferenceQuery.isSuccess) return
+
+    const base = existingQuery.data
+      ? reportToForm(existingQuery.data)
+      : createEmptyDailyReportForm(form.report_date)
+    // Query results initialize the editable snapshot for the selected day.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReportId(existingQuery.data?.id ?? null)
+    setForm(mergeDailyReportInference(base, inferenceQuery.data.inferred))
+  }, [
+    existingQuery.data,
+    existingQuery.isFetching,
+    existingQuery.isSuccess,
+    inferenceQuery.data,
+    inferenceQuery.isFetching,
+    inferenceQuery.isSuccess,
+    form.report_date,
+  ])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -108,6 +128,7 @@ export function DailyBranchReportPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (!canManage) return
     saveMutation.mutate()
   }
 
@@ -191,10 +212,23 @@ export function DailyBranchReportPage() {
         </div>
 
         <AsyncState
-          isLoading={existingQuery.isLoading}
-          isError={existingQuery.isError}
-          error={existingQuery.error}
+          isLoading={existingQuery.isLoading || inferenceQuery.isLoading}
+          isError={existingQuery.isError || inferenceQuery.isError}
+          error={existingQuery.error ?? inferenceQuery.error}
         >
+          {inferenceQuery.data?.warnings.includes('INVENTORY_HISTORY_UNAVAILABLE') && (
+            <p className="mb-md rounded-lg bg-warning/10 p-sm text-sm text-on-surface">
+              أرصدة الأجهزة التاريخية غير متاحة؛ يتم عرض آخر لقطة محفوظة لهذا اليوم.
+            </p>
+          )}
+          {inferenceQuery.data && (
+            <p className="mb-md text-xs text-on-surface-variant">
+              مستنتج من النظام: {inferenceQuery.data.sources.payments ?? 0} مدفوعات،{' '}
+              {inferenceQuery.data.sources.expenses ?? 0} مصروفات،{' '}
+              {inferenceQuery.data.sources.attendance ?? 0} موظفين،{' '}
+              {inferenceQuery.data.sources.installations ?? 0} تركيبات.
+            </p>
+          )}
           {tab === 'transactions' && (
             <div className="grid gap-md lg:grid-cols-2">
               <section className="rounded-lg border border-outline-variant p-md">
@@ -205,6 +239,7 @@ export function DailyBranchReportPage() {
                       <input
                         placeholder="اسم العميل"
                         value={row.customer_name}
+                        disabled
                         onChange={(e) => {
                           const transfers = [...form.transfers]
                           transfers[index] = { ...transfers[index], customer_name: e.target.value }
@@ -215,8 +250,8 @@ export function DailyBranchReportPage() {
                       <NumericInput
                         placeholder="المبلغ"
                         type="number"
-                        min={0}
                         value={row.amount}
+                        disabled
                         onChange={(e) => {
                           const transfers = [...form.transfers]
                           transfers[index] = {
@@ -230,6 +265,7 @@ export function DailyBranchReportPage() {
                       <input
                         placeholder="مرجع / انستا"
                         value={row.reference}
+                        disabled
                         onChange={(e) => {
                           const transfers = [...form.transfers]
                           transfers[index] = { ...transfers[index], reference: e.target.value }
@@ -239,25 +275,11 @@ export function DailyBranchReportPage() {
                       />
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateForm({
-                        transfers: [
-                          ...form.transfers,
-                          { customer_name: '', amount: '', reference: '' },
-                        ],
-                      })
-                    }
-                    className="text-sm text-primary hover:underline"
-                  >
-                    + إضافة تحويل
-                  </button>
                 </div>
               </section>
 
               <section className="rounded-lg border border-outline-variant p-md lg:col-span-1">
-                <h3 className="mb-sm font-bold">معاملات اليوم ({TRANSACTION_ROW_COUNT} صف)</h3>
+                <h3 className="mb-sm font-bold">معاملات اليوم ({Math.max(TRANSACTION_ROW_COUNT, form.transactions.length)} صف)</h3>
                 <div className="max-h-[520px] space-y-1 overflow-y-auto">
                   {form.transactions.map((row, index) => (
                     <div key={index} className="grid grid-cols-[2rem_1fr_1fr_1fr_5rem] gap-1">
@@ -267,6 +289,7 @@ export function DailyBranchReportPage() {
                       <input
                         placeholder="اسم العميل"
                         value={row.customer_name}
+                        disabled
                         onChange={(e) => {
                           const transactions = [...form.transactions]
                           transactions[index] = {
@@ -281,6 +304,7 @@ export function DailyBranchReportPage() {
                         placeholder="المروج / الموزع"
                         list="distributor-names"
                         value={row.promoter_name}
+                        disabled
                         onChange={(e) => {
                           const name = e.target.value
                           const match = (distributorsQuery.data ?? []).find(
@@ -300,6 +324,7 @@ export function DailyBranchReportPage() {
                         placeholder="الحالة"
                         list="transaction-types"
                         value={row.transaction_type}
+                        disabled
                         onChange={(e) => {
                           const transactions = [...form.transactions]
                           transactions[index] = {
@@ -313,8 +338,8 @@ export function DailyBranchReportPage() {
                       <NumericInput
                         placeholder="مبلغ"
                         type="number"
-                        min={0}
                         value={row.amount}
+                        disabled
                         onChange={(e) => {
                           const transactions = [...form.transactions]
                           transactions[index] = {
@@ -346,11 +371,12 @@ export function DailyBranchReportPage() {
             <div className="grid gap-md lg:grid-cols-2">
               <section className="rounded-lg border border-outline-variant p-md">
                 <h3 className="mb-sm font-bold">حضور الموظفين</h3>
-                {form.attendance.slice(0, ATTENDANCE_ROW_COUNT).map((row, index) => (
+                {form.attendance.map((row, index) => (
                   <div key={index} className="mb-sm grid grid-cols-3 gap-xs">
                     <input
                       placeholder="اسم الموظف"
                       value={row.employee_name}
+                      disabled
                       onChange={(e) => {
                         const attendance = [...form.attendance]
                         attendance[index] = { ...attendance[index], employee_name: e.target.value }
@@ -361,6 +387,7 @@ export function DailyBranchReportPage() {
                     <input
                       placeholder="حضور"
                       value={row.check_in}
+                      disabled
                       onChange={(e) => {
                         const attendance = [...form.attendance]
                         attendance[index] = { ...attendance[index], check_in: e.target.value }
@@ -371,6 +398,7 @@ export function DailyBranchReportPage() {
                     <input
                       placeholder="انصراف"
                       value={row.check_out}
+                      disabled
                       onChange={(e) => {
                         const attendance = [...form.attendance]
                         attendance[index] = { ...attendance[index], check_out: e.target.value }
@@ -402,6 +430,7 @@ export function DailyBranchReportPage() {
                         type="number"
                         min={0}
                         value={form[key as keyof DailyBranchReportFormState] as number | ''}
+                        disabled={!canManage || !key.startsWith('accessories_')}
                         onChange={(e) =>
                           updateForm({
                             [key]: e.target.value === '' ? '' : Number(e.target.value),
@@ -415,6 +444,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">النسبة</span>
                     <input
                       value={form.percentage}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ percentage: e.target.value })}
                       className={inputClass}
                     />
@@ -423,6 +453,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">ملاحظات</span>
                     <textarea
                       value={form.notes}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ notes: e.target.value })}
                       rows={3}
                       className={inputClass}
@@ -432,6 +463,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">ملاحظات فودافون / انستا</span>
                     <input
                       value={form.vodafone_other_notes}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ vodafone_other_notes: e.target.value })}
                       className={inputClass}
                     />
@@ -440,6 +472,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">تجديد</span>
                     <input
                       value={form.renewal_notes}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ renewal_notes: e.target.value })}
                       className={inputClass}
                     />
@@ -449,11 +482,12 @@ export function DailyBranchReportPage() {
 
               <section className="rounded-lg border border-outline-variant p-md">
                 <h3 className="mb-sm font-bold">تحركات</h3>
-                {form.movements.slice(0, MOVEMENT_LINE_COUNT).map((row, index) => (
+                {form.movements.map((row, index) => (
                   <input
                     key={index}
                     placeholder={`تحرك ${index + 1}`}
                     value={row.description}
+                    disabled
                     onChange={(e) => {
                       const movements = [...form.movements]
                       movements[index] = { description: e.target.value }
@@ -466,12 +500,13 @@ export function DailyBranchReportPage() {
 
               <section className="rounded-lg border border-outline-variant p-md">
                 <h3 className="mb-sm font-bold">التفاصيل والمصروفات</h3>
-                {form.expense_lines.slice(0, EXPENSE_LINE_COUNT).map((row, index) => (
+                {form.expense_lines.map((row, index) => (
                   <div key={index} className="mb-sm grid grid-cols-[2rem_1fr_6rem] gap-1">
                     <span className="pt-2 text-center text-xs">{index + 1}</span>
                     <input
                       placeholder="البيان"
                       value={row.description}
+                      disabled
                       onChange={(e) => {
                         const expense_lines = [...form.expense_lines]
                         expense_lines[index] = {
@@ -487,6 +522,7 @@ export function DailyBranchReportPage() {
                       type="number"
                       min={0}
                       value={row.amount}
+                      disabled
                       onChange={(e) => {
                         const expense_lines = [...form.expense_lines]
                         expense_lines[index] = {
@@ -511,6 +547,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">توقيع المراجع</span>
                     <input
                       value={form.reviewer_name}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ reviewer_name: e.target.value })}
                       className={inputClass}
                     />
@@ -519,6 +556,7 @@ export function DailyBranchReportPage() {
                     <span className="mb-xs block text-on-surface-variant">توقيع مدير الفرع</span>
                     <input
                       value={form.branch_manager_name}
+                      disabled={!canManage}
                       onChange={(e) => updateForm({ branch_manager_name: e.target.value })}
                       className={inputClass}
                     />
@@ -537,13 +575,15 @@ export function DailyBranchReportPage() {
         )}
 
         <div className="flex flex-wrap gap-sm">
-          <button
-            type="submit"
-            disabled={saveMutation.isPending}
-            className="rounded-lg bg-secondary px-xl py-3 font-bold text-on-secondary disabled:opacity-50"
-          >
-            {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ البيان اليومي'}
-          </button>
+          {canManage && (
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="rounded-lg bg-secondary px-xl py-3 font-bold text-on-secondary disabled:opacity-50"
+            >
+              {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ البيان اليومي'}
+            </button>
+          )}
           {reportId && (
             <Link
               to={dailyReportPrintPath(reportId, true)}

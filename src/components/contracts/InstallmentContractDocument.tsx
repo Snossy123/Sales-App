@@ -89,7 +89,9 @@ function FitOneLine({
       text.style.wordSpacing = ''
       // Measure content width (not the stretched block) so leftover space is real.
       text.style.display = 'inline-block'
+      text.style.flex = '0 0 auto'
       text.style.width = 'max-content'
+      text.style.minWidth = 'max-content'
       const basePx = parseFloat(getComputedStyle(text).fontSize)
       const cs = getComputedStyle(box)
       const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
@@ -104,11 +106,15 @@ function FitOneLine({
           const extra = avail - natural
           setWordSpacingPx(spaces > 0 && extra > 0.5 ? extra / spaces : undefined)
           text.style.display = 'block'
+          text.style.flex = ''
           text.style.width = '100%'
+          text.style.minWidth = ''
         } else {
           setWordSpacingPx(undefined)
           text.style.display = ''
+          text.style.flex = ''
           text.style.width = ''
+          text.style.minWidth = ''
         }
         return
       }
@@ -123,7 +129,9 @@ function FitOneLine({
         guard++
       }
       text.style.display = spread ? 'block' : ''
+      text.style.flex = ''
       text.style.width = spread ? '100%' : ''
+      text.style.minWidth = ''
       setFontPx(px)
     }
 
@@ -535,12 +543,13 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className="ic-table-title">بيان تقسيط</div>
                 <div className={`ic-table-grid ic-table-grid--cols-${tableCols}`}>
                   {Array.from({ length: tableCols }, (_, i) =>
-                    renderTableCol(installmentRows, i * 15 + 1, i * 15 + 15),
+                    renderTableCol(installmentRows, i * 12 + 1, i * 12 + 12),
                   )}
                 </div>
               </div>
             </div>
 
+            <div className="ic-below">
             <div className="ic-summary">
               <div className="ic-srow ic-srow--money">
                 <span className="ic-srow-item ic-srow-item--date">
@@ -584,9 +593,9 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                   {renewalDisplay}
                 </span>
                 <span className="ic-note-pill">ملحوظة هامة</span>
-                <span className="ic-note-text">
+                <FitOneLine className="ic-note-text">
                   قيمة تجديد الاشتراك السنوى هى 25% من سعر الجهاز كاش فى وقت تجديده
-                </span>
+                </FitOneLine>
               </div>
             </div>
 
@@ -614,11 +623,12 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
 
             <div className="ic-alert-grid">
               <div className="ic-alert-box ic-alert-box--theft">
-                <p style={{ textAlign: 'center' }}>
+                <p>
                   في حالة السرقة يلتزم العميل بالإتصال بخدمة الطوارئ فوراً في نفس وقت السرقة للحصول على
                   أسرع اتجاهات المركبة المسروقة وسرعة تحديد موقعها
-                  <br />
-                  <span className="ic-alert-warn is-red">تحذير هام</span>
+                </p>
+                <span className="ic-alert-warn is-red">تحذير هام</span>
+                <p>
                   ممنوع إرسال أمر إيقاف للمركبة في حالة السرقة لعدم لفت انتباه السارق بوجود جهاز تحكم
                 </p>
               </div>
@@ -627,7 +637,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <span>هام</span>
               </div>
               <div className="ic-alert-box">
-                <p style={{ textAlign: 'center' }}>
+                <p>
                   على العميل الإلتزام بسرعة التحرك في إتجاه المركبة المسروقة لتجنب إعطاء وقت للسارق
                   للوصول الى الجهاز أو فك الضفيرة كاملة والشركة غير مسئولة عن أى مشكلة نتيجة تأخر
                   الوصول الى المركبة أو أى مشاكل تخص تغطية الشبكات
@@ -642,6 +652,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               <div>
                 توقيع العميل بعد الموافقة على بنود العقد / <span className="ic-sign-line" />
               </div>
+            </div>
             </div>
           </>
         )}

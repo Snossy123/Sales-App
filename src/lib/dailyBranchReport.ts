@@ -1,4 +1,4 @@
-import type { Branch, DailyBranchReport } from '../api/types'
+import type { Branch, DailyBranchReport, DailyBranchReportInference } from '../api/types'
 
 export const TRANSACTION_ROW_COUNT = 34
 export const EXPENSE_LINE_COUNT = 10
@@ -266,12 +266,12 @@ export function reportToForm(report: DailyBranchReport): DailyBranchReportFormSt
     renewal_notes: report.renewal_notes ?? '',
     reviewer_name: report.reviewer_name ?? '',
     branch_manager_name: report.branch_manager_name ?? '',
-    attendance: fillAttendance.slice(0, ATTENDANCE_ROW_COUNT).map((row) => ({
+    attendance: fillAttendance.map((row) => ({
       employee_name: row.employee_name ?? '',
       check_in: row.check_in ?? '',
       check_out: row.check_out ?? '',
     })),
-    transactions: fillTransactions.slice(0, TRANSACTION_ROW_COUNT).map((row) => ({
+    transactions: fillTransactions.map((row) => ({
       customer_name: row.customer_name ?? '',
       promoter_name: row.promoter_name ?? '',
       distributor_id: row.distributor_id ?? '',
@@ -286,14 +286,79 @@ export function reportToForm(report: DailyBranchReport): DailyBranchReportFormSt
             reference: row.reference ?? '',
           }))
         : [{ customer_name: '', amount: '', reference: '' }],
-    expense_lines: fillExpenses.slice(0, EXPENSE_LINE_COUNT).map((row) => ({
+    expense_lines: fillExpenses.map((row) => ({
       description: row.description ?? '',
       amount: row.amount ? Number(row.amount) : '',
     })),
-    movements: fillMovements.slice(0, MOVEMENT_LINE_COUNT).map((row) => ({
+    movements: fillMovements.map((row) => ({
       description: row.description ?? '',
     })),
   })
+}
+
+export function mergeDailyReportInference(
+  form: DailyBranchReportFormState,
+  inferred: DailyBranchReportInference['inferred'],
+): DailyBranchReportFormState {
+  const transactions: DailyReportTransactionRow[] = (inferred.transactions ?? []).map((row) => ({
+    customer_name: row.customer_name ?? '',
+    promoter_name: row.promoter_name ?? '',
+    distributor_id: row.distributor_id ?? '',
+    transaction_type: row.transaction_type ?? '',
+    amount: row.amount === 0 || row.amount ? Number(row.amount) : '',
+  }))
+  while (transactions.length < TRANSACTION_ROW_COUNT) {
+    transactions.push({ customer_name: '', promoter_name: '', distributor_id: '', transaction_type: '', amount: '' })
+  }
+
+  const attendance: DailyReportAttendanceRow[] = (inferred.attendance ?? []).map((row) => ({
+    employee_name: row.employee_name ?? '',
+    check_in: row.check_in ?? '',
+    check_out: row.check_out ?? '',
+  }))
+  while (attendance.length < ATTENDANCE_ROW_COUNT) {
+    attendance.push({ employee_name: '', check_in: '', check_out: '' })
+  }
+
+  const expenseLines: DailyReportExpenseRow[] = (inferred.expense_lines ?? []).map((row) => ({
+    description: row.description ?? '',
+    amount: row.amount === 0 || row.amount ? Number(row.amount) : '',
+  }))
+  while (expenseLines.length < EXPENSE_LINE_COUNT) {
+    expenseLines.push({ description: '', amount: '' })
+  }
+
+  const movements: DailyReportMovementRow[] = (inferred.movements ?? []).map((row) => ({
+    description: row.description ?? '',
+  }))
+  while (movements.length < MOVEMENT_LINE_COUNT) movements.push({ description: '' })
+
+  return {
+    ...form,
+    total_amount: Number(inferred.total_amount ?? 0),
+    expenses_total: Number(inferred.expenses_total ?? 0),
+    net_amount: Number(inferred.net_amount ?? 0),
+    installations_count: inferred.installations_count ?? 0,
+    devices_actual: inferred.devices_actual ?? 0,
+    devices_reserved: inferred.devices_reserved ?? 0,
+    devices_customer: inferred.devices_customer ?? 0,
+    devices_software: inferred.devices_software ?? 0,
+    devices_entering_count: inferred.devices_entering_count ?? 0,
+    vodafone_transfers_count: inferred.vodafone_transfers_count ?? 0,
+    vodafone_transfers_total: Number(inferred.vodafone_transfers_total ?? 0),
+    attendance,
+    transactions,
+    transfers:
+      inferred.transfers && inferred.transfers.length > 0
+        ? inferred.transfers.map((row) => ({
+            customer_name: row.customer_name ?? '',
+            amount: row.amount === 0 || row.amount ? Number(row.amount) : '',
+            reference: row.reference ?? '',
+          }))
+        : [{ customer_name: '', amount: '', reference: '' }],
+    expense_lines: expenseLines,
+    movements,
+  }
 }
 
 export function branchDisplayName(branch?: Branch | null): string {

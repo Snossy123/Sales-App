@@ -472,12 +472,12 @@
   gap: 0;
   padding: 0;
   border-bottom: 1px solid #c7c7c7;
-  min-height: 5.2mm;
+  min-height: 5.4mm;
 }
 .ic-trow--head {
   flex: 0 0 auto;
   background: var(--ic-gray-bar);
-  min-height: 5.2mm;
+  min-height: 5.4mm;
   border-bottom: 1px solid #8a8a8a;
 }
 .ic-trow--head .ic-tnum,
@@ -528,7 +528,7 @@
 }
 
 /* Denser installment tables mean narrower columns — scale the cell text back
-   down per column count so the yyyy/mm/dd due dates never clip. cols-1 (≤15
+   down per column count so the yyyy/mm/dd due dates never clip. cols-1 (≤12
    installments) is the common case and keeps the full ~9pt bump. */
 .ic-table-grid--cols-2 .ic-tcell,
 .ic-table-grid--cols-2 .ic-tnum {
@@ -547,12 +547,134 @@
   font-size: 6.5pt;
 }
 
+/* Installment content below the table fills the height freed by the shorter grid. */
+.ic-below {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  min-height: 0;
+  gap: 1.4mm;
+}
+.ic-below .ic-terms {
+  line-height: 1.38;
+  margin: 0;
+}
+.ic-below .ic-warning {
+  display: flex;
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: center;
+  font-size: 13pt;
+  line-height: 1.1;
+  min-height: 8mm;
+  padding: 0 2.5mm;
+}
+.ic-below .ic-warning-row {
+  margin: 0;
+}
+.ic-below .ic-warning-row .ic-warning {
+  font-size: 11.5pt;
+  line-height: 1.1;
+  min-height: 8mm;
+  padding: 0 1.8mm;
+}
+.ic-below .ic-summary {
+  gap: 1.8mm;
+  margin-bottom: 0;
+}
+.ic-below .ic-pill-label {
+  font-size: 12.5pt;
+}
+.ic-below .ic-pill,
+.ic-below .ic-exclude-pill,
+.ic-below .ic-note-pill,
+.ic-below .ic-note-text {
+  min-height: 8.4mm;
+}
+.ic-below .ic-pill {
+  font-size: 12.5pt;
+  padding-inline: 3mm;
+}
+.ic-below .ic-pill--date {
+  font-size: 11.5pt;
+  min-height: 8.4mm;
+  padding-inline: 3mm;
+}
+.ic-below .ic-pill--num-sm {
+  font-size: 12.5pt;
+  min-width: 18mm;
+  padding-inline: 3.5mm;
+}
+.ic-below .ic-srow--money > .ic-srow-item--amount {
+  flex: 1 1 0;
+}
+.ic-below .ic-srow--money > .ic-srow-item--amount .ic-pill--num-sm {
+  flex: 1 1 auto;
+  width: 100%;
+}
+.ic-below .ic-pill--schedule,
+.ic-below .ic-exclude-pill {
+  min-height: 8.4mm;
+  padding-inline: 3mm;
+  font-size: 12.5pt;
+}
+.ic-below .ic-srow--renewal {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.ic-below .ic-pill--renewal-date {
+  flex: 0 0 auto;
+  min-height: 8.4mm;
+  max-height: 8.4mm;
+  min-width: 0;
+  width: max-content;
+  padding-inline: 3mm;
+}
+.ic-below .ic-note-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 8.4mm;
+  min-height: 8.4mm;
+  max-height: 8.4mm;
+  padding: 0 3.5mm;
+  font-size: 11pt;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ic-below .ic-alert-grid {
+  flex: 1 1 auto;
+  min-height: 32mm;
+  margin: 0;
+}
+.ic-below .ic-alert-box {
+  justify-content: space-evenly;
+  font-size: 12pt;
+  line-height: 1.4;
+  padding: 1.6mm 2.2mm;
+}
+.ic-below .ic-alert-box p {
+  text-align: justify;
+  text-align-last: center;
+}
+.ic-below .ic-alert-warn {
+  font-size: 12.5pt;
+  margin: 0.6mm 0;
+}
+.ic-below .ic-signatures {
+  margin: 0;
+}
+
 /* ===== Summary / pills band ===== */
 .ic-summary {
   display: flex;
   flex-direction: column;
-  gap: 1mm;
-  margin-bottom: 1mm;
+  gap: 1.3mm;
+  margin-bottom: 1.4mm;
 }
 .ic-srow {
   display: flex;
@@ -575,7 +697,7 @@
 .ic-pill {
   border: 2px solid var(--ic-ink);
   border-radius: 999px;
-  min-height: 6mm;
+  min-height: 6.5mm;
   padding: 0mm 1.6mm;
   display: inline-flex;
   align-items: center;
@@ -595,7 +717,7 @@
   max-width: 100%;
   font-size: 10pt;
   font-weight: 500;
-  min-height: 6mm;
+  min-height: 6.5mm;
   padding: 0.4mm 2mm;
   letter-spacing: 0.01em;
   overflow: visible;
@@ -750,14 +872,14 @@
   border-radius: 999px;
   flex: 1;
   min-width: 0;
-  padding: 0.7mm 2mm;
+  padding: 0.9mm 2mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 8.5pt;
+  font-size: 9.5pt;
   color: var(--ic-red);
   text-align: center;
   background: #fff;
-  line-height: 1.1;
+  line-height: 1.15;
   white-space: normal;
   -webkit-text-stroke: 0.25px currentColor;
 }
@@ -765,12 +887,12 @@
 /* ===== Terms ===== */
 .ic-terms {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 13.94pt;
+  font-size: 14.5pt;
   text-align: justify;
   text-align-last: right;
-  line-height: 1.2;
+  line-height: 1.24;
   font-weight: 600;
-  margin: 0.3mm 0 0.5mm;
+  margin: 0.6mm 0 0.9mm;
   padding: 0 0.5mm;
   hyphens: none;
   -webkit-text-stroke: 0.3px currentColor;
@@ -789,14 +911,14 @@
   margin: 0 0 0.7mm;
   box-sizing: border-box;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 14pt;
+  font-size: 14.5pt;
   font-weight: 400;
   text-align: center;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   background: #fff;
-  min-height: 6.5mm;
+  min-height: 7mm;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -819,9 +941,9 @@
 }
 .ic-warning-row .ic-warning {
   margin: 0;
-  font-size: 11pt;
+  font-size: 11.5pt;
   padding: 1.2mm 1.5mm;
-  min-height: 6.5mm;
+  min-height: 7mm;
 }
 .ic-warning-row .ic-warning--line {
   padding: 0 1.5mm;
@@ -839,12 +961,12 @@
 .ic-alert-box {
   border: 1.5px solid var(--ic-red);
   background: var(--ic-alert-bg);
-  padding: 0 0.5mm;
+  padding: 0.6mm 0.8mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 9.5pt;
+  font-size: 10.25pt;
   font-weight: 400;
   color: #000;
-  line-height: 1.15;
+  line-height: 1.2;
   text-align: justify;
   min-height: 0;
   overflow: visible;
@@ -874,7 +996,7 @@
   width: 100%;
   margin: 0.2mm 0;
   font-weight: 400;
-  font-size: 10pt;
+  font-size: 10.75pt;
   text-align: center;
   text-align-last: center;
   white-space: nowrap;
@@ -915,9 +1037,9 @@
   display: grid;
   grid-template-columns: 0.8fr 1.8fr;
   gap: 4mm;
-  margin-bottom: 0.8mm;
+  margin: 0.7mm 0 1mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 12pt;
+  font-size: 12.5pt;
   font-weight: 400;
   color: #000;
   -webkit-text-stroke: 0.3px currentColor;
