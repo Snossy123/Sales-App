@@ -107,6 +107,11 @@ function buildPrintDocument(contractHtml: string): string {
       max-height: calc(297mm - 5mm) !important;
       box-sizing: border-box !important;
     }
+    .ic-head-en-main,
+    .ic-head-ar-main {
+      font-size: 23pt !important;
+      white-space: nowrap !important;
+    }
     @page {
       size: A4 portrait;
       margin: 0;

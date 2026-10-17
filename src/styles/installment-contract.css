@@ -109,11 +109,12 @@
   margin-bottom: -1mm;
 }
 .ic-head-ar-main {
-  font-size: 26pt;
+  font-size: 23pt;
   font-weight: 700;
   color: var(--ic-ink);
   margin-bottom: -1mm;
   -webkit-text-stroke: 0.35px currentColor;
+  white-space: nowrap;
 }
 .ic-head-ar-sub {
   font-size: 15pt;
@@ -187,11 +188,12 @@
   margin-bottom: -1mm;
 }
 .ic-head-en-main {
-  font-size: 26pt;
+  font-size: 23pt;
   font-weight: 900;
   color: var(--ic-ink);
   letter-spacing: -0.5px;
   margin-bottom: -1mm;
+  white-space: nowrap;
 }
 .ic-head-en-sub {
   font-size: 15pt;
@@ -1633,6 +1635,12 @@
     min-height: calc(297mm - 5mm) !important;
     max-height: calc(297mm - 5mm) !important;
     box-sizing: border-box !important;
+  }
+
+  .ic-head-en-main,
+  .ic-head-ar-main {
+    font-size: 23pt !important;
+    white-space: nowrap !important;
   }
 
   .installment-contract,
