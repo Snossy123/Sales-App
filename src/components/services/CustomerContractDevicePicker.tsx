@@ -26,11 +26,14 @@ export type ContractDeviceOption =
 
 export function contractDeviceLabel(device: CustomerContractDevice): string {
   const serial = device.serial_number?.trim() || 'بدون سريال'
+  const physicalSerial = device.physical_serial?.trim()
+    ? `Physical: ${device.physical_serial.trim()}`
+    : null
   const sim = device.sim_number?.trim()
   const invoice = device.invoice_number?.trim()
   const model = device.product_model?.name_ar || device.product_model?.name
   const origin = device.origin ? DEVICE_ORIGIN_LABELS[device.origin] : null
-  return [serial, sim, origin, model, invoice].filter(Boolean).join(' — ')
+  return [serial, physicalSerial, sim, origin, model, invoice].filter(Boolean).join(' — ')
 }
 
 export function applyContractDeviceIdentity(
@@ -38,6 +41,7 @@ export function applyContractDeviceIdentity(
   identity: {
     productUnitId?: number
     serialNumber: string
+    physicalSerial?: string
     simNumber: string
     username?: string
     vehicleType?: DeviceLineDraft['vehicleType']
@@ -64,6 +68,7 @@ export function applyContractDeviceIdentity(
 export function identityFromCustomerDevice(device: CustomerContractDevice): {
   productUnitId?: number
   serialNumber: string
+  physicalSerial: string
   simNumber: string
   username: string
   vehicleType: DeviceLineDraft['vehicleType']
@@ -76,6 +81,7 @@ export function identityFromCustomerDevice(device: CustomerContractDevice): {
   return {
     productUnitId: device.product_unit_id ?? undefined,
     serialNumber: serial,
+    physicalSerial: device.physical_serial?.trim() ?? '',
     simNumber: device.sim_number?.trim() ?? '',
     username: device.username?.trim() || serial,
     vehicleType: (device.vehicle_type as DeviceLineDraft['vehicleType']) || 'other',
@@ -89,9 +95,9 @@ export function identityFromCustomerDevice(device: CustomerContractDevice): {
 export interface RegisterCustomerDevicePayload {
   origin: 'legacy' | 'external'
   serial_number: string
+  physical_serial?: string
   sim_number?: string
   username?: string
-  imei?: string
 }
 
 interface CustomerContractDevicePickerProps {
@@ -110,6 +116,7 @@ interface CustomerContractDevicePickerProps {
   onUsernameChange: (value: string) => void
   showIdentityFields: boolean
   identityLocked: boolean
+  allowSerialEdit?: boolean
   showErrors?: boolean
   registerOrigin?: 'legacy' | 'external'
   onRegisterOriginChange?: (origin: 'legacy' | 'external') => void
@@ -136,6 +143,7 @@ export function CustomerContractDevicePicker({
   onUsernameChange,
   showIdentityFields,
   identityLocked,
+  allowSerialEdit = false,
   showErrors = false,
   registerOrigin = 'legacy',
   onRegisterOriginChange,
@@ -187,9 +195,12 @@ export function CustomerContractDevicePicker({
       />
 
       {selectedDevice && !manual && (
-        <p className="text-xs text-on-surface-variant">
-          المصدر: {DEVICE_ORIGIN_LABELS[selectedDevice.origin ?? 'company_stock']}
-        </p>
+        <div className="flex flex-wrap gap-x-md gap-y-xs text-xs text-on-surface-variant">
+          <span>المصدر: {DEVICE_ORIGIN_LABELS[selectedDevice.origin ?? 'company_stock']}</span>
+          <span>
+            Physical Serial: {selectedDevice.physical_serial?.trim() || 'غير مسجل'}
+          </span>
+        </div>
       )}
 
       {devices.length === 0 && !loading && !manual && (
@@ -218,7 +229,9 @@ export function CustomerContractDevicePicker({
       {showIdentityFields && (
         <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-3">
           <div className={posRequiredWrap(serialError)}>
-            <label className={posLabelClass}>السريال</label>
+            <label className={posLabelClass}>
+              {allowSerialEdit && selectedDevice ? 'السيريال الجديد' : 'السيريال'}
+            </label>
             <input
               value={serialNumber}
               onChange={(e) => onSerialChange(normalizeScannedDigits(e.target.value))}
@@ -228,7 +241,7 @@ export function CustomerContractDevicePicker({
               inputMode="numeric"
               autoComplete="off"
               spellCheck={false}
-              disabled={identityLocked}
+              disabled={identityLocked && !allowSerialEdit}
             />
             {serialError && <p className="mt-xs text-xs text-error">السريال مطلوب</p>}
           </div>
@@ -274,6 +287,7 @@ export function CustomerContractDevicePicker({
               onRegister({
                 origin: registerOrigin,
                 serial_number: serialNumber.trim(),
+                physical_serial: serialNumber.trim(),
                 sim_number: simNumber.trim() || undefined,
                 username: username.trim() || undefined,
               })

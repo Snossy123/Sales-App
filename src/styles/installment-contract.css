@@ -328,7 +328,7 @@
   -webkit-text-stroke: 0.25px currentColor;
 }
 .ic-cash-below .ic-warning {
-  font-size: 10.5pt;
+  font-size: 14pt;
   padding: 1.2mm 0;
   margin: 0;
   min-height: 7mm;
@@ -338,7 +338,7 @@
   margin: 0;
 }
 .ic-cash-below .ic-warning-row .ic-warning {
-  font-size: 9.5pt;
+  font-size: 11pt;
   padding: 1.4mm 0;
   min-height: 6.5mm;
 }
@@ -786,7 +786,7 @@
   padding: 0;
   margin: 0 0 0.7mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 10.5pt;
+  font-size: 14pt;
   font-weight: 400;
   text-align: center;
   line-height: 1.1;
@@ -816,7 +816,7 @@
 }
 .ic-warning-row .ic-warning {
   margin: 0;
-  font-size: 8.5pt;
+  font-size: 11pt;
   padding: 1.2mm 0;
   min-height: 6.5mm;
 }
@@ -1146,15 +1146,6 @@
   margin-bottom: 1mm;
   box-shadow: none;
 }
-.ic-renewal-mode {
-  color: var(--ic-red);
-  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 26pt;
-  font-weight: 800;
-  line-height: 1.1;
-  margin: 0.5mm 0 3mm;
-  -webkit-text-stroke: 0.35px currentColor;
-}
 .ic-renewal-container {
   display: flex;
   flex-direction: column;
@@ -1165,38 +1156,47 @@
 .ic-renewal-fields {
   display: flex;
   flex-direction: column;
-  gap: 3mm;
+  gap: 1.4mm;
   margin-bottom: 2mm;
 }
 .ic-renewal-field {
   display: flex;
-  align-items: baseline;
-  gap: 2mm;
-  min-height: 6mm;
+  align-items: center;
+  gap: 3mm;
+  min-height: 7.5mm;
+  padding: 1mm 3mm;
+  background: #f2f2f2;
+  border-inline-start: 1.2mm solid var(--ic-red);
+  border-radius: 1.5mm;
+}
+.ic-renewal-field:nth-child(even) {
+  background: #e5e5e5;
 }
 .ic-renewal-field-label {
   white-space: nowrap;
   font-weight: 700;
   font-size: 13pt;
-  min-width: 32mm;
-}
-.ic-renewal-field-dots {
-  flex: 1;
-  border-bottom: 1.5px dotted #555;
-  min-width: 8mm;
-  transform: translateY(-2px);
+  min-width: 38mm;
 }
 .ic-renewal-field-value {
+  flex: 1;
+  min-width: 0;
   font-size: 13pt;
   font-weight: 700;
   color: #111;
-  padding-inline-start: 2mm;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ic-renewal-date-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 3mm;
-  margin-top: 1mm;
+  margin-top: 1.5mm;
+  padding: 1.2mm 3mm;
+  border: 1.5px solid var(--ic-red);
+  border-radius: 1.5mm;
+  background: #fff;
 }
 .ic-renewal-date-label {
   color: var(--ic-red);
@@ -1211,10 +1211,12 @@
 }
 .ic-renewal-table {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  border: 1.5px solid #222;
+  grid-template-columns: 1fr 1.15fr;
+  border: 1.6px solid #222;
+  border-radius: 2mm;
   margin: 3mm 0;
   background: #fff;
+  overflow: hidden;
 }
 .ic-renewal-table-right {
   display: flex;
@@ -1222,35 +1224,52 @@
   border-inline-end: 1.5px solid #222;
 }
 .ic-renewal-badge-header {
-  color: var(--ic-red);
   font-size: 14pt;
   font-weight: 800;
   text-align: center;
-  padding: 2.5mm 2mm;
+  padding: 1.8mm 2mm;
   border-bottom: 1.5px solid #222;
-  letter-spacing: 0.5px;
+  background: var(--ic-red);
+  color: #fff;
+  letter-spacing: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .ic-renewal-pay-details {
-  padding: 3mm;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2.5mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   flex: 1;
 }
-.ic-renewal-pay-line {
+.ic-renewal-summary-item {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2mm;
-  font-size: 12pt;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1mm;
+  min-height: 12mm;
+  padding: 1.6mm 1mm;
+  font-size: 11pt;
   font-weight: 700;
-}
-.ic-renewal-pay-line strong {
-  min-width: 14mm;
   text-align: center;
-  border-bottom: 1.5px dotted #444;
-  padding: 0 1.5mm;
+  border-inline-end: 1px solid #b5b5b5;
+  border-bottom: 1px solid #b5b5b5;
+}
+.ic-renewal-summary-item:nth-child(2n) {
+  border-inline-end: none;
+}
+.ic-renewal-summary-item:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+.ic-renewal-summary-item strong {
+  width: calc(100% - 3mm);
+  min-width: 0;
+  text-align: center;
+  border: 1.2px solid #777;
+  border-radius: 999px;
+  padding: 0.4mm 1mm;
+  background: #f4f4f4;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11pt;
 }
 .ic-renewal-table-left {
   display: flex;
@@ -1265,13 +1284,16 @@
 .ic-renewal-box {
   border-inline-end: 1.5px solid #222;
   border-bottom: 1.5px solid #222;
-  padding: 2.5mm 3mm;
+  padding: 1.8mm 2.5mm;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1mm;
   font-size: 11pt;
   font-weight: 700;
-  min-height: 10mm;
+  min-height: 12mm;
+  background: #fafafa;
 }
 .ic-renewal-box:nth-child(2n) {
   border-inline-end: none;
@@ -1281,10 +1303,14 @@
   border-bottom: none;
 }
 .ic-renewal-box strong {
-  flex: 1;
+  width: calc(100% - 4mm);
   text-align: center;
-  border-bottom: 1.5px dotted #555;
-  margin-inline-start: 1.5mm;
+  border: 1.2px solid #777;
+  border-radius: 999px;
+  padding: 0.4mm 1mm;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11pt;
 }
 .ic-renewal-note-section {
   text-align: center;

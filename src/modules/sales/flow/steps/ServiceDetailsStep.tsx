@@ -121,6 +121,7 @@ export function ServiceDetailsStep({
     setUsername(identity.username)
     onPatch({
       selectedCustomerDevice: device,
+      serviceSerial: identity.serialNumber,
       feeLines: draft.feeLines.map((item) =>
         item.productUnitId ? item : { ...item, productUnitId: identity.productUnitId },
       ),
@@ -167,6 +168,7 @@ export function ServiceDetailsStep({
   }
 
   const total = draft.feeLines.reduce((sum, item) => sum + Number(item.line.unit_price), 0)
+  const softwareSelected = draft.feeLines.some((item) => item.chipId === 'software')
   const paymentErrors = validateServicePayment(
     draft.contractPayment,
     total,
@@ -193,20 +195,24 @@ export function ServiceDetailsStep({
           onSelectDevice={selectDevice}
           onManual={() => {
             setManualDevice(true)
-            onPatch({ selectedCustomerDevice: null })
+            onPatch({ selectedCustomerDevice: null, serviceSerial: serial })
           }}
           onClear={() => {
             setManualDevice(false)
             setSerial('')
             setSim('')
             setUsername('')
-            onPatch({ selectedCustomerDevice: null })
+            onPatch({ selectedCustomerDevice: null, serviceSerial: '' })
           }}
-          onSerialChange={setSerial}
+          onSerialChange={(value) => {
+            setSerial(value)
+            onPatch({ serviceSerial: value })
+          }}
           onSimChange={setSim}
           onUsernameChange={setUsername}
           showIdentityFields
           identityLocked={Boolean(draft.selectedCustomerDevice) && !manualDevice}
+          allowSerialEdit={softwareSelected}
           showErrors={showErrors && (requireService || draft.feeLines.length > 0)}
           registerOrigin={registerOrigin}
           onRegisterOriginChange={setRegisterOrigin}

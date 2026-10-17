@@ -131,7 +131,12 @@ export function CustomerDeviceHistorySection({
                 : undefined
               return (
                 <li key={device.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{device.serial_number?.trim() || 'بدون سريال'}</span>
+                  <span className="font-medium">
+                    Serial: {device.serial_number?.trim() || 'غير مسجل'}
+                  </span>
+                  <span className="text-on-surface-variant">
+                    Physical Serial: {device.physical_serial?.trim() || 'غير مسجل'}
+                  </span>
                   <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">
                     {DEVICE_ORIGIN_LABELS[device.origin ?? 'company_stock']}
                   </span>

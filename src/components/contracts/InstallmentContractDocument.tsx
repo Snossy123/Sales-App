@@ -223,11 +223,10 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
       : fmtDMY(renewalDate ?? undefined)
 
   const contractTitle = isRenewal
-    ? 'تجديد الاشتراك'
+    ? `تجديد الاشتراك ${isInstallment ? 'قسط' : 'كاش'}`
     : isInstallment
       ? `عقد تقسيط${deviceSuffix}`
       : `عقد كاش${deviceSuffix}`
-  const renewalPaymentModeLabel = isInstallment ? 'قسط' : 'كاش'
   const renewalDateLabel = fmtDMY(
     renewalDate ?? invoice.invoice_date ?? new Date().toISOString().slice(0, 10),
   )
@@ -258,7 +257,6 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     if (index < scheduleCount && installmentAmount > 0) return fmtAmount(installmentAmount)
     return ''
   })
-  const renewalFees = Number(line?.line_total ?? invoice.subtotal ?? invoice.total ?? 0)
 
   const vehicleTypeKey = line?.vehicle_type ?? ''
   const vehicleTypeLabel = vehicleTypeKey
@@ -286,9 +284,8 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
   const renewalField = (label: string, value: ReactNode, opts?: { dir?: 'ltr' | 'rtl' }) => (
     <div className="ic-renewal-field">
       <span className="ic-renewal-field-label">{label}</span>
-      <span className="ic-renewal-field-dots" aria-hidden="true" />
       <span className="ic-renewal-field-value" dir={opts?.dir}>
-        {value}
+        {value || '—'}
       </span>
     </div>
   )
@@ -308,7 +305,6 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
         <ContractPrintHeader
           title={contractTitle}
           branchLabel={branchLabel(invoice)}
-          extra={isRenewal ? <div className="ic-renewal-mode">{renewalPaymentModeLabel}</div> : null}
         />
 
         {isRenewal ? (
@@ -327,59 +323,43 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               </div>
             </div>
 
-            <div className="ic-renewal-table">
-              <div className="ic-renewal-table-right">
-                <div className="ic-renewal-badge-header">
-                  {isInstallment ? 'تجديد اشتراك ( قـــــــــــسط )' : 'تجديد اشتراك ( كـــــــــــاش )'}
-                </div>
-                <div className="ic-renewal-pay-details">
-                  {isInstallment ? (
-                    <>
-                      <div className="ic-renewal-pay-line">
-                        <span>تم دفع</span>
-                        <strong>{fmtAmount(paidDisplay)}</strong>
-                        <span>الباقي</span>
-                        <strong>{fmtAmount(balanceDisplay)}</strong>
-                      </div>
-                      <div className="ic-renewal-pay-line">
-                        <span>{installmentIntervalLabel}</span>
-                        <strong>{fmtAmount(installmentAmount)}</strong>
-                        <span>لمدة</span>
-                        <strong>{installmentDurationLabel || 'شهرين'}</strong>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="ic-renewal-pay-line">
-                      <span>رسوم تجديد الاشتراك</span>
-                      <strong>{fmtAmount(renewalFees)}</strong>
+            {isInstallment ? (
+              <div className="ic-renewal-table">
+                <div className="ic-renewal-table-right">
+                  <div className="ic-renewal-badge-header">ملخص التقسيط</div>
+                  <div className="ic-renewal-pay-details">
+                    <div className="ic-renewal-summary-item">
                       <span>تم دفع</span>
-                      <strong>{fmtAmount(paidDisplay)}</strong>
+                      <strong dir="ltr">{fmtAmount(paidDisplay)}</strong>
                     </div>
-                  )}
+                    <div className="ic-renewal-summary-item">
+                      <span>المتبقي</span>
+                      <strong dir="ltr">{fmtAmount(balanceDisplay)}</strong>
+                    </div>
+                    <div className="ic-renewal-summary-item">
+                      <span>{installmentIntervalLabel}</span>
+                      <strong dir="ltr">{fmtAmount(installmentAmount)}</strong>
+                    </div>
+                    <div className="ic-renewal-summary-item">
+                      <span>مدة التقسيط</span>
+                      <strong>{installmentDurationLabel || '—'}</strong>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="ic-renewal-table-left">
-                <div className="ic-renewal-grid-boxes">
-                  <div className="ic-renewal-box">
-                    <span>1- تم دفع</span>
-                    <strong>{renewalInstallmentAmounts[0] || '..............'}</strong>
-                  </div>
-                  <div className="ic-renewal-box">
-                    <span>2- تم دفع</span>
-                    <strong>{renewalInstallmentAmounts[1] || '..............'}</strong>
-                  </div>
-                  <div className="ic-renewal-box">
-                    <span>3- تم دفع</span>
-                    <strong>{renewalInstallmentAmounts[2] || '..............'}</strong>
-                  </div>
-                  <div className="ic-renewal-box">
-                    <span>4- تم دفع</span>
-                    <strong>{renewalInstallmentAmounts[3] || '..............'}</strong>
+                <div className="ic-renewal-table-left">
+                  <div className="ic-renewal-badge-header">بيان الأقساط</div>
+                  <div className="ic-renewal-grid-boxes">
+                    {renewalInstallmentAmounts.map((amount, index) => (
+                      <div className="ic-renewal-box" key={index}>
+                        <span>القسط {index + 1}</span>
+                        <strong dir="ltr">{amount || '—'}</strong>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="ic-renewal-note-section">
               <div className="ic-renewal-note-title">ملحوظة</div>

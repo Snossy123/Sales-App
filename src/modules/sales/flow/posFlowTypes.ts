@@ -107,6 +107,7 @@ export interface PosFlowDraft {
   selectedPromotionId: number | ''
   distributorBalanceAmount: number
   selectedCustomerDevice: CustomerContractDevice | null
+  serviceSerial: string
   renewalManualDevice: boolean
   renewalSerial: string
   renewalSim: string
@@ -167,6 +168,7 @@ export function emptyPosFlowDraft(): PosFlowDraft {
     selectedPromotionId: '',
     distributorBalanceAmount: 0,
     selectedCustomerDevice: null,
+    serviceSerial: '',
     renewalManualDevice: false,
     renewalSerial: '',
     renewalSim: '',

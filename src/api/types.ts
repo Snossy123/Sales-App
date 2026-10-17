@@ -527,6 +527,7 @@ export interface ProductUnit {
   warehouse_id?: number | null
   imei: string
   serial_number?: string | null
+  physical_serial?: string | null
   sim_number?: string | null
   username?: string | null
   state: string
@@ -572,6 +573,7 @@ export interface CustomerContractDevice {
   sales_invoice_line_id?: number | null
   invoice_number?: string | null
   serial_number?: string | null
+  physical_serial?: string | null
   sim_number?: string | null
   username?: string | null
   vehicle_type?: string | null
@@ -1028,6 +1030,7 @@ export interface SalesInvoiceLine {
   accessory_package?: AccessoryPackage | null
   service?: Service | null
   serial_number?: string | null
+  physical_serial?: string | null
   sim_number?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
   vehicle_plate_letters?: string | null
@@ -1226,6 +1229,7 @@ export interface CheckoutPayload {
     unit_price?: number
     discount?: number
     serial_number?: string
+    physical_serial?: string
     sim_number?: string
     username?: string
     payment_term?: 'cash' | 'installment'

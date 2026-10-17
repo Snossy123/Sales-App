@@ -2178,7 +2178,8 @@ export function handleMockRequest(
             sales_invoice_id: inv.id,
             sales_invoice_line_id: line.id,
             invoice_number: inv.invoice_number,
-            serial_number: line.serial_number ?? line.product_unit?.serial_number ?? line.product_unit?.imei ?? null,
+            serial_number: line.product_unit?.serial_number ?? line.serial_number ?? null,
+            physical_serial: line.product_unit?.physical_serial ?? line.physical_serial ?? null,
             sim_number: line.sim_number ?? null,
             username: line.username ?? null,
             vehicle_type: line.vehicle_type ?? null,
@@ -2209,6 +2210,7 @@ export function handleMockRequest(
     const body = (data ?? {}) as {
       origin?: 'legacy' | 'external'
       serial_number?: string
+      physical_serial?: string
       sim_number?: string
       username?: string
     }
@@ -2234,6 +2236,7 @@ export function handleMockRequest(
       origin,
       owner_customer_id: customerId,
       serial_number: serial,
+      physical_serial: String(body.physical_serial ?? '').trim() || serial,
       sim_number: sim,
       username,
       sales_invoice_id: null,
@@ -3018,6 +3021,7 @@ export function handleMockRequest(
           username: line.username ?? null,
           technician: technician ? { id: technician.id, name: technician.name } : null,
           serial_number: line.serial_number ?? null,
+          physical_serial: line.physical_serial ?? null,
           sim_number: line.sim_number ?? null,
           vehicle_type: line.vehicle_type ?? null,
           vehicle_plate_letters: line.vehicle_plate_letters ?? null,
@@ -3035,6 +3039,19 @@ export function handleMockRequest(
           accessory_package: accessoryPackage,
         }
       })
+
+      for (const line of body.lines) {
+        const service = line.service_id
+          ? s.services.find((item) => item.id === line.service_id)
+          : undefined
+        if (service?.category !== 'software' || !line.product_unit_id || !line.serial_number) {
+          continue
+        }
+        const registered = mockRegisteredDevices.find(
+          (entry) => entry.device.product_unit_id === line.product_unit_id,
+        )
+        if (registered) registered.device.serial_number = line.serial_number
+      }
 
       if (hasDeviceLines && stock && !manualDeviceKind) {
         const available = stock.quantity - stock.reserved

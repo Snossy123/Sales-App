@@ -742,10 +742,14 @@ export function ServiceCombinerPage() {
 
   const currentDeviceIdentity = () =>
     selectedCustomerDevice && !manualDeviceEntry
-      ? identityFromCustomerDevice(selectedCustomerDevice)
+      ? {
+          ...identityFromCustomerDevice(selectedCustomerDevice),
+          serialNumber: contractSerial,
+        }
       : {
           productUnitId: undefined,
           serialNumber: contractSerial,
+          physicalSerial: contractSerial,
           simNumber: contractSim,
           username: contractUsername,
         }
@@ -1038,6 +1042,8 @@ export function ServiceCombinerPage() {
     Boolean(contractSerial.trim()) &&
     Boolean(contractSim.trim()) &&
     Boolean(contractUsername.trim())
+  const softwareSelected =
+    selectedChips.has('software') || feeLines.some((item) => item.chipId === 'software')
 
   const renewalValid =
     !selectedChips.has('annual_renewal') ||
@@ -1135,6 +1141,11 @@ export function ServiceCombinerPage() {
             ? selectedCustomerDevice
             : null)
         const identity = device ? identityFromCustomerDevice(device) : currentDeviceIdentity()
+        const serialNumber =
+          item.chipId === 'software' &&
+          item.productUnitId === selectedCustomerDevice?.product_unit_id
+            ? contractSerial
+            : identity.serialNumber
         const base = {
           line_type: 'service' as const,
           service_id: line.service_id,
@@ -1142,7 +1153,8 @@ export function ServiceCombinerPage() {
           unit_price: line.unit_price,
           technician_id: feeTechnician?.id,
           product_unit_id: item.productUnitId ?? identity.productUnitId,
-          serial_number: identity.serialNumber.trim() || undefined,
+          serial_number: serialNumber.trim() || undefined,
+          physical_serial: identity.physicalSerial?.trim() || undefined,
           sim_number: identity.simNumber.trim() || undefined,
           username: identity.username.trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
@@ -1361,6 +1373,7 @@ export function ServiceCombinerPage() {
                 onUsernameChange={handleContractUsernameChange}
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
+                allowSerialEdit={softwareSelected}
                 showErrors={submitAttempted}
                 registerOrigin={registerOrigin}
                 onRegisterOriginChange={setRegisterOrigin}

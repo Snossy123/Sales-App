@@ -146,7 +146,10 @@ export function buildServiceCheckout(
     unit_price: item.line.unit_price,
     technician_id: draft.feeTechnician?.id,
     product_unit_id: item.productUnitId ?? identity?.product_unit_id ?? undefined,
-    serial_number: identity?.serial_number?.trim() || undefined,
+    serial_number:
+      (item.chipId === 'software' ? draft.serviceSerial : identity?.serial_number)?.trim() ||
+      undefined,
+    physical_serial: identity?.physical_serial?.trim() || undefined,
     sim_number: identity?.sim_number?.trim() || undefined,
     username: identity?.username?.trim() || undefined,
     payment_term: draft.contractPayment.paymentTerm,
