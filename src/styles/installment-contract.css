@@ -397,7 +397,7 @@
 }
 .ic-field-diamond {
   color: var(--ic-red);
-  font-size: 10pt;
+  font-size: 12pt;
   line-height: 1;
   flex-shrink: 0;
 }
@@ -405,20 +405,22 @@
   white-space: nowrap;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 9.5pt;
-  -webkit-text-stroke: 0.35px currentColor;
+  font-size: 12pt;
+  line-height: 1.15;
+  -webkit-text-stroke: 0.4px currentColor;
 }
 .ic-field-value {
   flex: 1;
   text-align: right;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 400;
-  font-size: 13pt;
+  font-size: 17pt;
+  line-height: 1.15;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  -webkit-text-stroke: 0.2px currentColor;
+  -webkit-text-stroke: 0.25px currentColor;
 }
 
 /* Installment table */
