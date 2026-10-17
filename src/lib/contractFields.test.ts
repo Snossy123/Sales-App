@@ -42,6 +42,18 @@ describe('installment table sizing', () => {
 
     expect(buildInstallmentRows(line, makeInvoice([line]))).toHaveLength(capacity)
   })
+
+  it('prints due and paid dates as day/month/year', () => {
+    const item = makeItem(101, 2000, 2000)
+    item.installment_number = 1
+    item.paid_at = '2026-10-15'
+    const plan = makePlan(11, 1, 0, [item])
+    const line = makeLine(1, 2000, 'installment', plan)
+    const [row] = buildInstallmentRows(line, makeInvoice([line]))
+
+    expect(row?.due).toBe('1/10/2026')
+    expect(row?.paid).toBe('15/10/2026')
+  })
 })
 
 function makeItem(

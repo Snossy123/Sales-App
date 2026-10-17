@@ -120,6 +120,11 @@ const SERVICE_CATEGORY_ICONS: Partial<Record<ServiceCategory, string>> = {
   other: 'miscellaneous_services',
 }
 
+function isOwnershipTransferCatalogService(service: Pick<Service, 'category' | 'name' | 'name_ar'>): boolean {
+  const name = `${service.name_ar ?? ''} ${service.name ?? ''}`
+  return service.category === 'ownership_transfer' || name.includes('نقل ملك')
+}
+
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr)
   d.setDate(d.getDate() + days)
@@ -594,6 +599,7 @@ export function ServiceCombinerPage() {
   }, [accessoryStocksQuery.data])
 
   const catalogServices = servicesQuery.data?.data ?? []
+  const pickerServices = catalogServices.filter((service) => !isOwnershipTransferCatalogService(service))
   const product = productQuery.data
   const hasFeeServices = feeLines.length > 0
   const filteredTechnicians = useMemo(() => {
@@ -1417,7 +1423,7 @@ export function ServiceCombinerPage() {
                   </button>
                 )
               })}
-              {catalogServices.map((service) => {
+              {pickerServices.map((service) => {
                 const active = feeLines.some(
                   (item) => (item.serviceId ?? item.line.service_id) === service.id,
                 )
@@ -1455,7 +1461,7 @@ export function ServiceCombinerPage() {
             {servicesQuery.isLoading ? (
               <p className="mt-sm text-sm text-on-surface-variant">جاري تحميل الخدمات...</p>
             ) : null}
-            {servicesQuery.isSuccess && catalogServices.length === 0 ? (
+            {servicesQuery.isSuccess && pickerServices.length === 0 ? (
               <p className="mt-sm text-sm text-on-surface-variant">
                 لا توجد خدمات نشطة. أضف خدمة من صفحة الخدمات أولًا.
               </p>

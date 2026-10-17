@@ -46,6 +46,14 @@ function fmtDMYWeekday(value?: string | null): string {
   const day = IC_AR_WEEKDAYS[d.getDay()] ?? ''
   return day ? `${day} ${fmtDMY(value)}` : fmtDMY(value)
 }
+function fmtPrintStamp(value = new Date()): string {
+  const date = `${value.getDate()}/${value.getMonth() + 1}/${value.getFullYear()}`
+  const time = value.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${date}, ${time}`
+}
 // Bare amount — no currency symbol, no thousands separator (matches the client's pills).
 function fmtAmount(value?: string | number | null): string {
   if (value == null || value === '') return '—'
@@ -706,15 +714,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
             <div className="ic-ref">
               {invoice.invoice_number ? `#${invoice.invoice_number}` : ''}
             </div>
-            <div className="ic-print-date">
-              {new Date().toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </div>
+            <div className="ic-print-date">{fmtPrintStamp()}</div>
           </div>
         </div>
       </div>

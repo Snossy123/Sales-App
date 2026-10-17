@@ -328,6 +328,14 @@ const emptyInstallmentCell = (): InstallmentTableCell => ({
   paid: '',
 })
 
+/** Day/month/year without leading zeros, matching the printed installment contract. */
+function fmtInstallmentDMY(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
+}
+
 function computeInstallmentDueDate(
   plan: InstallmentPlan | null | undefined,
   indexZeroBased: number,
@@ -347,10 +355,7 @@ function computeInstallmentDueDate(
     d.setMonth(d.getMonth() + indexZeroBased)
   }
 
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return fmtContractDate(`${yyyy}-${mm}-${dd}`)
+  return fmtInstallmentDMY(d)
 }
 
 export function buildInstallmentRows(
@@ -427,8 +432,8 @@ function formatInstallmentCell(
       ? `${paid.toLocaleString(CONTRACT_NUM_LOCALE)}/${amount.toLocaleString(CONTRACT_NUM_LOCALE)} ج`
       : `${amount.toLocaleString(CONTRACT_NUM_LOCALE)} ج`
 
-  let dueStr = item.due_date ? fmtContractDate(item.due_date) : ''
-  if (!dueStr || dueStr === '—') {
+  let dueStr = item.due_date ? fmtInstallmentDMY(item.due_date) : ''
+  if (!dueStr) {
     const idx =
       indexZeroBased ??
       Math.max(0, (item.installment_number ?? item.sequence ?? 1) - 1)
@@ -438,10 +443,7 @@ function formatInstallmentCell(
   let paidStr = ''
   if (paid >= amount) {
     const paidAt = resolveInstallmentPaidAt(item, invoice)
-    if (paidAt) {
-      const formatted = fmtContractDate(paidAt)
-      if (formatted && formatted !== '—') paidStr = formatted
-    }
+    if (paidAt) paidStr = fmtInstallmentDMY(paidAt)
   }
 
   return {
