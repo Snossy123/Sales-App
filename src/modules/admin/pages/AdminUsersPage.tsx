@@ -40,6 +40,7 @@ export function AdminUsersPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [toast, setToast] = useState('')
+  const [formError, setFormError] = useState('')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [adminFilter, setAdminFilter] = useState(() => (scopedAdminId ? String(scopedAdminId) : ''))
@@ -150,13 +151,15 @@ export function AdminUsersPage() {
       setPanelOpen(false)
       setEditId(null)
       setForm(emptyForm)
+      setFormError('')
       setToast('تم حفظ المستخدم')
     },
-    onError: (err) => setToast(getErrorMessage(err)),
+    onError: (err) => setFormError(getErrorMessage(err)),
   })
 
   const openEdit = (user: AdminUser) => {
     setEditId(user.id)
+    setFormError('')
     setForm({
       name: user.name,
       email: user.email,
@@ -329,6 +332,7 @@ export function AdminUsersPage() {
           <button type="button" onClick={() => {
             setPanelOpen(true)
             setEditId(null)
+            setFormError('')
             setForm({
               ...emptyForm,
               administration_id: scopedAdminId ?? '',
@@ -424,8 +428,13 @@ export function AdminUsersPage() {
         )}
       </AsyncState>
 
-      <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null) }} title={editId ? 'تعديل مستخدم' : 'مستخدم جديد'}>
-        <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }} className="grid gap-sm sm:grid-cols-2">
+      <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null); setFormError('') }} title={editId ? 'تعديل مستخدم' : 'مستخدم جديد'}>
+        {formError && (
+          <div className="mb-sm">
+            <ToastBanner message={formError} onDismiss={() => setFormError('')} />
+          </div>
+        )}
+        <form onSubmit={(e) => { e.preventDefault(); setFormError(''); saveMutation.mutate() }} className="grid gap-sm sm:grid-cols-2">
           {formFields}
           <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary sm:col-span-2">
             حفظ
