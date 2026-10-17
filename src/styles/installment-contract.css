@@ -139,18 +139,18 @@
   font-family: Arial, Helvetica, sans-serif;
   font-weight: 900;
   color: var(--ic-red);
-  margin-bottom: -4mm;
+  margin-bottom: -2mm;
   -webkit-text-stroke: 0;
 }
 .ic-brandwords span {
-  font-size: 2.2mm;
+  font-size: 3.4mm;
   white-space: nowrap;
 }
 .ic-logo-img {
   width: 37mm;
   height: 24mm;
   object-fit: contain;
-  margin-top: 1.5mm;
+  margin-top: 3.5mm;
   margin-bottom: 2mm;
 }
 .ic-title-badge {
@@ -191,7 +191,7 @@
 }
 .ic-head-en-main {
   font-size: 23pt;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--ic-ink);
   letter-spacing: -0.5px;
   margin-bottom: -1mm;
@@ -557,7 +557,8 @@
   gap: 1.4mm;
 }
 .ic-below .ic-terms {
-  line-height: 1.38;
+  font-size: 13.6pt;
+  line-height: 1.22;
   margin: 0;
 }
 .ic-below .ic-warning {
@@ -590,19 +591,19 @@
 .ic-below .ic-exclude-pill,
 .ic-below .ic-note-pill,
 .ic-below .ic-note-text {
-  min-height: 8.4mm;
+  min-height: 9.2mm;
 }
 .ic-below .ic-pill {
-  font-size: 12.5pt;
+  font-size: 16pt;
   padding-inline: 3mm;
 }
 .ic-below .ic-pill--date {
-  font-size: 11.5pt;
-  min-height: 8.4mm;
+  font-size: 14.5pt;
+  min-height: 9.2mm;
   padding-inline: 3mm;
 }
 .ic-below .ic-pill--num-sm {
-  font-size: 12.5pt;
+  font-size: 16pt;
   min-width: 18mm;
   padding-inline: 3.5mm;
 }
@@ -615,9 +616,9 @@
 }
 .ic-below .ic-pill--schedule,
 .ic-below .ic-exclude-pill {
-  min-height: 8.4mm;
+  min-height: 9.2mm;
   padding-inline: 3mm;
-  font-size: 12.5pt;
+  font-size: 15pt;
 }
 .ic-below .ic-srow--renewal {
   flex-wrap: nowrap;
@@ -625,8 +626,8 @@
 }
 .ic-below .ic-pill--renewal-date {
   flex: 0 0 auto;
-  min-height: 8.4mm;
-  max-height: 8.4mm;
+  min-height: 9.2mm;
+  max-height: 9.2mm;
   min-width: 0;
   width: max-content;
   padding-inline: 3mm;
@@ -637,9 +638,9 @@
   justify-content: center;
   flex: 1 1 auto;
   min-width: 0;
-  height: 8.4mm;
-  min-height: 8.4mm;
-  max-height: 8.4mm;
+  height: 9.2mm;
+  min-height: 9.2mm;
+  max-height: 9.2mm;
   padding: 0 3.5mm;
   font-size: 11pt;
   line-height: 1;
@@ -647,7 +648,7 @@
   overflow: hidden;
 }
 .ic-below .ic-alert-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 32mm;
   margin: 0;
 }
@@ -667,6 +668,11 @@
 }
 .ic-below .ic-signatures {
   margin: 0;
+}
+.ic-below::after {
+  content: '';
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ===== Summary / pills band ===== */
@@ -1285,9 +1291,10 @@
   margin-bottom: 2mm;
 }
 .ic-renewal-field {
-  display: flex;
+  display: grid;
+  grid-template-columns: 38mm minmax(0, 1fr) 38mm;
   align-items: center;
-  gap: 3mm;
+  column-gap: 3mm;
   min-height: 7.5mm;
   padding: 1mm 3mm;
   background: #f2f2f2;
@@ -1301,11 +1308,10 @@
   white-space: nowrap;
   font-weight: 700;
   font-size: 13pt;
-  min-width: 38mm;
 }
 .ic-renewal-field-value {
-  flex: 1;
   min-width: 0;
+  text-align: center;
   font-size: 13pt;
   font-weight: 700;
   color: #111;
@@ -1314,9 +1320,10 @@
   white-space: nowrap;
 }
 .ic-renewal-date-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 42mm minmax(0, 1fr) 42mm;
   align-items: center;
-  gap: 3mm;
+  column-gap: 3mm;
   margin-top: 1.5mm;
   padding: 1.2mm 3mm;
   border: 1.5px solid var(--ic-red);
@@ -1327,8 +1334,11 @@
   color: var(--ic-red);
   font-size: 13pt;
   font-weight: 800;
+  white-space: nowrap;
 }
 .ic-renewal-date-value {
+  min-width: 0;
+  text-align: center;
   font-size: 13pt;
   font-weight: 800;
   color: #111;
