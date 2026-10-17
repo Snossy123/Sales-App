@@ -104,6 +104,7 @@ const CHIP_ICONS: Record<CombinerChipId, string> = {
   installation: 'home_repair_service',
   programming: 'memory',
   software: 'tune',
+  reset_password: 'password',
   site_transfer: 'swap_horiz',
 }
 

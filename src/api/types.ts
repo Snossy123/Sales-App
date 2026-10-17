@@ -715,6 +715,7 @@ export type ServiceCategory =
   | 'site_transfer'
   | 'ownership_transfer'
   | 'programming'
+  | 'reset_password'
   | 'other'
 
 export interface Service {

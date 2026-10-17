@@ -8,6 +8,7 @@ export type CombinerChipId =
   | 'installation'
   | 'programming'
   | 'software'
+  | 'reset_password'
   | 'site_transfer'
 
 export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
@@ -16,6 +17,7 @@ export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'installation', label: 'تركيب' },
   { id: 'programming', label: 'برمجة' },
   { id: 'software', label: 'سوفت' },
+  { id: 'reset_password', label: 'Reset Password' },
   { id: 'site_transfer', label: 'نقل على الموقع' },
 ]
 
@@ -116,6 +118,7 @@ export const COMBINER_FEE_CHIPS: {
   { id: 'installation', label: 'تركيب', code: 'SRV-TRK', category: 'installation' },
   { id: 'programming', label: 'برمجة', code: 'SRV-SIM', category: 'programming', nameHint: 'برمجة' },
   { id: 'software', label: 'سوفت', code: 'SRV-SFT', category: 'software', nameHint: 'سوفت' },
+  { id: 'reset_password', label: 'Reset Password', code: 'SRV-RPW', category: 'reset_password' },
   { id: 'site_transfer', label: 'نقل على الموقع', code: 'SRV-SIT', category: 'site_transfer', nameHint: 'نقل على الموقع' },
 ]
 

@@ -10,6 +10,7 @@ export const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: 'site_transfer', label: 'نقل على الموقع' },
   { value: 'ownership_transfer', label: 'نقل ملكية' },
   { value: 'programming', label: 'برمجة' },
+  { value: 'reset_password', label: 'Reset Password' },
   { value: 'other', label: 'أخرى' },
 ]
 

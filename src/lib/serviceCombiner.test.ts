@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import type { Service } from '../api/types'
 import type { ServiceLineDraft } from '../components/services/ServiceLineCard'
 import type { CombinerChipId, CombinerFeeChipId } from './serviceCombiner'
-import { deriveCombinerContractKind, normalizeFeeLineInstances } from './serviceCombiner'
+import {
+  COMBINER_FEE_CHIPS,
+  deriveCombinerContractKind,
+  findCombinerService,
+  normalizeFeeLineInstances,
+} from './serviceCombiner'
 
 function chips(...ids: CombinerChipId[]): Set<CombinerChipId> {
   return new Set(ids)
@@ -40,11 +46,31 @@ describe('deriveCombinerContractKind', () => {
   it('maps fee-only chips to mixed', () => {
     expect(deriveCombinerContractKind(chips('uninstall'))).toBe('mixed')
     expect(deriveCombinerContractKind(chips('installation', 'software'))).toBe('mixed')
+    expect(deriveCombinerContractKind(chips('reset_password'))).toBe('mixed')
   })
 
   it('maps two contract types together to mixed', () => {
     expect(deriveCombinerContractKind(chips('annual_renewal', 'external_device'))).toBe('mixed')
     expect(deriveCombinerContractKind(chips('annual_renewal', 'installation'))).toBe('mixed')
+  })
+})
+
+describe('findCombinerService', () => {
+  it('finds an active reset password service by its dedicated category', () => {
+    const resetPasswordChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === 'reset_password')
+    const service: Service = {
+      id: 50,
+      code: 'CUSTOM-RESET',
+      name: 'Reset Password',
+      category: 'reset_password',
+      default_price: 175,
+      cash_price: 175,
+      installment_price: 200,
+      is_active: true,
+    }
+
+    expect(resetPasswordChip).toBeDefined()
+    expect(findCombinerService([service], resetPasswordChip!)).toBe(service)
   })
 })
 

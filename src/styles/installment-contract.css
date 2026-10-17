@@ -211,9 +211,9 @@
   gap: 0mm;
   align-items: stretch;
   margin-bottom: 1.5mm;
-  /* Absorb the vertical slack freed by the compacted alert boxes so the data
-     panel / cash grid rows expand to fill the page. */
-  flex: 1;
+  /* Keep the installment panel at its content height so the summary and
+     contract terms below retain enough room on the A4 page. */
+  flex: 0 0 auto;
 }
 .ic-main::before {
   content: '';
@@ -785,8 +785,9 @@
 .ic-warning {
   border: 2.5px solid var(--ic-red);
   border-radius: 999px;
-  padding: 0;
+  padding: 0 1.5mm;
   margin: 0 0 0.7mm;
+  box-sizing: border-box;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 14pt;
   font-weight: 400;
@@ -819,11 +820,11 @@
 .ic-warning-row .ic-warning {
   margin: 0;
   font-size: 11pt;
-  padding: 1.2mm 0;
+  padding: 1.2mm 1.5mm;
   min-height: 6.5mm;
 }
 .ic-warning-row .ic-warning--line {
-  padding: 0;
+  padding: 0 1.5mm;
 }
 
 /* ===== Alert boxes ===== */

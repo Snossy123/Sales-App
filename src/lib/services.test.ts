@@ -7,12 +7,14 @@ describe('services categories', () => {
     expect(values).toContain('site_transfer')
     expect(values).toContain('ownership_transfer')
     expect(values).toContain('programming')
+    expect(values).toContain('reset_password')
   })
 
   it('maps new categories to correct Arabic labels', () => {
     expect(serviceCategoryLabel('site_transfer')).toBe('نقل على الموقع')
     expect(serviceCategoryLabel('ownership_transfer')).toBe('نقل ملكية')
     expect(serviceCategoryLabel('programming')).toBe('برمجة')
+    expect(serviceCategoryLabel('reset_password')).toBe('Reset Password')
     expect(serviceCategoryLabel('on_site_transfer')).toBe('نقل على الموقع')
   })
 
