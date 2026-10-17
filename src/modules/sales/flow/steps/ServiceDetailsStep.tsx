@@ -160,6 +160,8 @@ export function ServiceDetailsStep({
         {
           key: newFeeLineKey(),
           chipId,
+          serviceId: service.id,
+          serviceCategory: service.category,
           line,
           productUnitId:
             draft.selectedCustomerDevice?.product_unit_id ?? undefined,

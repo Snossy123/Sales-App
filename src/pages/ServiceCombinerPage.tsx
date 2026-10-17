@@ -16,6 +16,7 @@ import type {
   SalesInvoice,
   SalesRep,
   Service,
+  ServiceCategory,
   CustomerContractDevice,
 } from '../api/types'
 import {
@@ -30,16 +31,13 @@ import { catalogTermPrice, resolveGpsUnitPrice } from '../lib/gpsProductPricing'
 import {
   accessoryLineTotal,
   COMBINER_CHIPS,
-  COMBINER_FEE_CHIPS,
   deriveCombinerContractKind,
-  findCombinerService,
   newAccessoryLineKey,
   newFeeLineKey,
   normalizeAccessoryLines,
   normalizeFeeLineInstances,
   type CombinerAccessoryLine,
   type CombinerChipId,
-  type CombinerFeeChipId,
   type FeeLineInstance,
 } from '../lib/serviceCombiner'
 import { Icon } from '../components/Icon'
@@ -106,6 +104,20 @@ const CHIP_ICONS: Record<CombinerChipId, string> = {
   software: 'tune',
   reset_password: 'password',
   site_transfer: 'swap_horiz',
+}
+
+const SERVICE_CATEGORY_ICONS: Partial<Record<ServiceCategory, string>> = {
+  maintenance: 'build',
+  software: 'tune',
+  subscription: 'event_repeat',
+  installation: 'home_repair_service',
+  uninstall: 'handyman',
+  transfer: 'swap_horiz',
+  site_transfer: 'swap_horiz',
+  ownership_transfer: 'person',
+  programming: 'memory',
+  reset_password: 'password',
+  other: 'miscellaneous_services',
 }
 
 function addDays(dateStr: string, days: number): string {
@@ -178,7 +190,13 @@ export function ServiceCombinerPage() {
   const serviceDraft = readServiceDraft(draftUserId)
 
   const [selectedChips, setSelectedChips] = useState<Set<CombinerChipId>>(
-    () => new Set(serviceDraft?.selectedChips ?? []),
+    () =>
+      new Set(
+        (serviceDraft?.selectedChips ?? []).filter(
+          (chip): chip is CombinerChipId =>
+            chip === 'annual_renewal' || chip === 'external_device',
+        ),
+      ),
   )
   const [transactionSource, setTransactionSource] = useState<TransactionSource>(
     () => serviceDraft?.transactionSource ?? 'branch',
@@ -577,7 +595,7 @@ export function ServiceCombinerPage() {
 
   const catalogServices = servicesQuery.data?.data ?? []
   const product = productQuery.data
-  const hasFeeChips = feeLines.length > 0 || COMBINER_FEE_CHIPS.some((chip) => selectedChips.has(chip.id))
+  const hasFeeServices = feeLines.length > 0
   const filteredTechnicians = useMemo(() => {
     const employees = employeesQuery.data ?? []
     const q = technicianSearch.trim().toLowerCase()
@@ -595,14 +613,8 @@ export function ServiceCombinerPage() {
       externalCashPrice,
   )
 
-  const defaultFeeProductUnitId = selectedCustomerDevice?.product_unit_id ?? undefined
-
-  const appendFeeLine = (chipId: CombinerFeeChipId) => {
-    if (feeLines.some((item) => item.chipId === chipId)) return false
-    const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === chipId)
-    if (!feeChip) return false
-    const service = findCombinerService(catalogServices, feeChip)
-    if (!service) return false
+  const appendFeeLine = (service: Service) => {
+    if (feeLines.some((item) => (item.serviceId ?? item.line.service_id) === service.id)) return false
     const term = collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash'
     const line = createServiceLine(
       {
@@ -622,16 +634,27 @@ export function ServiceCombinerPage() {
       ...prev,
       {
         key: newFeeLineKey(),
-        chipId,
+        serviceId: service.id,
+        serviceCategory: service.category,
         line: {
           ...line,
           paymentTerm: term,
           unit_price: catalogTermPrice(line.cashPrice, line.installmentPrice, term),
         },
-        productUnitId: defaultFeeProductUnitId,
       },
     ])
     return true
+  }
+
+  const toggleCatalogService = (service: Service) => {
+    const existing = feeLines.find(
+      (item) => (item.serviceId ?? item.line.service_id) === service.id,
+    )
+    if (existing) {
+      removeFeeLine(existing.key)
+      return
+    }
+    appendFeeLine(service)
   }
 
   const addAccessoryProduct = (productModel: ProductModel) => {
@@ -741,19 +764,30 @@ export function ServiceCombinerPage() {
   const listedDeviceSelected =
     Boolean(selectedCustomerDevice?.product_unit_id) && !manualDeviceEntry
 
-  const currentDeviceIdentity = () =>
-    selectedCustomerDevice && !manualDeviceEntry
-      ? {
-          ...identityFromCustomerDevice(selectedCustomerDevice),
-          serialNumber: contractSerial,
-        }
-      : {
-          productUnitId: undefined,
-          serialNumber: contractSerial,
-          physicalSerial: contractSerial,
-          simNumber: contractSim,
-          username: contractUsername,
-        }
+  const currentDeviceIdentity = () => {
+    if (selectedCustomerDevice && !manualDeviceEntry) {
+      return {
+        ...identityFromCustomerDevice(selectedCustomerDevice),
+        serialNumber: contractSerial,
+      }
+    }
+    if (manualDeviceEntry) {
+      return {
+        productUnitId: undefined,
+        serialNumber: contractSerial,
+        physicalSerial: contractSerial,
+        simNumber: contractSim,
+        username: contractUsername,
+      }
+    }
+    return {
+      productUnitId: undefined,
+      serialNumber: '',
+      physicalSerial: '',
+      simNumber: '',
+      username: '',
+    }
+  }
 
   const applyIdentityToDeviceLines = (
     identity: Parameters<typeof applyContractDeviceIdentity>[1],
@@ -770,11 +804,6 @@ export function ServiceCombinerPage() {
     setContractSim(identity.simNumber)
     setContractUsername(identity.username)
     applyIdentityToDeviceLines(identity)
-    setFeeLines((prev) =>
-      prev.map((item) =>
-        item.productUnitId ? item : { ...item, productUnitId: identity.productUnitId },
-      ),
-    )
   }
 
   const handleManualDevice = () => {
@@ -840,25 +869,6 @@ export function ServiceCombinerPage() {
   }, [selectedCustomer?.id, customerDevicesQuery.isSuccess, customerDevicesQuery.data])
 
   const toggleChip = (id: CombinerChipId) => {
-    const feeChip = COMBINER_FEE_CHIPS.find((chip) => chip.id === id)
-    if (feeChip) {
-      const alreadyAdded = feeLines.some((item) => item.chipId === feeChip.id)
-      if (alreadyAdded) {
-        setFeeLines((prev) => prev.filter((item) => item.chipId !== feeChip.id))
-        setSelectedChips((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-        return
-      }
-      const created = appendFeeLine(feeChip.id)
-      if (created) {
-        setSelectedChips((prev) => new Set(prev).add(id))
-      }
-      return
-    }
-
     setSelectedChips((prev) => {
       const next = new Set(prev)
       const enabling = !next.has(id)
@@ -910,16 +920,7 @@ export function ServiceCombinerPage() {
   }
 
   const removeFeeLine = (key: string) => {
-    const remaining = feeLines.filter((item) => item.key !== key)
-    setFeeLines(remaining)
-    const removed = feeLines.find((item) => item.key === key)
-    if (removed && remaining.every((item) => item.chipId !== removed.chipId)) {
-      setSelectedChips((prev) => {
-        const next = new Set(prev)
-        next.delete(removed.chipId)
-        return next
-      })
-    }
+    setFeeLines((prev) => prev.filter((item) => item.key !== key))
   }
 
   const activeFeeLines = feeLines.map((item) => item.line)
@@ -1038,13 +1039,20 @@ export function ServiceCombinerPage() {
         ? Boolean(selectedDistributor)
         : Boolean(selectedSalesRep)
 
+  const hasContractDevice = listedDeviceSelected || manualDeviceEntry
   const contractDeviceReady =
-    listedDeviceSelected &&
-    Boolean(contractSerial.trim()) &&
-    Boolean(contractSim.trim()) &&
-    Boolean(contractUsername.trim())
-  const softwareSelected =
-    selectedChips.has('software') || feeLines.some((item) => item.chipId === 'software')
+    !hasContractDevice ||
+    (Boolean(contractSerial.trim()) &&
+      Boolean(contractSim.trim()) &&
+      Boolean(contractUsername.trim()))
+  const feeLineCategory = (item: FeeLineInstance): ServiceCategory | undefined =>
+    item.serviceCategory ??
+    catalogServices.find(
+      (service) => service.id === (item.serviceId ?? item.line.service_id),
+    )?.category ??
+    item.chipId
+  const softwareSelected = feeLines.some((item) => feeLineCategory(item) === 'software')
+  const hasSelectedServices = selectedChips.size > 0 || feeLines.length > 0
 
   const renewalValid =
     !selectedChips.has('annual_renewal') ||
@@ -1068,8 +1076,7 @@ export function ServiceCombinerPage() {
         (validateServiceLineInstallment(item.line, minDownPercent, maxInstallmentCount).valid &&
           validateServiceLineCash(item.line, maxInstallmentCount).valid)) &&
       item.line.description.trim() &&
-      item.line.unit_price > 0 &&
-      (customerDevices.length === 0 || Boolean(item.productUnitId)),
+      item.line.unit_price > 0,
   )
 
   const accessoriesValid = accessoryLines.every(
@@ -1085,17 +1092,22 @@ export function ServiceCombinerPage() {
 
   const contractPaymentValid =
     collectionScope !== 'contract' ||
-    selectedChips.size === 0 ||
+    !hasSelectedServices ||
     validateServicePayment(contractPayment, total, minDownPercent, maxInstallmentCount).valid
 
-  const missingFeeService = COMBINER_FEE_CHIPS.some(
-    (chip) => selectedChips.has(chip.id) && feeLines.every((item) => item.chipId !== chip.id),
-  )
+  const missingFeeService =
+    servicesQuery.isSuccess &&
+    feeLines.some(
+      (item) =>
+        !catalogServices.some(
+          (service) => service.id === (item.serviceId ?? item.line.service_id),
+        ),
+    )
 
   const canSubmit =
     Boolean(selectedCustomer) &&
     sourceReady &&
-    selectedChips.size > 0 &&
+    hasSelectedServices &&
     total > 0 &&
     contractDeviceReady &&
     renewalValid &&
@@ -1105,7 +1117,7 @@ export function ServiceCombinerPage() {
     !accessoriesNeedWarehouse &&
     contractPaymentValid &&
     !missingFeeService &&
-    (!hasFeeChips || Boolean(feeTechnician))
+    (!hasFeeServices || Boolean(feeTechnician))
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
@@ -1136,24 +1148,16 @@ export function ServiceCombinerPage() {
       }
       for (const item of feeLines) {
         const line = item.line
-        const device =
-          customerDevices.find((entry) => entry.product_unit_id === item.productUnitId) ??
-          (item.productUnitId === selectedCustomerDevice?.product_unit_id
-            ? selectedCustomerDevice
-            : null)
-        const identity = device ? identityFromCustomerDevice(device) : currentDeviceIdentity()
+        const identity = currentDeviceIdentity()
         const serialNumber =
-          item.chipId === 'software' &&
-          item.productUnitId === selectedCustomerDevice?.product_unit_id
-            ? contractSerial
-            : identity.serialNumber
+          feeLineCategory(item) === 'software' ? contractSerial : identity.serialNumber
         const base = {
           line_type: 'service' as const,
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
           technician_id: feeTechnician?.id,
-          product_unit_id: item.productUnitId ?? identity.productUnitId,
+          product_unit_id: identity.productUnitId,
           serial_number: serialNumber.trim() || undefined,
           physical_serial: identity.physicalSerial?.trim() || undefined,
           sim_number: identity.simNumber.trim() || undefined,
@@ -1223,7 +1227,7 @@ export function ServiceCombinerPage() {
         customer_id: selectedCustomer.id,
         branch_id: resolvedBranchId ? Number(resolvedBranchId) : undefined,
         warehouse_id: accessoryLines.length > 0 && warehouseId != null ? warehouseId : undefined,
-        contract_kind: deriveCombinerContractKind(selectedChips),
+        contract_kind: deriveCombinerContractKind(selectedChips, feeLines.length > 0),
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
         collection_scope: collectionScope,
@@ -1273,8 +1277,7 @@ export function ServiceCombinerPage() {
             activeFeeLines.some((line) => line.paymentTerm === 'installment') ||
             accessoryLines.some((item) => item.line.paymentTerm === 'installment')
       const hasUninstall =
-        selectedChips.has('uninstall') ||
-        feeLines.some((item) => item.chipId === 'uninstall') ||
+        feeLines.some((item) => feeLineCategory(item) === 'uninstall') ||
         invoice.lines?.some((line) => line.service?.category === 'uninstall')
       const customerId = selectedCustomer?.id
       const successMessage = `تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`
@@ -1352,8 +1355,8 @@ export function ServiceCombinerPage() {
             <PosSectionCard
               number={2}
               title="جهاز العميل"
-              subtitle="اختار جهازًا مسجلًا أو سجّل جهازًا قديمًا / خارجيًا"
-              highlighted={submitAttempted && !contractDeviceReady}
+              subtitle="اختياري — الجهاز المختار يُطبّق على كل خدمات العقد"
+              highlighted={submitAttempted && hasContractDevice && !contractDeviceReady}
             >
               <CustomerContractDevicePicker
                 devices={customerDevices}
@@ -1375,7 +1378,7 @@ export function ServiceCombinerPage() {
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
                 allowSerialEdit={softwareSelected}
-                showErrors={submitAttempted}
+                showErrors={submitAttempted && hasContractDevice}
                 registerOrigin={registerOrigin}
                 onRegisterOriginChange={setRegisterOrigin}
                 onRegister={(payload) => registerDeviceMutation.mutate(payload)}
@@ -1392,14 +1395,12 @@ export function ServiceCombinerPage() {
           <PosSectionCard
             number={2}
             title="الخدمات على هذا العقد"
-            subtitle="اختر خدمة أو أكثر لنفس العميل"
-            highlighted={submitAttempted && selectedChips.size === 0}
+            subtitle="كل خدمة نشطة تُضاف من صفحة الخدمات تظهر هنا تلقائيًا"
+            highlighted={submitAttempted && !hasSelectedServices}
           >
             <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
               {COMBINER_CHIPS.map((chip) => {
-                const active =
-                  selectedChips.has(chip.id) ||
-                  feeLines.some((item) => item.chipId === chip.id)
+                const active = selectedChips.has(chip.id)
                 return (
                   <button
                     key={chip.id}
@@ -1416,13 +1417,55 @@ export function ServiceCombinerPage() {
                   </button>
                 )
               })}
+              {catalogServices.map((service) => {
+                const active = feeLines.some(
+                  (item) => (item.serviceId ?? item.line.service_id) === service.id,
+                )
+                const cashPrice = Number(service.cash_price ?? service.default_price)
+                const installmentPrice = Number(
+                  service.installment_price ?? service.default_price,
+                )
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => toggleCatalogService(service)}
+                    className={`relative flex min-h-20 flex-col items-center justify-center gap-xs rounded-xl border px-sm py-sm text-center text-sm font-bold transition-colors ${
+                      active
+                        ? 'border-primary bg-primary text-on-primary shadow-sm'
+                        : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
+                    }`}
+                  >
+                    <Icon
+                      name={SERVICE_CATEGORY_ICONS[service.category] ?? 'miscellaneous_services'}
+                      size={22}
+                      filled={active}
+                    />
+                    <span>{service.name_ar || service.name}</span>
+                    <span className="text-[11px] font-normal opacity-80">
+                      كاش {cashPrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                      {installmentPrice !== cashPrice
+                        ? ` — قسط ${installmentPrice.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م`
+                        : ''}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
-            {submitAttempted && selectedChips.size === 0 && (
+            {servicesQuery.isLoading ? (
+              <p className="mt-sm text-sm text-on-surface-variant">جاري تحميل الخدمات...</p>
+            ) : null}
+            {servicesQuery.isSuccess && catalogServices.length === 0 ? (
+              <p className="mt-sm text-sm text-on-surface-variant">
+                لا توجد خدمات نشطة. أضف خدمة من صفحة الخدمات أولًا.
+              </p>
+            ) : null}
+            {submitAttempted && !hasSelectedServices && (
               <p className="mt-sm text-sm text-error">اختر خدمة واحدة على الأقل</p>
             )}
             {missingFeeService && (
               <p className="mt-sm text-sm text-error">
-                خدمة الكتالوج غير موجودة — راجع صفحة الخدمات (فك / تركيب / برمجة / سوفت)
+                إحدى خدمات المسودة لم تعد نشطة — احذفها أو أعد تفعيلها من صفحة الخدمات.
               </p>
             )}
           </PosSectionCard>
@@ -1497,7 +1540,7 @@ export function ServiceCombinerPage() {
             />
           )}
 
-          {hasFeeChips ? (
+          {hasFeeServices ? (
             <div
               className={`rounded-xl border bg-surface-container-lowest p-md shadow-sm ${
                 submitAttempted && !feeTechnician ? 'border-error/40' : 'border-outline-variant'
@@ -1521,11 +1564,11 @@ export function ServiceCombinerPage() {
                 />
                 {submitAttempted && !feeTechnician ? (
                   <p className="mt-xs text-xs text-error">
-                    الفني مطلوب لكل خدمات الفك والتركيب والسوفت والبرمجة
+                    الفني مطلوب لخدمات هذا العقد
                   </p>
                 ) : (
                   <p className="mt-xs text-xs text-on-surface-variant">
-                    يُسند نفس الفني لكل خدمات الفك / التركيب / البرمجة / السوفت في هذا العقد
+                    يُسند نفس الفني لكل خدمات هذا العقد
                   </p>
                 )}
               </div>
@@ -1548,17 +1591,6 @@ export function ServiceCombinerPage() {
                 onRemove={() => removeFeeLine(item.key)}
                 showPayment={collectionScope === 'service'}
                 showErrors={submitAttempted}
-                devices={customerDevices}
-                productUnitId={item.productUnitId}
-                onSelectDevice={(device) =>
-                  setFeeLines((prev) =>
-                    prev.map((entry) =>
-                      entry.key === item.key
-                        ? { ...entry, productUnitId: device?.product_unit_id ?? undefined }
-                        : entry,
-                    ),
-                  )
-                }
               />
           ))}
 
@@ -1694,7 +1726,7 @@ export function ServiceCombinerPage() {
             </div>
           </PosSectionCard>
 
-          {collectionScope === 'contract' && selectedChips.size > 0 ? (
+          {collectionScope === 'contract' && hasSelectedServices ? (
             <ServicePaymentSection
               total={total}
               payment={contractPayment}

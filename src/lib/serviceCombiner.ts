@@ -13,19 +13,15 @@ export type CombinerChipId =
 
 export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'annual_renewal', label: 'تجديد اشتراك سنوي' },
-  { id: 'uninstall', label: 'فك' },
-  { id: 'installation', label: 'تركيب' },
-  { id: 'programming', label: 'برمجة' },
-  { id: 'software', label: 'سوفت' },
-  { id: 'reset_password', label: 'Reset Password' },
-  { id: 'site_transfer', label: 'نقل على الموقع' },
 ]
 
 export type CombinerFeeChipId = Exclude<CombinerChipId, 'annual_renewal' | 'external_device'>
 
 export interface FeeLineInstance {
   key: string
-  chipId: CombinerFeeChipId
+  chipId?: CombinerFeeChipId
+  serviceId?: number
+  serviceCategory?: ServiceCategory
   line: ServiceLineDraft
   productUnitId?: number
 }
@@ -34,32 +30,44 @@ function isFeeChipId(value: unknown): value is CombinerFeeChipId {
   return COMBINER_FEE_CHIPS.some((chip) => chip.id === value)
 }
 
-function uniqueFeeLinesByChip(items: FeeLineInstance[]): FeeLineInstance[] {
-  const seen = new Set<CombinerFeeChipId>()
+function feeLineIdentity(item: FeeLineInstance): string | null {
+  const serviceId = item.serviceId ?? item.line.service_id
+  if (typeof serviceId === 'number' && Number.isFinite(serviceId)) return `service:${serviceId}`
+  if (isFeeChipId(item.chipId)) return `chip:${item.chipId}`
+  return null
+}
+
+function uniqueFeeLines(items: FeeLineInstance[]): FeeLineInstance[] {
+  const seen = new Set<string>()
   return items.filter((item) => {
-    if (!isFeeChipId(item.chipId) || seen.has(item.chipId)) return false
-    seen.add(item.chipId)
+    const identity = feeLineIdentity(item)
+    if (!identity || seen.has(identity)) return false
+    seen.add(identity)
     return true
   })
 }
 
 export function normalizeFeeLineInstances(raw: unknown): FeeLineInstance[] {
   if (Array.isArray(raw)) {
-    return uniqueFeeLinesByChip(
-      raw.filter(
-        (item): item is FeeLineInstance =>
-          Boolean(item && typeof item === 'object' && 'key' in item && 'chipId' in item && 'line' in item),
-      ),
+    return uniqueFeeLines(
+      raw.flatMap((item) => {
+        if (!item || typeof item !== 'object' || !('key' in item) || !('line' in item)) return []
+        const candidate = item as FeeLineInstance
+        if (!feeLineIdentity(candidate)) return []
+        const serviceId = candidate.serviceId ?? candidate.line.service_id
+        return [serviceId === undefined ? candidate : { ...candidate, serviceId }]
+      }),
     )
   }
   if (raw && typeof raw === 'object') {
-    return uniqueFeeLinesByChip(
+    return uniqueFeeLines(
       Object.entries(raw as Record<string, ServiceLineDraft>).flatMap(([chipId, line]) => {
         if (!isFeeChipId(chipId) || !line) return []
         return [
           {
             key: chipId,
             chipId,
+            serviceId: line.service_id,
             line,
             productUnitId: undefined,
           },
@@ -145,10 +153,13 @@ export function findCombinerService(
   return inCategory[0]
 }
 
-export function deriveCombinerContractKind(selected: Set<CombinerChipId>): CheckoutPayload['contract_kind'] {
+export function deriveCombinerContractKind(
+  selected: Set<CombinerChipId>,
+  hasCatalogServices = false,
+): CheckoutPayload['contract_kind'] {
   const hasRenewal = selected.has('annual_renewal')
   const hasExternal = selected.has('external_device')
-  const hasFee = COMBINER_FEE_CHIPS.some((chip) => selected.has(chip.id))
+  const hasFee = hasCatalogServices || COMBINER_FEE_CHIPS.some((chip) => selected.has(chip.id))
 
   const typeCount = Number(hasRenewal) + Number(hasExternal) + Number(hasFee)
   if (typeCount > 1 || (hasFee && !hasRenewal && !hasExternal)) return 'mixed'

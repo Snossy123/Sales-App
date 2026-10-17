@@ -47,11 +47,13 @@ describe('deriveCombinerContractKind', () => {
     expect(deriveCombinerContractKind(chips('uninstall'))).toBe('mixed')
     expect(deriveCombinerContractKind(chips('installation', 'software'))).toBe('mixed')
     expect(deriveCombinerContractKind(chips('reset_password'))).toBe('mixed')
+    expect(deriveCombinerContractKind(chips(), true)).toBe('mixed')
   })
 
   it('maps two contract types together to mixed', () => {
     expect(deriveCombinerContractKind(chips('annual_renewal', 'external_device'))).toBe('mixed')
     expect(deriveCombinerContractKind(chips('annual_renewal', 'installation'))).toBe('mixed')
+    expect(deriveCombinerContractKind(chips('annual_renewal'), true)).toBe('mixed')
   })
 })
 
@@ -85,5 +87,51 @@ describe('normalizeFeeLineInstances', () => {
     const uninstall = feeInstance('uninstall', 'fee-1', 'فك')
     const installation = feeInstance('installation', 'fee-2', 'تركيب')
     expect(normalizeFeeLineInstances([uninstall, installation])).toEqual([uninstall, installation])
+  })
+
+  it('keeps different catalog services even when they share a category', () => {
+    const first = {
+      key: 'fee-1',
+      serviceId: 10,
+      serviceCategory: 'other' as const,
+      line: { ...draftLine('خدمة أولى'), service_id: 10 },
+    }
+    const second = {
+      key: 'fee-2',
+      serviceId: 11,
+      serviceCategory: 'other' as const,
+      line: { ...draftLine('خدمة ثانية'), service_id: 11 },
+    }
+
+    expect(normalizeFeeLineInstances([first, second])).toEqual([first, second])
+  })
+
+  it('removes duplicate catalog lines by service id', () => {
+    const first = {
+      key: 'fee-1',
+      serviceId: 10,
+      serviceCategory: 'maintenance' as const,
+      line: { ...draftLine('صيانة'), service_id: 10 },
+    }
+    const duplicate = {
+      ...first,
+      key: 'fee-2',
+    }
+
+    expect(normalizeFeeLineInstances([first, duplicate])).toEqual([first])
+  })
+
+  it('normalizes legacy chip-keyed drafts with their service id', () => {
+    const line = { ...draftLine('فك'), service_id: 20 }
+
+    expect(normalizeFeeLineInstances({ uninstall: line })).toEqual([
+      {
+        key: 'uninstall',
+        chipId: 'uninstall',
+        serviceId: 20,
+        line,
+        productUnitId: undefined,
+      },
+    ])
   })
 })
