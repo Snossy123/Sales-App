@@ -1590,8 +1590,11 @@
   html,
   body {
     background: #fff !important;
-    height: auto !important;
-    overflow: visible !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .app-shell {
@@ -1613,12 +1616,28 @@
 
   .installment-contract {
     box-shadow: none;
-    page-break-after: avoid;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding: 2.5mm !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .ic-frame {
+    height: calc(297mm - 5mm) !important;
+    min-height: calc(297mm - 5mm) !important;
+    max-height: calc(297mm - 5mm) !important;
+    box-sizing: border-box !important;
   }
 
   .installment-contract,
   .installment-contract * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

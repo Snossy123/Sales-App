@@ -82,14 +82,30 @@ function buildPrintDocument(contractHtml: string): string {
   <title>عقد تقسيط</title>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      background: #fff;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      width: 210mm !important;
+      height: 297mm !important;
+      overflow: hidden !important;
     }
     ${css}
     .installment-contract {
-      box-shadow: none;
-      margin: 0 auto;
+      box-shadow: none !important;
+      margin: 0 auto !important;
+      width: 210mm !important;
+      height: 297mm !important;
+      min-height: 297mm !important;
+      max-height: 297mm !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+      padding: 2.5mm !important;
+    }
+    .ic-frame {
+      height: calc(297mm - 5mm) !important;
+      min-height: calc(297mm - 5mm) !important;
+      max-height: calc(297mm - 5mm) !important;
+      box-sizing: border-box !important;
     }
     @page {
       size: A4 portrait;
@@ -97,8 +113,8 @@ function buildPrintDocument(contractHtml: string): string {
     }
     .installment-contract,
     .installment-contract * {
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
   </style>
 </head>
