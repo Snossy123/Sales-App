@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Customer, SalesInvoice } from '../../api/types'
 import {
   branchLabel,
@@ -18,6 +19,7 @@ import {
   resolveOwnershipTransferPreviousOwner,
 } from '../../lib/ownershipTransferContract'
 import { useAuthStore } from '../../stores/authStore'
+import { Icon } from '../Icon'
 import { ContractPrintHeader } from './ContractPrintHeader'
 import '../../styles/installment-contract.css'
 
@@ -25,14 +27,37 @@ interface OwnershipTransferContractDocumentProps {
   invoice: SalesInvoice
 }
 
-function fieldRow(label: string, value: string, opts?: { dir?: 'ltr' | 'rtl' }) {
+function card(title: string, icon: string, children: ReactNode, className?: string) {
   return (
-    <div className="ic-field-row">
-      <span className="ic-field-diamond">◆</span>
-      <span className="ic-field-label">{label}</span>
-      <span className="ic-field-value" dir={opts?.dir}>
-        {value}
+    <section className={`ic-ot-card${className ? ` ${className}` : ''}`}>
+      <header className="ic-ot-card-title">
+        <span>{title}</span>
+        <span className="ic-ot-card-badge">
+          <Icon name={icon} size={16} />
+        </span>
+      </header>
+      <div className="ic-ot-card-body">{children}</div>
+    </section>
+  )
+}
+
+function infoRow(
+  label: string,
+  value: string,
+  icon: string,
+  opts?: { dir?: 'ltr' | 'rtl'; tone?: 'remaining'; wide?: boolean },
+) {
+  return (
+    <div className={`ic-ot-row${opts?.tone ? ` ic-ot-row--${opts.tone}` : ''}${opts?.wide ? ' ic-ot-row--wide' : ''}`}>
+      <span className="ic-ot-row-icon">
+        <Icon name={icon} size={14} />
       </span>
+      <span className="ic-ot-row-label">{label}</span>
+      {opts?.wide ? null : (
+        <span className="ic-ot-row-value" dir={opts?.dir}>
+          {value}
+        </span>
+      )}
     </div>
   )
 }
@@ -64,16 +89,9 @@ export function OwnershipTransferContractDocument({
         )
   const financial = buildOwnershipTransferFinancialBreakdown(invoice)
 
-  function moneyRow(label: string, amount: number, opts?: { emphasis?: boolean }) {
-    if (amount <= 0) {
-      return null
-    }
-    return (
-      <div className={`ic-ot-fin-row${opts?.emphasis ? ' ic-ot-fin-row--emphasis' : ''}`}>
-        <span className="ic-ot-fin-label">{label}</span>
-        <span className="ic-ot-fin-value">{fmtContractMoney(amount)}</span>
-      </div>
-    )
+  function moneyRow(label: string, amount: number, icon: string) {
+    if (amount <= 0) return null
+    return infoRow(label, fmtContractMoney(amount), icon)
   }
 
   return (
@@ -93,74 +111,88 @@ export function OwnershipTransferContractDocument({
         />
 
         <div className="ic-ot-grid">
-          <div className="ic-table-wrap">
-            <div className="ic-table-title">بيانات المالك السابق</div>
-            <div className="ic-fields">
-              {fieldRow('الاسم :', previousOwner?.name ?? '')}
-              {fieldRow('الرقم القومي :', previousOwner?.national_id ?? '', { dir: 'ltr' })}
-              {fieldRow('رقم الهاتف :', previousOwner?.phone ?? '', { dir: 'ltr' })}
-            </div>
-          </div>
-
-          <div className="ic-table-wrap">
-            <div className="ic-table-title">بيانات المالك الجديد</div>
-            <div className="ic-fields">
-              {fieldRow('الاسم :', newOwner?.name ?? '')}
-              {fieldRow('الرقم القومي :', newOwner?.national_id ?? '', { dir: 'ltr' })}
-              {fieldRow('رقم الهاتف :', newOwner?.phone ?? '', { dir: 'ltr' })}
-              {fieldRow('رقم الهاتف 2 :', newOwner?.phone_2 ?? '', { dir: 'ltr' })}
-            </div>
-          </div>
+          {card(
+            'بيانات المالك السابق',
+            'person',
+            <>
+              {infoRow('الاسم :', previousOwner?.name ?? '', 'person')}
+              {infoRow('الرقم القومي :', previousOwner?.national_id ?? '', 'badge', { dir: 'ltr' })}
+              {infoRow('رقم الهاتف :', previousOwner?.phone ?? '', 'call', { dir: 'ltr' })}
+            </>,
+          )}
+          {card(
+            'بيانات المالك الجديد',
+            'person',
+            <>
+              {infoRow('الاسم :', newOwner?.name ?? '', 'person')}
+              {infoRow('الرقم القومي :', newOwner?.national_id ?? '', 'badge', { dir: 'ltr' })}
+              {infoRow('رقم الهاتف :', newOwner?.phone ?? '', 'call', { dir: 'ltr' })}
+              {infoRow('رقم الهاتف 2 :', newOwner?.phone_2?.trim() || '-', 'call', { dir: 'ltr' })}
+            </>,
+          )}
         </div>
 
-        <div className="ic-table-wrap ic-ot-device">
-          <div className="ic-table-title">بيانات الجهاز</div>
-          <div className="ic-fields">
-            {fieldRow('السريال :', resolveSerial(deviceLine, newOwner as Customer | undefined), { dir: 'ltr' })}
-            {fieldRow('رقم الشريحة :', resolveSim(deviceLine, newOwner as Customer | undefined), { dir: 'ltr' })}
-            {fieldRow('اسم المستخدم :', resolveUsername(deviceLine, newOwner as Customer | undefined))}
-            {fieldRow('المركبة :', vehicle)}
-            {fieldRow(
+        {card(
+          'بيانات الجهاز والاشتراك',
+          'settings',
+          <>
+            {infoRow(
+              'السريال :',
+              resolveSerial(deviceLine, newOwner as Customer | undefined),
+              'barcode',
+              { dir: 'ltr' },
+            )}
+            {infoRow(
+              'رقم الشريحة :',
+              resolveSim(deviceLine, newOwner as Customer | undefined),
+              'sim_card',
+              { dir: 'ltr' },
+            )}
+            {infoRow(
+              'اسم المستخدم :',
+              resolveUsername(deviceLine, newOwner as Customer | undefined),
+              'person',
+            )}
+            {infoRow('المركبة :', vehicle, 'directions_car')}
+            {infoRow(
               'تاريخ انتهاء الاشتراك :',
               subscriptionExpiry === '—' ? '' : subscriptionExpiry,
+              'calendar_month',
             )}
-          </div>
-        </div>
+          </>,
+          'ic-ot-device',
+        )}
 
-        <div className="ic-table-wrap ic-ot-financial">
-          <div className="ic-table-title">التفاصيل المالية</div>
-          <div className="ic-ot-fin-body">
-            <div className="ic-ot-fin-charges">
-              <div className="ic-ot-fin-row">
-                <span className="ic-ot-fin-label">تاريخ النقل</span>
-                <span className="ic-ot-fin-value">{financial.transferDate}</span>
-              </div>
-              {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee)}
-              {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee)}
-              {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource)}
-              {moneyRow('فك + تركيب', financial.disassemblyInstallationFee)}
-            </div>
-            <div className="ic-ot-fin-totals">
-              <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
-                <span className="ic-ot-fin-label">تم الدفع</span>
-                <span className="ic-ot-fin-value">{fmtContractMoney(financial.paidAmount)}</span>
-              </div>
-              <div className="ic-ot-fin-row ic-ot-fin-row--emphasis ic-ot-fin-row--remaining">
-                <span className="ic-ot-fin-label">باقي المبلغ</span>
-                <span className="ic-ot-fin-value">{fmtContractMoney(financial.remainingBalance)}</span>
-              </div>
-            </div>
-            {financial.paymentScheduleText ? (
-              <p className="ic-ot-fin-schedule">{financial.paymentScheduleText}</p>
-            ) : null}
-          </div>
-        </div>
+        {card(
+          'التفاصيل المالية',
+          'payments',
+          <>
+            {infoRow('تاريخ النقل', financial.transferDate, 'calendar_month')}
+            {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee, 'payments')}
+            {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee, 'autorenew')}
+            {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource, 'receipt_long')}
+            {moneyRow('فك + تركيب', financial.disassemblyInstallationFee, 'build')}
+            {infoRow('تم الدفع', fmtContractMoney(financial.paidAmount), 'check_circle')}
+            {infoRow('باقي المبلغ', fmtContractMoney(financial.remainingBalance), 'account_balance_wallet', {
+              tone: 'remaining',
+            })}
+            {financial.paymentScheduleText
+              ? infoRow(financial.paymentScheduleText, '', 'calendar_month', { wide: true })
+              : null}
+          </>,
+          'ic-ot-financial',
+        )}
 
-        <div className="ic-terms ic-ot-terms">
-          أقر الطرفان بموافقتهما على نقل ملكية الجهاز والاشتراك المرتبط به من المالك السابق إلى
-          المالك الجديد، ويلتزم المالك الجديد بجميع بنود التعاقد ومواعيد تجديد الاشتراك. يتحمل
-          المالك الجديد رسوم نقل الملكية ورسوم البرمجة إن وجدت. لا يُعتد بنقل الملكية إلا بعد
-          توقيع الطرفين واعتماد المؤسسة.
+        <div className="ic-ot-terms">
+          <p>
+            أقر الطرفان بموافقتهما على نقل ملكية الجهاز والاشتراك المرتبط به من المالك السابق إلى
+            المالك الجديد، ويلتزم المالك الجديد بجميع بنود التعاقد ومواعيد تجديد الاشتراك. يتحمل
+            المالك الجديد رسوم نقل الملكية ورسوم البرمجة إن وجدت. لا يُعتد بنقل الملكية إلا بعد
+            توقيع الطرفين واعتماد المؤسسة.
+          </p>
+          <span className="ic-ot-terms-icon" aria-hidden="true">
+            <Icon name="description" size={22} />
+          </span>
         </div>
 
         <div className="ic-signatures ic-signatures--triple">
@@ -173,7 +205,7 @@ export function OwnershipTransferContractDocument({
             <span className="ic-sign-line" />
           </div>
           <div>
-            توقيع الموظف
+            توقيع موظف المؤسسة
             {signerName ? <span className="ic-sign-name">{signerName}</span> : null}
             <span className="ic-sign-line" />
           </div>

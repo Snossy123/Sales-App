@@ -1775,67 +1775,126 @@
   grid-template-columns: 1fr 1fr;
   gap: 3mm;
   margin-bottom: 3mm;
+  align-items: stretch;
 }
-.ownership-transfer-contract .ic-ot-device {
+.ownership-transfer-contract .ic-ot-card {
+  border: 1px solid #e4e4e4;
+  border-radius: 2.4mm;
+  overflow: hidden;
+  background: #fff;
   margin-bottom: 3mm;
 }
-.ownership-transfer-contract .ic-ot-summary {
-  margin-bottom: 3mm;
+.ownership-transfer-contract .ic-ot-grid .ic-ot-card {
+  margin-bottom: 0;
 }
-.ownership-transfer-contract .ic-ot-financial {
-  margin-bottom: 3mm;
-}
-.ownership-transfer-contract .ic-ot-fin-body {
-  padding: 0;
-}
-.ownership-transfer-contract .ic-ot-fin-row {
-  display: grid;
-  grid-template-columns: 1fr 36mm;
+.ownership-transfer-contract .ic-ot-card-title {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 3mm;
-  padding: 1.3mm 2.2mm;
-  min-height: 6mm;
-  font-size: 11pt;
-}
-.ownership-transfer-contract .ic-ot-fin-charges .ic-ot-fin-row:nth-child(odd) {
-  background: var(--ic-gray1);
-}
-.ownership-transfer-contract .ic-ot-fin-charges .ic-ot-fin-row:nth-child(even) {
-  background: var(--ic-gray2);
-}
-.ownership-transfer-contract .ic-ot-fin-totals {
-  border-top: 1.25px solid #8a8a8a;
-  background: #f6f6f6;
-}
-.ownership-transfer-contract .ic-ot-fin-row--emphasis {
+  justify-content: center;
+  min-height: 8mm;
+  padding: 1.4mm 8mm;
+  background: var(--ic-red);
+  color: #fff;
+  font-family: 'AL Mateen', Tahoma, Arial, sans-serif;
   font-weight: 700;
+  font-size: 11pt;
+  letter-spacing: 0.2px;
 }
-.ownership-transfer-contract .ic-ot-fin-row--remaining {
-  background: #fff4f4;
+.ownership-transfer-contract .ic-ot-card-badge {
+  position: absolute;
+  inset-inline-end: 1.8mm;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6.2mm;
+  height: 6.2mm;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ic-red);
+  display: grid;
+  place-items: center;
+}
+.ownership-transfer-contract .ic-ot-card-body {
+  display: flex;
+  flex-direction: column;
+}
+.ownership-transfer-contract .ic-ot-row {
+  display: flex;
+  align-items: center;
+  gap: 1.6mm;
+  min-height: 6.6mm;
+  padding: 1mm 2mm;
+  background: #fff;
+  font-size: 10.5pt;
+}
+.ownership-transfer-contract .ic-ot-row:nth-child(even) {
+  background: #fff4f5;
+}
+.ownership-transfer-contract .ic-ot-row-icon {
+  flex: none;
+  width: 5.4mm;
+  height: 5.4mm;
+  border-radius: 1.2mm;
+  background: #fff0f1;
+  color: var(--ic-red);
+  display: grid;
+  place-items: center;
+}
+.ownership-transfer-contract .ic-ot-row:nth-child(even) .ic-ot-row-icon {
+  background: #fff;
+}
+.ownership-transfer-contract .ic-ot-row-label {
+  white-space: nowrap;
+  color: #333;
+}
+.ownership-transfer-contract .ic-ot-row-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ownership-transfer-contract .ic-ot-row.ic-ot-row--remaining {
+  background: #ffe4e7;
+}
+.ownership-transfer-contract .ic-ot-row--remaining .ic-ot-row-value {
+  color: var(--ic-red);
   font-weight: 800;
 }
-.ownership-transfer-contract .ic-ot-fin-label {
-  color: #222;
+.ownership-transfer-contract .ic-ot-row--remaining .ic-ot-row-icon {
+  background: #fff;
 }
-.ownership-transfer-contract .ic-ot-fin-value {
-  font-variant-numeric: tabular-nums;
-  direction: ltr;
-  unicode-bidi: embed;
-  text-align: end;
-  justify-self: stretch;
-}
-.ownership-transfer-contract .ic-ot-fin-schedule {
-  margin: 0;
-  padding: 1.6mm 2.2mm;
-  font-size: 10pt;
-  color: #333;
-  text-align: start;
-  background: var(--ic-gray1);
-  border-top: 1px solid #c7c7c7;
+.ownership-transfer-contract .ic-ot-row--wide .ic-ot-row-label {
+  flex: 1;
+  white-space: normal;
+  text-align: center;
+  font-weight: 700;
 }
 .ownership-transfer-contract .ic-ot-terms {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
   margin-bottom: 4mm;
-  font-size: 12pt;
+  padding: 3mm 3.5mm;
+  border: 1px solid #e6e6e6;
+  border-radius: 2.4mm;
+  background: #fff;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+.ownership-transfer-contract .ic-ot-terms p {
+  flex: 1;
+  margin: 0;
+}
+.ownership-transfer-contract .ic-ot-terms-icon {
+  flex: none;
+  width: 9mm;
+  height: 9mm;
+  border-radius: 1.6mm;
+  background: #fff0f1;
+  color: var(--ic-red);
+  display: grid;
+  place-items: center;
 }
 .ic-signatures--triple {
   grid-template-columns: 1fr 1fr 1fr;
@@ -1850,6 +1909,18 @@
   width: 100%;
   margin-inline-start: 0;
   margin-top: 8mm;
+}
+.ownership-transfer-contract .ic-signatures--triple > div {
+  text-align: center;
+}
+.ownership-transfer-contract .ic-signatures--triple .ic-sign-name {
+  display: block;
+  margin: 1.2mm 0 0;
+  text-align: center;
+  font-weight: 800;
+}
+.ownership-transfer-contract .ic-signatures--triple .ic-sign-line {
+  border-bottom-style: dashed;
 }
 
 .sr-sign-line {
