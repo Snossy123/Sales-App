@@ -1782,6 +1782,44 @@
 .ownership-transfer-contract .ic-ot-summary {
   margin-bottom: 3mm;
 }
+.ownership-transfer-contract .ic-ot-financial {
+  margin-bottom: 3mm;
+}
+.ownership-transfer-contract .ic-ot-fin-body {
+  padding: 2mm 3mm 1mm;
+}
+.ownership-transfer-contract .ic-ot-fin-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+  padding: 1.2mm 0;
+  font-size: 11pt;
+}
+.ownership-transfer-contract .ic-ot-fin-row--emphasis {
+  font-weight: 700;
+}
+.ownership-transfer-contract .ic-ot-fin-label {
+  color: var(--ic-text-muted, #444);
+}
+.ownership-transfer-contract .ic-ot-fin-value {
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: embed;
+  text-align: left;
+  min-width: 5em;
+}
+.ownership-transfer-contract .ic-ot-fin-divider {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  margin: 2mm 0;
+}
+.ownership-transfer-contract .ic-ot-fin-schedule {
+  margin: 2mm 0 0;
+  padding-top: 1mm;
+  font-size: 10pt;
+  color: var(--ic-text-muted, #444);
+  text-align: center;
+}
 .ownership-transfer-contract .ic-ot-terms {
   margin-bottom: 4mm;
   font-size: 12pt;

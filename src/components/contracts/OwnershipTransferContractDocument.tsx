@@ -4,12 +4,14 @@ import {
   displayPersonName,
   fmtContractDate,
   fmtContractMoney,
+  renewalTypeLabels,
   resolveSerial,
   resolveSim,
   resolveUsername,
   resolveVehicle,
 } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
+import { buildOwnershipTransferFinancialBreakdown } from '../../lib/ownershipTransferFinancialBreakdown'
 import {
   resolveOwnershipTransferDeviceLine,
   resolveOwnershipTransferNewOwner,
@@ -50,11 +52,29 @@ export function OwnershipTransferContractDocument({
     resolveVehicle(deviceLine, sourceInvoice ?? undefined) ||
     sourceInvoice?.vehicle_info ||
     ''
-  const subscriptionExpiry = fmtContractDate(
-    deviceLine?.subscription_renewal_date ??
-      invoice.subscription_renewal_date ??
-      sourceInvoice?.subscription_renewal_date,
-  )
+  const renewalType =
+    deviceLine?.renewal_type ?? invoice.renewal_type ?? sourceInvoice?.renewal_type
+  const subscriptionExpiry =
+    renewalType === 'permanent'
+      ? renewalTypeLabels.permanent
+      : fmtContractDate(
+          deviceLine?.subscription_renewal_date ??
+            invoice.subscription_renewal_date ??
+            sourceInvoice?.subscription_renewal_date,
+        )
+  const financial = buildOwnershipTransferFinancialBreakdown(invoice)
+
+  function moneyRow(label: string, amount: number, opts?: { emphasis?: boolean }) {
+    if (amount <= 0) {
+      return null
+    }
+    return (
+      <div className={`ic-ot-fin-row${opts?.emphasis ? ' ic-ot-fin-row--emphasis' : ''}`}>
+        <span className="ic-ot-fin-label">{label}</span>
+        <span className="ic-ot-fin-value">{fmtContractMoney(amount)}</span>
+      </div>
+    )
+  }
 
   return (
     <article className="installment-contract ownership-transfer-contract">
@@ -107,20 +127,29 @@ export function OwnershipTransferContractDocument({
           </div>
         </div>
 
-        <div className="ic-summary ic-ot-summary">
-          <div className="ic-srow">
-            <span className="ic-srow-item">
-              <span className="ic-pill-label">تاريخ النقل</span>
-              <span className="ic-pill ic-pill--sm">{fmtContractDate(invoice.invoice_date)}</span>
-            </span>
-            <span className="ic-srow-item">
-              <span className="ic-pill-label">رسوم نقل الملكية</span>
-              <span className="ic-pill ic-pill--num-sm">{fmtContractMoney(invoice.total)}</span>
-            </span>
-            <span className="ic-srow-item">
-              <span className="ic-pill-label">المبلغ المدفوع</span>
-              <span className="ic-pill ic-pill--num-sm">{fmtContractMoney(invoice.paid_amount)}</span>
-            </span>
+        <div className="ic-table-wrap ic-ot-financial">
+          <div className="ic-table-title">التفاصيل المالية</div>
+          <div className="ic-ot-fin-body">
+            <div className="ic-ot-fin-row">
+              <span className="ic-ot-fin-label">تاريخ النقل</span>
+              <span className="ic-ot-fin-value">{financial.transferDate}</span>
+            </div>
+            {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee)}
+            {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee)}
+            {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource)}
+            {moneyRow('فك + تركيب', financial.disassemblyInstallationFee)}
+            <div className="ic-ot-fin-divider" />
+            <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
+              <span className="ic-ot-fin-label">تم الدفع</span>
+              <span className="ic-ot-fin-value">{fmtContractMoney(financial.paidAmount)}</span>
+            </div>
+            <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
+              <span className="ic-ot-fin-label">باقي المبلغ</span>
+              <span className="ic-ot-fin-value">{fmtContractMoney(financial.remainingBalance)}</span>
+            </div>
+            {financial.paymentScheduleText ? (
+              <p className="ic-ot-fin-schedule">{financial.paymentScheduleText}</p>
+            ) : null}
           </div>
         </div>
 
