@@ -1436,8 +1436,18 @@
 .ic-renewal-box:nth-child(4) {
   border-bottom: none;
 }
+.ic-renewal-box-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5mm;
+  width: 100%;
+  direction: ltr;
+}
 .ic-renewal-box strong {
-  width: calc(100% - 4mm);
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
   text-align: center;
   border: 1.2px solid #777;
   border-radius: 999px;
@@ -1445,6 +1455,13 @@
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11pt;
+}
+.ic-renewal-box-due {
+  flex: 0 0 auto;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  font-weight: 800;
+  white-space: nowrap;
 }
 .ic-renewal-cash-pay {
   display: grid;

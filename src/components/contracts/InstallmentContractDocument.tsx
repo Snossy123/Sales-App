@@ -271,11 +271,18 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     isInstallment && scheduleCount > 0
       ? `${fmtContractMoney(installmentAmount, false)} لمدة ${scheduleCount} ${scheduleUnit}`
       : ''
-  const renewalInstallmentAmounts = Array.from({ length: 4 }, (_, index) => {
+  const renewalInstallments = Array.from({ length: 4 }, (_, index) => {
     const item = plan?.items?.[index]
-    if (item?.amount != null && item.amount !== '') return fmtAmount(item.amount)
-    if (index < scheduleCount && installmentAmount > 0) return fmtAmount(installmentAmount)
-    return ''
+    const amount =
+      item?.amount != null && item.amount !== ''
+        ? fmtAmount(item.amount)
+        : index < scheduleCount && installmentAmount > 0
+          ? fmtAmount(installmentAmount)
+          : ''
+    return {
+      amount,
+      due: amount ? (installmentRows[index]?.due ?? '') : '',
+    }
   })
 
   const vehicleTypeKey = line?.vehicle_type ?? ''
@@ -384,10 +391,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className="ic-renewal-table-left">
                   <div className="ic-renewal-badge-header">بيان الأقساط</div>
                   <div className="ic-renewal-grid-boxes">
-                    {renewalInstallmentAmounts.map((amount, index) => (
+                    {renewalInstallments.map((cell, index) => (
                       <div className="ic-renewal-box" key={index}>
                         <span>القسط {index + 1}</span>
-                        <strong dir="ltr">{amount || '—'}</strong>
+                        <div className="ic-renewal-box-value" dir="ltr">
+                          <strong>{cell.amount || '—'}</strong>
+                          {cell.due ? (
+                            <span className="ic-renewal-box-due">{cell.due}</span>
+                          ) : null}
+                        </div>
                       </div>
                     ))}
                   </div>
