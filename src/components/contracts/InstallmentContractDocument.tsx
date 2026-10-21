@@ -246,6 +246,10 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
   const renewalDateLabel = fmtDMY(
     renewalDate ?? invoice.invoice_date ?? new Date().toISOString().slice(0, 10),
   )
+  const renewalFeeAmount =
+    line?.line_total != null && line.line_total !== ''
+      ? line.line_total
+      : paidDisplay
 
   const installmentAmount =
     plan?.installment_amount != null
@@ -339,7 +343,21 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               </div>
             </div>
 
-            {isInstallment ? (
+            {!isInstallment ? (
+              <div className="ic-renewal-cash-pay">
+                <div className="ic-renewal-cash-paid">
+                  <span>تم دفع المبلغ</span>
+                  <span>(خالص)</span>
+                </div>
+                <div className="ic-renewal-cash-fee">
+                  <div className="ic-renewal-cash-fee-row">تجديد اشتراك (كاش)</div>
+                  <div className="ic-renewal-cash-fee-row">
+                    رسوم تجديد الاشتراك (
+                    <span dir="ltr">{fmtAmount(renewalFeeAmount)}</span>)
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div className="ic-renewal-table">
                 <div className="ic-renewal-table-right">
                   <div className="ic-renewal-badge-header">ملخص التقسيط</div>
@@ -375,7 +393,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                   </div>
                 </div>
               </div>
-            ) : null}
+            )}
 
             <div className="ic-renewal-note-section">
               <div className="ic-renewal-note-title">ملحوظة</div>
@@ -390,10 +408,12 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               <div className="ic-renewal-signature-col ic-renewal-signature-col--right">
                 <div className="ic-signature-role">امضاء المسئول</div>
                 <div className="ic-signature-name">{signerName || 'sama.khaled'}</div>
+                {!isInstallment ? <div className="ic-renewal-signature-line" /> : null}
               </div>
               <div className="ic-renewal-signature-col ic-renewal-signature-col--left">
                 <div className="ic-signature-role">مدير الفرع</div>
                 <div className="ic-signature-name">Hossam Eleraqy</div>
+                {!isInstallment ? <div className="ic-renewal-signature-line" /> : null}
               </div>
             </div>
           </div>
