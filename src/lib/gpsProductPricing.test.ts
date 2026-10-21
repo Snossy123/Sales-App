@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { GpsProduct } from '../api/types'
 import { subscriptionRenewalUnitPrice } from './contractKinds'
-import { resolveGpsUnitPrice } from './gpsProductPricing'
+import { ownershipTransferLifetimeUpgradeAmount, resolveGpsUnitPrice } from './gpsProductPricing'
 
 const product: GpsProduct = {
   id: 1,
@@ -112,5 +112,20 @@ describe('resolveGpsUnitPrice', () => {
       }),
     ).toBe(6500)
   })
+})
 
+describe('ownershipTransferLifetimeUpgradeAmount', () => {
+  it('charges lifetime renewal fee when upgrading from annual to permanent', () => {
+    expect(
+      ownershipTransferLifetimeUpgradeAmount(product, 'annual', 'permanent'),
+    ).toBe(subscriptionRenewalUnitPrice(6000))
+    expect(ownershipTransferLifetimeUpgradeAmount(product, null, 'permanent')).toBe(
+      subscriptionRenewalUnitPrice(6000),
+    )
+  })
+
+  it('returns zero when already permanent or target is annual', () => {
+    expect(ownershipTransferLifetimeUpgradeAmount(product, 'permanent', 'permanent')).toBe(0)
+    expect(ownershipTransferLifetimeUpgradeAmount(product, 'annual', 'annual')).toBe(0)
+  })
 })

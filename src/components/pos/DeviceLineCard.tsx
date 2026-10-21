@@ -217,6 +217,8 @@ interface DeviceLineCardProps {
   showErrors?: boolean
   showPayment?: boolean
   hidePaymentSection?: boolean
+  /** Shown when lifetime upgrade is billed in ownership transfer fees (section 3). */
+  ownershipLifetimeUpgradeInFees?: number
   lockedFromSource?: boolean
   annualRenewalOnly?: boolean
   embedded?: boolean
@@ -238,6 +240,7 @@ export function DeviceLineCard({
   showErrors = false,
   showPayment = true,
   hidePaymentSection = false,
+  ownershipLifetimeUpgradeInFees = 0,
   lockedFromSource = false,
   annualRenewalOnly = false,
   embedded = false,
@@ -489,6 +492,17 @@ export function DeviceLineCard({
               {line.renewalType === 'annual' && renewalDate && (
                 <p className="mt-xs text-xs text-on-surface-variant">تاريخ تجديد الاشتراك: {renewalDate}</p>
               )}
+              {hidePaymentSection &&
+              line.renewalType === 'permanent' &&
+              ownershipLifetimeUpgradeInFees > 0 ? (
+                <p className="mt-xs text-xs text-primary">
+                  يُضاف{' '}
+                  {ownershipLifetimeUpgradeInFees.toLocaleString('ar-EG', {
+                    numberingSystem: 'latn',
+                  })}{' '}
+                  ج.م إلى رسوم العملية (قسم 3).
+                </p>
+              ) : null}
             </div>
           </div>
 

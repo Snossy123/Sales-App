@@ -61,3 +61,22 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
 
   return ctx.renewalType === 'permanent' ? installmentPermanent : installmentAnnual
 }
+
+/** Lifetime upgrade fee during ownership transfer (annual → permanent). */
+export function ownershipTransferLifetimeUpgradeAmount(
+  product: GpsProduct | undefined,
+  sourceRenewalType: RenewalType | null | undefined,
+  targetRenewalType: RenewalType,
+): number {
+  if (targetRenewalType !== 'permanent') {
+    return 0
+  }
+  if (sourceRenewalType === 'permanent') {
+    return 0
+  }
+  if (!product) {
+    return 0
+  }
+  const cashAnnual = num(product.cash_annual_price, num(product.cash_price, num(product.sell_price)))
+  return subscriptionRenewalUnitPrice(cashAnnual)
+}

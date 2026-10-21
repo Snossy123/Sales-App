@@ -23,6 +23,8 @@ export interface PosOwnershipTransferFeesSectionProps {
   ownershipServiceName?: string
   uninstallServiceName?: string
   installationServiceName?: string
+  subscriptionUpgradeAmount?: number
+  subscriptionUpgradeServiceName?: string
 }
 
 export function PosOwnershipTransferFeesSection({
@@ -44,12 +46,21 @@ export function PosOwnershipTransferFeesSection({
   ownershipServiceName = 'رسوم نقل ملكية',
   uninstallServiceName = 'رسوم فك',
   installationServiceName = 'رسوم تركيب',
+  subscriptionUpgradeAmount = 0,
+  subscriptionUpgradeServiceName = 'ترقية اشتراك مدى الحياة',
 }: PosOwnershipTransferFeesSectionProps) {
   const totalFees = useMemo(() => {
     const base = Number(ownershipFee) || 0
-    if (!includeDisassemblyAndAssembly) return base
-    return base + (Number(uninstallFee) || 0) + (Number(installationFee) || 0)
-  }, [ownershipFee, includeDisassemblyAndAssembly, uninstallFee, installationFee])
+    const subscription = Number(subscriptionUpgradeAmount) || 0
+    if (!includeDisassemblyAndAssembly) return base + subscription
+    return base + subscription + (Number(uninstallFee) || 0) + (Number(installationFee) || 0)
+  }, [
+    ownershipFee,
+    subscriptionUpgradeAmount,
+    includeDisassemblyAndAssembly,
+    uninstallFee,
+    installationFee,
+  ])
 
   const safeCount = Math.max(1, installmentCount || 1)
   const financedAmount = Math.max(0, totalFees - (downPayment || 0))
@@ -81,6 +92,22 @@ export function PosOwnershipTransferFeesSection({
                 {Number(ownershipFee).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
               </span>
             </div>
+
+            {subscriptionUpgradeAmount > 0 ? (
+              <div className="flex items-center justify-between py-sm text-sm">
+                <div className="flex items-center gap-xs">
+                  <Icon name="verified" size={18} className="text-primary" />
+                  <span className="font-medium text-on-surface">{subscriptionUpgradeServiceName}</span>
+                  <span className="text-xs text-on-surface-variant">(25% من كاش الاشتراك السنوي)</span>
+                </div>
+                <span className="font-bold tabular-nums text-on-surface">
+                  {Number(subscriptionUpgradeAmount).toLocaleString('ar-EG', {
+                    numberingSystem: 'latn',
+                  })}{' '}
+                  ج.م
+                </span>
+              </div>
+            ) : null}
 
             {/* Disassembly fee if included */}
             {includeDisassemblyAndAssembly && (

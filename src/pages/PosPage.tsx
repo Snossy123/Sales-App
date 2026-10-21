@@ -68,7 +68,10 @@ import {
   contractKindLabel,
   subscriptionRenewalUnitPrice,
 } from '../lib/contractKinds'
-import { resolveGpsUnitPrice } from '../lib/gpsProductPricing'
+import {
+  ownershipTransferLifetimeUpgradeAmount,
+  resolveGpsUnitPrice,
+} from '../lib/gpsProductPricing'
 import { isAtOrBelowMinStock, minStockWarningMessage } from '../lib/minStock'
 import { InsightBanner } from '../components/InsightBanner'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
@@ -156,6 +159,12 @@ export function PosPage() {
       s.code === 'SRV-TRK' ||
       (s.name_ar || s.name).includes('تركيب'),
   )
+  const subscriptionLifetimeService = allServices.find(
+    (s) =>
+      s.category === 'subscription' ||
+      s.code === 'SRV-SUB-L' ||
+      (s.name_ar || s.name).includes('مدى الحياة'),
+  )
 
   const [transferIncludeDisassemblyAndAssembly, setTransferIncludeDisassemblyAndAssembly] = useState(false)
   const [transferPaymentTerm, setTransferPaymentTerm] = useState<'cash' | 'installment'>('cash')
@@ -173,12 +182,6 @@ export function PosPage() {
   const installationFeeAmount = Number(
     installationServiceForTransfer?.cash_price ?? installationServiceForTransfer?.default_price ?? 500,
   )
-
-  const transferServicesTotal = useMemo(() => {
-    const base = ownershipFeeAmount
-    if (!transferIncludeDisassemblyAndAssembly) return base
-    return base + uninstallFeeAmount + installationFeeAmount
-  }, [ownershipFeeAmount, transferIncludeDisassemblyAndAssembly, uninstallFeeAmount, installationFeeAmount])
 
   const draftUserId = user?.id ?? null
   const deviceDraft = readDeviceDraft(draftUserId, isEditMode)
@@ -817,6 +820,61 @@ export function PosPage() {
           ? 999
           : available
 
+  const sourceTransferRenewalType = useMemo((): 'annual' | 'permanent' => {
+    if (sourceTransferInvoice) {
+      const sourceLine = sourceTransferInvoice.lines?.find(
+        (line) =>
+          line.line_type === 'device' ||
+          Boolean(line.serial_number || line.sim_number || line.product_unit_id),
+      )
+      const fromLine = sourceLine?.renewal_type
+      if (fromLine === 'annual' || fromLine === 'permanent') {
+        return fromLine
+      }
+      const fromInvoice = sourceTransferInvoice.renewal_type
+      if (fromInvoice === 'annual' || fromInvoice === 'permanent') {
+        return fromInvoice
+      }
+    }
+    if (
+      sourceTransferDevice?.renewal_type === 'annual' ||
+      sourceTransferDevice?.renewal_type === 'permanent'
+    ) {
+      return sourceTransferDevice.renewal_type
+    }
+    return 'annual'
+  }, [sourceTransferInvoice, sourceTransferDevice])
+
+  const subscriptionUpgradeAmount = useMemo(() => {
+    if (contractKind !== 'ownership_transfer') {
+      return 0
+    }
+    const targetRenewalType = deviceLines[0]?.renewalType ?? 'annual'
+    return ownershipTransferLifetimeUpgradeAmount(
+      productQuery.data,
+      sourceTransferRenewalType,
+      targetRenewalType,
+    )
+  }, [contractKind, deviceLines, productQuery.data, sourceTransferRenewalType])
+
+  const transferServicesTotal = useMemo(() => {
+    const base = ownershipFeeAmount + subscriptionUpgradeAmount
+    if (!transferIncludeDisassemblyAndAssembly) return base
+    return base + uninstallFeeAmount + installationFeeAmount
+  }, [
+    ownershipFeeAmount,
+    subscriptionUpgradeAmount,
+    transferIncludeDisassemblyAndAssembly,
+    uninstallFeeAmount,
+    installationFeeAmount,
+  ])
+
+  useEffect(() => {
+    if (transferDownPayment > transferServicesTotal) {
+      setTransferDownPayment(transferServicesTotal)
+    }
+  }, [transferServicesTotal, transferDownPayment])
+
   useEffect(() => {
     if (isEditMode) return
     if (quantity <= 0) {
@@ -1294,6 +1352,37 @@ export function PosPage() {
       const transferInstallmentAmount =
         Math.round((transferFinanced / transferCount) * 100) / 100
 
+      const transferServiceInstallmentPlan = (
+        lineAmount: number,
+        applyDownPayment: boolean,
+      ): CheckoutPayload['lines'][number]['installment_plan'] => {
+        if (transferPaymentTerm !== 'installment') {
+          return undefined
+        }
+        let installmentAmount = transferInstallmentAmount
+        let downPayment = applyDownPayment ? transferDownPayment : 0
+        if (transferIncludeDisassemblyAndAssembly) {
+          installmentAmount = Math.round((lineAmount / transferCount) * 100) / 100
+          downPayment = 0
+        } else if (subscriptionUpgradeAmount > 0) {
+          installmentAmount =
+            transferServicesTotal > 0
+              ? Math.round(
+                  ((lineAmount / transferServicesTotal) * transferFinanced) / transferCount * 100,
+                ) / 100
+              : Math.round((lineAmount / transferCount) * 100) / 100
+          downPayment = applyDownPayment ? transferDownPayment : 0
+        }
+        return {
+          installment_count: transferCount,
+          installment_amount: installmentAmount,
+          down_payment: downPayment,
+          interval_type: transferIntervalType,
+          interval_days: transferIntervalType === 'weekly' ? 7 : 30,
+          first_due_date: transferFirstDueDate,
+        }
+      }
+
       if (ownershipFeeAmount > 0) {
         lines.push({
           line_type: 'service',
@@ -1308,22 +1397,28 @@ export function PosPage() {
           payment_term: transferPaymentTerm,
           cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
           down_payment:
-            transferPaymentTerm === 'installment'
-              ? (transferIncludeDisassemblyAndAssembly ? 0 : transferDownPayment)
+            transferPaymentTerm === 'installment' &&
+            !transferIncludeDisassemblyAndAssembly
+              ? transferDownPayment
               : undefined,
-          installment_plan:
-            transferPaymentTerm === 'installment'
-              ? {
-                  installment_count: transferCount,
-                  installment_amount: transferIncludeDisassemblyAndAssembly
-                    ? Math.round((ownershipFeeAmount / transferCount) * 100) / 100
-                    : transferInstallmentAmount,
-                  down_payment: transferIncludeDisassemblyAndAssembly ? 0 : transferDownPayment,
-                  interval_type: transferIntervalType,
-                  interval_days: transferIntervalType === 'weekly' ? 7 : 30,
-                  first_due_date: transferFirstDueDate,
-                }
-              : undefined,
+          installment_plan: transferServiceInstallmentPlan(ownershipFeeAmount, true),
+        })
+      }
+
+      if (subscriptionUpgradeAmount > 0) {
+        lines.push({
+          line_type: 'service',
+          service_id: subscriptionLifetimeService?.id,
+          description:
+            subscriptionLifetimeService?.name_ar ||
+            subscriptionLifetimeService?.name ||
+            'ترقية اشتراك مدى الحياة',
+          service_category: 'subscription',
+          quantity: 1,
+          unit_price: subscriptionUpgradeAmount,
+          payment_term: transferPaymentTerm,
+          cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
+          installment_plan: transferServiceInstallmentPlan(subscriptionUpgradeAmount, false),
         })
       }
 
@@ -1733,6 +1828,10 @@ export function PosPage() {
                 ownershipServiceName={ownershipTransferService?.name_ar || ownershipTransferService?.name}
                 uninstallServiceName={uninstallService?.name_ar || uninstallService?.name}
                 installationServiceName={installationServiceForTransfer?.name_ar || installationServiceForTransfer?.name}
+                subscriptionUpgradeAmount={subscriptionUpgradeAmount}
+                subscriptionUpgradeServiceName={
+                  subscriptionLifetimeService?.name_ar || subscriptionLifetimeService?.name
+                }
               />
             )}
 
@@ -1830,6 +1929,7 @@ export function PosPage() {
                       employeesLoading={employeesQuery.isLoading}
                       showErrors={submitAttempted}
                       hidePaymentSection={contractKind === 'ownership_transfer'}
+                      ownershipLifetimeUpgradeInFees={subscriptionUpgradeAmount}
                       lockedFromSource={
                         contractKind === 'subscription_renewal' &&
                         Boolean(selectedCustomerDevice) &&
