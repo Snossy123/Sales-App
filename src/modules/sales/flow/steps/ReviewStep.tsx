@@ -55,8 +55,8 @@ export function ReviewStep({
         {ownershipTransfer ? (
           <p className="rounded-lg border border-primary/30 bg-primary/5 p-sm text-sm text-on-surface-variant">
             {pendingOwnershipReview
-              ? '1) اعتماد عقد نقل الملكية. 2) بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية.'
-              : 'بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'}
+              ? 'بعد اعتماد عقد نقل الملكية ينتقل التعاقد الأصلي والأقساط المتبقية للمالك الجديد فوراً.'
+              : 'تم نقل التعاقد الأصلي والأقساط المتبقية إلى المالك الجديد.'}
           </p>
         ) : null}
         <div className="flex flex-col gap-1">
@@ -209,8 +209,7 @@ export function ReviewStep({
 
       {draft.action === 'ownership_transfer' ? (
         <p className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-sm text-on-surface-variant">
-          رسوم نقل الملكية في عقد منفصل. بعد الاعتماد يُسجَّل النقل؛ ينتقل التعاقد الأصلي
-          وتُجدول الأقساط المتبقية بعد «تم التنفيذ» من مهمة التركيب.
+          رسوم نقل الملكية في عقد منفصل. بعد الاعتماد يُنقل التعاقد الأصلي والأقساط المتبقية إلى المالك الجديد فوراً.
         </p>
       ) : (
         <section className="space-y-sm rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-sm">

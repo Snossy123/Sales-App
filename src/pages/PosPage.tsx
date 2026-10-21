@@ -1643,8 +1643,8 @@ export function PosPage() {
       {contractKind === 'ownership_transfer' && (
         <p className="mb-md rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm text-on-surface-variant">
           العميل المختار أدناه هو <strong className="text-on-surface">المالك الجديد</strong>. سيتم
-          نقل التعاقد والأقساط المتبقية إليه بعد اعتماد عقد نقل الملكية ثم «تم التنفيذ» من مهمة
-          التركيب.
+          نقل التعاقد والأقساط المتبقية إليه فور اعتماد عقد نقل الملكية (أو مباشرة إن كانت
+          المراجعة معطّلة).
         </p>
       )}
       {contractKind === 'subscription_renewal' && (
@@ -1877,8 +1877,8 @@ export function PosPage() {
                   {lastInvoice.contract_kind === 'ownership_transfer' ? (
                     <p className="mt-sm rounded-lg border border-primary/30 bg-primary/5 p-sm text-on-surface-variant">
                       {lastInvoice.review_status !== 'approved'
-                        ? '1) اعتماد عقد نقل الملكية من المراجعة. 2) بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'
-                        : 'بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'}
+                        ? 'بعد اعتماد عقد نقل الملكية من المراجعة ينتقل التعاقد الأصلي والأقساط المتبقية للمالك الجديد فوراً.'
+                        : 'تم نقل التعاقد الأصلي والأقساط المتبقية إلى المالك الجديد.'}
                     </p>
                   ) : null}
                   <div className="mt-sm flex flex-col gap-1">
@@ -1886,7 +1886,7 @@ export function PosPage() {
                       <>
                         <Link
                           to={ownershipTransferContractPrintPath(lastInvoice.id)}
-                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                          className="inline-flex items-center gap-1 font-bold text-primary hover:لدىline"
                         >
                           <Icon name="print" size={18} />
                           طباعة عقد {contractKindLabel('ownership_transfer')}
@@ -1894,7 +1894,7 @@ export function PosPage() {
                         {lastInvoice.review_status !== 'approved' ? (
                           <Link
                             to={`/invoices/review/${lastInvoice.id}`}
-                            className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                            className="inline-flex items-center gap-1 font-bold text-primary hover:لدىline"
                           >
                             <Icon name="fact_check" size={18} />
                             مراجعة واعتماد نقل الملكية
@@ -1914,7 +1914,7 @@ export function PosPage() {
                                 lineId: line.id,
                                 autoPrint: false,
                               })}
-                              className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                              className="inline-flex items-center gap-1 font-bold text-primary hover:لدىline"
                             >
                               <Icon name="print" size={18} />
                               طباعة عقد {typeLabel} — جهاز {index + 1}
