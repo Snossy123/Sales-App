@@ -37,6 +37,7 @@ describe('buildOwnershipTransferFinancialBreakdown', () => {
           payment_term: 'installment',
           installment_plan: {
             id: 1,
+            down_payment: 0,
             installment_count: 4,
             interval_type: 'weekly',
             first_due_date: '2023-10-28',
