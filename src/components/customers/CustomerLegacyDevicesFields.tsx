@@ -2,6 +2,7 @@ import { GpsUsernameInput } from '../pos/GpsUsernameInput'
 import { Icon } from '../Icon'
 import { TextInput } from '../ui/TextInput'
 import { normalizeScannedDigits } from '../../lib/scanner'
+import { renewalTypeLabels } from '../../lib/contractFields'
 import {
   emptyLegacyDeviceDraft,
   validateLegacyDeviceDraft,
@@ -52,7 +53,8 @@ export function CustomerLegacyDevicesFields({
         <div>
           <h3 className="text-sm font-bold text-on-surface">عميل قديم (أجهزة قبل السيستم)</h3>
           <p className="mt-0.5 text-xs text-on-surface-variant">
-            سجّل السريال والشريحة واسم المستخدم لكل جهاز حتى الخدمات والتجديد يشتغلوا بعد كده بدون نقص بيانات.
+            سجّل السريال والشريحة واسم المستخدم ونوع الاشتراك والأقساط المتبقية لكل جهاز حتى التجديد والتحصيل ونقل
+            الملكية يشتغلوا بدون تسجيل الجهاز من مخزون الشركة.
           </p>
         </div>
         {showToggle && (
@@ -153,6 +155,127 @@ export function CustomerLegacyDevicesFields({
                     {errors.username && <p className="mt-xs text-xs text-error">{errors.username}</p>}
                   </label>
                 </div>
+
+                <div>
+                  <span className="mb-xs block text-sm text-on-surface-variant">نوع الاشتراك *</span>
+                  <div className="flex flex-wrap gap-sm text-sm">
+                    <label className="flex items-center gap-xs">
+                      <input
+                        type="radio"
+                        name={`legacy-renewal-${device.key}`}
+                        checked={device.renewal_type === 'annual'}
+                        onChange={() => patchDevice(device.key, { renewal_type: 'annual' })}
+                      />
+                      {renewalTypeLabels.annual}
+                    </label>
+                    <label className="flex items-center gap-xs">
+                      <input
+                        type="radio"
+                        name={`legacy-renewal-${device.key}`}
+                        checked={device.renewal_type === 'permanent'}
+                        onChange={() => patchDevice(device.key, { renewal_type: 'permanent' })}
+                      />
+                      {renewalTypeLabels.permanent}
+                    </label>
+                  </div>
+                  {errors.renewal_type && <p className="mt-xs text-xs text-error">{errors.renewal_type}</p>}
+                </div>
+
+                {device.renewal_type === 'annual' && (
+                  <label className="block text-sm">
+                    <span className="mb-xs block text-on-surface-variant">تاريخ التجديد *</span>
+                    <input
+                      type="date"
+                      value={device.subscription_renewal_date}
+                      onChange={(e) =>
+                        patchDevice(device.key, { subscription_renewal_date: e.target.value })
+                      }
+                      className={`${inputClass}${errors.subscription_renewal_date ? ' border-error' : ''}`}
+                    />
+                    {errors.subscription_renewal_date && (
+                      <p className="mt-xs text-xs text-error">{errors.subscription_renewal_date}</p>
+                    )}
+                  </label>
+                )}
+
+                <div>
+                  <span className="mb-xs block text-sm text-on-surface-variant">أقساط متبقية؟</span>
+                  <div className="flex w-fit gap-1 rounded-lg border border-outline-variant p-0.5 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => patchDevice(device.key, { has_remaining_installments: true })}
+                      className={`rounded px-md py-1.5 font-medium ${
+                        device.has_remaining_installments
+                          ? 'bg-primary text-on-primary'
+                          : 'text-on-surface-variant'
+                      }`}
+                    >
+                      نعم
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => patchDevice(device.key, { has_remaining_installments: false })}
+                      className={`rounded px-md py-1.5 font-medium ${
+                        !device.has_remaining_installments
+                          ? 'bg-primary text-on-primary'
+                          : 'text-on-surface-variant'
+                      }`}
+                    >
+                      لا
+                    </button>
+                  </div>
+                </div>
+
+                {device.has_remaining_installments && (
+                  <div className="grid grid-cols-1 gap-sm sm:grid-cols-3">
+                    <label className="block text-sm">
+                      <span className="mb-xs block text-on-surface-variant">عدد الأقساط المتبقية *</span>
+                      <TextInput
+                        mode="phone"
+                        value={device.remaining_installment_count}
+                        onChange={(e) =>
+                          patchDevice(device.key, {
+                            remaining_installment_count: normalizeScannedDigits(e.target.value),
+                          })
+                        }
+                        dir="ltr"
+                        className={`${inputClass}${errors.remaining_installment_count ? ' border-error' : ''}`}
+                      />
+                      {errors.remaining_installment_count && (
+                        <p className="mt-xs text-xs text-error">{errors.remaining_installment_count}</p>
+                      )}
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-xs block text-on-surface-variant">قيمة القسط *</span>
+                      <TextInput
+                        mode="phone"
+                        value={device.installment_amount}
+                        onChange={(e) =>
+                          patchDevice(device.key, {
+                            installment_amount: normalizeScannedDigits(e.target.value),
+                          })
+                        }
+                        dir="ltr"
+                        className={`${inputClass}${errors.installment_amount ? ' border-error' : ''}`}
+                      />
+                      {errors.installment_amount && (
+                        <p className="mt-xs text-xs text-error">{errors.installment_amount}</p>
+                      )}
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-xs block text-on-surface-variant">تاريخ أول قسط *</span>
+                      <input
+                        type="date"
+                        value={device.first_due_date}
+                        onChange={(e) => patchDevice(device.key, { first_due_date: e.target.value })}
+                        className={`${inputClass}${errors.first_due_date ? ' border-error' : ''}`}
+                      />
+                      {errors.first_due_date && (
+                        <p className="mt-xs text-xs text-error">{errors.first_due_date}</p>
+                      )}
+                    </label>
+                  </div>
+                )}
               </div>
             )
           })}

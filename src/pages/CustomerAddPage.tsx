@@ -31,6 +31,7 @@ import {
 } from '../lib/customerForm'
 import {
   emptyLegacyDeviceDraft,
+  hydrateLegacyDeviceDraft,
   legacyDevicesAreComplete,
   registerCustomerLegacyDevices,
   type LegacyDeviceDraft,
@@ -61,7 +62,7 @@ export function CustomerAddPage() {
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const [isLegacyCustomer, setIsLegacyCustomer] = useState(() => saved?.isLegacyCustomer ?? false)
   const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>(
-    () => saved?.legacyDevices ?? [emptyLegacyDeviceDraft()],
+    () => (saved?.legacyDevices ?? [emptyLegacyDeviceDraft()]).map(hydrateLegacyDeviceDraft),
   )
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [deviceWarning, setDeviceWarning] = useState<string | null>(null)

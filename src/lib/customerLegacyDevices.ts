@@ -3,6 +3,7 @@ import type { CustomerContractDevice } from '../api/types'
 import { isGpsUsernameComplete } from './gpsUsername'
 
 export type LegacyDeviceOrigin = 'legacy' | 'external'
+export type LegacyRenewalType = 'annual' | 'permanent'
 
 export type LegacyDeviceDraft = {
   key: string
@@ -10,12 +11,36 @@ export type LegacyDeviceDraft = {
   serial_number: string
   sim_number: string
   username: string
+  renewal_type: LegacyRenewalType
+  subscription_renewal_date: string
+  has_remaining_installments: boolean
+  remaining_installment_count: string
+  installment_amount: string
+  first_due_date: string
 }
 
 export type LegacyDeviceFieldErrors = {
   serial_number?: string
   sim_number?: string
   username?: string
+  renewal_type?: string
+  subscription_renewal_date?: string
+  remaining_installment_count?: string
+  installment_amount?: string
+  first_due_date?: string
+}
+
+export function isoLocalDate(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function defaultSubscriptionRenewalDate(from = new Date()): string {
+  const next = new Date(from)
+  next.setDate(next.getDate() + 365)
+  return isoLocalDate(next)
 }
 
 export function newLegacyDeviceKey(): string {
@@ -29,6 +54,24 @@ export function emptyLegacyDeviceDraft(): LegacyDeviceDraft {
     serial_number: '',
     sim_number: '',
     username: '',
+    renewal_type: 'annual',
+    subscription_renewal_date: defaultSubscriptionRenewalDate(),
+    has_remaining_installments: false,
+    remaining_installment_count: '',
+    installment_amount: '',
+    first_due_date: isoLocalDate(),
+  }
+}
+
+export function hydrateLegacyDeviceDraft(
+  device: Partial<LegacyDeviceDraft> & Pick<LegacyDeviceDraft, 'key'>,
+): LegacyDeviceDraft {
+  return {
+    ...emptyLegacyDeviceDraft(),
+    ...device,
+    key: device.key,
+    renewal_type: device.renewal_type === 'permanent' ? 'permanent' : 'annual',
+    has_remaining_installments: Boolean(device.has_remaining_installments),
   }
 }
 
@@ -49,6 +92,25 @@ export function validateLegacyDeviceDraft(device: LegacyDeviceDraft): LegacyDevi
   if (!isGpsUsernameComplete(device.username)) {
     errors.username = 'اسم المستخدم مطلوب'
   }
+  if (device.renewal_type !== 'annual' && device.renewal_type !== 'permanent') {
+    errors.renewal_type = 'نوع الاشتراك مطلوب'
+  }
+  if (device.renewal_type === 'annual' && !device.subscription_renewal_date.trim()) {
+    errors.subscription_renewal_date = 'تاريخ التجديد مطلوب'
+  }
+  if (device.has_remaining_installments) {
+    const count = Number(device.remaining_installment_count)
+    const amount = Number(device.installment_amount)
+    if (!Number.isInteger(count) || count < 1) {
+      errors.remaining_installment_count = 'عدد الأقساط المتبقية مطلوب'
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      errors.installment_amount = 'قيمة القسط مطلوبة'
+    }
+    if (!device.first_due_date.trim()) {
+      errors.first_due_date = 'تاريخ أول قسط مطلوب'
+    }
+  }
   return errors
 }
 
@@ -63,6 +125,17 @@ export function toRegisterDevicePayload(device: LegacyDeviceDraft) {
     serial_number: device.serial_number.trim(),
     sim_number: device.sim_number.trim(),
     username: device.username.trim(),
+    renewal_type: device.renewal_type,
+    ...(device.renewal_type === 'annual'
+      ? { subscription_renewal_date: device.subscription_renewal_date.trim() }
+      : {}),
+    ...(device.has_remaining_installments
+      ? {
+          remaining_installment_count: Number(device.remaining_installment_count),
+          installment_amount: Number(device.installment_amount),
+          first_due_date: device.first_due_date.trim() || isoLocalDate(),
+        }
+      : {}),
   }
 }
 

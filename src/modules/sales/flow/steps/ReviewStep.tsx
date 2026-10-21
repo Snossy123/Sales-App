@@ -2,7 +2,13 @@ import { Link } from 'react-router-dom'
 import type { Promotion, SalesInvoice } from '../../../../api/types'
 import { Icon } from '../../../../components/Icon'
 import { NumericInput } from '../../../../components/ui/NumericInput'
-import { isServiceInvoiceLine, contractPrintPath, serviceContractPrintPath } from '../../../../lib/sales'
+import {
+  isServiceInvoiceLine,
+  contractPrintPath,
+  serviceContractPrintPath,
+  ownershipTransferContractPrintPath,
+} from '../../../../lib/sales'
+import { contractKindLabel } from '../../../../lib/contractKinds'
 import { posFlowActionLabel, posFlowSourceLabel, type PosFlowDraft } from '../posFlowTypes'
 import { formatMoney as money } from '../posFlowHelpers'
 
@@ -39,11 +45,41 @@ export function ReviewStep({
   onReset,
 }: ReviewStepProps) {
   if (success) {
+    const ownershipTransfer = success.invoice.contract_kind === 'ownership_transfer'
+    const pendingOwnershipReview =
+      ownershipTransfer && success.invoice.review_status !== 'approved'
+
     return (
       <div className="space-y-md rounded-xl border border-secondary/25 bg-secondary/10 p-md">
         <p className="font-bold text-secondary">{success.message}</p>
+        {ownershipTransfer ? (
+          <p className="rounded-lg border border-primary/30 bg-primary/5 p-sm text-sm text-on-surface-variant">
+            {pendingOwnershipReview
+              ? '1) اعتماد عقد نقل الملكية. 2) بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية.'
+              : 'بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-1">
-          {success.invoice.contract_kind === 'mixed' ||
+          {ownershipTransfer ? (
+            <>
+              <Link
+                to={ownershipTransferContractPrintPath(success.invoice.id)}
+                className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+              >
+                <Icon name="print" size={18} />
+                طباعة عقد {contractKindLabel('ownership_transfer')}
+              </Link>
+              {pendingOwnershipReview ? (
+                <Link
+                  to={`/invoices/review/${success.invoice.id}`}
+                  className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                >
+                  <Icon name="fact_check" size={18} />
+                  مراجعة واعتماد نقل الملكية
+                </Link>
+              ) : null}
+            </>
+          ) : success.invoice.contract_kind === 'mixed' ||
           (success.invoice.lines ?? []).some((line) => isServiceInvoiceLine(line)) ? (
             <Link
               to={serviceContractPrintPath(success.invoice.id, undefined, { autoPrint: false })}
@@ -173,7 +209,8 @@ export function ReviewStep({
 
       {draft.action === 'ownership_transfer' ? (
         <p className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-sm text-on-surface-variant">
-          نقل الملكية لا يضيف مبلغاً جديداً — الأقساط المتبقية تنتقل للمالك الجديد.
+          رسوم نقل الملكية في عقد منفصل. بعد الاعتماد يُسجَّل النقل؛ ينتقل التعاقد الأصلي
+          وتُجدول الأقساط المتبقية بعد «تم التنفيذ» من مهمة التركيب.
         </p>
       ) : (
         <section className="space-y-sm rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-sm">

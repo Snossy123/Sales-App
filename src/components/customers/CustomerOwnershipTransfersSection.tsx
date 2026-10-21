@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { OwnershipTransfer } from '../../api/types'
 import { formatContractMoney } from '../../lib/customerContracts'
 import { formatInvoiceDate, ownershipTransferContractPrintPath } from '../../lib/sales'
+import { ownershipTransferStatusLabel } from '../../lib/ownershipTransferStatus'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { DataTable } from '../DataTable'
 import { StatusBadge } from '../StatusBadge'
@@ -80,8 +81,23 @@ export function CustomerOwnershipTransfersSection({
             {transfersFrom.map((transfer) => (
               <CollapsibleSection
                 key={transfer.id}
-                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — نُقل إلى ${transfer.to_customer?.name ?? 'عميل آخر'}`}
-                summary={transfer.transferred_at ? formatInvoiceDate(transfer.transferred_at) : undefined}
+                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — ${
+                  transfer.status === 'pending_installation'
+                    ? 'نقل قيد التنفيذ إلى'
+                    : 'نُقل إلى'
+                } ${transfer.to_customer?.name ?? 'عميل آخر'}`}
+                summary={
+                  [
+                    ownershipTransferStatusLabel(transfer.status),
+                    transfer.transferred_at
+                      ? formatInvoiceDate(transfer.transferred_at)
+                      : transfer.approved_at
+                        ? `اعتماد ${formatInvoiceDate(transfer.approved_at)}`
+                        : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || undefined
+                }
                 defaultOpen={false}
               >
                 <div className="space-y-md">
@@ -135,12 +151,30 @@ export function CustomerOwnershipTransfersSection({
             {transfersTo.map((transfer) => (
               <CollapsibleSection
                 key={transfer.id}
-                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — من ${transfer.from_customer?.name ?? 'مالك سابق'}`}
-                summary={transfer.transferred_at ? formatInvoiceDate(transfer.transferred_at) : undefined}
-                defaultOpen={false}
+                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — ${
+                  transfer.status === 'pending_installation' ? 'بانتظار التركيب — من' : 'من'
+                } ${transfer.from_customer?.name ?? 'مالك سابق'}`}
+                summary={
+                  [
+                    ownershipTransferStatusLabel(transfer.status),
+                    transfer.transferred_at
+                      ? formatInvoiceDate(transfer.transferred_at)
+                      : transfer.approved_at
+                        ? `اعتماد ${formatInvoiceDate(transfer.approved_at)}`
+                        : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || undefined
+                }
+                defaultOpen={transfersTo.length === 1}
               >
                 <div className="rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm">
-                  <p>
+                  <p className="text-on-surface-variant">
+                    {transfer.status === 'pending_installation'
+                      ? 'بعد «تم التنفيذ» من مهمة التركيب على عقد نقل الملكية ينتقل التعاقد هنا ويُجدول المتبقي من الأقساط.'
+                      : 'يشمل هذا التعاقد جدول الأقساط (المدفوع والمتبقي) — يظهر أيضاً في تبويب «التعاقدات».'}
+                  </p>
+                  <p className="mt-sm">
                     <span className="text-on-surface-variant">المالك السابق: </span>
                     {transfer.from_customer ? (
                       <Link
@@ -159,12 +193,20 @@ export function CustomerOwnershipTransfersSection({
                   </p>
                   <div className="mt-sm flex flex-wrap gap-sm">
                     {transfer.source_invoice?.id ? (
-                      <Link
-                        to={`/invoices/${transfer.source_invoice.id}/contract-print`}
-                        className="inline-block text-primary hover:underline"
-                      >
-                        عرض التعاقد
-                      </Link>
+                      <>
+                        <Link
+                          to={`/contracts/${transfer.source_invoice.id}`}
+                          className="inline-block text-primary hover:underline"
+                        >
+                          التعاقد والأقساط
+                        </Link>
+                        <Link
+                          to={`/invoices/${transfer.source_invoice.id}/contract-print`}
+                          className="inline-block text-primary hover:underline"
+                        >
+                          طباعة العقد
+                        </Link>
+                      </>
                     ) : null}
                     {transfer.transfer_sales_invoice_id ? (
                       <Link

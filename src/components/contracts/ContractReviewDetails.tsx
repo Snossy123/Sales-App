@@ -341,7 +341,8 @@ function ContractKindReviewNotice({ invoice }: { invoice: SalesInvoice }) {
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-md">
         <p className="font-semibold text-on-surface">{contractKindLabel(kind)}</p>
         <p className="mt-xs text-sm text-on-surface-variant">
-          بعد الاعتماد يُنقل التعاقد الأصلي والأقساط المتبقية إلى المالك الجديد.
+          بعد الاعتماد يُسجَّل النقل. ينتقل التعاقد الأصلي والأقساط المتبقية إلى المالك
+          الجديد بعد «تم التنفيذ» من مهمة التركيب (تاريخ الاستحقاق يبدأ من تاريخ التنفيذ).
         </p>
         {sourceInvoice ? (
           <dl className="mt-md grid gap-sm text-sm sm:grid-cols-2">

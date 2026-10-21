@@ -581,6 +581,9 @@ export interface CustomerContractDevice {
   vehicle_plate_numbers?: string | null
   chassis_number?: string | null
   engine_number?: string | null
+  renewal_type?: 'annual' | 'permanent' | null
+  remaining_installment_count?: number | null
+  remaining_amount?: number | null
   product_model?: {
     id: number
     name: string
@@ -638,12 +641,16 @@ export interface OwnershipTransferPaidInstallment {
   status: string
 }
 
+export type OwnershipTransferStatus = 'pending_installation' | 'completed'
+
 export interface OwnershipTransfer {
   id: number
   source_sales_invoice_id?: number | null
   transfer_sales_invoice_id?: number | null
   from_customer_id: number
   to_customer_id: number
+  status?: OwnershipTransferStatus | null
+  approved_at?: string | null
   transferred_at?: string | null
   paid_total_at_transfer?: string | number
   remaining_balance_at_transfer?: string | number

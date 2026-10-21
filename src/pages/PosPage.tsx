@@ -1430,8 +1430,12 @@ export function PosPage() {
       payload.distributor_balance_amount = distributorBalanceAmount
     }
 
-    if (contractKind === 'ownership_transfer' && sourceTransferInvoice) {
-      payload.source_sales_invoice_id = sourceTransferInvoice.id
+    if (contractKind === 'ownership_transfer') {
+      const sourceSalesInvoiceId =
+        sourceTransferInvoice?.id ?? sourceTransferDevice?.sales_invoice_id ?? undefined
+      if (sourceSalesInvoiceId) {
+        payload.source_sales_invoice_id = sourceSalesInvoiceId
+      }
     }
 
     if (contractKind === 'subscription_renewal' && sourceRenewalCandidate) {
@@ -1639,7 +1643,8 @@ export function PosPage() {
       {contractKind === 'ownership_transfer' && (
         <p className="mb-md rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm text-on-surface-variant">
           العميل المختار أدناه هو <strong className="text-on-surface">المالك الجديد</strong>. سيتم
-          نقل التعاقد والأقساط المتبقية إليه بعد اعتماد نقل الملكية.
+          نقل التعاقد والأقساط المتبقية إليه بعد اعتماد عقد نقل الملكية ثم «تم التنفيذ» من مهمة
+          التركيب.
         </p>
       )}
       {contractKind === 'subscription_renewal' && (
@@ -1869,15 +1874,33 @@ export function PosPage() {
               successMsg && lastInvoice ? (
                 <div className="rounded-lg bg-secondary/10 p-sm text-sm text-secondary">
                   <p>{successMsg}</p>
+                  {lastInvoice.contract_kind === 'ownership_transfer' ? (
+                    <p className="mt-sm rounded-lg border border-primary/30 bg-primary/5 p-sm text-on-surface-variant">
+                      {lastInvoice.review_status !== 'approved'
+                        ? '1) اعتماد عقد نقل الملكية من المراجعة. 2) بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'
+                        : 'بعد «تم التنفيذ» من مهمة التركيب ينتقل التعاقد الأصلي وتُجدول الأقساط المتبقية للمالك الجديد.'}
+                    </p>
+                  ) : null}
                   <div className="mt-sm flex flex-col gap-1">
                     {lastInvoice.contract_kind === 'ownership_transfer' ? (
-                      <Link
-                        to={ownershipTransferContractPrintPath(lastInvoice.id)}
-                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
-                      >
-                        <Icon name="print" size={18} />
-                        طباعة عقد {contractKindLabel('ownership_transfer')}
-                      </Link>
+                      <>
+                        <Link
+                          to={ownershipTransferContractPrintPath(lastInvoice.id)}
+                          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                        >
+                          <Icon name="print" size={18} />
+                          طباعة عقد {contractKindLabel('ownership_transfer')}
+                        </Link>
+                        {lastInvoice.review_status !== 'approved' ? (
+                          <Link
+                            to={`/invoices/review/${lastInvoice.id}`}
+                            className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                          >
+                            <Icon name="fact_check" size={18} />
+                            مراجعة واعتماد نقل الملكية
+                          </Link>
+                        ) : null}
+                      </>
                     ) : (
                       (lastInvoice.lines ?? [])
                         .filter((line) => !isServiceInvoiceLine(line))

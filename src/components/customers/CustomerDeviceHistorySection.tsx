@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api, getErrorMessage } from '../../api/client'
 import type { CustomerContractDevice, SalesInvoice } from '../../api/types'
 import { DEVICE_ORIGIN_LABELS } from '../services/CustomerContractDevicePicker'
+import { renewalTypeLabels } from '../../lib/contractFields'
 import { contractStatusLabel } from '../../lib/contractStatus'
 import { StatusBadge } from '../StatusBadge'
 import { Icon } from '../Icon'
@@ -160,6 +161,16 @@ export function CustomerDeviceHistorySection({
                     </>
                   ) : (
                     <span className="text-xs text-on-surface-variant">بدون تعاقد في السيستم</span>
+                  )}
+                  {device.renewal_type && (
+                    <span className="text-on-surface-variant">
+                      · {renewalTypeLabels[device.renewal_type]}
+                    </span>
+                  )}
+                  {(device.remaining_installment_count ?? 0) > 0 && (
+                    <span className="text-on-surface-variant">
+                      · متبقي {device.remaining_installment_count} أقساط
+                    </span>
                   )}
                   {invoice && (
                     <StatusBadge

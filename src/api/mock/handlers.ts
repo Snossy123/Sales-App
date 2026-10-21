@@ -2187,6 +2187,10 @@ export function handleMockRequest(
             vehicle_plate_numbers: line.vehicle_plate_numbers ?? null,
             chassis_number: line.chassis_number ?? null,
             engine_number: line.engine_number ?? null,
+            renewal_type: line.renewal_type ?? inv.renewal_type ?? null,
+            remaining_installment_count:
+              inv.installment_items?.filter((item) => item.status !== 'paid').length ?? 0,
+            remaining_amount: Number(inv.balance_due ?? 0),
             product_model: line.product_unit?.product_model ?? null,
           })),
       )
@@ -2213,6 +2217,11 @@ export function handleMockRequest(
       physical_serial?: string
       sim_number?: string
       username?: string
+      renewal_type?: 'annual' | 'permanent'
+      subscription_renewal_date?: string
+      remaining_installment_count?: number
+      installment_amount?: number
+      first_due_date?: string
     }
     const serial = String(body.serial_number ?? '').trim()
     const sim = String(body.sim_number ?? '').trim()
@@ -2230,6 +2239,71 @@ export function handleMockRequest(
     )
     if (own) return { data: own.device }
     const productUnitId = 90000 + mockRegisteredDevices.length + 1
+    const remainingCount = Number(body.remaining_installment_count ?? 0)
+    const installmentAmount = Number(body.installment_amount ?? 0)
+    const remainingAmount =
+      remainingCount > 0 && installmentAmount > 0 ? remainingCount * installmentAmount : 0
+    let salesInvoiceId: number | null = null
+    let invoiceNumber: string | null = null
+    let salesInvoiceLineId: number | null = null
+    if (body.renewal_type) {
+      mutateState((s) => {
+        const invoiceId = Math.max(0, ...s.invoices.map((invoice) => invoice.id)) + 1
+        const lineId = invoiceId * 10 + 1
+        const invoiceDate = new Date().toISOString().split('T')[0]
+        const items: InstallmentItem[] =
+          remainingCount > 0
+            ? Array.from({ length: remainingCount }, (_, index) => ({
+                id: invoiceId * 100 + index + 1,
+                sales_invoice_id: invoiceId,
+                sequence: index + 1,
+                due_date: body.first_due_date ?? invoiceDate,
+                amount: installmentAmount,
+                paid_amount: 0,
+                status: 'pending' as const,
+              }))
+            : []
+        const invoice: SalesInvoice = {
+          id: invoiceId,
+          invoice_number: `INV-LEG-${String(invoiceId).padStart(4, '0')}`,
+          invoice_date: invoiceDate,
+          customer_id: customerId,
+          branch_id: customer.branch_id ?? 1,
+          status: 'confirmed',
+          contract_kind: 'new_contract',
+          contract_status: 'active',
+          payment_term: remainingCount > 0 ? 'installment' : 'cash',
+          payment_status: remainingAmount > 0 ? 'unpaid' : 'paid',
+          total: remainingAmount,
+          paid_amount: 0,
+          balance_due: remainingAmount,
+          renewal_type: body.renewal_type,
+          subscription_renewal_date:
+            body.renewal_type === 'annual' ? body.subscription_renewal_date : undefined,
+          confirmed_at: new Date().toISOString(),
+          lines: [
+            {
+              id: lineId,
+              product_unit_id: productUnitId,
+              serial_number: serial,
+              sim_number: sim,
+              username,
+              quantity: 1,
+              unit_price: remainingAmount,
+              line_total: remainingAmount,
+              renewal_type: body.renewal_type,
+              subscription_renewal_date:
+                body.renewal_type === 'annual' ? body.subscription_renewal_date : undefined,
+            },
+          ],
+          installment_items: items,
+        }
+        s.invoices.push(invoice)
+        salesInvoiceId = invoiceId
+        invoiceNumber = invoice.invoice_number ?? null
+        salesInvoiceLineId = lineId
+      })
+    }
     const device: CustomerContractDevice = {
       id: `unit:${productUnitId}`,
       product_unit_id: productUnitId,
@@ -2239,9 +2313,12 @@ export function handleMockRequest(
       physical_serial: String(body.physical_serial ?? '').trim() || serial,
       sim_number: sim,
       username,
-      sales_invoice_id: null,
-      sales_invoice_line_id: null,
-      invoice_number: null,
+      sales_invoice_id: salesInvoiceId,
+      sales_invoice_line_id: salesInvoiceLineId,
+      invoice_number: invoiceNumber,
+      renewal_type: body.renewal_type ?? null,
+      remaining_installment_count: remainingCount > 0 ? remainingCount : 0,
+      remaining_amount: remainingAmount,
       product_model: null,
     }
     mockRegisteredDevices.push({ customer_id: customerId, device })

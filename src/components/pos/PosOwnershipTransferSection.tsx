@@ -14,6 +14,7 @@ import {
   contractDeviceLabel,
   DEVICE_ORIGIN_LABELS,
 } from '../services/CustomerContractDevicePicker'
+import { renewalTypeLabels } from '../../lib/contractFields'
 
 export interface PosOwnershipTransferSectionProps {
   selectedSourceInvoice: SalesInvoice | null
@@ -60,6 +61,7 @@ export function PosOwnershipTransferSection({
   const [previousOwnerSearch, setPreviousOwnerSearch] = useState('')
   const [selectedPreviousOwner, setSelectedPreviousOwner] = useState<Customer | null>(null)
   const [addPreviousOwnerOpen, setAddPreviousOwnerOpen] = useState(false)
+  const [resolvingDeviceInvoice, setResolvingDeviceInvoice] = useState(false)
 
   const customersQuery = useQuery({
     queryKey: ['customers', 'ownership-transfer', previousOwnerSearch],
@@ -135,12 +137,31 @@ export function PosOwnershipTransferSection({
     }
   }
 
-  const selectDevice = (device: CustomerContractDevice) => {
+  const selectDevice = async (device: CustomerContractDevice) => {
     const invoice = invoiceForDevice(device, invoices)
     if (invoice) {
       selectInvoice(invoice, device)
       return
     }
+
+    const salesInvoiceId = device.sales_invoice_id
+    if (salesInvoiceId) {
+      setResolvingDeviceInvoice(true)
+      try {
+        const { data } = await api.get<SalesInvoice>(`/sales-invoices/${salesInvoiceId}`, {
+          params: {
+            include: 'customer,lines.installmentPlan.items,installmentPlans.items',
+          },
+        })
+        selectInvoice(data, device)
+        return
+      } catch {
+        // Fall back to device-only selection (registry transfer).
+      } finally {
+        setResolvingDeviceInvoice(false)
+      }
+    }
+
     onSourceInvoiceChange(null)
     onSourceDeviceChange?.(device)
   }
@@ -194,8 +215,12 @@ export function PosOwnershipTransferSection({
         </div>
       </div>
 
-      {searching && (
-        <p className="text-sm text-on-surface-variant">جاري البحث عن التعاقدات والأجهزة...</p>
+      {(searching || resolvingDeviceInvoice) && (
+        <p className="text-sm text-on-surface-variant">
+          {resolvingDeviceInvoice
+            ? 'جاري تحميل التعاقد الأصلي...'
+            : 'جاري البحث عن التعاقدات والأجهزة...'}
+        </p>
       )}
 
       {showDevicePicker && (
@@ -212,6 +237,12 @@ export function PosOwnershipTransferSection({
               <span className="text-sm text-on-surface-variant">
                 {DEVICE_ORIGIN_LABELS[device.origin ?? 'company_stock']}
                 {device.invoice_number ? ` · ${device.invoice_number}` : ' · بدون تعاقد في السيستم'}
+                {device.renewal_type
+                  ? ` · ${renewalTypeLabels[device.renewal_type]}`
+                  : ''}
+                {(device.remaining_installment_count ?? 0) > 0
+                  ? ` · متبقي ${device.remaining_installment_count} أقساط`
+                  : ''}
               </span>
             </button>
           ))}
