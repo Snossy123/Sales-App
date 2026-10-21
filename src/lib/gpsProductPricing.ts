@@ -38,9 +38,6 @@ export function resolveGpsUnitPrice(product: GpsProduct | undefined, ctx: GpsUni
   }
 
   if (ctx.contractKind === 'ownership_transfer') {
-    if (ctx.renewalType === 'permanent') {
-      return subscriptionRenewalUnitPrice(cashAnnual)
-    }
     return 0
   }
 

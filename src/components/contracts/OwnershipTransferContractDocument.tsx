@@ -130,22 +130,25 @@ export function OwnershipTransferContractDocument({
         <div className="ic-table-wrap ic-ot-financial">
           <div className="ic-table-title">التفاصيل المالية</div>
           <div className="ic-ot-fin-body">
-            <div className="ic-ot-fin-row">
-              <span className="ic-ot-fin-label">تاريخ النقل</span>
-              <span className="ic-ot-fin-value">{financial.transferDate}</span>
+            <div className="ic-ot-fin-charges">
+              <div className="ic-ot-fin-row">
+                <span className="ic-ot-fin-label">تاريخ النقل</span>
+                <span className="ic-ot-fin-value">{financial.transferDate}</span>
+              </div>
+              {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee)}
+              {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee)}
+              {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource)}
+              {moneyRow('فك + تركيب', financial.disassemblyInstallationFee)}
             </div>
-            {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee)}
-            {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee)}
-            {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource)}
-            {moneyRow('فك + تركيب', financial.disassemblyInstallationFee)}
-            <div className="ic-ot-fin-divider" />
-            <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
-              <span className="ic-ot-fin-label">تم الدفع</span>
-              <span className="ic-ot-fin-value">{fmtContractMoney(financial.paidAmount)}</span>
-            </div>
-            <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
-              <span className="ic-ot-fin-label">باقي المبلغ</span>
-              <span className="ic-ot-fin-value">{fmtContractMoney(financial.remainingBalance)}</span>
+            <div className="ic-ot-fin-totals">
+              <div className="ic-ot-fin-row ic-ot-fin-row--emphasis">
+                <span className="ic-ot-fin-label">تم الدفع</span>
+                <span className="ic-ot-fin-value">{fmtContractMoney(financial.paidAmount)}</span>
+              </div>
+              <div className="ic-ot-fin-row ic-ot-fin-row--emphasis ic-ot-fin-row--remaining">
+                <span className="ic-ot-fin-label">باقي المبلغ</span>
+                <span className="ic-ot-fin-value">{fmtContractMoney(financial.remainingBalance)}</span>
+              </div>
             </div>
             {financial.paymentScheduleText ? (
               <p className="ic-ot-fin-schedule">{financial.paymentScheduleText}</p>

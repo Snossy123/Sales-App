@@ -52,6 +52,23 @@ describe('resolveGpsUnitPrice', () => {
     ).toBe(13000)
   })
 
+  it('keeps the ownership-transfer device price at zero; the lifetime fee is a service line', () => {
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'ownership_transfer',
+        paymentTerm: 'cash',
+        renewalType: 'permanent',
+      }),
+    ).toBe(0)
+    expect(
+      resolveGpsUnitPrice(product, {
+        contractKind: 'ownership_transfer',
+        paymentTerm: 'installment',
+        renewalType: 'annual',
+      }),
+    ).toBe(0)
+  })
+
   it('uses annual renewal price or 25% of cash annual for permanent renewal', () => {
     expect(
       resolveGpsUnitPrice(product, {

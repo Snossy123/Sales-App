@@ -71,6 +71,44 @@ export function sumLinesByCategories(
   }, 0)
 }
 
+const DISPLAYED_FEE_CATEGORIES = [
+  'ownership_transfer',
+  'subscription',
+  'uninstall',
+  'installation',
+]
+
+function isDeferredCash(schedule?: string | null): boolean {
+  return Boolean(schedule) && schedule !== 'immediate'
+}
+
+function lineCollectedNow(line: SalesInvoiceLine): number {
+  const amount = lineAmount(line)
+  const term = line.payment_term ?? ''
+  if (term === 'installment') {
+    const down = Number(line.installment_plan?.down_payment ?? 0)
+    return Math.round(Math.min(amount, Math.max(0, down)) * 100) / 100
+  }
+  if (term !== 'cash' || isDeferredCash(line.cash_schedule)) {
+    return 0
+  }
+  return amount
+}
+
+function collectedOnDisplayedLines(lines: SalesInvoiceLine[] | undefined): number {
+  if (!lines?.length) {
+    return 0
+  }
+  const set = new Set(DISPLAYED_FEE_CATEGORIES)
+  const sum = lines.reduce((total, line) => {
+    if (!isServiceLine(line) || !set.has(resolveServiceCategory(line))) {
+      return total
+    }
+    return total + lineCollectedNow(line)
+  }, 0)
+  return Math.round(sum * 100) / 100
+}
+
 function remainingOnSource(invoice: SalesInvoice): number {
   const fromRecord = invoice.ownership_transfer_record?.remaining_balance_at_transfer
   if (fromRecord != null && fromRecord !== '') {
@@ -188,9 +226,13 @@ export function buildOwnershipTransferFinancialBreakdown(
   const subscriptionRenewalFee = sumLinesByCategories(lines, ['subscription'])
   const disassemblyInstallationFee = sumLinesByCategories(lines, ['uninstall', 'installation'])
   const remainingInstallmentsOnSource = remainingOnSource(invoice)
-  const paidAmount = Math.max(0, Number(invoice.paid_amount ?? 0))
-  const transferBalanceDue = Math.max(0, Number(invoice.balance_due ?? 0))
-  const remainingBalance = Math.max(0, transferBalanceDue + remainingInstallmentsOnSource)
+  const paidAmount = collectedOnDisplayedLines(lines)
+  const charges =
+    ownershipTransferFee +
+    subscriptionRenewalFee +
+    disassemblyInstallationFee +
+    remainingInstallmentsOnSource
+  const remainingBalance = Math.max(0, Math.round((charges - paidAmount) * 100) / 100)
 
   return {
     transferDate: fmtContractDate(invoice.invoice_date),
