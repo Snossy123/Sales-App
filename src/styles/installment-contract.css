@@ -1913,14 +1913,26 @@
 .ownership-transfer-contract .ic-signatures--triple > div {
   text-align: center;
 }
-.ownership-transfer-contract .ic-signatures--triple .ic-sign-name {
+.ownership-transfer-contract .ic-signatures--triple .ic-sign-line {
+  position: relative;
   display: block;
-  margin: 1.2mm 0 0;
+  flex: none;
+  align-self: center;
+  width: 78%;
+  min-height: 7mm;
+  margin: 2mm auto 0;
+  border-bottom: 1.6px dashed #000;
+}
+.ownership-transfer-contract .ic-signatures--triple .ic-sign-name {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0.2mm;
+  margin: 0;
   text-align: center;
   font-weight: 800;
-}
-.ownership-transfer-contract .ic-signatures--triple .ic-sign-line {
-  border-bottom-style: dashed;
+  line-height: 1;
+  background: #fff;
+  padding-inline: 1.5mm;
 }
 
 .sr-sign-line {

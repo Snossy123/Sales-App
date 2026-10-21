@@ -206,8 +206,9 @@ export function OwnershipTransferContractDocument({
           </div>
           <div>
             توقيع موظف المؤسسة
-            {signerName ? <span className="ic-sign-name">{signerName}</span> : null}
-            <span className="ic-sign-line" />
+            <span className="ic-sign-line">
+              {signerName ? <span className="ic-sign-name">{signerName}</span> : null}
+            </span>
           </div>
         </div>
 
