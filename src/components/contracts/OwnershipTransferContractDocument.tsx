@@ -99,7 +99,7 @@ export function OwnershipTransferContractDocument({
       <div className="ic-frame">
         <img
           className="ic-frame-border"
-          src="/contract-frame.svg"
+          src="/contract-frame-ot.svg"
           alt=""
           aria-hidden="true"
           draggable={false}
