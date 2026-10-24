@@ -56,6 +56,32 @@ function DeviceField({ label, value, mono = false }: { label: string; value?: st
   )
 }
 
+function CustodyDeviceSummary({ unit }: { unit: ProductUnit }) {
+  const serial = productUnitDisplayCode(unit)
+  const physicalSerial = unit.physical_serial?.trim() ?? ''
+  const simNumber = unit.sim_number?.trim() ?? ''
+  const showPhysicalSerial = physicalSerial !== '' && physicalSerial !== serial
+  const showSim = simNumber !== '' && simNumber !== serial && simNumber !== physicalSerial
+
+  return (
+    <div className="grid grid-cols-1 gap-sm text-sm sm:grid-cols-2">
+      {showPhysicalSerial && <DeviceField label="السريال الفعلي" value={physicalSerial} mono />}
+      <DeviceField label="اسم المستخدم" value={unit.username} />
+      {showSim && <DeviceField label="رقم الشريحة" value={simNumber} mono />}
+      <DeviceField label="الموديل" value={modelName(unit)} />
+      <DeviceField label="التصنيف" value={inventoryBucketLabel(unit.inventory_bucket)} />
+      <DeviceField label="الحالة" value={productUnitStateLabel(unit.state)} />
+      <DeviceField label="الموظف" value={unit.custody_employee?.name} />
+      <DeviceField label="العميل" value={unit.custody_customer?.name} />
+      <DeviceField label="تاريخ الاستلام" value={formatDatetime12hDisplay(unit.custody_received_at)} />
+      <div className="sm:col-span-2">
+        <p className="text-on-surface-variant">ملاحظات الجهاز</p>
+        <p className="font-medium whitespace-pre-wrap">{unit.notes?.trim() || '—'}</p>
+      </div>
+    </div>
+  )
+}
+
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
   const canReceive = userCanPerform(user, 'inventory.branch.receive')
@@ -493,23 +519,7 @@ export function BranchInventoryPage() {
       >
         {selectedUnit && (
           <div className="max-h-[70vh] space-y-md overflow-y-auto">
-            <div className="grid grid-cols-1 gap-sm text-sm sm:grid-cols-2">
-              <DeviceField label="السريال" value={productUnitDisplayCode(selectedUnit)} mono />
-              <DeviceField label="السريال الفعلي" value={selectedUnit.physical_serial} mono />
-              <DeviceField label="IMEI" value={selectedUnit.imei} mono />
-              <DeviceField label="اسم المستخدم" value={selectedUnit.username} />
-              <DeviceField label="رقم الشريحة" value={selectedUnit.sim_number} mono />
-              <DeviceField label="الموديل" value={modelName(selectedUnit)} />
-              <DeviceField label="التصنيف" value={inventoryBucketLabel(selectedUnit.inventory_bucket)} />
-              <DeviceField label="الحالة" value={productUnitStateLabel(selectedUnit.state)} />
-              <DeviceField label="الموظف" value={selectedUnit.custody_employee?.name} />
-              <DeviceField label="العميل" value={selectedUnit.custody_customer?.name} />
-              <DeviceField label="تاريخ الاستلام" value={formatDatetime12hDisplay(selectedUnit.custody_received_at)} />
-              <div className="sm:col-span-2">
-                <p className="text-on-surface-variant">ملاحظات الجهاز</p>
-                <p className="font-medium whitespace-pre-wrap">{selectedUnit.notes?.trim() || '—'}</p>
-              </div>
-            </div>
+            <CustodyDeviceSummary unit={selectedUnit} />
             <div className="space-y-sm">
               <h3 className="text-sm font-bold text-on-surface">سجل العهدة</h3>
               <AsyncState
@@ -523,7 +533,7 @@ export function BranchInventoryPage() {
                   <div className="space-y-sm">
                     {(unitHistoryQuery.data ?? []).map((voucher) => (
                       <div key={voucher.id} className="rounded-lg border border-outline-variant p-sm">
-                        <CustodyVoucherDetails voucher={voucher} />
+                        <CustodyVoucherDetails compact deviceNotes={selectedUnit.notes} voucher={voucher} />
                       </div>
                     ))}
                   </div>
