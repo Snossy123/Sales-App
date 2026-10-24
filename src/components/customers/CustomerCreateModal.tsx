@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
@@ -34,11 +34,22 @@ interface CustomerCreateModalProps {
   open: boolean
   onClose: () => void
   onCreated: (customer: Customer) => void
+  startWithDevices?: boolean
 }
 
 const emptyForm = { name: '', national_id: '', address: '', distinctive_mark: '' }
 
-export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreateModalProps) {
+export function CustomerCreateModal(props: CustomerCreateModalProps) {
+  if (!props.open) return null
+  return <CustomerCreateForm {...props} />
+}
+
+function CustomerCreateForm({
+  open,
+  onClose,
+  onCreated,
+  startWithDevices = false,
+}: CustomerCreateModalProps) {
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
   const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
@@ -46,24 +57,9 @@ export function CustomerCreateModal({ open, onClose, onCreated }: CustomerCreate
   const [withGuarantor, setWithGuarantor] = useState(false)
   const [guarantor, setGuarantor] = useState(emptyGuarantorForm)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
-  const [isLegacyCustomer, setIsLegacyCustomer] = useState(false)
+  const [isLegacyCustomer, setIsLegacyCustomer] = useState(startWithDevices)
   const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>([emptyLegacyDeviceDraft()])
   const [submitAttempted, setSubmitAttempted] = useState(false)
-
-  const resetForm = () => {
-    setPhones(defaultPhoneEntries())
-    setForm(emptyForm)
-    setWithGuarantor(false)
-    setGuarantor(emptyGuarantorForm)
-    setPendingFiles([])
-    setIsLegacyCustomer(false)
-    setLegacyDevices([emptyLegacyDeviceDraft()])
-    setSubmitAttempted(false)
-  }
-
-  useEffect(() => {
-    if (open) resetForm()
-  }, [open])
 
   const handleGuarantorModeChange = (next: boolean) => {
     setWithGuarantor(next)

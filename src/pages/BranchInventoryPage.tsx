@@ -6,7 +6,9 @@ import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
+import { CustodyVoucherDetails } from '../components/inventory/CustodyVoucherDetails'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
+import { Modal } from '../components/Modal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   CUSTODY_BUCKET_OPTIONS,
@@ -63,6 +65,7 @@ export function BranchInventoryPage() {
   const [logTypeFilter, setLogTypeFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [selectedVoucher, setSelectedVoucher] = useState<CustodyVoucher | null>(null)
 
   const query = useQuery({
     queryKey: ['branch-inventory', user?.branch_id],
@@ -327,6 +330,18 @@ export function BranchInventoryPage() {
                     header: 'الموديل',
                     render: (row) => modelName(row),
                   },
+                  {
+                    key: 'received_at',
+                    header: 'تاريخ الاستلام',
+                    className: 'tabular-nums',
+                    render: (row) => formatDatetime12hDisplay(row.custody_received_at),
+                  },
+                  {
+                    key: 'issued_at',
+                    header: 'تاريخ الصرف',
+                    className: 'tabular-nums',
+                    render: () => '—',
+                  },
                 ]}
               />
           </AsyncState>
@@ -404,16 +419,45 @@ export function BranchInventoryPage() {
                     render: (row) => row.customer?.name ?? '—',
                   },
                   {
-                    key: 'created_at',
-                    header: 'التاريخ',
+                    key: 'received_at',
+                    header: 'تاريخ الاستلام',
                     className: 'tabular-nums',
-                    render: (row) => formatDatetime12hDisplay(row.created_at),
+                    render: (row) =>
+                      row.type === 'receipt' ? formatDatetime12hDisplay(row.created_at) : '—',
+                  },
+                  {
+                    key: 'issued_at',
+                    header: 'تاريخ الصرف',
+                    className: 'tabular-nums',
+                    render: (row) =>
+                      row.type === 'issuance' ? formatDatetime12hDisplay(row.created_at) : '—',
+                  },
+                  {
+                    key: 'details',
+                    header: '',
+                    render: (row) => (
+                      <button
+                        type="button"
+                        className="text-sm font-bold text-primary hover:underline"
+                        onClick={() => setSelectedVoucher(row)}
+                      >
+                        تفاصيل
+                      </button>
+                    ),
                   },
                 ]}
               />
           </AsyncState>
         </>
       )}
+
+      <Modal
+        open={selectedVoucher !== null}
+        onClose={() => setSelectedVoucher(null)}
+        title={selectedVoucher?.type === 'issuance' ? 'تفاصيل إذن الصرف' : 'تفاصيل إذن الاستلام'}
+      >
+        {selectedVoucher && <CustodyVoucherDetails voucher={selectedVoucher} />}
+      </Modal>
 
       <CustodyVoucherModal
         open={voucherOpen}

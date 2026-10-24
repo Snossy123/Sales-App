@@ -4,8 +4,9 @@ import { api, getErrorMessage } from '../../api/client'
 import type { Customer, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { CUSTODY_BUCKET_OPTIONS, productUnitDisplayCode } from '../../lib/inventoryBuckets'
-import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 import { normalizeScannedDigits } from '../../lib/scanner'
+import { CustodyVoucherDetails } from './CustodyVoucherDetails'
+import { CustomerCreateModal } from '../customers/CustomerCreateModal'
 import { Modal } from '../Modal'
 import { InventoryUnitTags } from './InventoryUnitTags'
 
@@ -19,8 +20,14 @@ interface CustodyVoucherModalProps {
 
 type RecipientType = 'employee' | 'customer'
 
-export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }: CustodyVoucherModalProps) {
+export function CustodyVoucherModal(props: CustodyVoucherModalProps) {
+  if (!props.open) return null
+  return <CustodyVoucherForm {...props} />
+}
+
+function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: CustodyVoucherModalProps) {
   const serialRef = useRef<HTMLInputElement>(null)
+  const customerSearchRef = useRef<HTMLInputElement>(null)
   const [serialCode, setSerialCode] = useState('')
   const [resolvedUnit, setResolvedUnit] = useState<ProductUnit | null>(null)
   const [needsRegister, setNeedsRegister] = useState(false)
@@ -29,28 +36,29 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   const [employeeId, setEmployeeId] = useState<number | ''>('')
   const [inventoryBucket, setInventoryBucket] = useState('custody_customer')
   const [notes, setNotes] = useState('')
-  const [recipientType, setRecipientType] = useState<RecipientType>('employee')
+  const [recipientType, setRecipientType] = useState<RecipientType>(mode === 'issue' ? 'customer' : 'employee')
   const [customerId, setCustomerId] = useState<number | ''>('')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
+  const [customerGateWaived, setCustomerGateWaived] = useState(false)
   const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
+  const customerQuery = debouncedCustomerSearch.trim()
 
   useEffect(() => {
-    if (!open) return
-    setSerialCode('')
-    setResolvedUnit(null)
-    setNeedsRegister(false)
-    setLookupError(null)
-    setEmployeeId('')
-    setInventoryBucket('custody_customer')
-    setNotes('')
-    setRecipientType('employee')
-    setCustomerId('')
-    setCustomerSearch('')
-    setSavedVoucher(null)
+    const timer = window.setTimeout(() => {
+      if (customerSearchRef.current) customerSearchRef.current.focus()
+      else serialRef.current?.focus()
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [mode])
+
+  useEffect(() => {
+    if (!selectedCustomer) return
     const timer = window.setTimeout(() => serialRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
-  }, [open, mode])
+  }, [selectedCustomer])
 
   const employeesQuery = useQuery({
     queryKey: ['employees', 'custody', branchId],
@@ -78,8 +86,36 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
       const { data } = await api.get<PaginatedResponse<Customer>>('/customers', { params })
       return data.data ?? []
     },
-    enabled: open && ((mode === 'receive' && inventoryBucket === 'custody_customer') || (mode === 'issue' && recipientType === 'customer')),
+    enabled:
+      open &&
+      !selectedCustomer &&
+      customerQuery.length >= 2 &&
+      ((mode === 'receive' && inventoryBucket === 'custody_customer') ||
+        (mode === 'issue' && recipientType === 'customer')),
   })
+
+  const confirmCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setCustomerId(customer.id)
+    setCustomerGateWaived(false)
+    setAddCustomerOpen(false)
+  }
+
+  const clearCustomer = () => {
+    setSelectedCustomer(null)
+    setCustomerId('')
+    setCustomerSearch('')
+  }
+
+  const waiveCustomerGate = () => {
+    setCustomerGateWaived(true)
+    clearCustomer()
+    if (mode === 'receive') {
+      setInventoryBucket('')
+      return
+    }
+    setRecipientType('employee')
+  }
 
   const lookupUnit = async (raw: string) => {
     const code = normalizeScannedDigits(raw)
@@ -165,24 +201,30 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
   const customerReady = inventoryBucket !== 'custody_customer' || Boolean(customerId)
   const recipientReady =
     mode === 'receive'
-      ? Boolean(employeeId) && customerReady
+      ? Boolean(inventoryBucket) && Boolean(employeeId) && customerReady
       : recipientType === 'employee'
         ? Boolean(employeeId)
         : Boolean(customerId)
   const canSubmit = Boolean(unitReady && recipientReady && branchId && !isLookingUp)
+  const customerGate =
+    !customerGateWaived &&
+    ((mode === 'receive' && inventoryBucket === 'custody_customer') ||
+      (mode === 'issue' && recipientType === 'customer'))
+  const showDetails = !customerGate || Boolean(selectedCustomer)
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (addCustomerOpen) return
+        onClose()
+      }}
       title={mode === 'receive' ? 'إذن استلام جهاز' : 'إذن صرف'}
     >
       {savedVoucher ? (
         <div className="space-y-3">
           <p className="text-sm text-secondary">تم حفظ الإذن {savedVoucher.voucher_number}.</p>
-          <p className="text-sm tabular-nums">
-            تاريخ ووقت العملية: {formatDatetime12hDisplay(savedVoucher.created_at)}
-          </p>
+          <CustodyVoucherDetails voucher={savedVoucher} />
           <div className="flex justify-end">
             <button
               type="button"
@@ -194,7 +236,88 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
           </div>
         </div>
       ) : (
+      <>
       <div className="space-y-4">
+        {customerGate && (
+          selectedCustomer ? (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-on-surface">{selectedCustomer.name}</p>
+                  <p className="text-sm tabular-nums text-on-surface-variant">{selectedCustomer.phone}</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-bold text-primary hover:underline"
+                  onClick={clearCustomer}
+                >
+                  تغيير العميل
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">العميل</label>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-primary hover:underline"
+                  onClick={() => setAddCustomerOpen(true)}
+                >
+                  عميل جديد
+                </button>
+              </div>
+              <input
+                ref={customerSearchRef}
+                type="search"
+                autoFocus
+                className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                placeholder="ابحث بالاسم أو الموبايل"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+              />
+              <p className="text-xs text-on-surface-variant">حرفين على الأقل. لو مش لاقيه، أضف عميل جديد.</p>
+              {customersQuery.isFetching && customerQuery.length >= 2 ? (
+                <p className="text-xs text-on-surface-variant">جاري البحث...</p>
+              ) : null}
+              {customerQuery.length >= 2 && !customersQuery.isFetching && (customersQuery.data?.length ?? 0) === 0 ? (
+                <div className="rounded-lg border border-dashed border-outline-variant px-3 py-4 text-center">
+                  <p className="text-sm text-on-surface-variant">لا يوجد عميل مطابق</p>
+                  <button
+                    type="button"
+                    className="mt-2 text-sm font-bold text-primary hover:underline"
+                    onClick={() => setAddCustomerOpen(true)}
+                  >
+                    إضافة عميل جديد
+                  </button>
+                </div>
+              ) : null}
+              <div className="grid gap-2">
+                {(customersQuery.data ?? []).map((customer) => (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    className="rounded-lg border border-outline-variant px-3 py-2 text-start text-sm hover:border-primary/50"
+                    onClick={() => confirmCustomer(customer)}
+                  >
+                    <span className="font-medium">{customer.name}</span>
+                    <span className="mt-0.5 block text-xs tabular-nums text-on-surface-variant">{customer.phone}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="text-xs font-bold text-on-surface-variant hover:text-primary hover:underline"
+                onClick={waiveCustomerGate}
+              >
+                {mode === 'receive' ? 'استلام بدون عميل' : 'صرف لموظف'}
+              </button>
+            </div>
+          )
+        )}
+
+        {showDetails && (
+        <>
         <div>
           <label className="mb-1 block text-sm font-medium">مسح السريال</label>
           <input
@@ -269,9 +392,15 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/50'
                     }`}
                     onClick={() => {
-                      setRecipientType(option.value)
-                      setCustomerId('')
-                      if (option.value === 'customer') setEmployeeId('')
+                      if (option.value === 'customer') {
+                        setRecipientType('customer')
+                        setEmployeeId('')
+                        setCustomerGateWaived(false)
+                        return
+                      }
+                      setRecipientType('employee')
+                      setCustomerGateWaived(true)
+                      clearCustomer()
                     }}
                   >
                     {option.label}
@@ -279,6 +408,9 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                 )
               })}
             </div>
+            {recipientType === 'customer' ? (
+              <p className="mt-2 text-xs text-on-surface-variant">سيتم إخراج الجهاز من عهدة الفرع وإرجاعه للعميل.</p>
+            ) : null}
           </div>
         )}
 
@@ -318,10 +450,14 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                       }`}
                       onClick={() => {
                         setInventoryBucket(option.value)
-                        if (option.value !== 'custody_customer') {
-                          setCustomerId('')
-                          setCustomerSearch('')
+                        if (option.value === 'custody_customer') {
+                          setCustomerGateWaived(false)
+                          return
                         }
+                        setCustomerGateWaived(true)
+                        setCustomerId('')
+                        setCustomerSearch('')
+                        setSelectedCustomer(null)
                       }}
                     >
                       {option.label}
@@ -329,38 +465,12 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
                   )
                 })}
               </div>
+              {mode === 'receive' && !inventoryBucket ? (
+                <p className="mt-2 text-xs text-on-surface-variant">اختر حالة الجهاز.</p>
+              ) : null}
             </div>
           </>
         )}
-
-        {(mode === 'receive' && inventoryBucket === 'custody_customer') ||
-        (mode === 'issue' && recipientType === 'customer') ? (
-          <div className="space-y-2">
-            <label className="mb-1 block text-sm">العميل</label>
-            <input
-              type="search"
-              className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              placeholder="ابحث بالاسم أو الموبايل"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-            />
-            <select
-              className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">اختر العميل</option>
-              {(customersQuery.data ?? []).map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} — {customer.phone}
-                </option>
-              ))}
-            </select>
-            {mode === 'issue' && (
-              <p className="text-xs text-on-surface-variant">سيتم إخراج الجهاز من عهدة الفرع وإرجاعه للعميل.</p>
-            )}
-          </div>
-        ) : null}
 
         <div>
           <label className="mb-1 block text-sm">ملاحظات</label>
@@ -389,7 +499,16 @@ export function CustodyVoucherModal({ open, mode, branchId, onClose, onSuccess }
             {submitMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
           </button>
         </div>
+        </>
+        )}
       </div>
+      <CustomerCreateModal
+        open={addCustomerOpen}
+        startWithDevices
+        onClose={() => setAddCustomerOpen(false)}
+        onCreated={confirmCustomer}
+      />
+      </>
       )}
     </Modal>
   )

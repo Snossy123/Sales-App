@@ -537,6 +537,7 @@ export interface ProductUnit {
   custody_employee?: { id: number; name: string } | null
   custody_customer_id?: number | null
   custody_customer?: { id: number; name: string } | null
+  custody_received_at?: string | null
   owner_customer_id?: number | null
   cost_price?: string | number | null
   sell_price?: string | number | null
