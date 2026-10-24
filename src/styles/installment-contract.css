@@ -169,7 +169,7 @@
   position: relative;
   z-index: 2;
   margin-top: 0;
-  margin-bottom: -4.5mm;
+  margin-bottom: -12mm;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -258,6 +258,7 @@
   border: 1px solid #b0b0b0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.55);
+  margin: 2mm 0;
 }
 .ic-cash-col {
   display: flex;
@@ -282,12 +283,14 @@
   background: var(--ic-gray2);
 }
 .ic-cash-cell .ic-field-label {
-  font-size: 16.23pt;
+  font-size: 17pt;
   line-height: 1;
+  white-space: nowrap;
 }
 .ic-cash-cell .ic-field-value {
-  font-size: 18pt;
+  font-size: 17pt;
   line-height: 1;
+  white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
 }
@@ -304,9 +307,9 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-height: 0;
-  gap: 1mm;
+  gap: 1.2mm;
   margin-top: 1mm;
 }
 .ic-cash-below .ic-cash-notes {
@@ -320,31 +323,33 @@
 }
 .ic-cash-below .ic-cash-notes .ic-note-pill {
   align-self: center;
-  font-size: 12pt;
+  margin-top: 2mm;
+  font-size: 18pt;
   padding: 0.6mm 4mm;
 }
 .ic-cash-below .ic-cash-notes .ic-note-text {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   text-align: center;
   border: 1.5px solid var(--ic-red);
   border-radius: 999px;
-  padding: 0.8mm 3mm;
+  padding: 2mm 3mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 12.5pt;
+  font-size: 16pt;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.85);
 }
 .ic-cash-below .ic-terms {
-  font-size: 14.5pt;
-  line-height: 1.2;
+  font-size: 17pt;
+  line-height: 1.15;
   margin: 0.5mm 0;
   padding: 0 0.5mm;
 }
 .ic-cash-below .ic-warning {
   font-size: 14pt;
-  padding: 1.2mm 0;
+  padding: 2mm 0;
   margin: 0;
   min-height: 7mm;
 }
@@ -354,7 +359,7 @@
 }
 .ic-cash-below .ic-warning-row .ic-warning {
   font-size: 12pt;
-  padding: 1.4mm 2mm;
+  padding: 2mm 2mm;
   min-height: 6.5mm;
   white-space: nowrap;
   overflow: hidden;
@@ -363,13 +368,15 @@
 .ic-cash-below .ic-alert-grid {
   gap: 2mm;
   margin: 0.5mm 0;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
+  align-items: stretch;
 }
 .ic-cash-below .ic-alert-grid .ic-alert-box {
   font-size: 12.64pt;
   padding: 0.5mm;
   line-height: 1.2;
+  justify-content: center;
 }
 .ic-cash-below .ic-alert-grid .ic-alert-warn {
   font-size: 10.5pt;

@@ -250,6 +250,120 @@ function paginate<T>(items: T[], params?: Record<string, unknown>): PaginatedRes
   }
 }
 
+function startOfLocalDay(value: string | Date): Date {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+function endOfLocalDay(value: string | Date): Date {
+  const date = new Date(value)
+  date.setHours(23, 59, 59, 999)
+  return date
+}
+
+function paymentPaidRange(params: Record<string, string>): { from: Date | null; to: Date | null } {
+  if (params.paid_from || params.paid_to) {
+    return {
+      from: params.paid_from ? startOfLocalDay(params.paid_from) : null,
+      to: params.paid_to ? endOfLocalDay(params.paid_to) : null,
+    }
+  }
+
+  const now = new Date()
+  if (params.period === 'day') return { from: startOfLocalDay(now), to: endOfLocalDay(now) }
+  if (params.period === 'week') {
+    const start = startOfLocalDay(now)
+    const day = start.getDay()
+    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1))
+    const end = endOfLocalDay(start)
+    end.setDate(start.getDate() + 6)
+    return { from: start, to: end }
+  }
+  if (params.period === 'month') {
+    return {
+      from: new Date(now.getFullYear(), now.getMonth(), 1),
+      to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    }
+  }
+  if (params.period === 'year') {
+    return {
+      from: new Date(now.getFullYear(), 0, 1),
+      to: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
+    }
+  }
+  return { from: null, to: null }
+}
+
+const mockSourceLabels: Record<string, string> = {
+  installment: 'قسط',
+  external: 'تحصيل خارجي',
+  down_payment: 'مقدم',
+  pos_cash: 'دفعة تعاقد كاش',
+  transportation_fee: 'رسوم تنقلات',
+  distributor_balance: 'رصيد عمولة',
+  contract_disbursement: 'أمر دفع',
+}
+
+function mockPaymentSourceLabel(state: DemoState, payment: DemoState['paymentTransactions'][number]): string {
+  const notes = payment.notes ?? ''
+  const invoice = state.invoices.find((item) => item.id === payment.sales_invoice_id)
+  let label = mockSourceLabels[payment.payment_source] ?? payment.payment_source ?? '—'
+
+  if (notes.toLowerCase().includes('installation fee')) {
+    label = 'رسوم تركيب'
+  } else if (payment.payment_source === 'transportation_fee' || notes.includes('رسوم تنقلات')) {
+    label = 'رسوم تنقلات'
+  } else if (/line #(\d+)/.test(notes)) {
+    const lineId = Number(notes.match(/line #(\d+)/)?.[1])
+    const line = invoice?.lines?.find((item) => item.id === lineId)
+    const name =
+      line?.accessory_package?.name_ar ||
+      line?.service?.name_ar ||
+      line?.product_model?.name_ar ||
+      line?.product_name_ar ||
+      line?.description ||
+      (line ? `بند #${line.id}` : '')
+    if (name) {
+      const isDown = payment.payment_source === 'down_payment' || notes.toLowerCase().includes('down payment')
+      label = isDown ? `مقدم — ${name}` : name
+    }
+  } else if (payment.payment_source === 'contract_disbursement') {
+    label = 'أمر دفع'
+  } else if (payment.installment_item_id) {
+    const plans = [
+      ...(invoice?.installment_plans ?? []),
+      ...(invoice?.installment_plan ? [invoice.installment_plan] : []),
+    ]
+    const items = [
+      ...(invoice?.installment_items ?? []),
+      ...plans.flatMap((plan) => plan.items ?? []),
+    ]
+    const item = items.find((row) => row.id === payment.installment_item_id)
+    if (item) {
+      label = `قسط${item.sequence != null ? ` ${item.sequence}` : ''}`
+      if (item.due_date) {
+        const [year, month, day] = String(item.due_date).slice(0, 10).split('-')
+        if (year && month && day) label += ` — استحقاق ${day}/${month}/${year}`
+      }
+      if (payment.payment_source === 'external') label = `تحصيل خارجي — ${label}`
+    }
+  } else if (notes.toLowerCase().includes('down payment contract scope')) {
+    label = 'مقدم التعاقد'
+  }
+
+  if (
+    (payment.payment_source === 'distributor_balance' || notes.includes('رصيد عمولة')) &&
+    !label.includes('رصيد العمولة')
+  ) {
+    label += ' — من رصيد العمولة'
+  }
+  if (Number(payment.amount) < 0 && !label.startsWith('استرداد')) {
+    label = `استرداد — ${label}`
+  }
+  return label
+}
+
 function getParams(config?: AxiosRequestConfig): Record<string, string> {
   const p = config?.params
   if (!p) return {}
@@ -2937,19 +3051,42 @@ export function handleMockRequest(
       ? Number(params.installment_item_id)
       : undefined
     const status = params.status as string | undefined
+    const paymentSource = params.payment_source as string | undefined
+    const search = (params.search ?? '').trim().toLowerCase()
+    const range = paymentPaidRange(params)
 
     if (customerId) rows = rows.filter((p) => p.customer_id === customerId)
     if (invoiceId) rows = rows.filter((p) => p.sales_invoice_id === invoiceId)
     if (installmentItemId) rows = rows.filter((p) => p.installment_item_id === installmentItemId)
     if (status) rows = rows.filter((p) => p.status === status)
+    if (paymentSource) rows = rows.filter((p) => p.payment_source === paymentSource)
+    if (search) {
+      rows = rows.filter((p) => {
+        const name = state.customers.find((c) => c.id === p.customer_id)?.name ?? ''
+        return name.toLowerCase().includes(search)
+      })
+    }
+    if (range.from || range.to) {
+      rows = rows.filter((p) => {
+        const paidAt = new Date(p.paid_at)
+        if (Number.isNaN(paidAt.getTime())) return false
+        if (range.from && paidAt < range.from) return false
+        if (range.to && paidAt > range.to) return false
+        return true
+      })
+    }
 
+    rows.sort((a, b) => String(b.paid_at).localeCompare(String(a.paid_at)))
+
+    const totalAmount = Math.round(rows.reduce((sum, payment) => sum + Number(payment.amount), 0) * 100) / 100
     const enriched = rows.map((payment) => ({
       ...payment,
+      source_label: mockPaymentSourceLabel(state, payment),
       customer: state.customers.find((c) => c.id === payment.customer_id),
       sales_invoice: state.invoices.find((i) => i.id === payment.sales_invoice_id),
     }))
 
-    return paginate(enriched, params)
+    return { ...paginate(enriched, params), total_amount: totalAmount }
   }
 
   if (m === 'GET' && path.match(/^payment-transactions\/\d+$/)) {

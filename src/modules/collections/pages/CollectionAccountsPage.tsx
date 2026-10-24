@@ -46,6 +46,7 @@ export function CollectionAccountsPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const canAdd = userCanCrud(user, 'collection_accounts', 'add')
+  const canEdit = userCanCrud(user, 'collection_accounts', 'edit')
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -218,13 +219,15 @@ export function CollectionAccountsPage() {
                     onEdit={openEdit}
                     showView={false}
                   />
-                  <button
-                    type="button"
-                    onClick={() => toggleMutation.mutate(row.id)}
-                    className="text-xs text-on-surface-variant hover:underline"
-                  >
-                    {row.is_active ? 'إلغاء' : 'تفعيل'}
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => toggleMutation.mutate(row.id)}
+                      className="text-xs text-on-surface-variant hover:underline"
+                    >
+                      {row.is_active ? 'إلغاء' : 'تفعيل'}
+                    </button>
+                  )}
                 </div>
               ),
             },
