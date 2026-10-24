@@ -338,12 +338,12 @@
   margin: 0;
 }
 .ic-cash-below .ic-warning-row .ic-warning {
-  font-size: 22.47pt;
+  font-size: 12pt;
   padding: 1.4mm 2mm;
   min-height: 6.5mm;
-  white-space: normal;
-  overflow: visible;
-  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 1;
 }
 .ic-cash-below .ic-alert-grid {
   gap: 2mm;
