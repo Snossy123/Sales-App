@@ -542,6 +542,8 @@ export interface ProductUnit {
   cost_price?: string | number | null
   sell_price?: string | number | null
   notes?: string | null
+  maintenance_entered_on?: string | null
+  maintenance_exited_on?: string | null
   product_model?: ProductModel
   warehouse?: Warehouse
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatVisitDate,
   inventoryBucketLabel,
+  maintenanceVisitStatusLabel,
   productUnitDisplayCode,
   productUnitStateLabel,
 } from './inventoryBuckets'
@@ -16,6 +18,20 @@ describe('inventoryBuckets', () => {
     expect(productUnitStateLabel('sold')).toBe('مباع')
     expect(productUnitStateLabel('mystery')).toBe('mystery')
     expect(productUnitStateLabel(undefined)).toBeNull()
+  })
+
+  it('labels the latest maintenance visit from entry and exit dates', () => {
+    expect(maintenanceVisitStatusLabel({})).toBe('لم يدخل')
+    expect(maintenanceVisitStatusLabel({ maintenance_entered_on: '2026-10-24' })).toBe('راح الصيانة')
+    expect(
+      maintenanceVisitStatusLabel({
+        maintenance_entered_on: '2026-10-01',
+        maintenance_exited_on: '2026-10-18',
+      }),
+    ).toBe('خلص صيانة')
+    expect(formatVisitDate(null)).toBe('—')
+    expect(formatVisitDate('2026-10-24')).toBe('24/10/2026')
+    expect(formatVisitDate('2026-10-24T00:00:00.000000Z')).toBe('24/10/2026')
   })
 
   it('prefers serial, then IMEI, then id for the display code', () => {

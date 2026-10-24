@@ -3,7 +3,7 @@ import { Pagination } from './Pagination'
 
 export interface Column<T> {
   key: string
-  header: string
+  header: ReactNode
   render?: (row: T) => ReactNode
   className?: string
   headerDataTour?: string
@@ -33,6 +33,8 @@ interface DataTableProps<T> {
    * stays sticky (replaces page-based browsing when pageSize is omitted).
    */
   maxHeight?: string
+  /** Fired when the rows on the current page change. */
+  onVisibleRowsChange?: (rows: T[]) => void
 }
 
 export function DataTable<T extends object>({
@@ -49,6 +51,7 @@ export function DataTable<T extends object>({
   pageSize,
   pageKey,
   maxHeight,
+  onVisibleRowsChange,
 }: DataTableProps<T>) {
   const paginate = typeof pageSize === 'number' && pageSize > 0
   const total = data.length
@@ -67,6 +70,13 @@ export function DataTable<T extends object>({
   const visibleRows = paginate
     ? data.slice((currentPage - 1) * pageSize, (currentPage - 1) * pageSize + pageSize)
     : data
+  const visibleKey = visibleRows.map((row) => String(keyExtractor(row))).join('|')
+
+  useEffect(() => {
+    onVisibleRowsChange?.(visibleRows)
+    // visibleRows is derived from visibleKey; depending on the array would retrigger every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey, onVisibleRowsChange])
 
   if (total === 0) {
     return (

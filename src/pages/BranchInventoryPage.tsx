@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../api/client'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, getErrorMessage } from '../api/client'
 import type { CustodyVoucher, PaginatedResponse, ProductUnit } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
@@ -12,7 +12,9 @@ import { Modal } from '../components/Modal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   CUSTODY_BUCKET_OPTIONS,
+  formatVisitDate,
   inventoryBucketLabel,
+  maintenanceVisitStatusLabel,
   productUnitDisplayCode,
   productUnitStateLabel,
 } from '../lib/inventoryBuckets'
@@ -51,6 +53,38 @@ function modelName(unit?: ProductUnit | null): string {
   return unit?.product_model?.name_ar ?? unit?.product_model?.name ?? '—'
 }
 
+function todayIsoDate(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+function PageSelectCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean
+  indeterminate: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      aria-label="تحديد أجهزة الصفحة"
+      onChange={(event) => onChange(event.target.checked)}
+    />
+  )
+}
+
 function DeviceField({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <div>
@@ -78,6 +112,13 @@ function CustodyDeviceSummary({ unit }: { unit: ProductUnit }) {
       <DeviceField label="الموظف" value={unit.custody_employee?.name} />
       <DeviceField label="العميل" value={unit.custody_customer?.name} />
       <DeviceField label="تاريخ الاستلام" value={formatDatetime12hDisplay(unit.custody_received_at)} />
+      {unit.inventory_bucket === 'custody_maintenance' && (
+        <>
+          <DeviceField label="حالة الصيانة" value={maintenanceVisitStatusLabel(unit)} />
+          <DeviceField label="تاريخ الدخول" value={formatVisitDate(unit.maintenance_entered_on)} />
+          <DeviceField label="تاريخ الخروج" value={formatVisitDate(unit.maintenance_exited_on)} />
+        </>
+      )}
       <div className="sm:col-span-2">
         <p className="text-on-surface-variant">ملاحظات الجهاز</p>
         <p className="font-medium whitespace-pre-wrap">{unit.notes?.trim() || '—'}</p>
@@ -90,6 +131,7 @@ export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
   const canReceive = userCanPerform(user, 'inventory.branch.receive')
   const canIssue = userCanPerform(user, 'inventory.branch.issue')
+  const canMarkVisit = canReceive || userCanPerform(user, 'inventory.branch.maintenance')
   const queryClient = useQueryClient()
   const [view, setView] = useState<InventoryView>('custody')
   const [voucherOpen, setVoucherOpen] = useState(false)
@@ -106,6 +148,11 @@ export function BranchInventoryPage() {
   const [dateTo, setDateTo] = useState('')
   const [selectedVoucher, setSelectedVoucher] = useState<CustodyVoucher | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<ProductUnit | null>(null)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [visibleIds, setVisibleIds] = useState<number[]>([])
+  const [visitAction, setVisitAction] = useState<'enter' | 'exit' | null>(null)
+  const [visitDate, setVisitDate] = useState(todayIsoDate)
+  const [visitError, setVisitError] = useState('')
 
   const query = useQuery({
     queryKey: ['branch-inventory', user?.branch_id],
@@ -141,6 +188,14 @@ export function BranchInventoryPage() {
     },
     enabled: selectedUnit != null,
   })
+
+  const onVisibleRowsChange = useCallback((rows: ProductUnit[]) => {
+    setVisibleIds((current) => {
+      const next = rows.map((row) => row.id)
+      if (current.length === next.length && current.every((id, index) => id === next[index])) return current
+      return next
+    })
+  }, [])
 
   const units = query.data?.units ?? []
   const vouchers = vouchersQuery.data ?? []
@@ -217,6 +272,59 @@ export function BranchInventoryPage() {
       )
     })
   }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter])
+
+  const maintenanceMode = bucketFilter === 'custody_maintenance'
+  const selectedMaintenanceIds = useMemo(
+    () => selectedIds.filter((id) => filteredUnits.some((unit) => unit.id === id)),
+    [filteredUnits, selectedIds],
+  )
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id))
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.includes(id))
+
+  function updateBucketFilter(value: string) {
+    setBucketFilter(value)
+    if (value !== 'custody_maintenance') setSelectedIds([])
+  }
+
+  const visitMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ units: ProductUnit[] }>('/inventory/maintenance/visits', {
+        product_unit_ids: selectedMaintenanceIds,
+        action: visitAction,
+        occurred_on: visitDate,
+      })
+      return data
+    },
+    onSuccess: (data) => {
+      setSelectedUnit((current) => {
+        if (!current) return current
+        return data.units.find((unit) => unit.id === current.id) ?? current
+      })
+      setSelectedIds([])
+      setVisitAction(null)
+      setVisitError('')
+      queryClient.invalidateQueries({ queryKey: ['branch-inventory'] })
+    },
+    onError: (error) => setVisitError(getErrorMessage(error)),
+  })
+
+  function openVisit(action: 'enter' | 'exit') {
+    setVisitAction(action)
+    setVisitDate(todayIsoDate())
+    setVisitError('')
+  }
+
+  function toggleUnit(id: number) {
+    setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  }
+
+  function toggleVisiblePage(checked: boolean) {
+    setSelectedIds((current) => {
+      if (checked) return [...new Set([...current, ...visibleIds])]
+      const hidden = new Set(visibleIds)
+      return current.filter((id) => !hidden.has(id))
+    })
+  }
 
   const filteredVouchers = useMemo(() => {
     const q = logSearch.trim().toLowerCase()
@@ -304,7 +412,7 @@ export function BranchInventoryPage() {
                   key={option.value}
                   type="button"
                   className={`rounded-lg text-start ${selected ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => setBucketFilter(selected ? '' : option.value)}
+                  onClick={() => updateBucketFilter(selected ? '' : option.value)}
                 >
                   <KpiCard label={option.label} value={bucketCounts[option.value] ?? 0} icon="inventory" />
                 </button>
@@ -327,7 +435,7 @@ export function BranchInventoryPage() {
                     label: option.label,
                   })),
                 ],
-                onChange: setBucketFilter,
+                onChange: updateBucketFilter,
               },
               {
                 id: 'employee',
@@ -347,11 +455,30 @@ export function BranchInventoryPage() {
             showClear={hasCustodyFilters}
             onClear={() => {
               setUnitSearch('')
-              setBucketFilter('')
+              updateBucketFilter('')
               setEmployeeFilter('')
               setCustomerFilter('')
             }}
           />
+          {maintenanceMode && canMarkVisit && selectedMaintenanceIds.length > 0 && (
+            <div className="mb-sm flex flex-wrap items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
+              <span className="text-sm text-on-surface">{selectedMaintenanceIds.length} جهاز محدد</span>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary"
+                onClick={() => openVisit('enter')}
+              >
+                راح الصيانة
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                onClick={() => openVisit('exit')}
+              >
+                خلص صيانة
+              </button>
+            </div>
+          )}
           <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
               <DataTable<ProductUnit>
                 data={filteredUnits}
@@ -359,8 +486,31 @@ export function BranchInventoryPage() {
                 pageSize={PAGE_SIZE}
                 pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}`}
                 striped={false}
+                onVisibleRowsChange={maintenanceMode ? onVisibleRowsChange : undefined}
                 emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
                 columns={[
+                  ...(maintenanceMode && canMarkVisit
+                    ? [
+                        {
+                          key: 'select',
+                          header: (
+                            <PageSelectCheckbox
+                              checked={allVisibleSelected}
+                              indeterminate={someVisibleSelected && !allVisibleSelected}
+                              onChange={toggleVisiblePage}
+                            />
+                          ),
+                          render: (row: ProductUnit) => (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(row.id)}
+                              aria-label={`تحديد ${productUnitDisplayCode(row)}`}
+                              onChange={() => toggleUnit(row.id)}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
                   {
                     key: 'serial',
                     header: 'السريال',
@@ -377,6 +527,27 @@ export function BranchInventoryPage() {
                     header: 'الحالة',
                     render: (row) => productUnitStateLabel(row.state) ?? '—',
                   },
+                  ...(maintenanceMode
+                    ? [
+                        {
+                          key: 'visit_status',
+                          header: 'حالة الصيانة',
+                          render: (row: ProductUnit) => maintenanceVisitStatusLabel(row),
+                        },
+                        {
+                          key: 'entered_on',
+                          header: 'تاريخ الدخول',
+                          className: 'tabular-nums',
+                          render: (row: ProductUnit) => formatVisitDate(row.maintenance_entered_on),
+                        },
+                        {
+                          key: 'exited_on',
+                          header: 'تاريخ الخروج',
+                          className: 'tabular-nums',
+                          render: (row: ProductUnit) => formatVisitDate(row.maintenance_exited_on),
+                        },
+                      ]
+                    : []),
                   {
                     key: 'employee',
                     header: 'الموظف',
@@ -560,6 +731,58 @@ export function BranchInventoryPage() {
         title={selectedVoucher?.type === 'issuance' ? 'تفاصيل إذن الصرف' : 'تفاصيل إذن الاستلام'}
       >
         {selectedVoucher && <CustodyVoucherDetails voucher={selectedVoucher} />}
+      </Modal>
+
+      <Modal
+        open={visitAction !== null}
+        onClose={() => {
+          if (!visitMutation.isPending) setVisitAction(null)
+        }}
+        title={visitAction === 'exit' ? 'خلص صيانة' : 'راح الصيانة'}
+        size="sm"
+      >
+        <form
+          className="space-y-md"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setVisitError('')
+            visitMutation.mutate()
+          }}
+        >
+          <label className="block text-sm">
+            <span className="text-on-surface-variant">{visitAction === 'exit' ? 'تاريخ الخروج' : 'تاريخ الدخول'}</span>
+            <input
+              type="date"
+              required
+              value={visitDate}
+              onChange={(event) => setVisitDate(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2"
+            />
+          </label>
+          <p className="text-sm text-on-surface-variant">
+            {visitAction === 'exit'
+              ? `هيتم تسجيل خروج ${selectedMaintenanceIds.length} جهاز، ويفضلوا في قائمة الصيانة.`
+              : `هيتم تسجيل دخول ${selectedMaintenanceIds.length} جهاز للصيانة.`}
+          </p>
+          {visitError && <p className="text-sm text-error">{visitError}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
+              onClick={() => setVisitAction(null)}
+              disabled={visitMutation.isPending}
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary disabled:opacity-60"
+              disabled={visitMutation.isPending || selectedMaintenanceIds.length === 0}
+            >
+              حفظ
+            </button>
+          </div>
+        </form>
       </Modal>
 
       <CustodyVoucherModal
