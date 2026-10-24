@@ -8,6 +8,7 @@ import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
+import { userCanPerform } from '../lib/access'
 import { useAuthStore } from '../stores/authStore'
 
 const STATUS_OPTIONS = [
@@ -50,7 +51,12 @@ function warehouseLabel(warehouse?: DeviceMovement['from_warehouse']): string {
 }
 
 export function DeviceMovementsPage() {
-  const userId = useAuthStore((s) => s.user?.id)
+  const user = useAuthStore((s) => s.user)
+  const userId = user?.id
+  const canCreateMovement =
+    userCanPerform(user, 'device_movements.create') ||
+    userCanPerform(user, 'device_movements.transfer_quantity') ||
+    userCanPerform(user, 'device_movements.transfer_branch')
   const [statusFilter, setStatusFilter] = useState('pending')
   const [directionFilter, setDirectionFilter] = useState('')
 
@@ -130,12 +136,14 @@ export function DeviceMovementsPage() {
       title="حركات الأجهزة"
       subtitle="نقل الأجهزة بين المخازن مع تأكيد من المستلم"
       actions={
-        <Link
-          to="/inventory/movements/new"
-          className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary hover:bg-primary/90"
-        >
-          حركة جديدة
-        </Link>
+        canCreateMovement ? (
+          <Link
+            to="/inventory/movements/new"
+            className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary hover:bg-primary/90"
+          >
+            حركة جديدة
+          </Link>
+        ) : undefined
       }
       filters={
         <FilterBar

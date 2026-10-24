@@ -93,8 +93,6 @@ const CRUD_MANAGE_FALLBACKS: Record<string, { keys: string[]; includeDelete?: bo
   customers: { keys: ['customers.manage'] },
   distributors: { keys: ['distributors.manage', 'customers.manage'] },
   services: { keys: ['settings.manage'] },
-  accessories: { keys: ['inventory.manage'] },
-  accessory_packages: { keys: ['inventory.manage'] },
   collection_accounts: { keys: ['collection_accounts.manage'], includeDelete: true },
 }
 

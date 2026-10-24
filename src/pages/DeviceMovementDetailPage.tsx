@@ -7,6 +7,7 @@ import { AsyncState } from '../components/AsyncState'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { ToastBanner } from '../components/ToastBanner'
+import { userCanPerform } from '../lib/access'
 import { useAuthStore } from '../stores/authStore'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -38,7 +39,11 @@ export function DeviceMovementDetailPage() {
   const { id } = useParams()
   const movementId = Number(id)
   const queryClient = useQueryClient()
-  const userId = useAuthStore((s) => s.user?.id)
+  const user = useAuthStore((s) => s.user)
+  const userId = user?.id
+  const canConfirmMovement = userCanPerform(user, 'device_movements.confirm')
+  const canRejectMovement = userCanPerform(user, 'device_movements.reject')
+  const canCancelMovement = userCanPerform(user, 'device_movements.cancel')
   const [rejectReason, setRejectReason] = useState('')
   const [showReject, setShowReject] = useState(false)
   const [toast, setToast] = useState('')
@@ -55,8 +60,9 @@ export function DeviceMovementDetailPage() {
   const movement = query.data
   const isRecipient = movement?.recipient_user_id === userId
   const isSender = movement?.sender_user_id === userId
-  const canConfirm = movement?.status === 'pending' && isRecipient
-  const canCancel = movement?.status === 'pending' && isSender
+  const canConfirm = movement?.status === 'pending' && isRecipient && canConfirmMovement
+  const canReject = movement?.status === 'pending' && isRecipient && canRejectMovement
+  const canCancel = movement?.status === 'pending' && isSender && canCancelMovement
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['device-movements'] })
@@ -205,30 +211,34 @@ export function DeviceMovementDetailPage() {
               </div>
             </section>
 
-            {canConfirm && (
+            {(canConfirm || canReject) && (
               <section className="rounded-xl border border-primary/30 bg-primary/5 p-md">
                 <h3 className="mb-sm font-semibold text-on-surface">تأكيد الاستلام</h3>
                 <p className="mb-md text-sm text-on-surface-variant">
                   هذه الحركة مرسلة إليك — يرجى تأكيد استلام الأجهزة أو رفض الحركة.
                 </p>
                 <div className="flex flex-wrap gap-sm">
-                  <button
-                    type="button"
-                    disabled={confirmMutation.isPending}
-                    onClick={() => confirmMutation.mutate()}
-                    className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    {confirmMutation.isPending ? 'جاري التأكيد…' : 'تأكيد الاستلام'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowReject((v) => !v)}
-                    className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:border-error/40 hover:text-error"
-                  >
-                    رفض
-                  </button>
+                  {canConfirm && (
+                    <button
+                      type="button"
+                      disabled={confirmMutation.isPending}
+                      onClick={() => confirmMutation.mutate()}
+                      className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {confirmMutation.isPending ? 'جاري التأكيد…' : 'تأكيد الاستلام'}
+                    </button>
+                  )}
+                  {canReject && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReject((v) => !v)}
+                      className="rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:border-error/40 hover:text-error"
+                    >
+                      رفض
+                    </button>
+                  )}
                 </div>
-                {showReject && (
+                {canReject && showReject && (
                   <div className="mt-md space-y-sm">
                     <textarea
                       value={rejectReason}

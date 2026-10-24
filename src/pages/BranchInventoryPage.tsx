@@ -15,6 +15,7 @@ import {
   productUnitStateLabel,
 } from '../lib/inventoryBuckets'
 import { formatDatetime12hDisplay } from '../lib/datetime12h'
+import { userCanPerform } from '../lib/access'
 import { useAuthStore } from '../stores/authStore'
 
 type InventoryView = 'custody' | 'log'
@@ -46,6 +47,8 @@ function modelName(unit?: ProductUnit | null): string {
 
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
+  const canReceive = userCanPerform(user, 'inventory.branch.receive')
+  const canIssue = userCanPerform(user, 'inventory.branch.issue')
   const queryClient = useQueryClient()
   const [view, setView] = useState<InventoryView>('custody')
   const [voucherOpen, setVoucherOpen] = useState(false)
@@ -174,28 +177,32 @@ export function BranchInventoryPage() {
       title="مخزون الفرع"
       subtitle={view === 'custody' ? 'الأجهزة الحالية في العهدة' : 'سجل أذون الاستلام والصرف'}
       actions={
-        view === 'custody' ? (
+        view === 'custody' && (canReceive || canIssue) ? (
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              onClick={() => {
-                setVoucherMode('receive')
-                setVoucherOpen(true)
-              }}
-            >
-              إذن استلام
-            </button>
-            <button
-              type="button"
-              className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary"
-              onClick={() => {
-                setVoucherMode('issue')
-                setVoucherOpen(true)
-              }}
-            >
-              إذن صرف
-            </button>
+            {canReceive && (
+              <button
+                type="button"
+                className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                onClick={() => {
+                  setVoucherMode('receive')
+                  setVoucherOpen(true)
+                }}
+              >
+                إذن استلام
+              </button>
+            )}
+            {canIssue && (
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary"
+                onClick={() => {
+                  setVoucherMode('issue')
+                  setVoucherOpen(true)
+                }}
+              >
+                إذن صرف
+              </button>
+            )}
           </div>
         ) : undefined
       }

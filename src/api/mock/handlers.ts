@@ -1,4 +1,10 @@
 import type { AxiosRequestConfig } from 'axios'
+import {
+  DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS,
+  INVENTORY_MANAGE_REPLACEMENTS,
+  STOCK_TRANSFER_REPLACEMENTS,
+  WAREHOUSES_MANAGE_REPLACEMENTS,
+} from '../../modules/admin/lib/permissionCatalog'
 import type {
   CollectionFollowUpLog,
   AccountingDashboard,
@@ -5371,8 +5377,12 @@ export function handleMockRequest(
 
   if (m === 'GET' && path === 'admin/permissions') {
     const allKeys = [
-      'dashboard.view', 'branches.manage', 'warehouses.manage', 'inventory.manage',
-      'device_movements.manage', 'device_movements.transfer_quantity', 'stock.transfer',
+      'dashboard.view', 'branches.manage',
+      ...WAREHOUSES_MANAGE_REPLACEMENTS,
+      ...INVENTORY_MANAGE_REPLACEMENTS,
+      ...DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS,
+      'device_movements.transfer_quantity', 'device_movements.transfer_branch',
+      ...STOCK_TRANSFER_REPLACEMENTS,
       'customers.manage', 'customers.view', 'customers.add', 'customers.edit', 'customers.delete',
       'distributors.view', 'distributors.add', 'distributors.edit', 'distributors.delete',
       'promotions.view', 'promotions.add', 'promotions.edit', 'promotions.delete',
@@ -5411,8 +5421,9 @@ export function handleMockRequest(
       'scope.organization', 'scope.administration', 'scope.branches', 'scope.branch',
       'contract_cases.manage', 'contract_cases.disburse',
     ]
+    const uniqueKeys = [...new Set(allKeys)]
     const grouped: Record<string, string[]> = {}
-    for (const perm of allKeys) {
+    for (const perm of uniqueKeys) {
       const group = perm.split('.')[0]
       if (!grouped[group]) grouped[group] = []
       grouped[group].push(perm)

@@ -8,7 +8,9 @@ import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
+import { userCanPerform } from '../lib/access'
 import { type ApiPaginated } from '../lib/sales'
+import { useAuthStore } from '../stores/authStore'
 import { NumericInput } from '../components/ui/NumericInput'
 
 
@@ -134,6 +136,8 @@ function PriceField({
 export function InventoryProductSettingsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canEditProduct = userCanPerform(user, 'inventory.product.edit')
   const [form, setForm] = useState<GpsProductForm>(emptyForm)
   const [isNew, setIsNew] = useState(true)
   const [successToast, setSuccessToast] = useState('')
@@ -206,6 +210,7 @@ export function InventoryProductSettingsPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (!canEditProduct) return
     saveMutation.mutate()
   }
 
@@ -428,6 +433,7 @@ export function InventoryProductSettingsPage() {
             <p className="text-sm text-error">{getErrorMessage(saveMutation.error)}</p>
           )}
 
+          {canEditProduct && (
           <div className="flex flex-wrap gap-sm">
             <button
               type="submit"
@@ -446,6 +452,7 @@ export function InventoryProductSettingsPage() {
               </button>
             )}
           </div>
+          )}
         </form>
       </AsyncState>
     </div>

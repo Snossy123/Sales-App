@@ -10,6 +10,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanPerform } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -26,6 +28,8 @@ function formatDate(value?: string | null): string {
 }
 
 export function InventoryReturnsPage() {
+  const user = useAuthStore((s) => s.user)
+  const canReturn = userCanPerform(user, 'stock.return')
   const queryClient = useQueryClient()
   const [departmentId, setDepartmentId] = useState<number | ''>('')
   const [branchId, setBranchId] = useState<number | ''>('')
@@ -104,6 +108,7 @@ export function InventoryReturnsPage() {
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
       )}
 
+      {canReturn && (
       <div className="mb-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
         <h2 className="mb-md text-base font-bold">استرجاع جديد</h2>
         <form
@@ -165,6 +170,7 @@ export function InventoryReturnsPage() {
           </div>
         </form>
       </div>
+      )}
 
       <h2 className="mb-sm text-base font-bold">سجل الاسترجاع</h2>
       <AsyncState

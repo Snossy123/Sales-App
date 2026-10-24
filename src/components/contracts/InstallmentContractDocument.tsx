@@ -282,6 +282,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     return {
       amount,
       due: amount ? (installmentRows[index]?.due ?? '') : '',
+      paid: amount ? (installmentRows[index]?.paid ?? '') : '',
     }
   })
 
@@ -394,12 +395,23 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                     {renewalInstallments.map((cell, index) => (
                       <div className="ic-renewal-box" key={index}>
                         <span>القسط {index + 1}</span>
-                        <div className="ic-renewal-box-value" dir="ltr">
-                          <strong>{cell.amount || '—'}</strong>
-                          {cell.due ? (
-                            <span className="ic-renewal-box-due">{cell.due}</span>
-                          ) : null}
-                        </div>
+                        <strong dir="ltr">{cell.amount || '—'}</strong>
+                        {cell.amount ? (
+                          <>
+                            <div className="ic-renewal-box-meta">
+                              <span>استحقاق</span>
+                              <span className="ic-renewal-box-due" dir="ltr">
+                                {cell.due || '—'}
+                              </span>
+                            </div>
+                            <div className="ic-renewal-box-meta">
+                              <span>تاريخ السداد</span>
+                              <span className="ic-renewal-box-due" dir="ltr">
+                                {cell.paid || '—'}
+                              </span>
+                            </div>
+                          </>
+                        ) : null}
                       </div>
                     ))}
                   </div>

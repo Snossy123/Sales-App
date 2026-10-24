@@ -23,6 +23,7 @@ export const MODULE_LABELS: Record<string, string> = {
   warehouses: 'المخازن',
   inventory: 'مخزون GPS',
   stock: 'تحويلات المخزون',
+  accessory_stock: 'مخزون الإكسسوارات',
   customers: 'العملاء',
   distributors: 'الموزعين',
   promotions: 'العروض الترويجية',
@@ -48,6 +49,53 @@ export const MODULE_LABELS: Record<string, string> = {
   contracts: 'مشاكل العقود',
   scope: 'نطاق البيانات',
 }
+
+/** Keys granted to any role that previously had inventory.manage. */
+export const INVENTORY_MANAGE_REPLACEMENTS = [
+  'inventory.gps.view',
+  'inventory.product.view',
+  'inventory.product.edit',
+  'inventory.stock.add',
+  'inventory.stock.receipts.view',
+  'inventory.branch.view',
+  'inventory.branch.receive',
+  'inventory.branch.issue',
+  'inventory.branch.maintenance',
+  'accessory_stock.view',
+  'accessory_stock.add',
+  'accessory_stock.distribute',
+  'accessory_stock.return',
+  'accessories.view',
+  'accessories.add',
+  'accessories.edit',
+  'accessories.delete',
+  'accessory_packages.view',
+  'accessory_packages.add',
+  'accessory_packages.edit',
+  'accessory_packages.delete',
+] as const
+
+export const STOCK_TRANSFER_REPLACEMENTS = [
+  'stock.distribute.view',
+  'stock.distribute',
+  'stock.return.view',
+  'stock.return',
+] as const
+
+export const WAREHOUSES_MANAGE_REPLACEMENTS = [
+  'warehouses.view',
+  'warehouses.add',
+  'warehouses.edit',
+  'warehouses.sync',
+] as const
+
+export const DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS = [
+  'device_movements.view',
+  'device_movements.create',
+  'device_movements.confirm',
+  'device_movements.reject',
+  'device_movements.cancel',
+] as const
 
 export interface PermissionSectionDef {
   id: string
@@ -140,7 +188,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
     id: 'inventory',
     label: 'المخزون',
     icon: 'inventory_2',
-    modules: ['inventory', 'stock', 'warehouses', 'accessories', 'accessory_packages'],
+    modules: ['inventory', 'stock', 'warehouses', 'accessories', 'accessory_packages', 'accessory_stock'],
   },
   {
     id: 'system',
@@ -174,11 +222,34 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'daily_reports.view', module: 'daily_reports', category: 'view', label: 'عرض البيان اليومي', description: 'عرض وطباعة البيان اليومي المستنتج للفروع' },
   { key: 'daily_reports.manage', module: 'daily_reports', category: 'edit', label: 'إدارة البيان اليومي', description: 'حفظ وتعديل الحقول اليدوية ولقطة البيان اليومي' },
   { key: 'branches.manage', module: 'branches', category: 'other', label: 'إدارة الفروع', description: 'إنشاء وتعديل وإدارة فروع الإدارات' },
-  { key: 'warehouses.manage', module: 'warehouses', category: 'other', label: 'إدارة المخازن', description: 'إنشاء وتعديل مخازن الفروع' },
-  { key: 'inventory.manage', module: 'inventory', category: 'other', label: 'إدارة المخزون', description: 'عرض وإدارة مخزون أجهزة GPS' },
-  { key: 'device_movements.manage', module: 'inventory', category: 'other', label: 'حركات الأجهزة', description: 'إرسال واستلام وتأكيد حركات الأجهزة بين المخازن' },
+  { key: 'warehouses.view', module: 'warehouses', category: 'view', label: 'عرض المخازن', description: 'فتح صفحة المخازن' },
+  { key: 'warehouses.add', module: 'warehouses', category: 'add', label: 'إنشاء مخزن', description: 'إضافة مخزن جديد' },
+  { key: 'warehouses.edit', module: 'warehouses', category: 'edit', label: 'تعديل مخزن', description: 'تعديل بيانات مخزن' },
+  { key: 'warehouses.sync', module: 'warehouses', category: 'other', label: 'مزامنة المخازن المركزية', description: 'إنشاء المخزن المركزي الناقص لكل إدارة' },
+  { key: 'inventory.gps.view', module: 'inventory', category: 'view', label: 'عرض مخزون GPS', description: 'فتح صفحة مخزون أجهزة GPS' },
+  { key: 'inventory.product.view', module: 'inventory', category: 'view', label: 'عرض إعدادات المنتج', description: 'فتح صفحة إعدادات منتج GPS' },
+  { key: 'inventory.product.edit', module: 'inventory', category: 'edit', label: 'تعديل إعدادات المنتج', description: 'حفظ إعدادات منتج GPS وتعديل السعر' },
+  { key: 'inventory.stock.add', module: 'inventory', category: 'add', label: 'تسجيل مخزون', description: 'إضافة كمية أجهزة GPS للمخزون المركزي' },
+  { key: 'inventory.stock.receipts.view', module: 'inventory', category: 'view', label: 'عرض أذون التسجيل', description: 'عرض سجل إضافات مخزون GPS' },
+  { key: 'inventory.branch.view', module: 'inventory', category: 'view', label: 'عرض مخزون الفرع', description: 'عرض العهدة وسجل أذون الاستلام والصرف' },
+  { key: 'inventory.branch.receive', module: 'inventory', category: 'other', label: 'إذن استلام', description: 'استلام جهاز عميل في عهدة الفرع' },
+  { key: 'inventory.branch.issue', module: 'inventory', category: 'other', label: 'إذن صرف', description: 'صرف جهاز من عهدة الفرع' },
+  { key: 'inventory.branch.maintenance', module: 'inventory', category: 'other', label: 'تحويل للصيانة', description: 'تحويل جهاز من مخزون الفرع إلى الصيانة' },
+  { key: 'device_movements.view', module: 'inventory', category: 'view', label: 'عرض حركات الأجهزة', description: 'عرض قائمة حركات الأجهزة وتفاصيلها' },
+  { key: 'device_movements.create', module: 'inventory', category: 'add', label: 'إنشاء حركة أجهزة', description: 'إرسال أجهزة عملاء بسيريال إلى مستلم' },
+  { key: 'device_movements.confirm', module: 'inventory', category: 'other', label: 'تأكيد استلام الحركة', description: 'تأكيد استلام حركة أجهزة' },
+  { key: 'device_movements.reject', module: 'inventory', category: 'other', label: 'رفض حركة أجهزة', description: 'رفض حركة أجهزة معلّقة' },
+  { key: 'device_movements.cancel', module: 'inventory', category: 'other', label: 'إلغاء حركة أجهزة', description: 'إلغاء حركة معلّقة وإرجاع الأجهزة لمخزن المصدر' },
   { key: 'device_movements.transfer_quantity', module: 'inventory', category: 'other', label: 'نقل كمية من مخزون الفرع', description: 'إنشاء حركة بعدد أجهزة من المخزون دون تحديد السيريال' },
-  { key: 'stock.transfer', module: 'stock', category: 'other', label: 'تحويل المخزون', description: 'إنشاء واعتماد تحويلات المخزون بين الفروع' },
+  { key: 'device_movements.transfer_branch', module: 'inventory', category: 'other', label: 'نقل أجهزة بين الفروع', description: 'نقل جهاز محدد بالسيريال من مخزن فرع إلى مخزن فرع آخر، بما فيها المخزون الجديد وعهدة السوفت والصيانة ومتابعة الفرع' },
+  { key: 'stock.distribute.view', module: 'stock', category: 'view', label: 'عرض سجل التوزيع', description: 'عرض عمليات توزيع مخزون GPS على الفروع' },
+  { key: 'stock.distribute', module: 'stock', category: 'other', label: 'توزيع المخزون', description: 'نقل كمية من المخزن المركزي إلى فرع' },
+  { key: 'stock.return.view', module: 'stock', category: 'view', label: 'عرض سجل الاسترجاع', description: 'عرض عمليات استرجاع مخزون GPS للإدارة' },
+  { key: 'stock.return', module: 'stock', category: 'other', label: 'استرجاع المخزون', description: 'إرجاع كمية من فرع إلى المخزن المركزي' },
+  { key: 'accessory_stock.view', module: 'accessory_stock', category: 'view', label: 'عرض مخزون الإكسسوارات', description: 'عرض أرصدة الإكسسوارات في المخازن' },
+  { key: 'accessory_stock.add', module: 'accessory_stock', category: 'add', label: 'استلام مخزون إكسسوارات', description: 'إضافة كمية إكسسوارات أو باكدج للمخزن' },
+  { key: 'accessory_stock.distribute', module: 'accessory_stock', category: 'other', label: 'توزيع مخزون إكسسوارات', description: 'توزيع كمية إكسسوارات على فرع' },
+  { key: 'accessory_stock.return', module: 'accessory_stock', category: 'other', label: 'مرتجع مخزون إكسسوارات', description: 'إرجاع كمية إكسسوارات من فرع للإدارة' },
   { key: 'customers.manage', module: 'customers', category: 'other', label: 'إدارة العملاء', description: 'إنشاء وتعديل بيانات العملاء والضامنين' },
   { key: 'customers.view', module: 'customers', category: 'view', label: 'عرض العملاء', description: 'استعراض قائمة العملاء وملفاتهم' },
   { key: 'customers.add', module: 'customers', category: 'add', label: 'إضافة عميل', description: 'إنشاء عميل جديد' },

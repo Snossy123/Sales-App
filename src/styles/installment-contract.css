@@ -1423,15 +1423,15 @@
 .ic-renewal-box {
   border-inline-end: 1.5px solid #222;
   border-bottom: 1.5px solid #222;
-  padding: 1.8mm 2.5mm;
+  padding: 1mm 1.4mm;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1mm;
-  font-size: 11pt;
+  gap: 0.45mm;
+  font-size: 10pt;
   font-weight: 700;
-  min-height: 12mm;
+  min-height: 0;
   background: #fafafa;
 }
 .ic-renewal-box:nth-child(2n) {
@@ -1441,30 +1441,34 @@
 .ic-renewal-box:nth-child(4) {
   border-bottom: none;
 }
-.ic-renewal-box-value {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5mm;
-  width: 100%;
-  direction: ltr;
-}
 .ic-renewal-box strong {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: calc(100% - 2mm);
   min-width: 0;
-  width: auto;
   text-align: center;
   border: 1.2px solid #777;
   border-radius: 999px;
-  padding: 0.4mm 1mm;
+  padding: 0.2mm 1mm;
   background: #fff;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 11pt;
+  font-size: 10pt;
+  line-height: 1.2;
+}
+.ic-renewal-box-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2mm;
+  width: 100%;
+  font-size: 8pt;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 .ic-renewal-box-due {
   flex: 0 0 auto;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 10pt;
+  font-size: 8.5pt;
   font-weight: 800;
   white-space: nowrap;
 }

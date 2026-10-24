@@ -9,17 +9,40 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/sales/accessories': ['sales.pos.accessories', 'sales.pos'],
   '/sales/maintenance': ['sales.pos.services', 'sales.pos'],
   '/sales/mission': 'sales.daily_mission',
-  '/inventory': 'inventory.manage',
-  '/inventory/branch': 'inventory.manage',
-  '/inventory/movements': 'device_movements.manage',
-  '/inventory/add': 'inventory.manage',
-  '/inventory/transfers': 'stock.transfer',
-  '/inventory/returns': 'stock.transfer',
-  '/inventory/warehouses': 'warehouses.manage',
-  '/inventory/settings': 'inventory.manage',
-  '/inventory/accessories': ['inventory.manage', 'accessories.view'],
-  '/inventory/accessory-packages': ['inventory.manage', 'accessory_packages.view'],
-  '/inventory/accessory-stock': 'inventory.manage',
+  '/inventory': 'inventory.gps.view',
+  '/inventory/branch': [
+    'inventory.branch.view',
+    'inventory.branch.receive',
+    'inventory.branch.issue',
+    'inventory.branch.maintenance',
+  ],
+  '/inventory/movements': [
+    'device_movements.view',
+    'device_movements.create',
+    'device_movements.confirm',
+    'device_movements.reject',
+    'device_movements.cancel',
+    'device_movements.transfer_quantity',
+    'device_movements.transfer_branch',
+  ],
+  '/inventory/add': ['inventory.stock.add', 'inventory.stock.receipts.view'],
+  '/inventory/transfers': ['stock.distribute.view', 'stock.distribute'],
+  '/inventory/returns': ['stock.return.view', 'stock.return'],
+  '/inventory/warehouses': ['warehouses.view', 'warehouses.add', 'warehouses.edit', 'warehouses.sync'],
+  '/inventory/settings': ['inventory.product.view', 'inventory.product.edit'],
+  '/inventory/accessories': ['accessories.view', 'accessories.add', 'accessories.edit', 'accessories.delete'],
+  '/inventory/accessory-packages': [
+    'accessory_packages.view',
+    'accessory_packages.add',
+    'accessory_packages.edit',
+    'accessory_packages.delete',
+  ],
+  '/inventory/accessory-stock': [
+    'accessory_stock.view',
+    'accessory_stock.add',
+    'accessory_stock.distribute',
+    'accessory_stock.return',
+  ],
   '/customers': ['customers.manage', 'customers.view'],
   '/customers/add': ['customers.manage', 'customers.add'],
   '/distributors': ['customers.manage', 'distributors.view'],
@@ -123,8 +146,15 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.match(/^\/review\/collections\/\d+$/)) {
     return ['review.view_collections', 'review.confirm_collections']
   }
+  if (normalized === '/inventory/movements/new') {
+    return [
+      'device_movements.create',
+      'device_movements.transfer_quantity',
+      'device_movements.transfer_branch',
+    ]
+  }
   if (normalized.startsWith('/inventory/movements')) {
-    return ['device_movements.manage']
+    return asPermissionList(ROUTE_PERMISSIONS['/inventory/movements'])
   }
   if (normalized.match(/^\/payments\/\d+\/receipt$/)) {
     return ['payments.view']

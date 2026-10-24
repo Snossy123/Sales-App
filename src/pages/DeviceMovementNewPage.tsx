@@ -11,7 +11,8 @@ import { api, getErrorMessage } from '../api/client'
 import type { AdminUser, DeviceMovement, PaginatedResponse, ProductUnit, Warehouse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { SalesPageShell } from '../components/SalesPageShell'
-import { getUserRole, userHasPermission } from '../lib/access'
+import { userCanPerform } from '../lib/access'
+import { inventoryBucketLabel, productUnitStateLabel } from '../lib/inventoryBuckets'
 import { normalizeScannedDigits } from '../lib/scanner'
 import { useAuthStore } from '../stores/authStore'
 import { NumericInput } from '../components/ui/NumericInput'
@@ -19,7 +20,9 @@ import { NumericInput } from '../components/ui/NumericInput'
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
-type MovementKind = 'customer' | 'stock'
+type MovementKind = 'customer' | 'stock' | 'branch'
+
+const BRANCH_TRANSFER_STATES = new Set(['available', 'maintenance', 'pending'])
 
 type DeviceMovementDraft = {
   fromWarehouseId: number | ''
@@ -41,16 +44,18 @@ function isSellableStock(unit: ProductUnit): boolean {
   )
 }
 
+function isBranchTransferUnit(unit: ProductUnit): boolean {
+  return unit.inventory_bucket !== 'custody_customer' && BRANCH_TRANSFER_STATES.has(unit.state)
+}
+
 export function DeviceMovementNewPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const userId = user?.id
-  const role = getUserRole(user)
-  const canTransferQuantity =
-    userHasPermission(user, 'device_movements.transfer_quantity') ||
-    role === 'super_admin' ||
-    role === 'admin'
+  const canCreateMovement = userCanPerform(user, 'device_movements.create')
+  const canTransferQuantity = userCanPerform(user, 'device_movements.transfer_quantity')
+  const canTransferBranch = userCanPerform(user, 'device_movements.transfer_branch')
 
   const movementDraft = readProcedureDraft<DeviceMovementDraft>(
     PROCEDURE_DRAFT_IDS.deviceMovement,
@@ -64,7 +69,14 @@ export function DeviceMovementNewPage() {
     () => movementDraft?.recipientUserId ?? '',
   )
   const [notes, setNotes] = useState(() => movementDraft?.notes ?? '')
-  const [kind, setKind] = useState<MovementKind>(() => movementDraft?.kind ?? 'customer')
+  const [kind, setKind] = useState<MovementKind>(() => {
+    const fallback: MovementKind = canCreateMovement ? 'customer' : canTransferQuantity ? 'stock' : 'branch'
+    const draftKind = movementDraft?.kind ?? fallback
+    if (draftKind === 'branch' && !canTransferBranch) return fallback
+    if (draftKind === 'stock' && !canTransferQuantity) return fallback
+    if (draftKind === 'customer' && !canCreateMovement) return fallback
+    return draftKind
+  })
   const [selectedUnitIds, setSelectedUnitIds] = useState<number[]>(
     () => movementDraft?.selectedUnitIds ?? [],
   )
@@ -171,7 +183,23 @@ export function DeviceMovementNewPage() {
     enabled: Boolean(fromWarehouseId) && kind === 'stock' && canTransferQuantity,
   })
 
+  const branchUnitsQuery = useQuery({
+    queryKey: ['product-units', 'device-movements', 'branch', fromWarehouseId],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
+        params: {
+          per_page: 200,
+          'filter[warehouse_id]': fromWarehouseId,
+          include: 'productModel',
+        },
+      })
+      return data.data.filter(isBranchTransferUnit)
+    },
+    enabled: Boolean(fromWarehouseId) && kind === 'branch' && canTransferBranch,
+  })
+
   const customerUnits = customerUnitsQuery.data ?? []
+  const branchUnits = branchUnitsQuery.data ?? []
   const stockByModel = useMemo(() => {
     const groups = new Map<number, { modelId: number; name: string; count: number }>()
     for (const unit of stockUnitsQuery.data ?? []) {
@@ -226,7 +254,16 @@ export function DeviceMovementNewPage() {
         setScanError('الجهاز ليس في مخزن المصدر')
         return
       }
-      if (data.inventory_bucket !== 'custody_customer') {
+      if (kind === 'branch') {
+        if (data.inventory_bucket === 'custody_customer') {
+          setScanError('هذا الجهاز من أجهزة العملاء')
+          return
+        }
+        if (!BRANCH_TRANSFER_STATES.has(data.state)) {
+          setScanError('لا يمكن نقل هذا الجهاز')
+          return
+        }
+      } else if (data.inventory_bucket !== 'custody_customer') {
         setScanError('هذا الجهاز ليس من أجهزة العملاء')
         return
       }
@@ -280,14 +317,18 @@ export function DeviceMovementNewPage() {
       Boolean(recipientUserId)
     if (!base) return false
     if (kind === 'stock') {
-      return Boolean(productModelId) && quantity >= 1 && quantity <= availableForModel
+      return canTransferQuantity && Boolean(productModelId) && quantity >= 1 && quantity <= availableForModel
     }
-    return selectedUnitIds.length > 0
+    if (kind === 'branch') return canTransferBranch && selectedUnitIds.length > 0
+    return canCreateMovement && selectedUnitIds.length > 0
   }, [
     fromWarehouseId,
     toWarehouseId,
     recipientUserId,
     kind,
+    canCreateMovement,
+    canTransferQuantity,
+    canTransferBranch,
     productModelId,
     quantity,
     availableForModel,
@@ -383,20 +424,38 @@ export function DeviceMovementNewPage() {
 
         <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
           <div className="mb-sm flex flex-wrap gap-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setKind('customer')
-                resetSelection()
-              }}
-              className={`rounded-lg px-sm py-1.5 text-sm ${
-                kind === 'customer'
-                  ? 'bg-primary text-on-primary'
-                  : 'border border-outline-variant text-on-surface'
-              }`}
-            >
-              أجهزة عملاء
-            </button>
+            {canCreateMovement && (
+              <button
+                type="button"
+                onClick={() => {
+                  setKind('customer')
+                  resetSelection()
+                }}
+                className={`rounded-lg px-sm py-1.5 text-sm ${
+                  kind === 'customer'
+                    ? 'bg-primary text-on-primary'
+                    : 'border border-outline-variant text-on-surface'
+                }`}
+              >
+                أجهزة عملاء
+              </button>
+            )}
+            {canTransferBranch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setKind('branch')
+                  resetSelection()
+                }}
+                className={`rounded-lg px-sm py-1.5 text-sm ${
+                  kind === 'branch'
+                    ? 'bg-primary text-on-primary'
+                    : 'border border-outline-variant text-on-surface'
+                }`}
+              >
+                أجهزة الفرع
+              </button>
+            )}
             {canTransferQuantity && (
               <button
                 type="button"
@@ -479,6 +538,79 @@ export function DeviceMovementNewPage() {
                                   unit.product_model?.name_ar ??
                                   unit.product_model?.name ??
                                   '—'}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </AsyncState>
+                </>
+              )}
+            </>
+          ) : kind === 'branch' ? (
+            <>
+              <h3 className="mb-sm text-sm font-bold text-on-surface">
+                اختر أجهزة الفرع ({selectedUnitIds.length} محدد)
+              </h3>
+              {!fromWarehouseId ? (
+                <p className="text-sm text-on-surface-variant">اختر مخزن المصدر أولاً</p>
+              ) : (
+                <>
+                  <label className="mb-sm block text-sm">
+                    <span className="mb-xs block text-on-surface-variant">مسح السيريال / IMEI</span>
+                    <input
+                      value={serialCode}
+                      onChange={(e) => setSerialCode(normalizeScannedDigits(e.target.value))}
+                      inputMode="numeric"
+                      onBlur={() => {
+                        if (serialCode.trim()) void lookupSerial(serialCode)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          void lookupSerial(serialCode)
+                        }
+                      }}
+                      className={inputClass}
+                      placeholder="امسح أو أدخل السيريال ثم Enter"
+                      disabled={isLookingUp}
+                    />
+                  </label>
+                  {scanError && <p className="mb-sm text-sm text-error">{scanError}</p>}
+                  <AsyncState
+                    isLoading={branchUnitsQuery.isLoading}
+                    isError={branchUnitsQuery.isError}
+                    error={branchUnitsQuery.error}
+                  >
+                    {branchUnits.length === 0 && selectedUnits.length === 0 ? (
+                      <p className="text-sm text-on-surface-variant">لا توجد أجهزة فرع قابلة للنقل في هذا المخزن</p>
+                    ) : (
+                      <div className="max-h-80 space-y-xs overflow-y-auto">
+                        {[
+                          ...selectedUnits.filter((unit) => !branchUnits.some((item) => item.id === unit.id)),
+                          ...branchUnits,
+                        ].map((unit) => {
+                          const checked = selectedUnitIds.includes(unit.id)
+                          return (
+                            <label
+                              key={unit.id}
+                              className={`flex cursor-pointer items-center gap-sm rounded-lg border px-sm py-2 ${
+                                checked ? 'border-primary/40 bg-primary/5' : 'border-outline-variant/60'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleUnit(unit)}
+                              />
+                              <span className="flex-1 text-sm tabular-nums">
+                                {unit.serial_number ?? unit.imei ?? `#${unit.id}`}
+                              </span>
+                              <span className="text-xs text-on-surface-variant">
+                                {inventoryBucketLabel(unit.inventory_bucket) ?? 'مخزون'}
+                                {' · '}
+                                {productUnitStateLabel(unit.state) ?? unit.state}
                               </span>
                             </label>
                           )

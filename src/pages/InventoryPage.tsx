@@ -20,6 +20,7 @@ import { Pagination } from '../components/Pagination'
 import { ToastBanner } from '../components/ToastBanner'
 import { DonutChartPanel } from '../components/charts/DonutChartPanel'
 import { StackedBarChartPanel } from '../components/charts/StackedBarChartPanel'
+import { userCanPerform } from '../lib/access'
 import { getUserRole } from '../lib/permissions'
 import {
   computeInventoryBranchStackData,
@@ -37,8 +38,14 @@ export function InventoryPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
-  const isAdmin = role === 'super_admin' || role === 'admin'
   const isSuperAdmin = role === 'super_admin'
+  const canEditProduct = userCanPerform(user, 'inventory.product.edit')
+  const canOpenProduct = canEditProduct || userCanPerform(user, 'inventory.product.view')
+  const canOpenDistribute = userCanPerform(user, 'stock.distribute') || userCanPerform(user, 'stock.distribute.view')
+  const canDistribute = userCanPerform(user, 'stock.distribute')
+  const canOpenReturn = userCanPerform(user, 'stock.return') || userCanPerform(user, 'stock.return.view')
+  const canReturn = userCanPerform(user, 'stock.return')
+  const canOpenAddStock = userCanPerform(user, 'inventory.stock.add') || userCanPerform(user, 'inventory.stock.receipts.view')
   const [deptFilter, setDeptFilter] = useState('')
   const [branchSearch, setBranchSearch] = useState('')
   const [rowTypeFilter, setRowTypeFilter] = useState('')
@@ -146,42 +153,50 @@ export function InventoryPage() {
         title="مخزون GPS"
         subtitle="عرض شامل لكل إدارة وفرع — الكمية المعلقة تظهر قبل التوزيع على الفروع"
         actions={
-          isAdmin ? (
+          canOpenProduct || canOpenDistribute || canOpenReturn || canOpenAddStock ? (
             <div className="flex flex-wrap gap-sm">
-              <Link
-                to="/inventory/settings"
-                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
-              >
-                <Icon name="settings" size={18} />
-                إعدادات المنتج
-              </Link>
-              <Link
-                to="/inventory/transfers"
-                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
-              >
-                <Icon name="local_shipping" size={18} />
-                سجل التوزيع
-              </Link>
-              <Link
-                to="/inventory/returns"
-                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
-              >
-                <Icon name="undo" size={18} />
-                استرجاع مخزون
-              </Link>
-              <Link
-                to="/inventory/add"
-                className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-              >
-                <Icon name="add" size={18} />
-                تسجيل مخزون جديد
-              </Link>
+              {canOpenProduct && (
+                <Link
+                  to="/inventory/settings"
+                  className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+                >
+                  <Icon name="settings" size={18} />
+                  إعدادات المنتج
+                </Link>
+              )}
+              {canOpenDistribute && (
+                <Link
+                  to="/inventory/transfers"
+                  className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+                >
+                  <Icon name="local_shipping" size={18} />
+                  سجل التوزيع
+                </Link>
+              )}
+              {canOpenReturn && (
+                <Link
+                  to="/inventory/returns"
+                  className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container"
+                >
+                  <Icon name="undo" size={18} />
+                  استرجاع مخزون
+                </Link>
+              )}
+              {canOpenAddStock && (
+                <Link
+                  to="/inventory/add"
+                  className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+                >
+                  <Icon name="add" size={18} />
+                  تسجيل مخزون جديد
+                </Link>
+              )}
             </div>
           ) : undefined
         }
       />
 
-      {productMissing && isAdmin && (
+      {productMissing && canEditProduct && (
         <div className="mb-md rounded-xl border border-tertiary/30 bg-tertiary/5 p-md">
           <p className="font-medium text-on-surface">لم يتم إعداد منتج GPS بعد</p>
           <p className="mt-xs text-sm text-on-surface-variant">
@@ -198,7 +213,7 @@ export function InventoryPage() {
       )}
 
       {productQuery.data && (
-        <GpsProductCard product={productQuery.data} canEditPrice={isAdmin} />
+        <GpsProductCard product={productQuery.data} canEditPrice={canEditProduct} />
       )}
 
       {successToast && (
@@ -326,7 +341,7 @@ export function InventoryPage() {
                   const deptId = row.department_id as number
                   return (
                     <div className="flex flex-wrap gap-sm">
-                      {isAdmin && (
+                      {canDistribute && (
                         <button
                           type="button"
                           onClick={() => openDistribute(deptId)}
@@ -350,7 +365,7 @@ export function InventoryPage() {
                   const available = row.available as number
                   return (
                     <div className="flex flex-wrap gap-sm">
-                      {isAdmin && available > 0 && (
+                      {canReturn && available > 0 && (
                         <button
                           type="button"
                           onClick={() => openReturn(deptId, branchId)}

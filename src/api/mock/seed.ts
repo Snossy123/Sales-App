@@ -1,4 +1,8 @@
-import { getAllPermissions } from '../../modules/admin/lib/permissionCatalog'
+import {
+  DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS,
+  getAllPermissions,
+  INVENTORY_MANAGE_REPLACEMENTS,
+} from '../../modules/admin/lib/permissionCatalog'
 import { buildManagerPermissionKeys } from '../../lib/roleCatalog'
 import type {
   AccountingAccount,
@@ -802,8 +806,8 @@ export function createSeedState(): DemoState {
         'sales.invoices.view',
         'sales.invoices.edit_before_review',
         'sales.daily_mission',
-        'inventory.manage',
-        'device_movements.manage',
+        ...INVENTORY_MANAGE_REPLACEMENTS,
+        ...DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS,
       ],
     },
     {
@@ -1581,8 +1585,8 @@ export function createSeedState(): DemoState {
         { id: 64, name: 'sales.pos.catalog' },
         { id: 7, name: 'crm.access_own_leads' },
         { id: 8, name: 'scope.branch' },
-        { id: 18, name: 'inventory.manage' },
-        { id: 19, name: 'device_movements.manage' },
+        ...INVENTORY_MANAGE_REPLACEMENTS.map((name, index) => ({ id: 180 + index, name })),
+        ...DEVICE_MOVEMENTS_MANAGE_REPLACEMENTS.map((name, index) => ({ id: 220 + index, name })),
         { id: 20, name: 'sales.daily_mission' },
         { id: 21, name: 'customers.manage' },
         { id: 22, name: 'sales.invoices.view' },

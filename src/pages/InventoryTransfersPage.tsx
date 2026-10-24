@@ -10,6 +10,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanPerform } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -26,6 +28,8 @@ function formatDate(value?: string | null): string {
 }
 
 export function InventoryTransfersPage() {
+  const user = useAuthStore((s) => s.user)
+  const canDistribute = userCanPerform(user, 'stock.distribute')
   const queryClient = useQueryClient()
   const [departmentId, setDepartmentId] = useState<number | ''>('')
   const [branchId, setBranchId] = useState<number | ''>('')
@@ -113,6 +117,7 @@ export function InventoryTransfersPage() {
         <ToastBanner message={successToast} onDismiss={() => setSuccessToast('')} />
       )}
 
+      {canDistribute && (
       <div className="mb-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
         <h2 className="mb-md text-base font-bold">توزيع جديد</h2>
         <form
@@ -174,6 +179,7 @@ export function InventoryTransfersPage() {
           </div>
         </form>
       </div>
+      )}
 
       <h2 className="mb-sm text-base font-bold">سجل التوزيع</h2>
       <AsyncState

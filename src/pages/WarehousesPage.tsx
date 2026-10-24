@@ -10,6 +10,8 @@ import { InsightBanner } from '../components/InsightBanner'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { ToastBanner } from '../components/ToastBanner'
+import { userCanPerform } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 function isCentralWarehouse(warehouse: Warehouse): boolean {
   return warehouse.is_central === true
@@ -28,6 +30,8 @@ function administrationName(administrations: Administration[], administrationId?
 }
 
 export function WarehousesPage() {
+  const user = useAuthStore((s) => s.user)
+  const canSyncWarehouses = userCanPerform(user, 'warehouses.sync')
   const queryClient = useQueryClient()
   const [successToast, setSuccessToast] = useState('')
 
@@ -108,15 +112,17 @@ export function WarehousesPage() {
               <Icon name="corporate_fare" size={18} />
               الإدارات
             </Link>
-            <button
-              type="button"
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
-            >
-              <Icon name="sync" size={18} />
-              {syncMutation.isPending ? 'جاري المزامنة...' : 'مزامنة المخازن المركزية'}
-            </button>
+            {canSyncWarehouses && (
+              <button
+                type="button"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary"
+              >
+                <Icon name="sync" size={18} />
+                {syncMutation.isPending ? 'جاري المزامنة...' : 'مزامنة المخازن المركزية'}
+              </button>
+            )}
           </>
         }
       />

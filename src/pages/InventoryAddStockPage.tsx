@@ -9,6 +9,7 @@ import { DataTable } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { InsightBanner } from '../components/InsightBanner'
 import { PageHeader } from '../components/PageHeader'
+import { userCanPerform } from '../lib/access'
 import { getUserRole } from '../lib/permissions'
 import { useAuthStore } from '../stores/authStore'
 
@@ -33,6 +34,8 @@ export function InventoryAddStockPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const isSuperAdmin = getUserRole(user) === 'super_admin'
+  const canAddStock = userCanPerform(user, 'inventory.stock.add')
+  const canViewReceipts = userCanPerform(user, 'inventory.stock.receipts.view') || canAddStock
 
   const departmentsQuery = useQuery({
     queryKey: ['departments', 'add-stock'],
@@ -53,6 +56,7 @@ export function InventoryAddStockPage() {
       return data.data
     },
     retry: false,
+    enabled: canViewReceipts,
   })
 
   return (
@@ -99,6 +103,7 @@ export function InventoryAddStockPage() {
         ))}
       </div>
 
+      {canAddStock && (
       <div className="mb-lg mx-auto max-w-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
         <AsyncState
           isLoading={departmentsQuery.isLoading}
@@ -111,7 +116,10 @@ export function InventoryAddStockPage() {
           />
         </AsyncState>
       </div>
+      )}
 
+      {canViewReceipts && (
+      <>
       <h2 className="mb-sm text-base font-bold">سجل إضافات المخزون</h2>
       <AsyncState
         isLoading={receiptsQuery.isLoading}
@@ -147,6 +155,8 @@ export function InventoryAddStockPage() {
           ]}
         />
       </AsyncState>
+      </>
+      )}
     </div>
   )
 }

@@ -15,6 +15,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ToastBanner } from '../components/ToastBanner'
 import { NumericInput } from '../components/ui/NumericInput'
+import { userCanPerform } from '../lib/access'
+import { useAuthStore } from '../stores/authStore'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -34,6 +36,10 @@ function stockQty(row: AccessoryWarehouseStock): number {
 
 export function AccessoryStockPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const canAdd = userCanPerform(user, 'accessory_stock.add')
+  const canDistribute = userCanPerform(user, 'accessory_stock.distribute')
+  const canReturn = userCanPerform(user, 'accessory_stock.return')
   const [tab, setTab] = useState<Tab>('add')
   const [targetKind, setTargetKind] = useState<TargetKind>('accessory')
   const [departmentId, setDepartmentId] = useState<number | ''>('')
@@ -147,20 +153,28 @@ export function AccessoryStockPage() {
     }))
   }, [quantity, selectedPackage])
 
+  const tabs: { id: Tab; label: string }[] = [
+    canAdd ? { id: 'add' as const, label: 'استلام' } : null,
+    canDistribute ? { id: 'distribute' as const, label: 'توزيع للفرع' } : null,
+    canReturn ? { id: 'return' as const, label: 'مرتجع للإدارة' } : null,
+  ].filter((item): item is { id: Tab; label: string } => item !== null)
+  const activeTab = tabs.some((item) => item.id === tab) ? tab : tabs[0]?.id
+
   const mutation = useMutation({
     mutationFn: async () => {
+      if (!activeTab) throw new Error('لا توجد صلاحية لهذا الإجراء')
       const payload = {
         department_id: Number(departmentId),
         quantity: Math.max(1, Number(quantity) || 1),
         ...(targetKind === 'package'
           ? { accessory_package_id: Number(packageId) }
           : { product_model_id: Number(productModelId) }),
-        ...(tab !== 'add' ? { branch_id: Number(branchId) } : {}),
+        ...(activeTab !== 'add' ? { branch_id: Number(branchId) } : {}),
       }
       const path =
-        tab === 'add'
+        activeTab === 'add'
           ? '/accessory-stock/add'
-          : tab === 'distribute'
+          : activeTab === 'distribute'
             ? '/accessory-stock/distribute'
             : '/accessory-stock/return'
       const { data } = await api.post(path, payload)
@@ -172,7 +186,7 @@ export function AccessoryStockPage() {
       setQuantity('1')
       setError('')
       setSuccess(
-        tab === 'add' ? 'تم استلام الكمية' : tab === 'distribute' ? 'تم التوزيع' : 'تم الاسترجاع',
+        activeTab === 'add' ? 'تم استلام الكمية' : activeTab === 'distribute' ? 'تم التوزيع' : 'تم الاسترجاع',
       )
     },
     onError: (err) => setError(getErrorMessage(err)),
@@ -192,18 +206,13 @@ export function AccessoryStockPage() {
       setError('اختر الإدارة والباكدج')
       return
     }
-    if (tab !== 'add' && branchId === '') {
+    if (!activeTab) return
+    if (activeTab !== 'add' && branchId === '') {
       setError('اختر الفرع')
       return
     }
     mutation.mutate()
   }
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'add', label: 'استلام' },
-    { id: 'distribute', label: 'توزيع للفرع' },
-    { id: 'return', label: 'مرتجع للإدارة' },
-  ]
 
   return (
     <div>
@@ -219,14 +228,14 @@ export function AccessoryStockPage() {
       )}
       {success && <ToastBanner message={success} onDismiss={() => setSuccess('')} />}
 
-      <div className="mb-md flex gap-sm">
+      {activeTab && <div className="mb-md flex gap-sm">
         {tabs.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
             className={`rounded-lg px-md py-2 text-sm ${
-              tab === item.id
+              activeTab === item.id
                 ? 'bg-primary text-on-primary'
                 : 'border border-outline-variant bg-surface-container-lowest'
             }`}
@@ -234,9 +243,9 @@ export function AccessoryStockPage() {
             {item.label}
           </button>
         ))}
-      </div>
+      </div>}
 
-      <form
+      {activeTab && <form
         onSubmit={onSubmit}
         className="mb-lg grid grid-cols-1 gap-sm rounded-xl border border-outline-variant bg-surface-container-lowest p-md md:grid-cols-2"
       >
@@ -260,7 +269,7 @@ export function AccessoryStockPage() {
           </select>
         </label>
 
-        {tab !== 'add' && (
+        {activeTab !== 'add' && (
           <label className="text-sm">
             الفرع
             <select
@@ -366,7 +375,7 @@ export function AccessoryStockPage() {
             تنفيذ
           </button>
         </div>
-      </form>
+      </form>}
 
       <h2 className="mb-sm text-base font-medium">أرصدة المخازن</h2>
       <AsyncState
