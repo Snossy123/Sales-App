@@ -21,12 +21,54 @@ export function isCustomCashSchedule(schedule: CashSchedule | undefined | null):
   return schedule === 'custom'
 }
 
-export function cashDueDate(schedule: CashSchedule, contractDate: string): string | null {
-  if (!isDeferredCashSchedule(schedule) || isCustomCashSchedule(schedule)) return null
-  const months = schedule === 'month_1' ? 1 : schedule === 'month_2' ? 2 : 3
+export function cashSchedulePaymentCount(schedule: CashSchedule | undefined | null): number {
+  if (schedule === 'month_1') return 1
+  if (schedule === 'month_2') return 2
+  if (schedule === 'month_3') return 3
+  return 0
+}
+
+function addMonths(contractDate: string, months: number): string {
   const d = new Date(contractDate)
   d.setMonth(d.getMonth() + months)
   return d.toISOString().split('T')[0]
+}
+
+export function cashDueDate(schedule: CashSchedule, contractDate: string): string | null {
+  const months = cashSchedulePaymentCount(schedule)
+  if (months < 1) return null
+  return addMonths(contractDate, months)
+}
+
+export function cashScheduleFirstDueDate(schedule: CashSchedule, contractDate: string): string | null {
+  if (cashSchedulePaymentCount(schedule) < 1) return null
+  return addMonths(contractDate, 1)
+}
+
+export function cashScheduleDueDates(schedule: CashSchedule, contractDate: string): string[] {
+  const count = cashSchedulePaymentCount(schedule)
+  if (count < 1) return []
+  return Array.from({ length: count }, (_, index) => addMonths(contractDate, index + 1))
+}
+
+export function presetDeferredCashPlan(
+  schedule: CashSchedule,
+  contractDate: string,
+  remainder: number,
+): {
+  installment_count: number
+  installment_amount: number | null
+  first_due_date: string
+} | null {
+  const count = cashSchedulePaymentCount(schedule)
+  const firstDue = cashScheduleFirstDueDate(schedule, contractDate)
+  if (count < 1 || !firstDue) return null
+
+  return {
+    installment_count: count,
+    installment_amount: count > 1 ? null : remainder,
+    first_due_date: firstDue,
+  }
 }
 
 export function linePaidNow(

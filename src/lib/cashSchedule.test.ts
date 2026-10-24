@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   cashDueDate,
   cashRemainder,
+  cashScheduleDueDates,
+  cashScheduleFirstDueDate,
+  cashSchedulePaymentCount,
   isCustomCashSchedule,
   isDeferredCashSchedule,
   linePaidNow,
+  presetDeferredCashPlan,
   resizeCashScheduleItems,
   seedCashScheduleItems,
   validateCashScheduleItems,
@@ -51,6 +55,30 @@ describe('cashSchedule', () => {
     expect(cashDueDate('month_2', '2026-01-15')).toBe('2026-03-15')
     expect(cashDueDate('month_3', '2026-01-15')).toBe('2026-04-15')
     expect(cashDueDate('custom', '2026-01-15')).toBeNull()
+  })
+
+  it('splits two- and three-month cash into monthly payments starting after one month', () => {
+    expect(cashSchedulePaymentCount('month_1')).toBe(1)
+    expect(cashSchedulePaymentCount('month_2')).toBe(2)
+    expect(cashSchedulePaymentCount('month_3')).toBe(3)
+    expect(cashScheduleFirstDueDate('month_2', '2026-01-15')).toBe('2026-02-15')
+    expect(cashScheduleDueDates('month_2', '2026-01-15')).toEqual(['2026-02-15', '2026-03-15'])
+    expect(cashScheduleDueDates('month_3', '2026-01-15')).toEqual([
+      '2026-02-15',
+      '2026-03-15',
+      '2026-04-15',
+    ])
+    expect(presetDeferredCashPlan('month_2', '2026-01-15', 3000)).toEqual({
+      installment_count: 2,
+      installment_amount: null,
+      first_due_date: '2026-02-15',
+    })
+    expect(presetDeferredCashPlan('month_1', '2026-01-15', 3000)).toEqual({
+      installment_count: 1,
+      installment_amount: 3000,
+      first_due_date: '2026-02-15',
+    })
+    expect(presetDeferredCashPlan('immediate', '2026-01-15', 3000)).toBeNull()
   })
 
   it('pays only the down payment for a custom cash schedule', () => {

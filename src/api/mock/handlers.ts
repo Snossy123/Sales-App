@@ -79,10 +79,10 @@ const mockRegisteredDevices: Array<{
   device: CustomerContractDevice
 }> = []
 import {
-  cashDueDate,
   cashRemainder,
   isDeferredCashSchedule,
   linePaidNow,
+  presetDeferredCashPlan,
   type CashSchedule,
 } from '../../lib/cashSchedule'
 
@@ -3273,19 +3273,20 @@ export function handleMockRequest(
         if (!deferred && down <= 0) return
 
         const customItems = schedule === 'custom' ? (lineInput.cash_schedule_items ?? []) : []
+        const preset = deferred && schedule !== 'custom' ? presetDeferredCashPlan(schedule, invoiceDate, remainder) : null
         const dueDate =
           schedule === 'custom'
             ? customItems.map((item) => item.due_date).sort()[0]
-            : deferred
-              ? cashDueDate(schedule, invoiceDate)
+            : preset
+              ? preset.first_due_date
               : invoiceDate
         if (!dueDate) return
 
         const plan: InstallmentPlan = {
           id: invoiceId * 100 + index + 50,
           down_payment: down,
-          installment_count: customItems.length > 0 ? customItems.length : 1,
-          installment_amount: customItems.length > 0 ? null : remainder,
+          installment_count: customItems.length > 0 ? customItems.length : (preset?.installment_count ?? 1),
+          installment_amount: customItems.length > 0 ? null : (preset?.installment_amount ?? remainder),
           interval_type: 'monthly',
           interval_days: 30,
           first_due_date: dueDate,
@@ -3412,19 +3413,20 @@ export function handleMockRequest(
             if (remainder > 0 && (deferred || down > 0)) {
               const invoiceDate = body.invoice_date ?? new Date().toISOString().split('T')[0]
               const customItems = schedule === 'custom' ? (item.cash_schedule_items ?? []) : []
+              const preset = deferred && schedule !== 'custom' ? presetDeferredCashPlan(schedule, invoiceDate, remainder) : null
               const dueDate =
                 schedule === 'custom'
                   ? customItems.map((entry) => entry.due_date).sort()[0]
-                  : deferred
-                    ? cashDueDate(schedule, invoiceDate)
+                  : preset
+                    ? preset.first_due_date
                     : invoiceDate
               if (dueDate) {
                 const plan: InstallmentPlan = {
                   id: lineId,
                   sales_invoice_line_id: lineId,
                   down_payment: down,
-                  installment_count: customItems.length > 0 ? customItems.length : 1,
-                  installment_amount: customItems.length > 0 ? null : remainder,
+                  installment_count: customItems.length > 0 ? customItems.length : (preset?.installment_count ?? 1),
+                  installment_amount: customItems.length > 0 ? null : (preset?.installment_amount ?? remainder),
                   interval_days: 30,
                   interval_type: 'monthly',
                   first_due_date: dueDate,

@@ -1,7 +1,9 @@
 import {
   cashDueDate,
   cashRemainder,
+  cashScheduleDueDates,
   cashScheduleOptions,
+  cashSchedulePaymentCount,
   isCustomCashSchedule,
   isDeferredCashSchedule,
   type CashSchedule,
@@ -24,15 +26,22 @@ export function CashScheduleSelector({
   downPayment = 0,
 }: CashScheduleSelectorProps) {
   const dueDate = cashDueDate(schedule, contractDate)
+  const paymentDates = cashScheduleDueDates(schedule, contractDate)
+  const paymentCount = cashSchedulePaymentCount(schedule)
   const remainder = cashRemainder(lineTotal, downPayment)
   const hasDown = downPayment > 0
   const isDeferred = isDeferredCashSchedule(schedule)
+  const splitLabel = paymentCount === 2 ? 'دفعتين' : paymentCount === 3 ? 'ثلاث دفعات' : ''
 
   let helperText = 'الدفع كاش — يُضاف صافي البند للمطلوب عند التعاقد.'
   if (isCustomCashSchedule(schedule)) {
     helperText = hasDown
       ? 'يُضاف المقدم للمطلوب عند التعاقد. الباقي حسب الجدول الحر.'
       : 'لا يُضاف للمطلوب عند التعاقد — يُحصّل حسب الجدول الحر.'
+  } else if (isDeferred && splitLabel) {
+    helperText = hasDown
+      ? `يُضاف المقدم للمطلوب عند التعاقد. الباقي يُحصّل على ${splitLabel} شهرية.`
+      : `لا يُضاف للمطلوب عند التعاقد — يُحصّل على ${splitLabel} شهرية.`
   } else if (isDeferred) {
     helperText = hasDown
       ? 'يُضاف المقدم للمطلوب عند التعاقد. الباقي يُحصّل في تاريخ الاستحقاق.'
@@ -56,7 +65,13 @@ export function CashScheduleSelector({
           </button>
         ))}
       </div>
-      {dueDate ? (
+      {paymentDates.length > 1 ? (
+        <p className="text-sm text-on-surface-variant">
+          مواعيد الدفعات:{' '}
+          <span className="font-medium text-on-surface">{paymentDates.join('، ')}</span>
+          <span className="mt-xs block text-xs">{helperText}</span>
+        </p>
+      ) : dueDate ? (
         <p className="text-sm text-on-surface-variant">
           تاريخ الاستحقاق: <span className="font-medium text-on-surface">{dueDate}</span>
           <span className="mt-xs block text-xs">{helperText}</span>
