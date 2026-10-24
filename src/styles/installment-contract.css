@@ -4,14 +4,23 @@
   padding: 1rem;
 }
 
+/* B-ALMATEEN draws ASCII 0-9 as Arabic-Indic digits. Serve those codepoints
+   from Arial instead, for every contract that uses this family. */
+@font-face {
+  font-family: 'AL Mateen';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Neue Bold'), local('Helvetica-Bold'), local('Arial');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
 @font-face {
   font-family: 'AL Mateen';
   src: url('/fonts/B-ALMATEEN.ttf') format('truetype');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
-  /* ASCII 0-9 in this file are the same outlines as Arabic-Indic digits.
-     Leave them out so amounts and dates fall through to Arial. */
   unicode-range: U+0000-002F, U+003A-10FFFF;
 }
 
