@@ -26,7 +26,7 @@ async function waitForAlMateen(doc: Document, timeoutMs = 1000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      if (fonts.check("12px 'AL Mateen'")) return
+      if (fonts.check("700 12px 'AL Mateen'")) return
     } catch {
       return
     }
@@ -109,9 +109,12 @@ function buildPrintDocument(contractHtml: string): string {
       max-height: calc(297mm - 5mm) !important;
       box-sizing: border-box !important;
     }
-    .ic-head-en-main,
-    .ic-head-ar-main {
+    .ic-head-en-main {
       font-size: 23pt !important;
+      white-space: nowrap !important;
+    }
+    .ic-head-ar-main {
+      font-size: 31.62pt !important;
       white-space: nowrap !important;
     }
     @page {

@@ -6,7 +6,7 @@
 
 @font-face {
   font-family: 'AL Mateen';
-  src: url('/fonts/AL-Mateen-Regular.ttf') format('truetype');
+  src: url('/fonts/B-ALMATEEN.ttf') format('truetype');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -49,7 +49,10 @@
   color: var(--ic-ink);
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11pt;
-  font-weight: 400;
+  font-weight: 700;
+  font-synthesis: none;
+  -webkit-font-smoothing: auto;
+  text-rendering: geometricPrecision;
   line-height: 1.28;
   direction: rtl;
   box-sizing: border-box;
@@ -100,20 +103,18 @@
   text-align: center;
   line-height: 1.5;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  -webkit-text-stroke: 0.28px currentColor;
 }
 .ic-head-ar-top {
-  font-size: 15pt;
+  font-size: 22.35pt;
   font-weight: 700;
   color: var(--ic-red);
   margin-bottom: -1mm;
 }
 .ic-head-ar-main {
-  font-size: 23pt;
+  font-size: 31.62pt;
   font-weight: 700;
   color: var(--ic-ink);
   margin-bottom: -1mm;
-  -webkit-text-stroke: 0.35px currentColor;
   white-space: nowrap;
 }
 .ic-head-ar-sub {
@@ -164,7 +165,7 @@
   border: 1.5px solid #333;
   color: var(--ic-red);
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 18pt;
+  font-size: 20.04pt;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
@@ -172,7 +173,6 @@
   border-radius: 8px;
   box-shadow: 0 0 0 2mm #fff;
   white-space: nowrap;
-  -webkit-text-stroke: 0.28px currentColor;
 }
 
 .ic-head-en {
@@ -231,8 +231,8 @@
 .ic-main--cash {
   grid-template-columns: 1fr;
   flex: 0 0 auto;
-  height: 100mm;
-  max-height: 100mm;
+  height: 54mm;
+  max-height: 54mm;
   min-height: 0;
   align-content: stretch;
 }
@@ -270,12 +270,14 @@
   background: var(--ic-gray2);
 }
 .ic-cash-cell .ic-field-label {
-  font-size: 11pt;
-  -webkit-text-stroke: 0.4px currentColor;
+  font-size: 16.23pt;
+  line-height: 1;
 }
 .ic-cash-cell .ic-field-value {
-  font-size: 13pt;
-  -webkit-text-stroke: 0.3px currentColor;
+  font-size: 18pt;
+  line-height: 1;
+  overflow: visible;
+  text-overflow: clip;
 }
 .ic-cash-cell .ic-field-diamond {
   font-size: 11pt;
@@ -290,10 +292,10 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: flex-start;
   min-height: 0;
-  gap: 2mm;
-  margin-top: 1.5mm;
+  gap: 1mm;
+  margin-top: 1mm;
 }
 .ic-cash-below .ic-cash-notes {
   display: flex;
@@ -305,7 +307,7 @@
 }
 .ic-cash-below .ic-cash-notes .ic-note-pill {
   align-self: center;
-  font-size: 11pt;
+  font-size: 20.38pt;
   padding: 1.4mm 5mm;
 }
 .ic-cash-below .ic-cash-notes .ic-note-text {
@@ -320,11 +322,10 @@
   background: rgba(255, 255, 255, 0.85);
 }
 .ic-cash-below .ic-terms {
-  font-size: 12pt;
-  line-height: 1.28;
+  font-size: 21.91pt;
+  line-height: 1.12;
   margin: 0.5mm 0;
   padding: 0 0.5mm;
-  -webkit-text-stroke: 0.25px currentColor;
 }
 .ic-cash-below .ic-warning {
   font-size: 14pt;
@@ -337,9 +338,12 @@
   margin: 0;
 }
 .ic-cash-below .ic-warning-row .ic-warning {
-  font-size: 11pt;
-  padding: 1.4mm 0;
+  font-size: 22.47pt;
+  padding: 1.4mm 2mm;
   min-height: 6.5mm;
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.15;
 }
 .ic-cash-below .ic-alert-grid {
   gap: 2mm;
@@ -348,7 +352,7 @@
   min-height: 28mm;
 }
 .ic-cash-below .ic-alert-grid .ic-alert-box {
-  font-size: 10pt;
+  font-size: 12.64pt;
   padding: 0.5mm;
   line-height: 1.2;
 }
@@ -357,7 +361,9 @@
   margin: 0.4mm 0;
 }
 .ic-cash-below .ic-alert-grid .ic-alert-badge {
-  font-size: 13pt;
+  font-size: 27.24pt;
+  white-space: normal;
+  line-height: 1.05;
   padding: 2mm 2.5mm;
 }
 .ic-cash-below .ic-signatures {
@@ -403,23 +409,21 @@
 .ic-field-label {
   white-space: nowrap;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 12pt;
   line-height: 1.15;
-  -webkit-text-stroke: 0.4px currentColor;
 }
 .ic-field-value {
   flex: 1;
   text-align: right;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 17pt;
   line-height: 1.15;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  -webkit-text-stroke: 0.25px currentColor;
 }
 
 /* Installment table */
@@ -439,7 +443,6 @@
   letter-spacing: 0.5px;
   padding: 1.8mm 2mm;
   line-height: 1.25;
-  -webkit-font-smoothing: antialiased;
 }
 .ic-table-grid {
   display: grid;
@@ -483,13 +486,12 @@
 .ic-trow--head .ic-tcell {
   font-family: 'AL Mateen', Tahoma, Arial, sans-serif;
   font-size: 8.5pt;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--ic-ink);
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
-  -webkit-font-smoothing: antialiased;
   -webkit-text-stroke: 0;
 }
 .ic-tcol .ic-trow:last-child {
@@ -519,7 +521,6 @@
   white-space: nowrap;
   padding: 0 0.5mm;
   border-left: 1px solid #ddd;
-  -webkit-font-smoothing: antialiased;
   -webkit-text-stroke: 0;
 }
 .ic-trow .ic-tcell:last-child {
@@ -690,11 +691,10 @@
 }
 .ic-pill-label {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 11.5pt;
   white-space: nowrap;
   flex-shrink: 0;
-  -webkit-text-stroke: 0.35px currentColor;
 }
 .ic-pill-label.is-red {
   color: var(--ic-red);
@@ -750,20 +750,18 @@
 }
 .ic-renewal-in-pill {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 10pt;
   color: var(--ic-red);
   white-space: nowrap;
-  -webkit-text-stroke: 0.25px currentColor;
 }
 .ic-pill--schedule {
   flex: 0 0 auto;
   min-width: 24mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 11.5pt;
   white-space: nowrap;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 .ic-srow-left {
   margin-inline-start: auto;
@@ -792,13 +790,12 @@
   align-items: center;
   justify-content: center;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 11pt;
   color: var(--ic-red);
   text-align: center;
   background: #fff;
   white-space: nowrap;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 
 /* Money / schedule rows: equal-width groups across the full row */
@@ -863,14 +860,13 @@
   border: 1.5px solid #8a8a8a;
   border-radius: 999px;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--ic-red);
   padding: 0.5mm 2.8mm;
   white-space: nowrap;
   font-size: 10.5pt;
   line-height: 1;
   flex-shrink: 0;
-  -webkit-text-stroke: 0.35px currentColor;
 }
 .ic-note-text {
   border: 1.8px solid var(--ic-ink);
@@ -879,14 +875,13 @@
   min-width: 0;
   padding: 0.9mm 2mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 9.5pt;
   color: var(--ic-red);
   text-align: center;
   background: #fff;
   line-height: 1.15;
   white-space: normal;
-  -webkit-text-stroke: 0.25px currentColor;
 }
 
 /* ===== Terms ===== */
@@ -896,16 +891,14 @@
   text-align: justify;
   text-align-last: right;
   line-height: 1.24;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0.6mm 0 0.9mm;
   padding: 0 0.5mm;
   hyphens: none;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 .ic-terms b {
   color: #000;
-  font-weight: 400;
-  -webkit-text-stroke: 0.3px currentColor;
+  font-weight: 700;
 }
 
 /* ===== Warning stadiums ===== */
@@ -917,7 +910,7 @@
   box-sizing: border-box;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 14.5pt;
-  font-weight: 400;
+  font-weight: 700;
   text-align: center;
   line-height: 1.1;
   white-space: nowrap;
@@ -927,7 +920,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  -webkit-text-stroke: 0.4px currentColor;
 }
 .ic-warning > span {
   display: block;
@@ -969,7 +961,7 @@
   padding: 0.6mm 0.8mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 10.25pt;
-  font-weight: 400;
+  font-weight: 700;
   color: #000;
   line-height: 1.2;
   text-align: justify;
@@ -981,7 +973,6 @@
   justify-content: center;
   gap: 0.25mm;
   box-sizing: border-box;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 .ic-alert-box p {
   margin: 0;
@@ -1000,31 +991,28 @@
   display: block;
   width: 100%;
   margin: 0.2mm 0;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 10.75pt;
   text-align: center;
   text-align-last: center;
   white-space: nowrap;
-  -webkit-text-stroke: 0.5px currentColor;
 }
 .ic-alert-title {
-  font-weight: 400;
+  font-weight: 700;
   color: #000;
   margin-bottom: 0.6mm;
   font-size: 10pt;
-  -webkit-text-stroke: 0.2px currentColor;
 }
 .ic-alert-box .is-red {
   color: var(--ic-red);
-  font-weight: 400;
-  -webkit-text-stroke: 0.45px currentColor;
+  font-weight: 700;
 }
 .ic-alert-badge {
   border: 3px solid var(--ic-red);
   border-radius: 4mm;
   color: var(--ic-red);
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 13pt;
   padding: 1.8mm 2.5mm;
   display: flex;
@@ -1034,7 +1022,6 @@
   line-height: 1.1;
   align-self: center;
   background: #fff;
-  -webkit-text-stroke: 0.45px currentColor;
 }
 
 /* ===== Signatures ===== */
@@ -1045,9 +1032,8 @@
   margin: 0.7mm 0 1mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 12.5pt;
-  font-weight: 400;
+  font-weight: 700;
   color: #000;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 .ic-signatures > div {
   display: flex;
@@ -1058,8 +1044,7 @@
 .ic-sign-name {
   color: #000;
   margin-inline-start: 2mm;
-  font-weight: 400;
-  -webkit-text-stroke: 0.35px currentColor;
+  font-weight: 700;
 }
 .ic-sign-line {
   flex: 0 0 45mm;
@@ -1084,11 +1069,10 @@
   justify-content: center;
   gap: 2.5mm;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 15pt;
   margin: 0;
   color: #000;
-  -webkit-text-stroke: 0.25px currentColor;
 }
 .ic-app-text {
   white-space: nowrap;
@@ -1180,12 +1164,11 @@
 }
 .ic-contact-label {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
-  font-size: 18pt;
-  font-weight: 400;
+  font-size: 23.22pt;
+  font-weight: 700;
   color: var(--ic-red);
   white-space: nowrap;
   flex-shrink: 0;
-  -webkit-text-stroke: 0.35px currentColor;
 }
 .ic-contact-icons {
   display: inline-flex;
@@ -1567,7 +1550,6 @@
 .sr-meta-date {
   direction: rtl;
   font-weight: 800;
-  -webkit-text-stroke: 0.3px currentColor;
 }
 .sr-info-grid {
   display: grid;
@@ -1739,7 +1721,7 @@
   margin: 0 0 3mm;
   flex: 0 0 auto;
   font-size: 9pt;
-  font-weight: 600;
+  font-weight: 700;
 }
 .sr-installments th {
   background: var(--ic-red);
@@ -1997,9 +1979,13 @@
     box-sizing: border-box !important;
   }
 
-  .ic-head-en-main,
-  .ic-head-ar-main {
+  .ic-head-en-main {
     font-size: 23pt !important;
+    white-space: nowrap !important;
+  }
+
+  .ic-head-ar-main {
+    font-size: 31.62pt !important;
     white-space: nowrap !important;
   }
 
