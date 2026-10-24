@@ -43,6 +43,10 @@ function voucherDateKey(createdAt?: string | null): string {
   return createdAt.slice(0, 10)
 }
 
+function compactSearch(value?: string | null): string {
+  return (value ?? '').replace(/\s/g, '').toLowerCase()
+}
+
 function modelName(unit?: ProductUnit | null): string {
   return unit?.product_model?.name_ar ?? unit?.product_model?.name ?? '—'
 }
@@ -195,11 +199,22 @@ export function BranchInventoryPage() {
         return false
       }
       if (!q) return true
-      const serial = productUnitDisplayCode(unit).toLowerCase()
-      const model = modelName(unit).toLowerCase()
+      const qCompact = compactSearch(q)
+      const serials = [productUnitDisplayCode(unit), unit.serial_number, unit.physical_serial, unit.sim_number, unit.username]
+      const phones = [unit.custody_customer?.phone, unit.custody_customer?.phone_2, unit.custody_customer?.phone_3]
       const employee = (unit.custody_employee?.name ?? '').toLowerCase()
       const customer = (unit.custody_customer?.name ?? '').toLowerCase()
-      return serial.includes(q) || model.includes(q) || employee.includes(q) || customer.includes(q)
+      const model = modelName(unit).toLowerCase()
+      return (
+        serials.some((value) => {
+          const text = (value ?? '').toLowerCase()
+          return text.includes(q) || compactSearch(value).includes(qCompact)
+        }) ||
+        phones.some((value) => compactSearch(value).includes(qCompact)) ||
+        employee.includes(q) ||
+        customer.includes(q) ||
+        model.includes(q)
+      )
     })
   }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter])
 
@@ -299,7 +314,7 @@ export function BranchInventoryPage() {
           <FilterBar
             search={unitSearch}
             onSearchChange={setUnitSearch}
-            searchPlaceholder="بحث بالسريال أو الموظف أو العميل أو الموديل"
+            searchPlaceholder="اسم العميل أو رقمه أو السريال أو اليوزر أو الشريحة أو الموظف"
             selects={[
               {
                 id: 'bucket',
