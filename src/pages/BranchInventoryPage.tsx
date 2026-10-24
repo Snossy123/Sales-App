@@ -388,11 +388,6 @@ export function BranchInventoryPage() {
                     render: (row) => row.custody_customer?.name ?? '—',
                   },
                   {
-                    key: 'model',
-                    header: 'الموديل',
-                    render: (row) => modelName(row),
-                  },
-                  {
                     key: 'received_at',
                     header: 'تاريخ الاستلام',
                     className: 'tabular-nums',
