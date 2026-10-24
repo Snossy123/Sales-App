@@ -47,6 +47,15 @@ function modelName(unit?: ProductUnit | null): string {
   return unit?.product_model?.name_ar ?? unit?.product_model?.name ?? '—'
 }
 
+function DeviceField({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-on-surface-variant">{label}</p>
+      <p className={`font-medium ${mono ? 'font-mono' : ''}`}>{value?.trim() || '—'}</p>
+    </div>
+  )
+}
+
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
   const canReceive = userCanPerform(user, 'inventory.branch.receive')
@@ -66,6 +75,7 @@ export function BranchInventoryPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [selectedVoucher, setSelectedVoucher] = useState<CustodyVoucher | null>(null)
+  const [selectedUnit, setSelectedUnit] = useState<ProductUnit | null>(null)
 
   const query = useQuery({
     queryKey: ['branch-inventory', user?.branch_id],
@@ -89,6 +99,17 @@ export function BranchInventoryPage() {
       return data.data ?? []
     },
     enabled: Boolean(user),
+  })
+
+  const unitHistoryQuery = useQuery({
+    queryKey: ['custody-vouchers', 'unit', selectedUnit?.id],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
+        params: { product_unit_id: selectedUnit!.id, per_page: 100 },
+      })
+      return data.data ?? []
+    },
+    enabled: selectedUnit != null,
   })
 
   const units = query.data?.units ?? []
@@ -342,6 +363,19 @@ export function BranchInventoryPage() {
                     className: 'tabular-nums',
                     render: () => '—',
                   },
+                  {
+                    key: 'details',
+                    header: '',
+                    render: (row) => (
+                      <button
+                        type="button"
+                        className="text-sm font-bold text-primary hover:underline"
+                        onClick={() => setSelectedUnit(row)}
+                      >
+                        تفاصيل
+                      </button>
+                    ),
+                  },
                 ]}
               />
           </AsyncState>
@@ -450,6 +484,55 @@ export function BranchInventoryPage() {
           </AsyncState>
         </>
       )}
+
+      <Modal
+        open={selectedUnit !== null}
+        onClose={() => setSelectedUnit(null)}
+        title={selectedUnit ? `سجل الجهاز ${productUnitDisplayCode(selectedUnit)}` : 'سجل الجهاز'}
+        size="lg"
+      >
+        {selectedUnit && (
+          <div className="max-h-[70vh] space-y-md overflow-y-auto">
+            <div className="grid grid-cols-1 gap-sm text-sm sm:grid-cols-2">
+              <DeviceField label="السريال" value={productUnitDisplayCode(selectedUnit)} mono />
+              <DeviceField label="السريال الفعلي" value={selectedUnit.physical_serial} mono />
+              <DeviceField label="IMEI" value={selectedUnit.imei} mono />
+              <DeviceField label="اسم المستخدم" value={selectedUnit.username} />
+              <DeviceField label="رقم الشريحة" value={selectedUnit.sim_number} mono />
+              <DeviceField label="الموديل" value={modelName(selectedUnit)} />
+              <DeviceField label="التصنيف" value={inventoryBucketLabel(selectedUnit.inventory_bucket)} />
+              <DeviceField label="الحالة" value={productUnitStateLabel(selectedUnit.state)} />
+              <DeviceField label="الموظف" value={selectedUnit.custody_employee?.name} />
+              <DeviceField label="العميل" value={selectedUnit.custody_customer?.name} />
+              <DeviceField label="تاريخ الاستلام" value={formatDatetime12hDisplay(selectedUnit.custody_received_at)} />
+              <div className="sm:col-span-2">
+                <p className="text-on-surface-variant">ملاحظات الجهاز</p>
+                <p className="font-medium whitespace-pre-wrap">{selectedUnit.notes?.trim() || '—'}</p>
+              </div>
+            </div>
+            <div className="space-y-sm">
+              <h3 className="text-sm font-bold text-on-surface">سجل العهدة</h3>
+              <AsyncState
+                isLoading={unitHistoryQuery.isLoading}
+                isError={unitHistoryQuery.isError}
+                error={unitHistoryQuery.error}
+              >
+                {(unitHistoryQuery.data ?? []).length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">لا يوجد سجل لهذا الجهاز.</p>
+                ) : (
+                  <div className="space-y-sm">
+                    {(unitHistoryQuery.data ?? []).map((voucher) => (
+                      <div key={voucher.id} className="rounded-lg border border-outline-variant p-sm">
+                        <CustodyVoucherDetails voucher={voucher} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AsyncState>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={selectedVoucher !== null}
