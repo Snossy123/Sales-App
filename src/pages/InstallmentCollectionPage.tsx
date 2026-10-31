@@ -33,7 +33,6 @@ import {
   installmentStatusOptions,
   normalizeInstallmentItem,
 } from '../lib/sales'
-import { openCollectionReceipts } from '../lib/paymentReceipt'
 import { useAuthStore } from '../stores/authStore'
 import { userHasPermission } from '../lib/access'
 
@@ -563,11 +562,10 @@ export function InstallmentCollectionPage() {
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
-      openCollectionReceipts(data)
       resetInstallmentProcedure()
     },
   })
