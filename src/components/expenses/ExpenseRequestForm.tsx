@@ -8,18 +8,19 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Branch, Distributor, Employee, PaginatedResponse } from '../../api/types'
+import { Modal } from '../Modal'
 import { NumericInput } from '../ui/NumericInput'
 import { TextArea } from '../ui/TextArea'
 import { useAuthStore } from '../../stores/authStore'
 
 const EXPENSE_TYPES = [
   { value: 'petty_cash', label: 'نثرية' },
-  { value: 'operating', label: 'تشغيل (موزع)' },
   { value: 'distributor_payout', label: 'صرف عمولة' },
   { value: 'employee_debt', label: 'مديونية موظف' },
 ]
 
 interface ExpenseRequestFormProps {
+  open: boolean
   onClose: () => void
   onSuccess?: () => void
 }
@@ -33,11 +34,17 @@ type ExpenseDraft = {
   employeeId: number | ''
 }
 
-export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormProps) {
+function distributorLabel(distributor: Distributor) {
+  return distributor.customer?.name || distributor.name_ar || distributor.name
+}
+
+export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? null
   const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
-  const [expenseType, setExpenseType] = useState(() => saved?.expenseType ?? 'petty_cash')
+  const [expenseType, setExpenseType] = useState(() =>
+    saved?.expenseType === 'operating' ? 'distributor_payout' : (saved?.expenseType ?? 'petty_cash'),
+  )
   const [amount, setAmount] = useState(() => saved?.amount ?? '')
   const [notes, setNotes] = useState(() => saved?.notes ?? '')
   const [branchId, setBranchId] = useState<number | ''>(() => saved?.branchId ?? user?.branch_id ?? '')
@@ -62,7 +69,7 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
         employeeId ||
         expenseType !== 'petty_cash',
     ),
-    enabled: true,
+    enabled: open,
   })
 
   const branchesQuery = useQuery({
@@ -71,15 +78,18 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params: { per_page: 100 } })
       return data.data ?? []
     },
+    enabled: open,
   })
 
   const distributorsQuery = useQuery({
-    queryKey: ['distributors', 'expense-form'],
+    queryKey: ['distributors', 'expense-form', branchId],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', { params: { per_page: 100 } })
+      const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', {
+        params: { per_page: 100, 'filter[branch_id]': branchId },
+      })
       return data.data ?? []
     },
-    enabled: ['operating', 'distributor_payout'].includes(expenseType),
+    enabled: open && expenseType === 'distributor_payout' && Boolean(branchId),
   })
 
   const employeesQuery = useQuery({
@@ -90,7 +100,7 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
       })
       return data.data ?? []
     },
-    enabled: expenseType === 'employee_debt' && Boolean(branchId),
+    enabled: open && expenseType === 'employee_debt' && Boolean(branchId),
   })
 
   const submitMutation = useMutation({
@@ -116,19 +126,27 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
     },
   })
 
-  const needsDistributor = ['operating', 'distributor_payout'].includes(expenseType)
+  const needsDistributor = expenseType === 'distributor_payout'
   const needsEmployee = expenseType === 'employee_debt'
+  const canSubmit =
+    Boolean(branchId && amount) &&
+    (!needsDistributor || Boolean(distributorId)) &&
+    (!needsEmployee || Boolean(employeeId)) &&
+    !submitMutation.isPending
 
   return (
-    <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-      <h2 className="mb-md text-base font-bold text-on-surface">تسجيل مصروف</h2>
+    <Modal open={open} onClose={onClose} title="تسجيل مصروف">
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-sm">نوع المصروف</label>
           <select
             className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
             value={expenseType}
-            onChange={(e) => setExpenseType(e.target.value)}
+            onChange={(e) => {
+              setExpenseType(e.target.value)
+              setDistributorId('')
+              setEmployeeId('')
+            }}
           >
             {EXPENSE_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -142,7 +160,11 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
           <select
             className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
             value={branchId}
-            onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : '')}
+            onChange={(e) => {
+              setBranchId(e.target.value ? Number(e.target.value) : '')
+              setDistributorId('')
+              setEmployeeId('')
+            }}
           >
             <option value="">اختر الفرع</option>
             {(branchesQuery.data ?? []).map((b) => (
@@ -163,7 +185,7 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
               <option value="">اختر الموزع</option>
               {(distributorsQuery.data ?? []).map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name}
+                  {distributorLabel(d)}
                 </option>
               ))}
             </select>
@@ -215,13 +237,13 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
           <button
             type="button"
             className="rounded-lg bg-primary px-4 py-2 text-sm text-on-primary disabled:opacity-50"
-            disabled={!branchId || !amount || submitMutation.isPending}
+            disabled={!canSubmit}
             onClick={() => submitMutation.mutate()}
           >
             تسجيل المصروف
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

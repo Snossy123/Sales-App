@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { PaginatedResponse } from '../api/types'
@@ -7,6 +6,7 @@ import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { ExpenseRequestForm } from '../components/expenses/ExpenseRequestForm'
 import { KpiCard } from '../components/KpiCard'
+import { Pagination } from '../components/Pagination'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatMoney } from '../lib/theme'
@@ -18,13 +18,10 @@ interface ExpenseRow {
   expense_type: string
   amount: number
   status: string
+  notes?: string | null
 }
 
 interface ExpensesListResponse extends PaginatedResponse<ExpenseRow> {
-  total_amount?: string | number
-}
-
-interface PaymentsListResponse extends PaginatedResponse<unknown> {
   total_amount?: string | number
 }
 
@@ -43,17 +40,19 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function ExpenseNewPage() {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const userId = useAuthStore((s) => s.user?.id)
+  const [formOpen, setFormOpen] = useState(false)
+  const [page, setPage] = useState(1)
 
   const expensesQuery = useQuery({
-    queryKey: ['my-expense-requests-today', userId],
+    queryKey: ['my-expense-requests-today', userId, page],
     enabled: Boolean(userId),
     queryFn: async () => {
       const { data } = await api.get<ExpensesListResponse>('/expense-requests', {
         params: {
-          per_page: 50,
+          per_page: 15,
+          page,
           period: 'day',
           'filter[created_by]': userId,
         },
@@ -62,20 +61,7 @@ export function ExpenseNewPage() {
     },
   })
 
-  const paymentsQuery = useQuery({
-    queryKey: ['my-payments-today', userId],
-    enabled: Boolean(userId),
-    queryFn: async () => {
-      const { data } = await api.get<PaymentsListResponse>('/payment-transactions', {
-        params: { per_page: 1, period: 'day', status: 'active', user_id: userId },
-      })
-      return data
-    },
-  })
-
-  const paymentsTotal = Number(paymentsQuery.data?.total_amount ?? 0)
   const expensesTotal = Number(expensesQuery.data?.total_amount ?? 0)
-  const handoverTotal = paymentsTotal - expensesTotal
   const rows = expensesQuery.data?.data ?? []
 
   const columns = useMemo(
@@ -89,6 +75,11 @@ export function ExpenseNewPage() {
         key: 'type',
         header: 'النوع',
         render: (row: ExpenseRow) => TYPE_LABELS[row.expense_type] ?? row.expense_type,
+      },
+      {
+        key: 'notes',
+        header: 'الوصف',
+        render: (row: ExpenseRow) => row.notes?.trim() || '—',
       },
       { key: 'amount', header: 'المبلغ', render: (row: ExpenseRow) => formatMoney(Number(row.amount)) },
       {
@@ -106,27 +97,42 @@ export function ExpenseNewPage() {
   )
 
   const refreshToday = () => {
-    queryClient.invalidateQueries({ queryKey: ['my-expense-requests-today', userId] })
-    queryClient.invalidateQueries({ queryKey: ['my-payments-today', userId] })
+    queryClient.invalidateQueries({ queryKey: ['my-expense-requests-today'] })
+    setFormOpen(false)
+    setPage(1)
   }
 
   return (
     <SalesPageShell title="طلب مصروف" subtitle="المصروف يُسجَّل فورًا — المراجعة تتأكد منه آخر اليوم">
-      <div className="mb-md grid gap-sm sm:grid-cols-3">
-        <KpiCard label="مدفوعات اليوم" value={`${formatMoney(paymentsTotal)} ج.م`} icon="payments" />
+      <div className="mb-md max-w-sm">
         <KpiCard label="مصروفات اليوم" value={`${formatMoney(expensesTotal)} ج.م`} icon="receipt_long" />
-        <KpiCard label="هيسلّم آخر اليوم" value={`${formatMoney(handoverTotal)} ج.م`} icon="account_balance_wallet" />
       </div>
 
-      <div className="grid gap-md lg:grid-cols-[minmax(0,22rem)_1fr]">
-        <ExpenseRequestForm onClose={() => navigate(-1)} onSuccess={refreshToday} />
-        <section className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-          <h2 className="mb-md text-base font-bold text-on-surface">طلباتك اليوم</h2>
-          <AsyncState isLoading={expensesQuery.isLoading} isError={expensesQuery.isError} error={expensesQuery.error}>
-            <DataTable data={rows} keyExtractor={(row) => row.id} columns={columns} emptyMessage="لا توجد طلبات مصروف اليوم" />
-          </AsyncState>
-        </section>
-      </div>
+      <section className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+        <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
+          <h2 className="text-base font-bold text-on-surface">طلباتك اليوم</h2>
+          <button
+            type="button"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary"
+            onClick={() => setFormOpen(true)}
+          >
+            تسجيل مصروف
+          </button>
+        </div>
+        <AsyncState isLoading={expensesQuery.isLoading} isError={expensesQuery.isError} error={expensesQuery.error}>
+          <DataTable data={rows} keyExtractor={(row) => row.id} columns={columns} emptyMessage="لا توجد طلبات مصروف اليوم" />
+          {expensesQuery.data ? (
+            <Pagination
+              currentPage={expensesQuery.data.current_page}
+              lastPage={expensesQuery.data.last_page}
+              total={expensesQuery.data.total}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </AsyncState>
+      </section>
+
+      <ExpenseRequestForm open={formOpen} onClose={() => setFormOpen(false)} onSuccess={refreshToday} />
     </SalesPageShell>
   )
 }
