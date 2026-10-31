@@ -216,7 +216,7 @@ export function ExternalCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setSelected(null)
+      resetSelection()
     },
   })
 
@@ -231,9 +231,7 @@ export function ExternalCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setShowReconcile(false)
-      setResponsibleUserId('')
-      setReconcileNotes('')
+      resetSelection()
     },
   })
 
@@ -260,9 +258,7 @@ export function ExternalCollectionPage() {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setCollectionStatus('')
-      setCollectionReminderAt('')
-      setCollectionNotes('')
+      resetSelection()
     },
   })
 
@@ -300,6 +296,7 @@ export function ExternalCollectionPage() {
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
+      resetSelection()
     },
   })
 
@@ -326,6 +323,7 @@ export function ExternalCollectionPage() {
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
+      resetSelection()
     },
   })
 
@@ -335,7 +333,10 @@ export function ExternalCollectionPage() {
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/resume`, {})
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      resetSelection()
+    },
   })
 
   const selectRow = (row: InstallmentRow) => {

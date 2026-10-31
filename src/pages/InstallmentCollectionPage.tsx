@@ -676,7 +676,7 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setSelected(null)
+      resetInstallmentProcedure()
     },
   })
 
@@ -691,9 +691,7 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
-      setShowReconcile(false)
-      setResponsibleUserId('')
-      setReconcileNotes('')
+      resetInstallmentProcedure()
     },
   })
 
@@ -725,12 +723,10 @@ export function InstallmentCollectionPage() {
       if (invoiceId) {
         await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoiceId] })
       }
-      setCollectionStatus('')
-      setCollectionReminderAt('')
-      setCollectionNotes('')
       if (reminderIsFuture) {
         setShowFollowUps(true)
       }
+      resetInstallmentProcedure()
     },
   })
 
@@ -793,6 +789,7 @@ export function InstallmentCollectionPage() {
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
+      resetInstallmentProcedure()
     },
   })
 
@@ -826,6 +823,7 @@ export function InstallmentCollectionPage() {
         await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
       setShowFollowUps(true)
+      resetInstallmentProcedure()
     },
   })
 
@@ -838,7 +836,10 @@ export function InstallmentCollectionPage() {
       )
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      resetInstallmentProcedure()
+    },
   })
 
   const assignCollectorMutation = useMutation({
