@@ -386,7 +386,7 @@ function CurrentInstallmentCard({
 
   return (
     <div className={`rounded-xl border p-md ${tierRowClass(tier, selected)}`}>
-      <div className="grid grid-cols-2 gap-xs sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-xs sm:grid-cols-3 lg:grid-cols-[minmax(3.5rem,0.5fr)_minmax(5.5rem,0.85fr)_minmax(5.5rem,0.85fr)_minmax(4rem,0.55fr)_minmax(12rem,1.6fr)]">
         <InstallmentMetricCell label="رقم القسط">
           <span className="tabular-nums">#{installmentNo}</span>
         </InstallmentMetricCell>
