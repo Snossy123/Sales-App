@@ -215,7 +215,7 @@ export function AppShell() {
       </aside>
 
       <main
-        className={`flex h-full flex-grow flex-col overflow-y-auto bg-background transition-all duration-300 print:mr-0 print:h-auto print:overflow-visible max-lg:mr-0 ${
+        className={`flex h-full flex-grow flex-col overflow-y-auto scroll-pt-24 bg-background transition-all duration-300 print:mr-0 print:h-auto print:overflow-visible max-lg:mr-0 ${
           printLayout ? 'mr-0' : sidebarCollapsed ? 'lg:mr-[4.5rem]' : 'lg:mr-64'
         }`}
       >

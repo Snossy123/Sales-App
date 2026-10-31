@@ -34,10 +34,9 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-md">
-      <button
-        type="button"
-        aria-label="إغلاق"
-        className="absolute inset-0 bg-on-surface/40"
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 z-0 bg-on-surface/40"
         onClick={onClose}
       />
       <div

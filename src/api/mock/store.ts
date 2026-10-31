@@ -107,6 +107,29 @@ function migrateState(state: DemoState): DemoState {
       state.invoices.push(extra)
     }
   }
+  for (const extra of seed.customers.filter((customer) => customer.id >= 4)) {
+    const index = state.customers.findIndex((customer) => customer.id === extra.id || customer.phone === extra.phone)
+    if (index < 0) state.customers.push(extra)
+    else state.customers[index] = extra
+  }
+  for (const extra of seed.invoices.filter((invoice) => String(invoice.invoice_number ?? '').startsWith('INV-COL-'))) {
+    const index = state.invoices.findIndex((invoice) => invoice.invoice_number === extra.invoice_number)
+    if (index < 0) state.invoices.push(extra)
+    else state.invoices[index] = extra
+  }
+  for (const log of seed.collectionFollowUpLogs ?? []) {
+    if (!state.collectionFollowUpLogs.some((row) => row.id === log.id)) {
+      state.collectionFollowUpLogs.push(log)
+    }
+  }
+  if ((state.counters.invoice ?? 0) < seed.counters.invoice) state.counters.invoice = seed.counters.invoice
+  if ((state.counters.customer ?? 0) < seed.counters.customer) state.counters.customer = seed.counters.customer
+  if ((state.counters.installmentItem ?? 0) < seed.counters.installmentItem) {
+    state.counters.installmentItem = seed.counters.installmentItem
+  }
+  if ((state.counters.collectionFollowUp ?? 0) < (seed.counters.collectionFollowUp ?? 0)) {
+    state.counters.collectionFollowUp = seed.counters.collectionFollowUp
+  }
   return state
 }
 

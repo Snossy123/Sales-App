@@ -120,7 +120,7 @@ function BranchInstallmentCard({
 
   return (
     <div
-      className={`rounded-xl border p-md text-right transition-all ${
+      className={`scroll-mt-24 rounded-xl border p-md text-right transition-all ${
         selected
           ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
           : 'border-outline-variant bg-surface-container-lowest'

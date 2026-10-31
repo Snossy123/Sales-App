@@ -81,16 +81,58 @@ let mockCollectionAssignmentSeq = 1
 const mockCollectionAccounts = [
   {
     id: 1,
-    phone: '01099998888',
+    phone: '01000001111',
+    payment_method: 'wallet',
+    account_number: null as string | null,
+    beneficiary_name: 'مؤسسة العراقي — فودافون كاش',
+    bank_name: null as string | null,
+    is_active: true,
+    collected_amount: 0,
+    amount_limit: 50000 as number | null,
+  },
+  {
+    id: 2,
+    phone: '01000002222',
+    payment_method: 'instapay',
+    account_number: null as string | null,
+    beneficiary_name: 'مؤسسة العراقي — إنستاباي',
+    bank_name: null as string | null,
+    is_active: true,
+    collected_amount: 0,
+    amount_limit: 100000 as number | null,
+  },
+  {
+    id: 3,
+    phone: null as string | null,
     payment_method: 'bank_transfer',
-    account_number: '1234567890',
-    beneficiary_name: 'حساب تجريبي',
-    bank_name: 'البنك الأهلي',
+    account_number: '12345678901234',
+    beneficiary_name: 'مؤسسة العراقي للتجارة',
+    bank_name: 'البنك الأهلي المصري',
     is_active: true,
     collected_amount: 0,
     amount_limit: null as number | null,
   },
 ]
+const mockReconciliations: Array<{
+  id: number
+  installment_item_id: number
+  sales_invoice_id: number
+  responsible_user_id: number
+  status: 'open' | 'closed'
+  notes?: string | null
+  late_fee_waived: number
+}> = [
+  {
+    id: 1,
+    installment_item_id: 33,
+    sales_invoice_id: 14,
+    responsible_user_id: 4,
+    status: 'open',
+    notes: 'وعد بالسداد الأسبوع الجاي',
+    late_fee_waived: 0,
+  },
+]
+let mockReconciliationSeq = 1
 const mockRegisteredDevices: Array<{
   customer_id: number
   device: CustomerContractDevice
@@ -3807,6 +3849,8 @@ export function handleMockRequest(
     const collectorFilter = params['filter[collector_user_id]']
       ? String(params['filter[collector_user_id]'])
       : ''
+    const collectionStatusFilter = String(params['filter[collection_status]'] ?? '').trim()
+    const installmentStatusFilter = String(params['filter[status]'] ?? '').trim()
     const searchFilter = String(params['filter[search]'] ?? '').trim().toLowerCase()
     const onlyOverdue = path === 'installments/overdue'
     const rows: Record<string, unknown>[] = []
@@ -3859,9 +3903,30 @@ export function handleMockRequest(
         const confirmedPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
         const remaining = Math.max(0, Number(item.amount) - confirmedPaid)
         if (!invoiceFilter && remaining <= 0.009) continue
-        const due = new Date(item.due_date)
-        const isOverdue = remaining > 0 && due < new Date()
+        const due = new Date(`${String(item.due_date).slice(0, 10)}T12:00:00`)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const dueDay = new Date(due)
+        dueDay.setHours(0, 0, 0, 0)
+        const isOverdue = remaining > 0 && dueDay < today
         if (onlyOverdue && !isOverdue) continue
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        const dueStr = String(item.due_date).slice(0, 10)
+        const displayTier = item.suspended_at
+          ? 'suspended'
+          : remaining <= 0.009
+            ? 'paid'
+            : dueStr < todayStr
+              ? 'overdue'
+              : dueStr === todayStr
+                ? 'grace'
+                : 'upcoming'
+        const openRec = mockReconciliations.find(
+          (row) => row.installment_item_id === item.id && row.status === 'open',
+        )
+        const rowCollectionStatus = item.collection_status ?? inv.collection_status ?? null
+        if (collectionStatusFilter && rowCollectionStatus !== collectionStatusFilter) continue
+        if (installmentStatusFilter && item.status !== installmentStatusFilter) continue
         const paymentMethods = [...new Set(payments.map((payment) => payment.payment_method).filter(Boolean))]
         const latestPaidAt = payments
           .map((payment) => payment.paid_at)
@@ -3893,7 +3958,10 @@ export function handleMockRequest(
             0,
             (inv.installment_plan?.installment_count ?? 1) - (item.installment_number ?? 1),
           ),
-          has_open_reconciliation: false,
+          display_tier: displayTier,
+          has_open_reconciliation: Boolean(openRec),
+          open_reconciliation_id: openRec?.id ?? null,
+          reconciliation_enabled: true,
           sales_invoice: {
             id: inv.id,
             invoice_number: inv.invoice_number,
@@ -4063,8 +4131,9 @@ export function handleMockRequest(
     return updatedItem
   }
 
-  if (m === 'POST' && path.match(/^sales-invoices\/\d+\/installments\/collect$/)) {
-    const id = Number(path.split('/')[2])
+  const collectMatch = path.match(/^sales-invoices\/(\d+)\/installments\/collect$/)
+  if (m === 'POST' && collectMatch) {
+    const id = Number(collectMatch[1])
     const body = data as {
       installment_item_id: number
       amount: number
@@ -5865,12 +5934,37 @@ export function handleMockRequest(
     return { ok: true }
   }
 
-  if (m === 'POST' && path.match(/^installments\/\d+\/reconcile$/)) {
-    return { id: 1, status: 'open', late_fee_waived: 0 }
+  const openReconcileMatch = path.match(/^installments\/(\d+)\/reconcile$/)
+  if (m === 'POST' && openReconcileMatch) {
+    const installmentId = Number(openReconcileMatch[1])
+    const body = data as { responsible_user_id?: number; notes?: string }
+    const found = findInstallmentAcrossInvoices(state.invoices, installmentId)
+    if (!found) throw mockError(404, 'القسط غير موجود')
+    const existing = mockReconciliations.find(
+      (row) => row.installment_item_id === installmentId && row.status === 'open',
+    )
+    if (existing) return existing
+    mockReconciliationSeq += 1
+    const created = {
+      id: mockReconciliationSeq,
+      installment_item_id: installmentId,
+      sales_invoice_id: found.invoice.id,
+      responsible_user_id: body.responsible_user_id ?? ctx.user?.id ?? 1,
+      status: 'open' as const,
+      notes: body.notes ?? null,
+      late_fee_waived: 0,
+    }
+    mockReconciliations.push(created)
+    return created
   }
 
-  if (m === 'POST' && path.match(/^installments\/reconciliations\/\d+\/close$/)) {
-    return { id: 1, status: 'closed', late_fee_waived: 0 }
+  const closeReconcileMatch = path.match(/^installments\/reconciliations\/(\d+)\/close$/)
+  if (m === 'POST' && closeReconcileMatch) {
+    const reconciliationId = Number(closeReconcileMatch[1])
+    const row = mockReconciliations.find((item) => item.id === reconciliationId)
+    if (!row) throw mockError(404, 'التصالح غير موجود')
+    row.status = 'closed'
+    return row
   }
 
   if (m === 'GET' && path === 'collection-accounts/active') {
