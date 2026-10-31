@@ -190,7 +190,6 @@ export function InstallmentCollectionPanel({
   const canCollectPayment =
     userCanPerform(user, 'installments.collect') || userCanPerform(user, 'external_collections.collect')
   const canReconcile = userCanPerform(user, 'installments.reconcile')
-  const canOpenReconcile = canReconcile && rowAllowsReconciliation(selected ?? {})
   const visiblePaymentMethods = hideCash
     ? paymentMethodOptions.filter((option) => option.value !== 'cash')
     : paymentMethodOptions
@@ -868,7 +867,7 @@ export function InstallmentCollectionPanel({
               </CollapsibleSection>
             )}
 
-            {canOpenReconcile && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
+            {rowAllowsReconciliation(selected) && showReconcile && tier === 'overdue' && !selected.has_open_reconciliation && (
               <CollapsibleSection
                 title="تصالح — تسجيل حالة مفتوحة"
                 icon="handshake"

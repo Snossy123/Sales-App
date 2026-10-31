@@ -861,14 +861,16 @@ export function InstallmentCollectionPage() {
     },
   })
 
-  const selectRow = (row: InstallmentRow) => {
+  const selectRow = (row: InstallmentRow, options?: { keepReconcile?: boolean }) => {
     collectMutation.reset()
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
     setPaymentMethod('cash')
     setAccountId('')
     setSenderNumber('')
-    setShowReconcile(false)
+    if (!options?.keepReconcile) {
+      setShowReconcile(false)
+    }
     setAdjustNextDueDate(false)
     setCollectionStatus('')
     setCollectionReminderAt('')
@@ -1124,7 +1126,7 @@ export function InstallmentCollectionPage() {
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
-                    selectRow(row)
+                    selectRow(row, { keepReconcile: true })
                     setShowReconcile(true)
                   }}
                   onQuickCollectionStatus={(row, status) => {
@@ -1219,7 +1221,7 @@ export function InstallmentCollectionPage() {
         selectedId={selected?.id as number | undefined}
         onSelect={selectRow}
         onReconcile={(row) => {
-          selectRow(row)
+          selectRow(row, { keepReconcile: true })
           setShowReconcile(true)
         }}
       />
