@@ -241,6 +241,7 @@ export function AppShell() {
             <BranchSwitcher />
             <div className="flex flex-row-reverse gap-sm">
               <ChatWidget />
+              <IncompleteProceduresBanner />
               <div className="relative">
                 <button
                   type="button"
@@ -335,7 +336,6 @@ export function AppShell() {
         </div>
 
         <div className={`flex-grow p-margin pb-36 md:pb-24 print:p-0 ${printLayout ? 'p-0' : ''}`}>
-          <IncompleteProceduresBanner />
           <Outlet />
         </div>
         <div className={printLayout ? 'hidden' : 'print:hidden'}>

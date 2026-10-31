@@ -21,50 +21,57 @@ export function IncompleteProceduresBanner() {
   if (items.length === 0) return null
 
   return (
-    <div className="mb-sm rounded-xl border border-primary/30 bg-primary/5 px-md py-xs print:hidden">
+    <div className="relative print:hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-sm py-1 text-sm font-bold text-primary"
+        aria-label={`إجراءات غير مكتملة: ${items.length}`}
+        title={`عندك ${items.length} إجراء غير مكتمل`}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
       >
-        <span className="flex items-center gap-xs">
-          <Icon name="history" size={18} className="no-flip" />
-          عندك {items.length} إجراء غير مكتمل
+        <Icon name="history" className="text-primary no-flip" />
+        <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-on-primary">
+          {items.length > 9 ? '9+' : items.length}
         </span>
-        <Icon name={open ? 'expand_less' : 'expand_more'} size={20} />
       </button>
       {open ? (
-        <ul className="space-y-xs pb-xs">
-          {items.map((draft) => (
-            <li
-              key={draft.id}
-              className="flex flex-wrap items-center justify-between gap-xs rounded-lg bg-surface-container-lowest px-sm py-xs"
-            >
-              <span className="text-sm text-on-surface">{draft.titleAr}</span>
-              <div className="flex items-center gap-xs">
-                <Link
-                  to={draft.resumePath}
-                  className="rounded-lg bg-primary px-sm py-1 text-xs font-bold text-on-primary hover:opacity-90"
-                >
-                  متابعة
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const title = draft.titleAr
-                    if (window.confirm('تجاهل مسودة ' + title + '؟')) {
-                      clearDraft(draft.id, draft.userId)
-                    }
-                  }}
-                  className="rounded-lg border border-outline-variant px-sm py-1 text-xs font-bold text-on-surface-variant hover:bg-surface-container-low"
-                >
-                  تجاهل
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-outline-variant bg-surface-container-lowest shadow-lg">
+          <div className="border-b border-outline-variant px-sm py-xs">
+            <span className="text-sm font-bold">إجراءات غير مكتملة</span>
+          </div>
+          <ul className="max-h-72 space-y-xs overflow-y-auto p-sm">
+            {items.map((draft) => (
+              <li
+                key={draft.id}
+                className="flex flex-wrap items-center justify-between gap-xs rounded-lg bg-surface-container-low px-sm py-xs"
+              >
+                <span className="text-sm text-on-surface">{draft.titleAr}</span>
+                <div className="flex items-center gap-xs">
+                  <Link
+                    to={draft.resumePath}
+                    onClick={() => setOpen(false)}
+                    className="rounded-lg bg-primary px-sm py-1 text-xs font-bold text-on-primary hover:opacity-90"
+                  >
+                    متابعة
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const title = draft.titleAr
+                      if (window.confirm('تجاهل مسودة ' + title + '؟')) {
+                        clearDraft(draft.id, draft.userId)
+                      }
+                    }}
+                    className="rounded-lg border border-outline-variant px-sm py-1 text-xs font-bold text-on-surface-variant hover:bg-surface-container-lowest"
+                  >
+                    تجاهل
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   )

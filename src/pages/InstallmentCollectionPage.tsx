@@ -47,6 +47,7 @@ interface BranchStats {
 }
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
+const COLLECTION_CHROME_STORAGE_KEY = 'collection-chrome-open'
 
 function branchInstallmentsTitle(name: string) {
   const trimmed = name.trim()
@@ -243,6 +244,13 @@ export function InstallmentCollectionPage() {
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
     () => savedDraft?.distributorBalanceAmount ?? 0,
   )
+  const [showChrome, setShowChrome] = useState(() => {
+    try {
+      return localStorage.getItem(COLLECTION_CHROME_STORAGE_KEY) !== 'false'
+    } catch {
+      return true
+    }
+  })
 
   const selectedCustomerId = selected?.customer_id as number | undefined
 
@@ -464,6 +472,7 @@ export function InstallmentCollectionPage() {
   })
 
   const resetInstallmentProcedure = () => {
+    collectMutation.reset()
     setSelected(null)
     setAmount(0)
     setPaymentMethod('cash')
@@ -613,17 +622,17 @@ export function InstallmentCollectionPage() {
       )
       return data
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       const reminderIsFuture =
         Boolean(collectionReminderAt) && new Date(collectionReminderAt).getTime() > Date.now()
       const installmentId = selected?.id
       const invoiceId = selected?.sales_invoice_id
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      await queryClient.invalidateQueries({ queryKey: ['installments'] })
       if (installmentId) {
-        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', installmentId] })
+        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', installmentId] })
       }
       if (invoiceId) {
-        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoiceId] })
+        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoiceId] })
       }
       setCollectionStatus('')
       setCollectionReminderAt('')
@@ -686,13 +695,13 @@ export function InstallmentCollectionPage() {
       )
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['installments'] })
       if (selected?.id) {
-        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', selected.id] })
+        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', selected.id] })
       }
       if (selected?.sales_invoice_id) {
-        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
       setShowFollowUps(true)
     },
@@ -731,6 +740,7 @@ export function InstallmentCollectionPage() {
   })
 
   const selectRow = (row: InstallmentRow) => {
+    collectMutation.reset()
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
     setPaymentMethod('cash')
@@ -773,6 +783,18 @@ export function InstallmentCollectionPage() {
   }
 
   const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all')
+  const activeFilterCount = [
+    customerSearch,
+    statusFilter,
+    collectionStatusFilter,
+    collectorFilter,
+    contractTierFilter !== 'all',
+    sortByReminder,
+  ].filter(Boolean).length
+
+  useEffect(() => {
+    localStorage.setItem(COLLECTION_CHROME_STORAGE_KEY, String(showChrome))
+  }, [showChrome])
   const clearFilters = () => {
     setCustomerSearch('')
     setStatusFilter('')
@@ -785,7 +807,6 @@ export function InstallmentCollectionPage() {
   return (
     <SalesPageShell
       title="تحصيل الأقساط"
-      subtitle="اختر فرعاً لعرض الأقساط مجمّعة حسب العميل ثم التعاقد"
       actions={
         canAssignCollectors ? (
           <Link
@@ -797,6 +818,7 @@ export function InstallmentCollectionPage() {
         ) : undefined
       }
       filters={
+        showChrome ? (
         <FilterBar
           selects={[
             {
@@ -866,6 +888,7 @@ export function InstallmentCollectionPage() {
           showClear={hasFilters || sortByReminder}
           onClear={clearFilters}
         />
+        ) : undefined
       }
     >
       <AsyncState
@@ -873,12 +896,12 @@ export function InstallmentCollectionPage() {
         isError={branchesQuery.isError || installmentsQuery.isError}
         error={branchesQuery.error ?? installmentsQuery.error}
       >
-        {branchStats.length === 0 ? (
+        {showChrome && (branchStats.length === 0 ? (
           <p className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md text-center text-on-surface-variant">
             لا توجد أقساط مستحقة على أي فرع
           </p>
         ) : (
-          <div className="mb-md grid min-w-0 grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-3">
+          <div id="collection-branch-cards" className="mb-md grid min-w-0 grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-3">
             {branchStats.map((stats) => (
               <BranchInstallmentCard
                 key={stats.branch.id}
@@ -894,15 +917,45 @@ export function InstallmentCollectionPage() {
               />
             ))}
           </div>
-        )}
+        ))}
 
         {selectedBranchId && selectedBranch ? (
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-            <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
-              <h2 className="text-lg font-semibold text-on-surface">
+            <div className="mb-md flex flex-col gap-sm sm:flex-row sm:flex-nowrap sm:items-center">
+              <h2 className="shrink-0 text-base font-semibold text-on-surface">
                 {branchInstallmentsTitle(selectedBranch.name_ar || selectedBranch.name)}
               </h2>
-              <div className="flex items-center gap-sm">
+              <div className="relative min-w-0 w-full flex-1">
+                <Icon
+                  name="search"
+                  size={18}
+                  className="pointer-events-none absolute start-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                />
+                <input
+                  id="collection-customer-search"
+                  type="search"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="بحث بالاسم أو الهاتف أو اسم المستخدم أو السريال..."
+                  aria-label="بحث"
+                  className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low ps-8 pe-sm text-sm text-on-surface"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-sm">
+                <button
+                  type="button"
+                  aria-expanded={showChrome}
+                  aria-controls="collection-branch-cards"
+                  onClick={() => setShowChrome((open) => !open)}
+                  className="inline-flex h-9 items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-low px-sm text-sm text-on-surface hover:bg-surface-container-high"
+                >
+                  <Icon name={showChrome ? 'expand_less' : 'tune'} size={18} />
+                  {showChrome
+                    ? 'إخفاء الفلاتر'
+                    : activeFilterCount > 0
+                      ? `إظهار الفلاتر · ${activeFilterCount}`
+                      : 'إظهار الفلاتر'}
+                </button>
                 <button
                   type="button"
                   title="المتابعات القادمة"
@@ -912,23 +965,11 @@ export function InstallmentCollectionPage() {
                 >
                   <Icon name="schedule" size={18} />
                 </button>
-                <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
-                  {filteredRows.length} قسط غير مدفوع ·{' '}
-                  {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد · القائمة تعرض القسط الحالي
-                </span>
               </div>
             </div>
 
-            <FilterBar
-              search={customerSearch}
-              onSearchChange={setCustomerSearch}
-              searchPlaceholder="بحث بالاسم أو الهاتف أو اسم المستخدم أو السريال..."
-              showClear={hasFilters}
-              onClear={clearFilters}
-            />
-
-            <div className="grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-              <div className="min-w-0">
+            <div className={`grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:min-h-0 lg:overflow-hidden ${showChrome ? 'lg:max-h-[calc(100dvh-8.5rem)]' : 'lg:max-h-[calc(100dvh-13rem)]'}`}>
+              <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
                   sortMode={sortByReminder ? 'reminder' : 'priority'}
@@ -953,7 +994,7 @@ export function InstallmentCollectionPage() {
                 />
               </div>
 
-              <div className="min-w-0 self-start lg:sticky lg:top-md">
+              <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
               <InstallmentCollectionPanel
                 selected={selected}
                 selectedIsOverdueContract={selectedIsOverdueContract}

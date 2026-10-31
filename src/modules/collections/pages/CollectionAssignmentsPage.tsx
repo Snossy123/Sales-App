@@ -1,27 +1,34 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type {
+  Branch,
   CollectorOption,
   CollectionWorkloadRow,
   InstallmentItem,
+  PaginatedResponse,
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { FilterBar } from '../../../components/FilterBar'
+import { Icon } from '../../../components/Icon'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { formatDate } from '../../../lib/accounting'
 import {
   collectionStatusLabels,
+  computeContractStats,
   firstDueStatus,
   firstDueStatusLabels,
   firstDueStatusOptions,
   getCurrentInstallment,
+  type ContractTierFilter,
   type FirstDueStatus,
   type InstallmentCollectionRow,
 } from '../../../lib/collectionHelpers'
 import { normalizeInstallmentItem } from '../../../lib/sales'
+
+const ASSIGNMENT_CHROME_STORAGE_KEY = 'assignment-chrome-open'
 
 interface AssignmentContract {
   invoiceId: number
@@ -43,6 +50,96 @@ const dueStatusBadgeStatus: Record<FirstDueStatus, string> = {
   overdue: 'overdue',
 }
 
+interface AssignmentBranchStats {
+  branch: Branch
+  contractsCount: number
+  overdueCount: number
+  dueSoonCount: number
+  upcomingCount: number
+}
+
+function dueStatusToTier(filter: string): ContractTierFilter {
+  if (filter === 'overdue') return 'overdue'
+  if (filter === 'due') return 'due_soon'
+  if (filter === 'upcoming') return 'upcoming'
+  return 'all'
+}
+
+function AssignmentBranchCard({
+  stats,
+  selected,
+  activeFilter,
+  onSelectBranch,
+  onFilter,
+}: {
+  stats: AssignmentBranchStats
+  selected: boolean
+  activeFilter: ContractTierFilter
+  onSelectBranch: () => void
+  onFilter: (tier: ContractTierFilter) => void
+}) {
+  const { branch, contractsCount, overdueCount, dueSoonCount, upcomingCount } = stats
+
+  const statButtonClass = (tier: ContractTierFilter, overdueTone = false) => {
+    const isActive = selected && activeFilter === tier
+    return [
+      'rounded-lg bg-surface-container-low px-xs py-sm text-center transition-all',
+      'hover:ring-1 hover:ring-primary/40',
+      isActive ? 'bg-primary/10 ring-1 ring-primary/40' : '',
+      overdueTone && overdueCount > 0 ? 'text-error' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  return (
+    <div
+      className={`rounded-xl border p-md text-right transition-all ${
+        selected
+          ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
+          : 'border-outline-variant bg-surface-container-lowest'
+      }`}
+    >
+      <div className="mb-sm flex w-full items-start justify-between gap-sm">
+        <button type="button" onClick={onSelectBranch} className="min-w-0 flex-1 text-right">
+          <p className="truncate font-semibold text-on-surface">{branch.name_ar || branch.name}</p>
+          <p className="text-xs text-on-surface-variant">{branch.code}</p>
+        </button>
+        <button
+          type="button"
+          onClick={onSelectBranch}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+            selected ? 'bg-primary text-on-primary' : 'bg-primary/10 text-primary'
+          }`}
+          aria-label={`اختيار فرع ${branch.name_ar || branch.name}`}
+        >
+          <Icon name="store" size={20} />
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-xs text-center">
+        <button type="button" onClick={() => onFilter('all')} className={statButtonClass('all')}>
+          <p className="tabular-nums text-lg font-bold text-on-surface">{contractsCount}</p>
+          <p className="text-[11px] text-on-surface-variant">التعاقدات</p>
+        </button>
+        <button type="button" onClick={() => onFilter('overdue')} className={statButtonClass('overdue', true)}>
+          <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
+            {overdueCount}
+          </p>
+          <p className="text-[11px] text-on-surface-variant">عقد متأخر</p>
+        </button>
+        <button type="button" onClick={() => onFilter('due_soon')} className={statButtonClass('due_soon')}>
+          <p className="tabular-nums text-lg font-bold text-on-surface">{dueSoonCount}</p>
+          <p className="text-[11px] text-on-surface-variant">عقد مستحق</p>
+        </button>
+        <button type="button" onClick={() => onFilter('upcoming')} className={statButtonClass('upcoming')}>
+          <p className="tabular-nums text-lg font-bold text-on-surface">{upcomingCount}</p>
+          <p className="text-[11px] text-on-surface-variant">عقد قادم</p>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function CollectionAssignmentsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -50,9 +147,31 @@ export function CollectionAssignmentsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [dueStatusFilter, setDueStatusFilter] = useState('')
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null)
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [bulkCollectorId, setBulkCollectorId] = useState<number | ''>('')
   const [error, setError] = useState('')
+  const [showChrome, setShowChrome] = useState(() => {
+    try {
+      return localStorage.getItem(ASSIGNMENT_CHROME_STORAGE_KEY) !== 'false'
+    } catch {
+      return true
+    }
+  })
+
+  useEffect(() => {
+    localStorage.setItem(ASSIGNMENT_CHROME_STORAGE_KEY, String(showChrome))
+  }, [showChrome])
+
+  const branchesQuery = useQuery({
+    queryKey: ['branches', 'installments'],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
 
   const collectorsQuery = useQuery({
     queryKey: ['collectors'],
@@ -118,6 +237,7 @@ export function CollectionAssignmentsPage() {
 
     const q = search.trim().toLowerCase()
     return built.filter((contract) => {
+      if (selectedBranchId && contract.branchId !== selectedBranchId) return false
       if (q) {
         const matchesSearch =
           contract.customerName.toLowerCase().includes(q) ||
@@ -131,7 +251,47 @@ export function CollectionAssignmentsPage() {
       if (dueStatusFilter && contract.firstDueStatus !== dueStatusFilter) return false
       return true
     })
-  }, [installmentsQuery.data, search, dateFrom, dateTo, dueStatusFilter])
+  }, [installmentsQuery.data, search, dateFrom, dateTo, dueStatusFilter, selectedBranchId])
+
+  const branchStats = useMemo((): AssignmentBranchStats[] => {
+    const unpaid = (installmentsQuery.data ?? []).filter((row) => row.status !== 'paid')
+    const byBranch = new Map<number, InstallmentItem[]>()
+    for (const row of unpaid) {
+      const branchId = row.branch_id
+      if (!branchId) continue
+      const list = byBranch.get(branchId) ?? []
+      list.push(row)
+      byBranch.set(branchId, list)
+    }
+
+    const branches = branchesQuery.data ?? []
+    return branches
+      .map((branch) => {
+        const rows = (byBranch.get(branch.id) ?? []) as InstallmentCollectionRow[]
+        const {
+          total_contracts: contractsCount,
+          overdue_contracts: overdueCount,
+          due_soon_contracts: dueSoonCount,
+          upcoming_contracts: upcomingCount,
+        } = computeContractStats(rows)
+        return { branch, contractsCount, overdueCount, dueSoonCount, upcomingCount }
+      })
+      .filter(
+        (s) =>
+          s.contractsCount > 0 ||
+          s.overdueCount > 0 ||
+          s.dueSoonCount > 0 ||
+          s.upcomingCount > 0 ||
+          branches.length <= 6,
+      )
+      .sort(
+        (a, b) =>
+          b.overdueCount - a.overdueCount ||
+          b.dueSoonCount - a.dueSoonCount ||
+          b.upcomingCount - a.upcomingCount ||
+          b.contractsCount - a.contractsCount,
+      )
+  }, [branchesQuery.data, installmentsQuery.data])
 
   const selectedIds = Object.entries(selected)
     .filter(([, checked]) => checked)
@@ -173,11 +333,30 @@ export function CollectionAssignmentsPage() {
   ]
 
   const allChecked = contracts.length > 0 && contracts.every((contract) => selected[contract.invoiceId])
+  const activeFilterCount = [
+    search,
+    collectorFilter,
+    dateFrom,
+    dateTo,
+    dueStatusFilter,
+    selectedBranchId,
+  ].filter(Boolean).length
+  const activeTier = dueStatusToTier(dueStatusFilter)
+
+  const selectBranch = (branchId: number) => {
+    setSelectedBranchId((current) => (current === branchId ? null : branchId))
+    setSelected({})
+  }
+
+  const applyBranchStatFilter = (branchId: number, tier: ContractTierFilter) => {
+    setSelectedBranchId(branchId)
+    setDueStatusFilter(tier === 'all' ? '' : tier === 'due_soon' ? 'due' : tier)
+    setSelected({})
+  }
 
   return (
     <SalesPageShell
       title="توزيع التحصيل"
-      subtitle="وزّع العقود على المحصلين أو انقل عقداً من موظف لآخر"
       actions={
         <Link
           to="/installments"
@@ -187,62 +366,125 @@ export function CollectionAssignmentsPage() {
         </Link>
       }
       filters={
-        <FilterBar
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="بحث بالعميل أو رقم العقد..."
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onDateFromChange={(value) => {
-            setDateFrom(value)
-            setSelected({})
-          }}
-          onDateToChange={(value) => {
-            setDateTo(value)
-            setSelected({})
-          }}
-          dateFromLabel="من تاريخ أول قسط"
-          dateToLabel="إلى تاريخ أول قسط"
-          selects={[
-            {
-              id: 'collector',
-              label: 'المحصل',
-              value: collectorFilter,
-              onChange: (value) => {
-                setCollectorFilter(value)
-                setSelected({})
+        showChrome ? (
+          <FilterBar
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={(value) => {
+              setDateFrom(value)
+              setSelected({})
+            }}
+            onDateToChange={(value) => {
+              setDateTo(value)
+              setSelected({})
+            }}
+            dateFromLabel="من تاريخ أول قسط"
+            dateToLabel="إلى تاريخ أول قسط"
+            selects={[
+              {
+                id: 'collector',
+                label: 'المحصل',
+                value: collectorFilter,
+                onChange: (value) => {
+                  setCollectorFilter(value)
+                  setSelected({})
+                },
+                options: collectorOptions,
               },
-              options: collectorOptions,
-            },
-            {
-              id: 'due-status',
-              label: 'حالة القسط',
-              value: dueStatusFilter,
-              onChange: (value) => {
-                setDueStatusFilter(value)
-                setSelected({})
+              {
+                id: 'due-status',
+                label: 'حالة القسط',
+                value: dueStatusFilter,
+                onChange: (value) => {
+                  setDueStatusFilter(value)
+                  setSelected({})
+                },
+                options: [...firstDueStatusOptions],
               },
-              options: [...firstDueStatusOptions],
-            },
-          ]}
-          showClear={Boolean(search || collectorFilter || dateFrom || dateTo || dueStatusFilter)}
-          onClear={() => {
-            setSearch('')
-            setCollectorFilter('')
-            setDateFrom('')
-            setDateTo('')
-            setDueStatusFilter('')
-          }}
-        />
+            ]}
+            showClear={Boolean(search || collectorFilter || dateFrom || dateTo || dueStatusFilter || selectedBranchId)}
+            onClear={() => {
+              setSearch('')
+              setCollectorFilter('')
+              setDateFrom('')
+              setDateTo('')
+              setDueStatusFilter('')
+              setSelectedBranchId(null)
+            }}
+          />
+        ) : undefined
       }
     >
       <AsyncState
-        isLoading={collectorsQuery.isLoading || workloadQuery.isLoading || installmentsQuery.isLoading}
-        isError={collectorsQuery.isError || workloadQuery.isError || installmentsQuery.isError}
-        error={collectorsQuery.error ?? workloadQuery.error ?? installmentsQuery.error}
+        isLoading={
+          collectorsQuery.isLoading ||
+          workloadQuery.isLoading ||
+          installmentsQuery.isLoading ||
+          branchesQuery.isLoading
+        }
+        isError={
+          collectorsQuery.isError ||
+          workloadQuery.isError ||
+          installmentsQuery.isError ||
+          branchesQuery.isError
+        }
+        error={
+          collectorsQuery.error ??
+          workloadQuery.error ??
+          installmentsQuery.error ??
+          branchesQuery.error
+        }
       >
-        <div className="mb-md grid grid-cols-2 gap-sm md:grid-cols-4">
-          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+        {showChrome ? (
+          <div id="assignment-branch-cards" className="mb-md grid min-w-0 grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-3">
+            {branchStats.map((stats) => (
+              <AssignmentBranchCard
+                key={stats.branch.id}
+                stats={stats}
+                selected={selectedBranchId === stats.branch.id}
+                activeFilter={activeTier}
+                onSelectBranch={() => selectBranch(stats.branch.id)}
+                onFilter={(tier) => applyBranchStatFilter(stats.branch.id, tier)}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mb-md flex flex-col gap-sm sm:flex-row sm:flex-nowrap sm:items-center">
+          <div className="relative min-w-0 w-full flex-1">
+            <Icon
+              name="search"
+              size={18}
+              className="pointer-events-none absolute start-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
+            />
+            <input
+              id="assignment-contract-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="بحث بالعميل أو رقم العقد..."
+              aria-label="بحث"
+              className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low ps-8 pe-sm text-sm text-on-surface"
+            />
+          </div>
+          <button
+            type="button"
+            aria-expanded={showChrome}
+            aria-controls="assignment-branch-cards"
+            onClick={() => setShowChrome((open) => !open)}
+            className="inline-flex h-9 shrink-0 items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-low px-sm text-sm text-on-surface hover:bg-surface-container-high"
+          >
+            <Icon name={showChrome ? 'expand_less' : 'tune'} size={18} />
+            {showChrome
+              ? 'إخفاء الفلاتر'
+              : activeFilterCount > 0
+                ? `إظهار الفلاتر · ${activeFilterCount}`
+                : 'إظهار الفلاتر'}
+          </button>
+        </div>
+
+        <div className="mb-md flex min-w-0 gap-sm overflow-x-auto pb-xs">
+          <div className="min-w-[10rem] shrink-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
             <p className="text-xs text-on-surface-variant">غير معيَّن</p>
             <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">
               {workloadQuery.data?.unassigned_count ?? 0}
@@ -255,7 +497,7 @@ export function CollectionAssignmentsPage() {
             return (
               <div
                 key={collector.id}
-                className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
+                className="min-w-[10rem] shrink-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
               >
                 <p className="truncate text-xs text-on-surface-variant">{collector.name}</p>
                 <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">

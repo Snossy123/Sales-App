@@ -157,6 +157,7 @@ export function ExternalCollectionPage() {
   }, [debouncedSearch])
 
   const resetSelection = () => {
+    collectMutation.reset()
     setSelected(null)
     setAmount(0)
     setPaymentMethod('bank_transfer')
@@ -327,6 +328,7 @@ export function ExternalCollectionPage() {
   })
 
   const selectRow = (row: InstallmentRow) => {
+    collectMutation.reset()
     setSelected(row)
     setAmount(Number(row.total_due ?? row.remaining ?? Number(row.amount) - Number(row.paid_amount)))
     setPaymentMethod('bank_transfer')
@@ -410,8 +412,8 @@ export function ExternalCollectionPage() {
             </span>
           </div>
 
-          <div className="grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-            <div className="min-w-0">
+          <div className="grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:max-h-[calc(100dvh-8.5rem)] lg:min-h-0 lg:overflow-hidden">
+            <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
               <InstallmentCollectionGroupedList
                 rows={rows}
                 selectedId={selected?.id as number | undefined}
@@ -434,7 +436,7 @@ export function ExternalCollectionPage() {
               />
             </div>
 
-            <div className="min-w-0 self-start lg:sticky lg:top-md">
+            <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
             <InstallmentCollectionPanel
               selected={selected}
               selectedIsOverdueContract={selectedIsOverdueContract}
