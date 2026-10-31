@@ -53,7 +53,7 @@ export function ServiceContractPrintPage() {
     <div className="installment-contract-page">
       <div className="installment-contract-toolbar no-print">
         <Link
-          to="/pos"
+          to={`/contracts/${id}`}
           className="flex items-center gap-1 rounded-lg border border-outline-variant bg-white px-md py-sm text-sm text-on-surface hover:bg-surface-container"
         >
           <Icon name="arrow_forward" size={18} />

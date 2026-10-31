@@ -467,7 +467,7 @@ export function DeviceLineCard({
                   }
                   placeholder="ابحث باسم الفني..."
                   loading={employeesLoading}
-                  emptyMessage="لا يوجد فني مطابق"
+                  emptyMessage={employees.length === 0 ? 'لا يوجد فني متاح' : 'لا يوجد فني مطابق'}
                   hasError={Boolean(fieldErrors.technician)}
                 />
                 {fieldErrors.technician && (

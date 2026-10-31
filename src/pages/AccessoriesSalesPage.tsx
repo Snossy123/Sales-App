@@ -338,7 +338,7 @@ export function AccessoriesSalesPage() {
           فاتورة: {lastInvoice.invoice_number} — الإجمالي{' '}
           {Number(lastInvoice.total).toLocaleString('ar-EG', { numberingSystem: 'latn' })}
           <Link
-            to={`/invoices/${lastInvoice.id}`}
+            to={`/contracts/${lastInvoice.id}`}
             className="mr-sm text-primary"
           >
             عرض

@@ -23,7 +23,7 @@ export function InstallmentContractPrintPage() {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
         params: {
           include:
-            'customer,lines.productUnit,lines.installmentPlan.items,installmentPlan.items,installmentPlans.items,paymentTransactions',
+            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan.items,sourceInvoice.customer,paymentTransactions.user,paymentTransactions.installmentItem',
         },
       })
       return data
@@ -52,7 +52,7 @@ export function InstallmentContractPrintPage() {
     <div className="installment-contract-page">
       <div className="installment-contract-toolbar no-print">
         <Link
-          to="/invoices"
+          to={`/contracts/${id ?? ''}`}
           className="flex items-center gap-1 rounded-lg border border-outline-variant bg-white px-md py-sm text-sm text-on-surface hover:bg-surface-container"
         >
           <Icon name="arrow_forward" size={18} />

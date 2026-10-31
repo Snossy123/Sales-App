@@ -34,7 +34,7 @@ const MOBILE_NAV_ITEMS: MobileBottomNavItem[] = [
   {
     to: '/installments',
     icon: 'payments',
-    label: 'المبيعات',
+    label: 'الأقساط',
     roles: ['collector'],
   },
   {

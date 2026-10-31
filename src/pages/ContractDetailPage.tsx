@@ -15,21 +15,20 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
-import { userCanPerform, userHasPermission } from '../lib/access'
+import { getUserRole, userCanPerform, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
 import {
-  CONTRACT_CASES_MANAGE_PERMISSION,
   canExchangeContract,
   canRejectContract,
   canReturnContract,
   canTransferContractToProblems,
-  isContractEligibleForProblems,
   type ContractProblemCaseType,
 } from '../lib/contractCases'
 import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
+import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
 
 const CONTRACT_TABS = [
   { id: 'details', label: 'التفاصيل' },
@@ -48,8 +47,8 @@ export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const canManageCases = userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
-  const canPrint = userHasPermission(user, 'review.print')
+  const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
+  const canPrint = userHasPermission(user, 'review.print') || reviewRole
   const canViewFollowUpHistory = userCanPerform(user, 'installments.view')
   const [searchParams, setSearchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -107,7 +106,6 @@ export function ContractDetailPage() {
   const canReject = canRejectContract(user, invoice)
   const canExchange = canExchangeContract(user, invoice)
   const canReturn = canReturnContract(user, invoice)
-  const showProblemsPermissionHint = !canManageCases && isContractEligibleForProblems(invoice)
 
   const openWizard = (caseType?: ContractProblemCaseType) => {
     setWizardCaseType(caseType ?? null)
@@ -152,11 +150,11 @@ export function ContractDetailPage() {
         ) : undefined
       }
       actions={
-        <div className="flex flex-wrap items-center gap-sm">
+        <div className="flex max-w-full items-center gap-sm overflow-x-auto">
           {invoice && canEditContract(user, invoice) ? (
             <Link
               to={contractEditPath(invoice.id)}
-              className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
             >
               <Icon name="edit" size={18} />
               تعديل العقد
@@ -166,7 +164,7 @@ export function ContractDetailPage() {
             <button
               type="button"
               onClick={() => setConvertOpen(true)}
-              className="inline-flex items-center gap-xs rounded-lg border border-primary px-md py-sm text-sm font-medium text-primary hover:bg-primary/5"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg border border-primary px-md py-sm text-sm font-medium text-primary hover:bg-primary/5"
             >
               <Icon name="payments" size={18} />
               تحويل من كاش لقسط
@@ -175,7 +173,7 @@ export function ContractDetailPage() {
           {canReject && invoice && (
             <Link
               to={`/invoices/review/${invoice.id}`}
-              className="inline-flex items-center gap-xs rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error/5"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg border border-error px-md py-sm text-sm font-medium text-error hover:bg-error/5"
             >
               <Icon name="cancel" size={18} />
               رفض
@@ -185,7 +183,7 @@ export function ContractDetailPage() {
             <button
               type="button"
               onClick={() => openWizard('exchange')}
-              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
             >
               <Icon name="swap_horiz" size={18} />
               استبدال
@@ -195,7 +193,7 @@ export function ContractDetailPage() {
             <button
               type="button"
               onClick={() => openWizard('return')}
-              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
             >
               <Icon name="assignment_return" size={18} />
               استرجاع
@@ -205,25 +203,20 @@ export function ContractDetailPage() {
             <button
               type="button"
               onClick={() => openWizard()}
-              className="inline-flex items-center gap-xs rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+              className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
             >
               <Icon name="report_problem" size={18} />
               تحويل للمشاكل
             </button>
           )}
-          {showProblemsPermissionHint && (
-            <span
-              className="inline-flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-low px-md py-sm text-xs text-on-surface-variant"
-              title="يتطلب صلاحية: إدارة مشاكل العقد"
-            >
-              <Icon name="lock" size={16} />
-              تحويل للمشاكل غير متاح لحسابك
-            </span>
+          {invoice && canPrint && (
+            <div className="shrink-0">
+              <ContractPrintActions invoice={invoice} />
+            </div>
           )}
-          {invoice && canPrint && <ContractPrintActions invoice={invoice} />}
           <Link
             to={invoice?.customer_id ? `/customers/${invoice.customer_id}` : '/customers'}
-            className="inline-flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
+            className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
           >
             <Icon name="arrow_forward" size={18} />
             العودة للعميل
@@ -249,7 +242,7 @@ export function ContractDetailPage() {
                     role="tab"
                     aria-selected={activeTab === tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`border-b-2 px-md py-sm text-sm font-medium transition-colors ${
+                    className={`shrink-0 whitespace-nowrap border-b-2 px-md py-sm text-sm font-medium transition-colors ${
                       activeTab === tab.id
                         ? 'border-primary text-primary'
                         : 'border-transparent text-on-surface-variant hover:text-on-surface'
@@ -261,13 +254,18 @@ export function ContractDetailPage() {
               </div>
             </div>
 
-            {activeTab === 'details' && <ContractReviewDetails invoice={invoice} />}
+            {activeTab === 'details' && (
+              <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+                <ContractReviewDetails invoice={invoice} />
+                <ContractReviewDecisionPanel invoice={invoice} />
+              </div>
+            )}
             {activeTab === 'installments' && <ContractInstallmentsTab invoice={invoice} />}
             {activeTab === 'payments' && (
               <ContractPaymentsTab invoice={invoice} active={activeTab === 'payments'} />
             )}
             {activeTab === 'follow_up' && canViewFollowUpHistory && (
-              <ContractFollowUpTab invoiceId={invoice.id} active={activeTab === 'follow_up'} />
+              <ContractFollowUpTab invoice={invoice} active={activeTab === 'follow_up'} />
             )}
           </>
         )}

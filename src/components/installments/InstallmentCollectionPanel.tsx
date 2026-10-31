@@ -247,7 +247,7 @@ export function InstallmentCollectionPanel({
     (!transferMethods.includes(paymentMethod) || (accountId && senderNumber.trim()))
 
   return (
-    <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+    <div>
       <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md">
         <div className="mb-sm flex items-center justify-between gap-sm">
           <h3 className="text-lg font-semibold text-on-surface">تحصيل قسط</h3>
@@ -533,6 +533,23 @@ export function InstallmentCollectionPanel({
                   ? 'تأكيد التحصيل مع التوزيع'
                   : 'تأكيد التحصيل'}
           </button>
+          {!canCollect && !collectMutation.isPending && (
+            <p className="text-xs text-on-surface-variant">
+              {selected.is_suspended
+                ? 'القسط معلق، لا يمكن التحصيل قبل الاستئناف'
+                : selected.has_open_reconciliation
+                  ? 'يوجد تصالح مفتوح على هذا القسط'
+                  : amount <= 0
+                    ? 'أدخل مبلغ التحصيل'
+                    : transferMethods.includes(paymentMethod) && !accountId
+                      ? 'اختر حساب التحويل لإتمام التحصيل'
+                      : transferMethods.includes(paymentMethod) && !senderNumber.trim()
+                        ? 'اكتب رقم التحويل من العميل'
+                        : !canCollectPayment
+                          ? 'ليس لديك صلاحية التحصيل'
+                          : 'أكمل بيانات التحصيل'}
+            </p>
+          )}
 
           <OverpaymentConfirmDialog
             open={showOverpayConfirm}

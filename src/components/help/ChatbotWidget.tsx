@@ -129,7 +129,7 @@ export function ChatbotWidget() {
   }
 
   return (
-    <div className="fixed bottom-6 left-6 z-40 flex flex-col items-start gap-3">
+    <div className="fixed bottom-20 left-4 z-30 flex flex-col items-start gap-3 md:bottom-6">
       {open && (
         <div
           role="dialog"

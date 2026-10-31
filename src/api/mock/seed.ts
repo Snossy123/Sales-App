@@ -59,6 +59,7 @@ import type {
   ChatMessage,
   Promotion,
   PriceCatalogItem,
+  CollectionFollowUpLog,
   SalesInvoice,
   SalesInvoiceLine,
   Warehouse,
@@ -85,8 +86,23 @@ export interface MockPaymentTransaction {
   payment_source: string
   payment_method?: string
   paid_at: string
-  refunded_amount?: number
+  collector_user_id?: number | null
   notes?: string | null
+  refunded_amount?: number
+}
+
+export interface DemoPaymentVerificationLog {
+  id: number
+  sales_invoice_id: number
+  action: 'link' | 'record'
+  amount: number
+  payment_transaction_id: number
+  installment_item_id: number | null
+  down_payment: boolean
+  user_id: number | null
+  user_name: string | null
+  created_at: string
+  note: string
 }
 
 export interface MockExpenseRequest {
@@ -160,6 +176,8 @@ export interface DemoState {
   branchAccountingMaps: Record<number, BranchAccountingMap>
   invoices: SalesInvoice[]
   paymentTransactions: MockPaymentTransaction[]
+  paymentVerificationLogs: DemoPaymentVerificationLog[]
+  collectionFollowUpLogs: CollectionFollowUpLog[]
   expenseRequests: MockExpenseRequest[]
   distributorCommissionLedger?: Array<{
     id: number
@@ -204,6 +222,8 @@ export interface DemoState {
     dailyBranchReport: number
     installmentItem: number
     payment: number
+    paymentVerification?: number
+    collectionFollowUp?: number
     commissionLedger?: number
     accountingMapping?: number
     accountingLine?: number
@@ -722,6 +742,77 @@ export function createSeedState(): DemoState {
       })(),
       created_by: 5,
     },
+    {
+      id: 8,
+      invoice_number: 'QA-OT-0001',
+      invoice_date: '2026-06-15',
+      branch_id: 1,
+      warehouse_id: 1,
+      customer_id: 1,
+      distributor_id: 1,
+      status: 'confirmed',
+      payment_term: 'cash',
+      payment_status: 'paid',
+      contract_kind: 'ownership_transfer',
+      source_sales_invoice_id: 2,
+      total: 200,
+      paid_amount: 200,
+      balance_due: 0,
+      technician_name: 'محمود الفني',
+      vehicle_info: 'تويota كورولا — أ ب ج 1234',
+      lines: [
+        {
+          id: 8,
+          product_id: 1,
+          service_id: 9,
+          quantity: 1,
+          unit_price: 200,
+          line_total: 200,
+          product_name_ar: 'رسوم نقل ملكية',
+          serial_number: 'SN-QA-OT-001',
+          sim_number: '01011223344',
+          username: 'sara_gps',
+        },
+      ],
+      confirmed_at: '2026-06-15T11:00:00',
+      reviewed_by: 3,
+      reviewed_at: '2026-06-15T11:00:00',
+      review_status: 'approved',
+      created_by: 2,
+    },
+    {
+      id: 9,
+      invoice_number: 'QA-SVC-0001',
+      invoice_date: '2026-06-18',
+      branch_id: 1,
+      warehouse_id: 1,
+      customer_id: 1,
+      distributor_id: 1,
+      status: 'confirmed',
+      payment_term: 'cash',
+      payment_status: 'paid',
+      contract_kind: 'mixed',
+      total: 300,
+      paid_amount: 300,
+      balance_due: 0,
+      technician_name: 'يوسف دعم فني',
+      lines: [
+        {
+          id: 9,
+          service_id: 6,
+          quantity: 1,
+          unit_price: 300,
+          line_total: 300,
+          product_name_ar: 'رسوم صيانة',
+          description: 'رسوم صيانة',
+        },
+      ],
+      confirmed_at: '2026-06-18T12:00:00',
+      reviewed_by: 3,
+      reviewed_at: '2026-06-18T12:00:00',
+      review_status: 'approved',
+      created_by: 2,
+    },
   ]
 
   stocks[0].reserved = 2
@@ -868,8 +959,6 @@ export function createSeedState(): DemoState {
         'installments.collect',
         'installments.view',
         'sales.invoices.view',
-        'contract_cases.manage',
-        'contract_cases.disburse',
       ],
     },
     {
@@ -979,6 +1068,7 @@ export function createSeedState(): DemoState {
     { id: 1, name: 'مندوب مبيعات', status: 'active', employees_count: 1 },
     { id: 2, name: 'محصل', status: 'active', employees_count: 1 },
     { id: 3, name: 'مدير موارد بشرية', status: 'active', employees_count: 1 },
+    { id: 4, name: 'فني دعم', status: 'active', employees_count: 1 },
   ]
 
   const employees: Employee[] = [
@@ -1032,6 +1122,21 @@ export function createSeedState(): DemoState {
       branch: branches[0],
       department: { id: sections[2].id, name: sections[2].name, name_ar: sections[2].name_ar ?? undefined },
       user: { id: 8, name: 'منى — HR', email: 'hr@demo.test' },
+    },
+    {
+      id: 4,
+      employee_code: 'EMP-TECH',
+      name: 'يوسف دعم فني',
+      phone: '01077776666',
+      hrm_job_id: 4,
+      job_title: 'فني دعم',
+      salary: 6500,
+      hire_date: '2025-02-01',
+      status: 'active',
+      branch_id: 1,
+      department_id: 2,
+      branch: branches[0],
+      department: { id: 2, name: 'Support', name_ar: 'الدعم الفني' },
     },
   ]
 
@@ -2013,6 +2118,8 @@ export function createSeedState(): DemoState {
         paid_at: '2026-05-01T10:00:00Z',
       },
     ],
+    paymentVerificationLogs: [],
+    collectionFollowUpLogs: [],
     expenseRequests: [
       {
         id: 1,
@@ -2078,13 +2185,15 @@ export function createSeedState(): DemoState {
       warehouse: 6,
       stockReceipt: 0,
       stockTransfer: 0,
-      invoice: 5,
+      invoice: 10,
       customer: 4,
       distributor: 4,
       service: 12,
       dailyBranchReport: 2,
       installmentItem: 10,
       payment: 1,
+      paymentVerification: 1,
+      collectionFollowUp: 1,
       commissionLedger: 1,
       accountingMapping: 4,
       accountingLine: 7,
@@ -2100,7 +2209,7 @@ export function createSeedState(): DemoState {
       adminUser: 8,
       adminRole: 3,
       activityLog: 3,
-      employee: 3,
+      employee: 4,
       hrmLeaveType: 3,
       hrmLeave: 2,
       hrmShift: 1,

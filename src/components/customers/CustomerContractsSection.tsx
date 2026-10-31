@@ -296,8 +296,14 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                             header: 'الحالة',
                             render: (row) => (
                               <StatusBadge
-                                status={normalizeInstallmentStatus(String(row.status))}
-                                label={installmentStatusLabel(String(row.status))}
+                                status={normalizeInstallmentStatus(
+                                  String(row.status),
+                                  (row as unknown as InstallmentItem).due_date,
+                                )}
+                                label={installmentStatusLabel(
+                                  String(row.status),
+                                  (row as unknown as InstallmentItem).due_date,
+                                )}
                               />
                             ),
                           },

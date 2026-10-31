@@ -192,7 +192,7 @@ export const PERMISSION_SECTIONS: PermissionSectionDef[] = [
   },
   {
     id: 'system',
-    label: 'الآعدادات',
+    label: 'الإعدادات',
     icon: 'admin_panel_settings',
     modules: ['users', 'roles', 'audit', 'settings', 'services', 'trash', 'faq', 'feedback'],
   },

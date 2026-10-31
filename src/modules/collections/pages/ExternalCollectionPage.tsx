@@ -406,11 +406,11 @@ export function ExternalCollectionPage() {
               <option value="open_reconciliation">تصالح مفتوح</option>
             </select>
             <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
-              {rows.length} قسط · {new Set(rows.map((r) => r.sales_invoice_id)).size} عقد
+              {rows.length} قسط غير مدفوع · {new Set(rows.map((r) => r.sales_invoice_id)).size} عقد · القائمة تعرض القسط الحالي
             </span>
           </div>
 
-          <div className="grid gap-md lg:grid-cols-[minmax(0,1fr)_min(22rem,38%)]">
+          <div className="grid gap-md xl:grid-cols-[minmax(0,1.15fr)_minmax(26rem,0.95fr)]">
             <div className="min-w-0">
               <InstallmentCollectionGroupedList
                 rows={rows}
@@ -420,7 +420,17 @@ export function ExternalCollectionPage() {
                   selectRow(row)
                   setShowReconcile(true)
                 }}
-                emptyMessage="لا توجد أقساط مطابقة للبحث"
+                emptyMessage={
+                  contractTierFilter === 'overdue'
+                    ? 'لا توجد عقود متأخرة مطابقة للبحث'
+                    : contractTierFilter === 'due_soon'
+                      ? 'لا توجد عقود مستحقة مطابقة للبحث'
+                      : contractTierFilter === 'upcoming'
+                        ? 'لا توجد عقود قادمة مطابقة للبحث'
+                        : contractTierFilter === 'open_reconciliation'
+                          ? 'لا توجد عقود بتصالح مفتوح مطابقة للبحث'
+                          : 'لا توجد أقساط غير مدفوعة مطابقة للبحث'
+                }
               />
             </div>
 

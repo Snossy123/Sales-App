@@ -53,7 +53,7 @@ function MetricCell({
     <div className="rounded-lg border border-outline-variant/50 bg-surface-container-low/30 px-sm py-2">
       <p className="text-[11px] text-on-surface-variant">{label}</p>
       <p
-        className={`mt-0.5 text-sm tabular-nums ${bold ? 'font-bold text-on-surface' : 'font-medium text-on-surface'}`}
+        className={`mt-0.5 whitespace-nowrap text-sm tabular-nums ${bold ? 'font-bold text-on-surface' : 'font-medium text-on-surface'}`}
         dir={dir}
       >
         {value}
@@ -75,6 +75,8 @@ function DeviceIdentifiersTable({
         <thead>
           <tr className="border-b border-outline-variant/60 bg-surface-container-low text-[11px] text-on-surface-variant">
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">#</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">العدد</th>
+            <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">سعر الوحدة</th>
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">السريال (1)</th>
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">المستخدم (2)</th>
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">رقم الشريحة (3)</th>
@@ -86,6 +88,12 @@ function DeviceIdentifiersTable({
             <tr key={line.id} className="border-b border-outline-variant/30 last:border-0">
               <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium text-on-surface">
                 {index + 1}
+              </td>
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
+                {line.quantity ?? 1}
+              </td>
+              <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
+                {fmtContractMoney(line.unit_price)}
               </td>
               <td className="whitespace-nowrap px-sm py-2 text-start align-middle font-medium">
                 <span dir="ltr" className="inline-block tabular-nums">
@@ -428,10 +436,16 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
         key="devices"
         title="الأجهزة"
         metrics={[
-          { label: 'عدد', value: String(summary.lineCount) },
-          { label: 'رسوم', value: fmtContractMoney(summary.devicesGross) },
+          { label: 'عدد', value: String(summary.deviceQuantity || summary.lineCount) },
+          {
+            label: 'سعر الوحدة',
+            value:
+              deviceLines.length === 1
+                ? fmtContractMoney(deviceLines[0]?.unit_price)
+                : 'متعدد',
+          },
           { label: 'خصم', value: moneyOrDash(summary.devicesDiscount) },
-          { label: 'صافي', value: fmtContractMoney(summary.devicesSubtotal) },
+          { label: 'إجمالي', value: fmtContractMoney(summary.devicesSubtotal) },
         ]}
       />
     ) : null,
@@ -559,7 +573,7 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
         <PosSectionCard
           number={sectionNumber++}
           title="تفاصيل الأجهزة"
-          subtitle={`${deviceLines.length} جهاز`}
+          subtitle={`${invoiceContractSummary(invoice).deviceQuantity} جهاز`}
           contentClassName="flex flex-col gap-sm p-sm sm:p-md"
         >
           {deviceLines.map((line, index) => (

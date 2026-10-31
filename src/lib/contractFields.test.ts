@@ -30,7 +30,7 @@ describe('installment table sizing', () => {
     [24, 24],
     [25, 36],
     [36, 36],
-  ])('builds a %i-installment plan with %i table cells', (count, capacity) => {
+  ])('builds a %i-installment plan with one row per installment', (count) => {
     const plan: InstallmentPlan = {
       id: 1,
       sales_invoice_line_id: 1,
@@ -40,7 +40,7 @@ describe('installment table sizing', () => {
     }
     const line = makeLine(1, 36000, 'installment', plan)
 
-    expect(buildInstallmentRows(line, makeInvoice([line]))).toHaveLength(capacity)
+    expect(buildInstallmentRows(line, makeInvoice([line]))).toHaveLength(count)
   })
 
   it('prints due and paid dates as day/month/year', () => {

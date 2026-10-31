@@ -1,11 +1,18 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import type { CollectionFollowUpLog } from '../../api/types'
-import { collectionStatusLabels } from '../../lib/collectionHelpers'
+import type { CollectionFollowUpLog, SalesInvoice } from '../../api/types'
+import {
+  buildCollectionFollowUpPayload,
+  collectionStatusLabels,
+  collectionStatusOptions,
+} from '../../lib/collectionHelpers'
+import { getInstallmentItems, getInstallmentNumber } from '../../lib/customerContracts'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
 
 interface ContractFollowUpTabProps {
-  invoiceId: number
+  invoice: SalesInvoice
   active: boolean
 }
 
@@ -47,7 +54,109 @@ function FollowUpLogCard({ log }: { log: CollectionFollowUpLog }) {
   )
 }
 
-export function ContractFollowUpTab({ invoiceId, active }: ContractFollowUpTabProps) {
+function FollowUpForm({ invoice }: { invoice: SalesInvoice }) {
+  const queryClient = useQueryClient()
+  const items = getInstallmentItems(invoice)
+  const [installmentId, setInstallmentId] = useState(items[0] ? String(items[0].id) : '')
+  const [collectionStatus, setCollectionStatus] = useState('responded')
+  const [collectionReminderAt, setCollectionReminderAt] = useState('')
+  const [collectionNotes, setCollectionNotes] = useState('')
+  const [error, setError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const payload = buildCollectionFollowUpPayload({
+        collectionStatus,
+        collectionReminderAt,
+        collectionNotes,
+      })
+      if (!installmentId) throw new Error('اختر القسط')
+      if (Object.keys(payload).length === 0) throw new Error('أضف حالة أو ميعاد تذكير أو ملاحظة')
+      await api.patch(`/installments/${installmentId}/collection-metadata`, payload)
+    },
+    onSuccess: () => {
+      setCollectionNotes('')
+      setError('')
+      void queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoice.id] })
+    },
+    onError: (err: Error) => setError(err.message || 'تعذر حفظ المتابعة'),
+  })
+
+  if (items.length === 0) return null
+
+  return (
+    <form
+      className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-lowest p-md"
+      onSubmit={(event) => {
+        event.preventDefault()
+        mutation.mutate()
+      }}
+    >
+      <h3 className="text-sm font-semibold text-on-surface">تسجيل متابعة</h3>
+      <div className="grid gap-sm sm:grid-cols-2">
+        <label className="block text-xs text-on-surface-variant">
+          القسط
+          <select
+            className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm text-on-surface"
+            value={installmentId}
+            onChange={(event) => setInstallmentId(event.target.value)}
+          >
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                قسط {getInstallmentNumber(item) || item.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs text-on-surface-variant">
+          الحالة
+          <select
+            className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm text-on-surface"
+            value={collectionStatus}
+            onChange={(event) => setCollectionStatus(event.target.value)}
+          >
+            {collectionStatusOptions
+              .filter((option) => option.value)
+              .map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="block text-xs text-on-surface-variant">
+          التذكير
+          <input
+            type="datetime-local"
+            className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm text-on-surface"
+            value={collectionReminderAt}
+            onChange={(event) => setCollectionReminderAt(event.target.value)}
+          />
+        </label>
+        <label className="block text-xs text-on-surface-variant sm:col-span-2">
+          ملاحظة
+          <textarea
+            className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm text-on-surface"
+            rows={2}
+            value={collectionNotes}
+            onChange={(event) => setCollectionNotes(event.target.value)}
+          />
+        </label>
+      </div>
+      {error ? <p className="text-sm text-error">{error}</p> : null}
+      <button
+        type="submit"
+        disabled={mutation.isPending}
+        className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary disabled:opacity-60"
+      >
+        حفظ المتابعة
+      </button>
+    </form>
+  )
+}
+
+export function ContractFollowUpTab({ invoice, active }: ContractFollowUpTabProps) {
+  const invoiceId = invoice.id
   const query = useQuery({
     queryKey: ['collection-follow-ups', invoiceId],
     queryFn: async () => {
@@ -71,9 +180,15 @@ export function ContractFollowUpTab({ invoiceId, active }: ContractFollowUpTabPr
 
   if (logs.length === 0) {
     return (
-      <p className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
-        لا يوجد سجل متابعة بعد
-      </p>
+      <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
+        <p>لا يوجد سجل متابعة بعد</p>
+        <div className="mt-md text-start">
+          <FollowUpForm invoice={invoice} />
+        </div>
+        <Link to="/installments" className="mt-sm inline-flex font-medium text-primary hover:underline">
+          تحصيل الأقساط
+        </Link>
+      </div>
     )
   }
 
@@ -101,6 +216,10 @@ export function ContractFollowUpTab({ invoiceId, active }: ContractFollowUpTabPr
 
   return (
     <div className="space-y-md">
+      <FollowUpForm invoice={invoice} />
+      <Link to="/installments" className="inline-flex text-sm font-medium text-primary hover:underline">
+        تحصيل الأقساط
+      </Link>
       {groups.map((group) => (
         <section key={group.key}>
           <h3 className="mb-sm text-sm font-semibold text-on-surface">{group.label}</h3>

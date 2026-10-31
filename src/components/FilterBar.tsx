@@ -71,6 +71,12 @@ export function FilterBar({
   showClear = false,
   dataTour,
 }: FilterBarProps) {
+  const searchOnly =
+    onSearchChange !== undefined &&
+    onDateFromChange === undefined &&
+    onDateToChange === undefined &&
+    selects.length === 0
+
   return (
     <div
       data-tour={dataTour}
@@ -78,12 +84,16 @@ export function FilterBar({
     >
       <div className="grid grid-cols-1 items-end gap-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {onSearchChange !== undefined && (
-          <FilterField label="بحث" htmlFor="filter-search" className="sm:col-span-2 xl:col-span-2">
+          <FilterField
+            label="بحث"
+            htmlFor="filter-search"
+            className={searchOnly ? 'sm:col-span-2 lg:col-span-3 xl:col-span-6' : 'sm:col-span-2 xl:col-span-2'}
+          >
             <div className="relative">
               <Icon
                 name="search"
                 size={18}
-                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                className="pointer-events-none absolute start-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
               />
               <input
                 id="filter-search"
@@ -91,7 +101,7 @@ export function FilterBar({
                 value={search ?? ''}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
-                className={`${inputClass} pr-8`}
+                className={`${inputClass} ps-8`}
               />
             </div>
           </FilterField>
@@ -106,6 +116,7 @@ export function FilterBar({
               onChange={(e) => onDateFromChange(e.target.value)}
               className={inputClass}
               dir="ltr"
+              lang="ar"
             />
           </FilterField>
         )}
@@ -119,6 +130,7 @@ export function FilterBar({
               onChange={(e) => onDateToChange(e.target.value)}
               className={inputClass}
               dir="ltr"
+              lang="ar"
             />
           </FilterField>
         )}

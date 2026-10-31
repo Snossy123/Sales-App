@@ -49,6 +49,26 @@ interface BranchStats {
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 
+function branchInstallmentsTitle(name: string) {
+  const trimmed = name.trim()
+  return trimmed.startsWith('فرع') ? `أقساط ${trimmed}` : `أقساط فرع ${trimmed}`
+}
+
+function collectionListEmptyMessage(filter: ContractTierFilter) {
+  switch (filter) {
+    case 'overdue':
+      return 'لا توجد عقود متأخرة لهذا الفرع'
+    case 'due_soon':
+      return 'لا توجد عقود مستحقة لهذا الفرع'
+    case 'upcoming':
+      return 'لا توجد عقود قادمة لهذا الفرع'
+    case 'open_reconciliation':
+      return 'لا توجد عقود بتصالح مفتوح لهذا الفرع'
+    default:
+      return 'لا توجد أقساط غير مدفوعة لهذا الفرع'
+  }
+}
+
 type InstallmentDraft = {
   selectedBranchId: number | null
   selectedId: number | null
@@ -157,7 +177,7 @@ function BranchInstallmentCard({
           <p className={`tabular-nums text-lg font-bold ${overdueCount > 0 ? 'text-error' : 'text-on-surface'}`}>
             {overdueCount}
           </p>
-          <p className="text-[11px] text-on-surface-variant">قسط متأخر</p>
+          <p className="text-[11px] text-on-surface-variant">عقد متأخر</p>
         </button>
         <button
           type="button"
@@ -165,7 +185,7 @@ function BranchInstallmentCard({
           className={statButtonClass('due_soon')}
         >
           <p className="tabular-nums text-lg font-bold text-on-surface">{dueSoonCount}</p>
-          <p className="text-[11px] text-on-surface-variant">قسط مستحق</p>
+          <p className="text-[11px] text-on-surface-variant">عقد مستحق</p>
         </button>
         <button
           type="button"
@@ -173,7 +193,7 @@ function BranchInstallmentCard({
           className={statButtonClass('upcoming')}
         >
           <p className="tabular-nums text-lg font-bold text-on-surface">{upcomingCount}</p>
-          <p className="text-[11px] text-on-surface-variant">قسط قادم</p>
+          <p className="text-[11px] text-on-surface-variant">عقد قادم</p>
         </button>
       </div>
     </div>
@@ -882,7 +902,7 @@ export function InstallmentCollectionPage() {
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
             <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
               <h2 className="text-lg font-semibold text-on-surface">
-                أقساط فرع {selectedBranch.name_ar || selectedBranch.name}
+                {branchInstallmentsTitle(selectedBranch.name_ar || selectedBranch.name)}
               </h2>
               <div className="flex items-center gap-sm">
                 <button
@@ -895,8 +915,8 @@ export function InstallmentCollectionPage() {
                   <Icon name="schedule" size={18} />
                 </button>
                 <span className="rounded-full bg-surface-container-high px-sm py-xs text-xs text-on-surface-variant">
-                  {filteredRows.length} قسط ·{' '}
-                  {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد
+                  {filteredRows.length} قسط غير مدفوع ·{' '}
+                  {new Set(filteredRows.map((r) => r.sales_invoice_id)).size} عقد · القائمة تعرض القسط الحالي
                 </span>
               </div>
             </div>
@@ -909,7 +929,7 @@ export function InstallmentCollectionPage() {
               onClear={clearFilters}
             />
 
-            <div className="grid gap-md lg:grid-cols-[minmax(0,1fr)_min(22rem,38%)]">
+            <div className="grid gap-md xl:grid-cols-[minmax(0,1.15fr)_minmax(26rem,0.95fr)]">
               <div className="min-w-0">
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
@@ -921,7 +941,7 @@ export function InstallmentCollectionPage() {
                     selectRow(row)
                     setShowReconcile(true)
                   }}
-                  emptyMessage="لا توجد أقساط مستحقة لهذا الفرع"
+                  emptyMessage={collectionListEmptyMessage(contractTierFilter)}
                   collectors={collectorsQuery.data ?? []}
                   canAssign={canAssignCollectors}
                   onAssignCollector={(invoiceId, collectorUserId) =>

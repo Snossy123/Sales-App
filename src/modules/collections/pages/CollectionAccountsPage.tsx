@@ -30,7 +30,7 @@ function isBankTransfer(method: string) {
   return method === 'bank_transfer'
 }
 
-const DEFAULT_BANK_NAME = 'CIB bank'
+const DEFAULT_BANK_NAME = 'بنك CIB'
 
 const emptyForm = {
   phone: '',

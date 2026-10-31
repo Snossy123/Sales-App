@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
 import {
@@ -15,19 +16,27 @@ export function IncompleteProceduresBanner() {
     (draft) => pathname !== draft.resumePath.split('?')[0],
   )
 
+  const [open, setOpen] = useState(false)
+
   if (items.length === 0) return null
 
   return (
-    <div className="mb-md rounded-xl border border-primary/30 bg-primary/5 px-md py-sm print:hidden">
-      <div className="mb-xs flex items-center gap-xs text-sm font-bold text-primary">
-        <Icon name="history" size={18} className="no-flip" />
-        <span>
+    <div className="mb-sm rounded-xl border border-primary/30 bg-primary/5 px-md py-xs print:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-sm py-1 text-sm font-bold text-primary"
+      >
+        <span className="flex items-center gap-xs">
+          <Icon name="history" size={18} className="no-flip" />
           عندك {items.length} إجراء غير مكتمل
         </span>
-      </div>
-      <ul className="space-y-xs">
-        {items.map((draft) => {
-          return (
+        <Icon name={open ? 'expand_less' : 'expand_more'} size={20} />
+      </button>
+      {open ? (
+        <ul className="space-y-xs pb-xs">
+          {items.map((draft) => (
             <li
               key={draft.id}
               className="flex flex-wrap items-center justify-between gap-xs rounded-lg bg-surface-container-lowest px-sm py-xs"
@@ -43,7 +52,8 @@ export function IncompleteProceduresBanner() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm(`تجاهل مسودة «${draft.titleAr}»؟`)) {
+                    const title = draft.titleAr
+                    if (window.confirm('تجاهل مسودة ' + title + '؟')) {
                       clearDraft(draft.id, draft.userId)
                     }
                   }}
@@ -53,9 +63,9 @@ export function IncompleteProceduresBanner() {
                 </button>
               </div>
             </li>
-          )
-        })}
-      </ul>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }

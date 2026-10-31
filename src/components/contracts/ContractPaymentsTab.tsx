@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { PaymentTransaction, SalesInvoice } from '../../api/types'
-import { formatContractMoney, getInstallmentItems } from '../../lib/customerContracts'
+import { formatContractMoney, reconcileContractLedger } from '../../lib/customerContracts'
+import { PaymentVerificationPanel } from './PaymentVerificationPanel'
 import { formatInvoiceDate } from '../../lib/sales'
 import { AsyncState } from '../AsyncState'
 import { DataTable } from '../DataTable'
@@ -21,8 +22,12 @@ interface ContractPaymentsTabProps {
   active: boolean
 }
 
+function recordedOrMissing(value?: string | null): string {
+  return value?.trim() ? value.trim() : 'غير مسجّل'
+}
+
 function formatPaymentMethod(value?: string | null): string {
-  if (!value?.trim()) return '—'
+  if (!value?.trim()) return 'غير مسجّل'
   return value
     .split(',')
     .map((method) => method.trim())
@@ -38,10 +43,7 @@ function installmentLabel(payment: PaymentTransaction): string | number {
 
 export function ContractPaymentsTab({ invoice, active }: ContractPaymentsTabProps) {
   const embeddedPayments = invoice.payment_transactions ?? []
-  const hasPaidInstallments = getInstallmentItems(invoice).some(
-    (item) => Number(item.paid_amount ?? 0) > 0 || Boolean(item.paid_at),
-  )
-  const shouldFetchFallback = active && embeddedPayments.length === 0 && hasPaidInstallments
+  const shouldFetchFallback = active && embeddedPayments.length === 0
 
   const fallbackQuery = useQuery({
     queryKey: ['payment-transactions', 'contract', invoice.id],
@@ -54,14 +56,23 @@ export function ContractPaymentsTab({ invoice, active }: ContractPaymentsTabProp
     enabled: shouldFetchFallback,
   })
 
+  const ledgerSource = useMemo(
+    () => (embeddedPayments.length > 0 ? invoice : { ...invoice, payment_transactions: fallbackQuery.data ?? [] }),
+    [embeddedPayments.length, fallbackQuery.data, invoice],
+  )
+  const ledger = useMemo(() => reconcileContractLedger(ledgerSource), [ledgerSource])
+
   const payments = useMemo(() => {
-    const rows = embeddedPayments.length > 0 ? embeddedPayments : (fallbackQuery.data ?? [])
-    return [...rows].sort((a, b) => {
-      const dateA = a.paid_at ? new Date(a.paid_at).getTime() : 0
-      const dateB = b.paid_at ? new Date(b.paid_at).getTime() : 0
-      return dateB - dateA
-    })
-  }, [embeddedPayments, fallbackQuery.data])
+    return ledger.confirmedPayments
+      .slice()
+      .sort((a, b) => {
+        const dateA = a.paid_at ? new Date(a.paid_at).getTime() : 0
+        const dateB = b.paid_at ? new Date(b.paid_at).getTime() : 0
+        return dateB - dateA
+      })
+  }, [ledger.confirmedPayments])
+
+  const legacyCredits = ledger.legacyCredits
 
   return (
     <section>
@@ -79,12 +90,14 @@ export function ContractPaymentsTab({ invoice, active }: ContractPaymentsTabProp
             {
               key: 'paid_at',
               header: 'التاريخ',
-              render: (row) => (row.paid_at ? formatInvoiceDate(row.paid_at) : '—'),
+              render: (row) => (row.paid_at ? formatInvoiceDate(row.paid_at) : 'غير مسجّل'),
             },
             {
               key: 'amount',
               header: 'المبلغ',
-              render: (row) => formatContractMoney(Number(row.amount ?? 0)),
+              render: (row) => (
+                <span className="whitespace-nowrap">{formatContractMoney(Number(row.amount ?? 0))}</span>
+              ),
             },
             {
               key: 'payment_method',
@@ -99,7 +112,7 @@ export function ContractPaymentsTab({ invoice, active }: ContractPaymentsTabProp
             {
               key: 'collector',
               header: 'المحصّل',
-              render: (row) => row.user?.name ?? '—',
+              render: (row) => recordedOrMissing(row.user?.name),
             },
             {
               key: 'notes',
@@ -108,6 +121,42 @@ export function ContractPaymentsTab({ invoice, active }: ContractPaymentsTabProp
             },
           ]}
         />
+        {legacyCredits.length > 0 ? (
+          <div className="mt-md">
+            <h3 className="mb-sm text-sm font-semibold text-on-surface">سجل قديم غير مؤكد</h3>
+            <p className="mb-sm text-xs text-on-surface-variant">
+              مبالغ ظاهرة في جدول الأقساط بدون سند تحصيل. لا تُحسب ضمن المسدد المؤكد.
+            </p>
+            <DataTable
+              data={legacyCredits}
+              keyExtractor={(row) => row.installmentItemId}
+              pageSize={12}
+              columns={[
+                {
+                  key: 'label',
+                  header: 'الحالة',
+                  render: () => 'سجل قديم غير مؤكد',
+                },
+                {
+                  key: 'installment',
+                  header: 'القسط',
+                  render: (row) => row.installmentNumber ?? '—',
+                },
+                {
+                  key: 'amount',
+                  header: 'المبلغ',
+                  render: (row) => formatContractMoney(row.amount),
+                },
+                {
+                  key: 'paidAt',
+                  header: 'تاريخ الجدول',
+                  render: (row) => (row.paidAt ? formatInvoiceDate(row.paidAt) : '—'),
+                },
+              ]}
+            />
+          </div>
+        ) : null}
+        <PaymentVerificationPanel invoice={ledgerSource} ledger={ledger} />
       </AsyncState>
     </section>
   )

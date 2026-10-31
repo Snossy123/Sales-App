@@ -1,4 +1,4 @@
-import type { InstallmentItem, SalesInvoice } from '../api/types'
+import type { InstallmentItem, PaymentTransaction, SalesInvoice } from '../api/types'
 import { resolveLinePlan } from './contractFields'
 import { formatNumber } from './format'
 import { formatInvoiceDate } from './sales'
@@ -42,16 +42,27 @@ export function formatIntervalType(type?: string | null): string | null {
   return type
 }
 
-export function normalizeInstallmentStatus(status: string): 'paid' | 'partial' | 'pending' {
+export function normalizeInstallmentStatus(
+  status: string,
+  dueDate?: string | null,
+): 'paid' | 'partial' | 'pending' | 'overdue' {
   if (status === 'paid') return 'paid'
+  if (status === 'overdue') return 'overdue'
   if (status === 'partial') return 'partial'
+  if (dueDate && status !== 'paid') {
+    const due = new Date(dueDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (!Number.isNaN(due.getTime()) && due < today) return 'overdue'
+  }
   return 'pending'
 }
 
-export function installmentStatusLabel(status: string): string {
-  const normalized = normalizeInstallmentStatus(status)
+export function installmentStatusLabel(status: string, dueDate?: string | null): string {
+  const normalized = normalizeInstallmentStatus(status, dueDate)
   if (normalized === 'paid') return 'مدفوع'
   if (normalized === 'partial') return 'جزئي'
+  if (normalized === 'overdue') return 'متأخر'
   return 'معلق'
 }
 
@@ -115,6 +126,157 @@ export function getInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
   }
 
   return invoice.installment_items ?? []
+}
+
+export interface LegacyScheduleCredit {
+  installmentItemId: number
+  installmentNumber: number | null
+  amount: number
+  paidAt: string | null
+}
+
+export interface ContractLedger {
+  downPayment: number
+  downPaymentConfirmed: number
+  downPaymentUnverified: number
+  installmentPrincipal: number
+  confirmedInstallmentPaid: number
+  confirmedOutstanding: number
+  confirmedOverdue: number
+  legacyCredit: number
+  legacyCredits: LegacyScheduleCredit[]
+  unallocated: number
+  confirmedPayments: PaymentTransaction[]
+}
+
+function isConfirmedPayment(payment: PaymentTransaction): boolean {
+  return payment.status !== 'refunded' && payment.status !== 'void'
+}
+
+/** Confirmed money comes only from payment transactions. Schedule paid amounts that no transaction covers stay legacy. */
+export function reconcileContractLedger(invoice: SalesInvoice): ContractLedger {
+  const items = getInstallmentItems(invoice)
+  const downPayment = buildContractSummary(invoice).downPayment
+  const confirmedPayments = (invoice.payment_transactions ?? []).filter(isConfirmedPayment)
+
+  const appliedByItem = new Map<number, number>()
+  let downApplied = 0
+  let unallocated = 0
+
+  for (const payment of confirmedPayments) {
+    const amount = Number(payment.amount ?? 0)
+    if (payment.installment_item_id != null) {
+      const itemId = payment.installment_item_id
+      appliedByItem.set(itemId, (appliedByItem.get(itemId) ?? 0) + amount)
+      continue
+    }
+    const room = Math.max(0, downPayment - downApplied)
+    const toDown = Math.min(amount, room)
+    downApplied += toDown
+    unallocated += amount - toDown
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const legacyCredits: LegacyScheduleCredit[] = []
+  let confirmedOverdue = 0
+
+  for (const item of items) {
+    const confirmed = appliedByItem.get(item.id) ?? 0
+    const legacy = Math.max(0, Number(item.paid_amount ?? 0) - confirmed)
+    if (legacy > 0.009) {
+      legacyCredits.push({
+        installmentItemId: item.id,
+        installmentNumber: item.installment_number ?? item.sequence ?? null,
+        amount: legacy,
+        paidAt: item.paid_at ?? null,
+      })
+    }
+    const remainder = Math.max(0, Number(item.amount ?? 0) - confirmed)
+    const due = item.due_date ? new Date(item.due_date) : null
+    if (due && !Number.isNaN(due.getTime()) && due < today && remainder > 0.009) {
+      confirmedOverdue += remainder
+    }
+  }
+
+  const installmentPrincipal = items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+  const confirmedInstallmentPaid = [...appliedByItem.values()].reduce((sum, amount) => sum + amount, 0)
+
+  return {
+    downPayment,
+    downPaymentConfirmed: downApplied,
+    downPaymentUnverified: Math.max(0, downPayment - downApplied),
+    installmentPrincipal,
+    confirmedInstallmentPaid,
+    confirmedOutstanding: Math.max(0, installmentPrincipal - confirmedInstallmentPaid),
+    confirmedOverdue,
+    legacyCredit: legacyCredits.reduce((sum, credit) => sum + credit.amount, 0),
+    legacyCredits,
+    unallocated,
+    confirmedPayments,
+  }
+}
+
+export function legacyCreditForItem(ledger: ContractLedger, itemId: number): number {
+  return ledger.legacyCredits.find((credit) => credit.installmentItemId === itemId)?.amount ?? 0
+}
+
+export interface PaymentVerificationInput {
+  action: 'link' | 'record'
+  installmentItemId?: number | null
+  downPayment?: boolean
+  paymentTransactionId?: number | null
+  amount?: number | null
+  paymentMethod?: string | null
+  paidAt?: string | null
+  collectorUserId?: number | null
+}
+
+export function assertPaymentVerification(
+  invoice: SalesInvoice,
+  input: PaymentVerificationInput,
+): { amount: number } {
+  const ledger = reconcileContractLedger(invoice)
+  const forDownPayment = Boolean(input.downPayment) && input.installmentItemId == null
+  const legacy = forDownPayment
+    ? ledger.downPaymentUnverified
+    : legacyCreditForItem(ledger, Number(input.installmentItemId))
+
+  if (!forDownPayment && (input.installmentItemId == null || legacy <= 0.009)) {
+    throw new Error('لا يوجد مبلغ غير مؤكد على هذا القسط')
+  }
+  if (forDownPayment && ledger.downPaymentUnverified <= 0.009) {
+    throw new Error('المقدمة مؤكدة بالفعل')
+  }
+
+  if (input.action === 'link') {
+    if (forDownPayment) {
+      throw new Error('السند غير المرتبط محسوب على المقدمة. سجّل سنداً جديداً للمبلغ غير المؤكد.')
+    }
+    const payment = (invoice.payment_transactions ?? []).find(
+      (row) => row.id === input.paymentTransactionId,
+    )
+    if (!payment || payment.status === 'refunded' || payment.status === 'void') {
+      throw new Error('السند غير متاح للربط')
+    }
+    if (payment.installment_item_id != null) {
+      throw new Error('السند مرتبط بقسط بالفعل')
+    }
+    const amount = Number(payment.amount ?? 0)
+    if (amount <= 0.009 || amount > legacy + 0.009) {
+      throw new Error('مبلغ السند لا يطابق السجل غير المؤكد')
+    }
+    return { amount }
+  }
+
+  if (!input.paymentMethod?.trim()) throw new Error('طريقة الدفع مطلوبة')
+  if (!input.paidAt?.trim()) throw new Error('تاريخ الدفع مطلوب')
+  if (!input.collectorUserId) throw new Error('المحصّل مطلوب')
+  const amount = Number(input.amount ?? 0)
+  if (amount <= 0.009 || amount > legacy + 0.009) {
+    throw new Error('المبلغ أكبر من السجل غير المؤكد')
+  }
+  return { amount }
 }
 
 export function ownershipTransferInstallmentSummary(

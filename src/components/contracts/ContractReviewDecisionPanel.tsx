@@ -5,12 +5,9 @@ import {
   fmtContractMoney,
   invoiceContractSummary,
 } from '../../lib/contractFields'
+import { reconcileContractLedger } from '../../lib/customerContracts'
 import { reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
 import { StatusBadge } from '../StatusBadge'
-
-function hasAmount(value: string | number | null | undefined): boolean {
-  return Number(value ?? 0) > 0
-}
 
 interface ContractReviewDecisionPanelProps {
   invoice: SalesInvoice
@@ -22,8 +19,8 @@ export function ContractReviewDecisionPanel({
   children,
 }: ContractReviewDecisionPanelProps) {
   const summary = invoiceContractSummary(invoice)
-  const balanceDue = Number(invoice.balance_due ?? 0)
-  const paidAmount = Number(invoice.paid_amount ?? 0)
+  const ledger = reconcileContractLedger(invoice)
+  const isInstallment = invoice.payment_term === 'installment'
 
   return (
     <aside className="flex flex-col gap-md lg:sticky lg:top-4 lg:self-start">
@@ -42,7 +39,7 @@ export function ContractReviewDecisionPanel({
               <span className="text-on-surface-variant">
                 الأجهزة ({summary.lineCount})
               </span>
-              <span className="shrink-0 font-medium text-on-surface">
+              <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
                 {fmtContractMoney(summary.devicesSubtotal)}
               </span>
             </div>
@@ -51,7 +48,7 @@ export function ContractReviewDecisionPanel({
           {summary.feeNet > 0 ? (
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">التركيب</span>
-              <span className="shrink-0 font-medium text-on-surface">
+              <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
                 {fmtContractMoney(summary.feeNet)}
               </span>
             </div>
@@ -60,7 +57,7 @@ export function ContractReviewDecisionPanel({
           {summary.transportationFee > 0 ? (
             <div className="flex items-start justify-between gap-sm tabular-nums">
               <span className="text-on-surface-variant">التنقلات (خارج التعاقد)</span>
-              <span className="shrink-0 font-medium text-on-surface">
+              <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
                 {fmtContractMoney(summary.transportationFee)}
               </span>
             </div>
@@ -71,36 +68,41 @@ export function ContractReviewDecisionPanel({
               <span className="text-on-surface-variant">
                 الخدمات ({summary.serviceLineCount})
               </span>
-              <span className="shrink-0 font-medium text-on-surface">
+              <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
                 {fmtContractMoney(summary.servicesSubtotal)}
               </span>
             </div>
           ) : null}
 
-          {hasAmount(paidAmount) ? (
-            <div className="flex items-start justify-between gap-sm tabular-nums">
-              <span className="text-on-surface-variant">المدفوع</span>
-              <span className="shrink-0 font-medium text-on-surface">
-                {fmtContractMoney(paidAmount)}
-              </span>
-            </div>
-          ) : null}
-
-          {balanceDue > 0 ? (
-            <div className="rounded-lg border border-tertiary/30 bg-tertiary/10 px-sm py-sm">
-              <div className="flex items-center justify-between gap-sm tabular-nums">
-                <span className="font-medium text-on-surface">المتبقي (للأقساط)</span>
-                <span className="text-base font-extrabold text-on-surface">
-                  {fmtContractMoney(balanceDue)}
+          {isInstallment ? (
+            <>
+              <div className="flex items-start justify-between gap-sm tabular-nums">
+                <span className="text-on-surface-variant">مسدد مؤكد</span>
+                <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
+                  {fmtContractMoney(ledger.confirmedInstallmentPaid)}
                 </span>
               </div>
-            </div>
+              <div className="rounded-lg border border-tertiary/30 bg-tertiary/10 px-sm py-sm">
+                <div className="flex items-center justify-between gap-sm tabular-nums">
+                  <span className="font-medium text-on-surface">متبقي مؤكد</span>
+                  <span className="whitespace-nowrap text-base font-extrabold text-on-surface">
+                    {fmtContractMoney(ledger.confirmedOutstanding)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-start justify-between gap-sm tabular-nums">
+                <span className="text-on-surface-variant">متأخر مؤكد</span>
+                <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
+                  {fmtContractMoney(ledger.confirmedOverdue)}
+                </span>
+              </div>
+            </>
           ) : null}
 
           <div className="border-t border-outline-variant/60 pt-sm">
             <div className="flex items-center justify-between gap-sm tabular-nums">
               <span className="font-bold text-on-surface">صافي التعاقد</span>
-              <span className="text-lg font-extrabold text-on-surface">
+              <span className="whitespace-nowrap text-lg font-extrabold text-on-surface">
                 {fmtContractMoney(summary.contractAmount)}
               </span>
             </div>

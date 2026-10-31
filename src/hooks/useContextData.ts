@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Branch, Department, PaginatedResponse, Warehouse } from '../api/types'
 import { getActiveBranchId, getAllowedBranchIds } from '../lib/activeBranch'
-import { canPickBranch, getScopedBranchId, getScopedDepartmentId } from '../lib/dataScope'
+import { canPickBranch, getScopedBranchId, getScopedDepartmentId, getUserDataScope } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 import { useContextStore } from '../stores/contextStore'
 
@@ -40,13 +40,14 @@ export function useContextData() {
     },
   })
 
+  const organizationWide = getUserDataScope(user) === 'organization'
   const branchesQuery = useQuery({
-    queryKey: ['branches', departmentId, allowedBranchIds.join(',')],
+    queryKey: ['branches', organizationWide ? 'organization' : departmentId, allowedBranchIds.join(',')],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
         params: {
           per_page: 100,
-          'filter[administration_id]': departmentId,
+          ...(organizationWide ? {} : { 'filter[administration_id]': departmentId }),
         },
       })
       const rows = data.data
@@ -55,7 +56,7 @@ export function useContextData() {
       }
       return rows
     },
-    enabled: Boolean(departmentId),
+    enabled: organizationWide || Boolean(departmentId),
   })
 
   const warehousesQuery = useQuery({

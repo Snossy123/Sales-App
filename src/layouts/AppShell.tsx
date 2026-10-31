@@ -27,6 +27,10 @@ import {
   useProcedureDraftStore,
 } from '../stores/procedureDraftStore'
 
+function isContractPrintPath(pathname: string): boolean {
+  return /\/(contract-print|ownership-transfer-contract|service-contract)(\/|$)/.test(pathname)
+}
+
 function shouldShowStockTicker(pathname: string): boolean {
   return (
     pathname === '/pos' ||
@@ -66,9 +70,15 @@ export function AppShell() {
   )
   const queryClient = useQueryClient()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true',
   )
+  const printLayout = isContractPrintPath(location.pathname)
+
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [location.pathname])
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed))
@@ -124,9 +134,19 @@ export function AppShell() {
   return (
     <TourProvider>
     <div className="app-shell flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible">
+      {mobileNavOpen && !printLayout ? (
+        <button
+          type="button"
+          aria-label="إغلاق القائمة"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
       <aside
-        className={`fixed right-0 z-50 flex h-full flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm transition-all duration-300 print:hidden ${
-          sidebarCollapsed ? 'w-[4.5rem]' : 'w-64'
+        className={`fixed right-0 z-50 flex h-full flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-sm transition-transform duration-300 print:hidden max-lg:w-64 lg:transition-all ${
+          printLayout ? 'hidden' : ''
+        } ${mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'} lg:translate-x-0 ${
+          sidebarCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64'
         }`}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
@@ -195,15 +215,21 @@ export function AppShell() {
       </aside>
 
       <main
-        className={`flex h-full flex-grow flex-col overflow-y-auto bg-background transition-all duration-300 print:mr-0 print:h-auto print:overflow-visible ${
-          sidebarCollapsed ? 'mr-[4.5rem]' : 'mr-64'
+        className={`flex h-full flex-grow flex-col overflow-y-auto bg-background transition-all duration-300 print:mr-0 print:h-auto print:overflow-visible max-lg:mr-0 ${
+          printLayout ? 'mr-0' : sidebarCollapsed ? 'lg:mr-[4.5rem]' : 'lg:mr-64'
         }`}
       >
-        <div className="sticky top-0 z-40 bg-surface print:hidden">
+        <div className={`sticky top-0 z-40 bg-surface print:hidden ${printLayout ? 'hidden' : ''}`}>
         <header className="flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base">
           <button
             type="button"
-            onClick={() => setSidebarCollapsed((value) => !value)}
+            onClick={() => {
+              if (window.matchMedia('(max-width: 1023px)').matches) {
+                setMobileNavOpen((open) => !open)
+                return
+              }
+              setSidebarCollapsed((value) => !value)
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
             title={sidebarCollapsed ? 'فتح القائمة' : 'إغلاق القائمة'}
             aria-label={sidebarCollapsed ? 'فتح القائمة' : 'إغلاق القائمة'}
@@ -308,11 +334,11 @@ export function AppShell() {
         {showStockTicker ? <BranchStockTickerBar /> : null}
         </div>
 
-        <div className="flex-grow p-margin pb-20 md:pb-margin print:p-0">
+        <div className={`flex-grow p-margin pb-36 md:pb-24 print:p-0 ${printLayout ? 'p-0' : ''}`}>
           <IncompleteProceduresBanner />
           <Outlet />
         </div>
-        <div className="print:hidden">
+        <div className={printLayout ? 'hidden' : 'print:hidden'}>
           <ChatbotWidget />
           <MobileBottomNav user={user} />
         </div>

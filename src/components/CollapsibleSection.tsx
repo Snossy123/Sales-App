@@ -34,13 +34,13 @@ export function CollapsibleSection({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center justify-between gap-sm text-right"
+          className="flex min-w-0 flex-1 items-start justify-between gap-sm text-right"
         >
-          <div className="flex min-w-0 items-center gap-sm">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-sm gap-y-0.5">
             <Icon name={icon} size={20} className="shrink-0 text-primary" />
-            <span className="truncate text-sm font-bold text-on-surface">{title}</span>
+            <span className="whitespace-normal text-sm font-bold text-on-surface">{title}</span>
             {!open && summary && (
-              <span className="truncate text-xs text-on-surface-variant">· {summary}</span>
+              <span className="whitespace-normal text-xs text-on-surface-variant">· {summary}</span>
             )}
           </div>
           <Icon name={open ? 'expand_less' : 'expand_more'} size={22} className="shrink-0 text-on-surface-variant" />

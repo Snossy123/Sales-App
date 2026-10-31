@@ -491,7 +491,7 @@
 .ic-trow {
   flex: 1;
   display: grid;
-  grid-template-columns: 5mm 1.45fr 1.35fr;
+  grid-template-columns: 5mm 1.2fr 1.1fr 1fr;
   align-items: center;
   gap: 0;
   padding: 0;
@@ -761,6 +761,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 1;
+}
+.ic-pill--vehicle {
+  max-width: none;
+  overflow: visible;
+  text-overflow: unset;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .ic-pill--renewal-date {
   flex: 0 0 auto;

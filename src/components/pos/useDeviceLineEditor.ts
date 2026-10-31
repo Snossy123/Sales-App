@@ -96,7 +96,10 @@ export function useDeviceLineEditor({
   }, [index, autoFocusSerial, lockedFromSource])
 
   const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
-    const next = field === 'username' ? normalizeScannedInput(raw) : normalizeScannedDigits(raw)
+    const next =
+      field === 'username' || field === 'serialNumber'
+        ? normalizeScannedInput(raw)
+        : normalizeScannedDigits(raw)
     patch({ [field]: next } as Partial<DeviceLineDraft>)
   }
 

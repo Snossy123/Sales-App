@@ -6,7 +6,6 @@ import {
   WAREHOUSES_MANAGE_REPLACEMENTS,
 } from '../../modules/admin/lib/permissionCatalog'
 import type {
-  CollectionFollowUpLog,
   AccountingDashboard,
   AccountingSettings,
   BranchAccountingMap,
@@ -47,13 +46,14 @@ import { getScopedBranchIds as resolveUserBranchIds, getScopedDepartmentId } fro
 import { customerAllPhoneNumbers } from '../../lib/customerForm'
 import { isSuperAdmin } from '../../lib/access'
 import { CONTRACT_TEMPLATES, mockContractPreviewHtml } from '../../lib/contractTemplates'
-import type { DemoState, DemoUser } from './seed'
+import type { DemoPaymentVerificationLog, DemoState, DemoUser } from './seed'
 import { tryHandleAccessoryRequest } from './accessoryHandlers'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
 import { applyPromotionDiscount, tryHandlePricingRequest } from './pricingHandlers'
 import { installmentDueDate } from '../../lib/installmentSchedule'
 import { collectionStatusLabels } from '../../lib/collectionHelpers'
+import { assertPaymentVerification, reconcileContractLedger } from '../../lib/customerContracts'
 import { COMBINER_FEE_CHIPS, findCombinerService } from '../../lib/serviceCombiner'
 
 type MockCollectionActionLog = {
@@ -78,8 +78,19 @@ const mockCollectionAssignments: Array<{
   notes?: string | null
 }> = []
 let mockCollectionAssignmentSeq = 1
-const mockCollectionFollowUpLogs: CollectionFollowUpLog[] = []
-let mockCollectionFollowUpSeq = 1
+const mockCollectionAccounts = [
+  {
+    id: 1,
+    phone: '01099998888',
+    payment_method: 'bank_transfer',
+    account_number: '1234567890',
+    beneficiary_name: 'حساب تجريبي',
+    bank_name: 'البنك الأهلي',
+    is_active: true,
+    collected_amount: 0,
+    amount_limit: null as number | null,
+  },
+]
 const mockRegisteredDevices: Array<{
   customer_id: number
   device: CustomerContractDevice
@@ -646,6 +657,7 @@ function applyMockCollectionMetadata(
     collection_notes?: string | null
   },
   ctx: MockContext,
+  state: DemoState,
 ): void {
   const nextStatus = body.collection_status ?? item?.collection_status ?? invoice.collection_status ?? null
   const nextReminder = body.collection_reminder_at ?? item?.collection_reminder_at ?? invoice.collection_reminder_at ?? null
@@ -666,8 +678,10 @@ function applyMockCollectionMetadata(
   invoice.collection_notes = nextNotes
 
   if (changed) {
-    mockCollectionFollowUpLogs.unshift({
-      id: mockCollectionFollowUpSeq++,
+    state.counters.collectionFollowUp = (state.counters.collectionFollowUp ?? 0) + 1
+    state.collectionFollowUpLogs ??= []
+    state.collectionFollowUpLogs.unshift({
+      id: state.counters.collectionFollowUp,
       sales_invoice_id: invoice.id,
       installment_item_id: item?.id ?? null,
       installment_sequence: item?.sequence ?? item?.installment_number ?? null,
@@ -917,15 +931,21 @@ export function handleMockRequest(
     >()
 
     for (const inv of confirmed) {
-      outstanding += Number(inv.balance_due)
+      const invoicePayments = (state.paymentTransactions ?? []).filter(
+        (payment) => payment.sales_invoice_id === inv.id && payment.status === 'active',
+      )
+      const ledger = reconcileContractLedger({ ...inv, payment_transactions: invoicePayments })
+      outstanding +=
+        inv.payment_term === 'installment' ? ledger.confirmedOutstanding : Number(inv.balance_due)
       const customer = state.customers.find((c) => c.id === inv.customer_id)
       const planCount = inv.installment_plan?.installment_count
       for (const item of inv.installment_plan?.items ?? []) {
         const due = new Date(item.due_date)
-        const remaining = Number(item.amount) - Number(item.paid_amount)
-        const isOverdue =
-          remaining > 0 &&
-          (item.status === 'overdue' || (item.status !== 'paid' && due < new Date()))
+        const confirmedPaid = invoicePayments
+          .filter((payment) => payment.installment_item_id === item.id)
+          .reduce((sum, payment) => sum + Number(payment.amount), 0)
+        const remaining = Math.max(0, Number(item.amount) - confirmedPaid)
+        const isOverdue = remaining > 0 && due < new Date()
         if (isOverdue) {
           overdueInvoiceIds.add(inv.id)
           const daysOverdue = Math.max(
@@ -2901,6 +2921,11 @@ export function handleMockRequest(
           amount: p.amount,
           paid_at: p.paid_at,
           status: p.status,
+          payment_method: p.payment_method ?? null,
+          notes: p.notes ?? null,
+          user: p.collector_user_id
+            ? state.users.find((user) => user.id === p.collector_user_id)
+            : undefined,
         })),
     }
   }
@@ -3824,16 +3849,17 @@ export function handleMockRequest(
           (line) => !line.service_id && (line.serial_number || line.username || line.product_unit_id),
         ) ??
         sourceInvoice?.lines?.find((line) => line.serial_number || line.username || line.product_unit_id)
+      const registeredDevice = mockRegisteredDevices.find((entry) => entry.customer_id === inv.customer_id)?.device
       for (const item of inv.installment_plan?.items ?? []) {
-        if (!invoiceFilter && item.status === 'paid') continue
-        const due = new Date(item.due_date)
-        const isOverdue =
-          item.status === 'overdue' ||
-          (item.status !== 'paid' && due < new Date() && Number(item.paid_amount) < Number(item.amount))
-        if (onlyOverdue && !isOverdue) continue
         const payments = (state.paymentTransactions ?? []).filter(
           (payment) => payment.installment_item_id === item.id && payment.status === 'active',
         )
+        const confirmedPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+        const remaining = Math.max(0, Number(item.amount) - confirmedPaid)
+        if (!invoiceFilter && remaining <= 0.009) continue
+        const due = new Date(item.due_date)
+        const isOverdue = remaining > 0 && due < new Date()
+        if (onlyOverdue && !isOverdue) continue
         const paymentMethods = [...new Set(payments.map((payment) => payment.payment_method).filter(Boolean))]
         const latestPaidAt = payments
           .map((payment) => payment.paid_at)
@@ -3851,15 +3877,16 @@ export function handleMockRequest(
           customer_phone: customer?.phone,
           customer_phones: customerPhones,
           branch_name: branch?.name_ar || branch?.name || null,
-          username: identityLine?.username ?? customer?.username ?? null,
-          serial_number: identityLine?.serial_number ?? customer?.device_serial ?? null,
-          sim_number: identityLine?.sim_number ?? customer?.sim_number ?? null,
+          username: identityLine?.username ?? customer?.username ?? registeredDevice?.username ?? null,
+          serial_number:
+            identityLine?.serial_number ?? customer?.device_serial ?? registeredDevice?.serial_number ?? null,
+          sim_number: identityLine?.sim_number ?? customer?.sim_number ?? registeredDevice?.sim_number ?? null,
           collection_status: item.collection_status ?? inv.collection_status ?? null,
           collection_reminder_at: item.collection_reminder_at ?? inv.collection_reminder_at ?? null,
           collection_notes: item.collection_notes ?? inv.collection_notes ?? null,
           collector_user_id: inv.collector_user_id ?? null,
           collector_name: collector?.name ?? null,
-          remaining: Number(item.amount) - Number(item.paid_amount),
+          remaining,
           remaining_installments: Math.max(
             0,
             (inv.installment_plan?.installment_count ?? 1) - (item.installment_number ?? 1),
@@ -3978,7 +4005,7 @@ export function handleMockRequest(
   if (m === 'GET' && followUpHistoryMatch) {
     const invoiceId = Number(followUpHistoryMatch[1])
     return {
-      data: mockCollectionFollowUpLogs.filter((row) => row.sales_invoice_id === invoiceId),
+      data: (state.collectionFollowUpLogs ?? []).filter((row) => row.sales_invoice_id === invoiceId),
     }
   }
 
@@ -3986,7 +4013,7 @@ export function handleMockRequest(
   if (m === 'GET' && installmentFollowUpHistoryMatch) {
     const installmentId = Number(installmentFollowUpHistoryMatch[1])
     return {
-      data: mockCollectionFollowUpLogs.filter((row) => row.installment_item_id === installmentId),
+      data: (state.collectionFollowUpLogs ?? []).filter((row) => row.installment_item_id === installmentId),
     }
   }
 
@@ -4009,7 +4036,7 @@ export function handleMockRequest(
       const target = found?.item
         ?? invoice.installment_plan?.items?.find((item) => item.status !== 'paid')
         ?? invoice.installment_plan?.items?.[0]
-      applyMockCollectionMetadata(invoice, target, body, ctx)
+      applyMockCollectionMetadata(invoice, target, body, ctx, s)
     })
     if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
     return invoice
@@ -4027,7 +4054,7 @@ export function handleMockRequest(
     mutateState((s) => {
       const found = findInstallmentAcrossInvoices(s.invoices, installmentId)
       if (!found) return
-      applyMockCollectionMetadata(found.invoice, found.item, body, ctx)
+      applyMockCollectionMetadata(found.invoice, found.item, body, ctx, s)
       updatedItem = found.item
     })
     if (!updatedItem) throw mockError(404, 'القسط غير موجود')
@@ -4170,6 +4197,90 @@ export function handleMockRequest(
       }
     })
     return result
+  }
+
+  if (m === 'GET' && path.match(/^sales-invoices\/\d+\/payment-verifications$/)) {
+    const invoiceId = Number(path.split('/')[1])
+    return { data: (state.paymentVerificationLogs ?? []).filter((row) => row.sales_invoice_id === invoiceId) }
+  }
+
+  if (m === 'POST' && path.match(/^sales-invoices\/\d+\/payment-verifications$/)) {
+    const invoiceId = Number(path.split('/')[1])
+    const body = data as {
+      action?: 'link' | 'record'
+      installment_item_id?: number | null
+      down_payment?: boolean
+      payment_transaction_id?: number | null
+      amount?: number | null
+      payment_method?: string | null
+      paid_at?: string | null
+      collector_user_id?: number | null
+    }
+    let created: DemoPaymentVerificationLog | undefined
+    mutateState((s) => {
+      const invoice = s.invoices.find((row) => row.id === invoiceId)
+      if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+      const payments = s.paymentTransactions.filter((row) => row.sales_invoice_id === invoiceId)
+      const snapshot = { ...invoice, payment_transactions: payments }
+      let amount = 0
+      try {
+        amount = assertPaymentVerification(snapshot, {
+          action: body.action === 'link' ? 'link' : 'record',
+          installmentItemId: body.installment_item_id,
+          downPayment: body.down_payment,
+          paymentTransactionId: body.payment_transaction_id,
+          amount: body.amount,
+          paymentMethod: body.payment_method,
+          paidAt: body.paid_at,
+          collectorUserId: body.collector_user_id,
+        }).amount
+      } catch (error) {
+        throw mockError(422, error instanceof Error ? error.message : 'تعذر التحقق')
+      }
+
+      const collector = s.users.find((user) => user.id === body.collector_user_id)
+      let paymentId = body.payment_transaction_id ?? 0
+      if (body.action === 'link') {
+        const payment = s.paymentTransactions.find((row) => row.id === body.payment_transaction_id)
+        if (!payment) throw mockError(404, 'السند غير موجود')
+        payment.installment_item_id = body.installment_item_id ?? null
+        paymentId = payment.id
+      } else {
+        paymentId = s.counters.payment++
+        s.paymentTransactions.push({
+          id: paymentId,
+          transaction_number: `PAY-${String(paymentId).padStart(6, '0')}`,
+          sales_invoice_id: invoiceId,
+          customer_id: invoice.customer_id ?? 0,
+          installment_item_id: body.down_payment ? null : body.installment_item_id ?? null,
+          amount,
+          status: 'active',
+          payment_source: 'verification',
+          payment_method: body.payment_method ?? undefined,
+          paid_at: body.paid_at ?? new Date().toISOString(),
+          collector_user_id: body.collector_user_id ?? null,
+          notes: 'سند تحقق من سجل قديم',
+        })
+      }
+
+      s.counters.paymentVerification = (s.counters.paymentVerification ?? 0) + 1
+      created = {
+        id: s.counters.paymentVerification,
+        sales_invoice_id: invoiceId,
+        action: body.action === 'link' ? 'link' : 'record',
+        amount,
+        payment_transaction_id: paymentId,
+        installment_item_id: body.down_payment ? null : body.installment_item_id ?? null,
+        down_payment: Boolean(body.down_payment),
+        user_id: ctx.user?.id ?? null,
+        user_name: ctx.user?.name ?? collector?.name ?? null,
+        created_at: new Date().toISOString(),
+        note: body.action === 'link' ? 'ربط سند موجود' : 'تسجيل سند مدعوم',
+      }
+      s.paymentVerificationLogs ??= []
+      s.paymentVerificationLogs.unshift(created)
+    })
+    return created
   }
 
   if (m === 'GET' && path === 'accounting/dashboard') {
@@ -5664,23 +5775,15 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'collection-accounts/active') {
-    return {
-      data: [
-        {
-          id: 1,
-          phone: '01099998888',
-          payment_method: 'bank_transfer',
-          account_number: '1234567890',
-          beneficiary_name: 'حساب تجريبي',
-          bank_name: 'البنك الأهلي',
-          is_active: true,
-        },
-      ],
-    }
+    const method = String(params.payment_method ?? '').trim()
+    const active = mockCollectionAccounts.filter(
+      (account) => account.is_active && (!method || account.payment_method === method),
+    )
+    return { data: active }
   }
 
   if (m === 'GET' && path === 'collection-accounts') {
-    return paginate([], params)
+    return paginate(mockCollectionAccounts, params)
   }
 
   if (m === 'POST' && path === 'external-collections/collect') {

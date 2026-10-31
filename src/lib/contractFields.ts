@@ -66,14 +66,9 @@ export function fmtContractDateTime(value: string | null | undefined): string {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return fmtContractDate(value)
   if (!hasTime) return fmtContractDate(value)
-  return d.toLocaleString(CONTRACT_NUM_LOCALE, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  })
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${fmtContractDate(value)}، ${hours}:${minutes}`
 }
 
 export function fmtInvoiceContractDateTime(
@@ -369,24 +364,30 @@ export function buildInstallmentRows(
     0,
   )
   const count = Math.max(plan?.installment_count ?? 0, items.length, maxItemNum)
-  const cols = installmentTableColumnCount(count || 1)
-  const capacity = cols * 12
-  const rows: InstallmentTableCell[] = Array.from({ length: capacity }, emptyInstallmentCell)
+  const rows: InstallmentTableCell[] = Array.from({ length: count }, emptyInstallmentCell)
 
   items.forEach((item) => {
     const num = item.installment_number ?? item.sequence
-    if (num != null && num >= 1 && num <= capacity) {
+    if (num != null && num >= 1 && num <= count) {
       rows[num - 1] = formatInstallmentCell(item, invoice, plan, num - 1)
     }
   })
 
   if (plan && items.length === 0 && plan.installment_count > 0) {
-    const lineTotal = Number(line?.line_total ?? invoice?.subtotal ?? invoice?.total ?? 0)
+    const quantity = Math.max(1, Number(line?.quantity ?? 1))
+    const unit = Number(line?.unit_price ?? 0)
+    const explicitTotal = Number(line?.line_total ?? 0)
+    const lineTotal =
+      explicitTotal > 0
+        ? explicitTotal
+        : unit > 0
+          ? unit * quantity
+          : Number(invoice?.subtotal ?? invoice?.total ?? 0)
     const financed = lineTotal - Number(plan.down_payment ?? 0)
     const fixed = plan.installment_amount != null ? Number(plan.installment_amount) : null
     const perInstallment =
       fixed ?? Math.floor((financed / plan.installment_count) * 100) / 100
-    for (let i = 0; i < Math.min(plan.installment_count, capacity); i++) {
+    for (let i = 0; i < Math.min(plan.installment_count, count); i++) {
       rows[i] = {
         amount: fmtContractMoney(perInstallment),
         due: computeInstallmentDueDate(plan, i, invoice?.invoice_date),
@@ -464,7 +465,8 @@ export function contractSourceLabel(invoice: SalesInvoice): string {
   }
   if (invoice.distributor_id || invoice.distributor) {
     const name = distributorLabel(invoice.distributor)
-    return name !== '—' ? `موزع ${name}` : '—'
+    if (name === '—') return '—'
+    return name.startsWith('موزع') ? name : `موزع ${name}`
   }
   const branch = branchLabel(invoice)
   return branch !== '—' ? `فرع ${branch}` : '—'
@@ -478,6 +480,7 @@ export interface PerDeviceFee {
 
 export interface InvoiceContractSummary {
   lineCount: number
+  deviceQuantity: number
   serviceLineCount: number
   feeGross: number
   feeDiscount: number
@@ -498,14 +501,26 @@ export interface InvoiceContractSummary {
   perDeviceFee: PerDeviceFee | null
 }
 
+function lineQuantity(line: SalesInvoiceLine): number {
+  const quantity = Number(line.quantity ?? 1)
+  return quantity > 0 ? quantity : 1
+}
+
+function lineExtendedTotal(line: SalesInvoiceLine): number {
+  const explicit = Number(line.line_total ?? 0)
+  if (explicit > 0) return explicit
+  const gross = Number(line.unit_price ?? 0) * lineQuantity(line)
+  return Math.max(0, gross - Number(line.discount ?? 0))
+}
+
 function sumLineField(
   lines: SalesInvoiceLine[],
   field: 'unit_price' | 'discount' | 'line_total',
 ): number {
   return lines.reduce((sum, line) => {
-    if (field === 'unit_price') return sum + Number(line.unit_price ?? 0)
+    if (field === 'unit_price') return sum + Number(line.unit_price ?? 0) * lineQuantity(line)
     if (field === 'discount') return sum + Number(line.discount ?? 0)
-    return sum + Number(line.line_total ?? 0)
+    return sum + lineExtendedTotal(line)
   }, 0)
 }
 
@@ -526,6 +541,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
   const deviceLines = allLines.filter((line) => !isServiceInvoiceLine(line))
   const serviceLines = allLines.filter((line) => isServiceInvoiceLine(line))
   const lineCount = deviceLines.length
+  const deviceQuantity = deviceLines.reduce((sum, line) => sum + lineQuantity(line), 0)
   const serviceLineCount = serviceLines.length
   const feeDiscount = Number(invoice.discount_amount ?? 0)
   const feeNet = Number(invoice.installation_fee ?? 0)
@@ -553,6 +569,7 @@ export function invoiceContractSummary(invoice: SalesInvoice): InvoiceContractSu
 
   return {
     lineCount,
+    deviceQuantity,
     serviceLineCount,
     feeGross,
     feeDiscount,

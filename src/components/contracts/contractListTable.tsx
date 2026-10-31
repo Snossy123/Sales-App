@@ -175,7 +175,7 @@ export function defaultContractListActions(
   return (
     <div className="flex flex-wrap items-center gap-sm">
       <Link
-        to={`/invoices/${row.id}`}
+        to={`/contracts/${row.id}`}
         className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
       >
         تفاصيل

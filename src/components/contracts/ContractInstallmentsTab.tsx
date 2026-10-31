@@ -7,7 +7,9 @@ import {
   getInstallmentNumber,
   installmentRemainingAmount,
   installmentStatusLabel,
+  legacyCreditForItem,
   normalizeInstallmentStatus,
+  reconcileContractLedger,
 } from '../../lib/customerContracts'
 import { formatInvoiceDate } from '../../lib/sales'
 import { DataTable } from '../DataTable'
@@ -30,9 +32,8 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
   }, [invoice])
 
   const summary = buildContractSummary(invoice)
+  const ledger = reconcileContractLedger(invoice)
   const totalDue = items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
-  const totalPaid = items.reduce((sum, item) => sum + Number(item.paid_amount ?? 0), 0)
-  const totalRemaining = items.reduce((sum, item) => sum + installmentRemainingAmount(item), 0)
 
   if (items.length === 0) {
     return (
@@ -44,12 +45,22 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
 
   return (
     <section className="space-y-md">
-      <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard label="عدد الأقساط" value={String(summary.installmentCount || items.length)} />
-        <SummaryCard label="إجمالي المطلوب" value={formatContractMoney(totalDue)} />
-        <SummaryCard label="المسدد" value={formatContractMoney(totalPaid || summary.paidAmount)} />
-        <SummaryCard label="المتبقي" value={formatContractMoney(totalRemaining || summary.remaining)} />
+        <SummaryCard label="المقدمة" value={formatContractMoney(summary.downPayment)} />
+        <SummaryCard label="إجمالي الأقساط" value={formatContractMoney(totalDue)} />
+        <SummaryCard label="مسدد مؤكد" value={formatContractMoney(ledger.confirmedInstallmentPaid)} />
+        <SummaryCard label="متبقي مؤكد" value={formatContractMoney(ledger.confirmedOutstanding)} />
+        <SummaryCard label="متأخر مؤكد" value={formatContractMoney(ledger.confirmedOverdue)} />
+        <SummaryCard label="سجل قديم غير مؤكد" value={formatContractMoney(ledger.legacyCredit)} />
       </div>
+      <p className="text-xs text-on-surface-variant">
+        الأقساط {formatContractMoney(totalDue)} + المقدمة {formatContractMoney(summary.downPayment)} = إجمالي
+        التعاقد {formatContractMoney(totalDue + summary.downPayment)}
+        {ledger.downPaymentUnverified > 0
+          ? ` · المقدمة غير مؤكدة بسند: ${formatContractMoney(ledger.downPaymentUnverified)}`
+          : ''}
+      </p>
 
       <DataTable<InstallmentItem>
         data={items}
@@ -91,10 +102,15 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
             key: 'status',
             header: 'الحالة',
             render: (row) => (
-              <StatusBadge
-                status={normalizeInstallmentStatus(String(row.status))}
-                label={installmentStatusLabel(String(row.status))}
-              />
+              <div className="flex flex-wrap items-center gap-xs">
+                <StatusBadge
+                  status={normalizeInstallmentStatus(String(row.status), row.due_date)}
+                  label={installmentStatusLabel(String(row.status), row.due_date)}
+                />
+                {legacyCreditForItem(ledger, row.id) > 0 ? (
+                  <span className="text-xs text-on-surface-variant">سجل قديم غير مؤكد</span>
+                ) : null}
+              </div>
             ),
           },
         ]}
@@ -107,7 +123,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-sm">
       <p className="text-xs text-on-surface-variant">{label}</p>
-      <p className="mt-xs text-sm font-semibold tabular-nums text-on-surface">{value}</p>
+      <p className="mt-xs whitespace-nowrap text-sm font-semibold tabular-nums text-on-surface">{value}</p>
     </div>
   )
 }

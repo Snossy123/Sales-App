@@ -73,6 +73,7 @@ export const navEntries: NavEntry[] = [
       label: 'قسم التعاقدات',
       icon: 'edit_document',
       items: [
+        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer', 'sales'] },
         { to: '/pos', icon: 'edit_document', label: 'تعاقد جديد', end: true, roles: ['super_admin', 'admin', 'sales'] },
         { to: '/pos/services', icon: 'home_repair_service', label: 'تعاقد خدمات', roles: ['super_admin', 'admin', 'sales'] },
         { to: '/sales/accessories', icon: 'headphones', label: 'بيع إكسسوارات', roles: ['super_admin', 'admin', 'sales'] },
@@ -138,7 +139,6 @@ export const navEntries: NavEntry[] = [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/collections', icon: 'payments', label: 'مراجعة التحصيلات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/expenses', icon: 'receipt', label: 'مراجعة المصروفات', roles: ['super_admin', 'admin', 'reviewer'] },
-        { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer', 'sales'] },
         { to: '/review/evaluation-queue', icon: 'rate_review', label: 'تقييم العملاء', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/evaluation-questions', icon: 'quiz', label: 'أسئلة التقييم', roles: ['super_admin', 'admin', 'reviewer'] },
       ],
@@ -254,7 +254,7 @@ export const navEntries: NavEntry[] = [
     type: 'group',
     group: {
       id: 'system',
-      label: 'الآعدادات',
+      label: 'الإعدادات',
       icon: 'admin_panel_settings',
       items: [
         { to: '/admin/users', icon: 'manage_accounts', label: 'المستخدمون', end: true, roles: ['super_admin', 'admin'] },
@@ -455,15 +455,12 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     return routeRoles['/daily-reports']?.includes(role) ?? false
   }
 
-  if (normalized.match(/^\/invoices\/\d+\/contract-print$/)) {
-    if (
-      routeRoles['/invoices']?.includes(role) ||
-      routeRoles['/invoices/review']?.includes(role) ||
-      routeRoles['/pos']?.includes(role)
-    ) {
-      return true
-    }
-    return userHasPermission(user, 'review.print') || userHasPermission(user, 'sales.invoices.view')
+  if (
+    normalized.match(/^\/invoices\/\d+\/contract-print$/) ||
+    normalized.match(/^\/invoices\/\d+\/ownership-transfer-contract$/) ||
+    normalized.match(/^\/invoices\/\d+\/service-contract(?:\/\d+)?$/)
+  ) {
+    return userHasPermission(user, 'review.print')
   }
 
   if (normalized.match(/^\/invoices\/review\/\d+$/)) {
@@ -586,7 +583,7 @@ export function getNavEntriesForUser(user: AuthUser | null): NavEntry[] {
 export function getDefaultRoute(user: AuthUser | null): string {
   const role = getUserRole(user)
   if (role === 'reviewer') return '/sales/mission'
-  if (role === 'collector') return '/sales/mission'
+  if (role === 'collector') return '/installments'
   if (role === 'call_center') return '/call-center/collections'
   if (role === 'crm') return CRM_DEFAULT_ROUTE
   if (role === 'hr_manager') return '/hrm'

@@ -28,9 +28,9 @@ import {
 } from '../lib/sales'
 import { COMBINER_FEE_CHIPS, findCombinerService } from '../lib/serviceCombiner'
 import { cashLineCheckoutFields, linePaidNow } from '../lib/cashSchedule'
-import {
-  resolveCustomerTransactionSource,
-} from '../lib/posCustomerSource'
+import { linesMissingStockUnit, MISSING_STOCK_UNIT_MESSAGE } from '../lib/posCheckout'
+import { checkoutSourceIds } from '../lib/posCheckoutSource'
+import { eligibleTechnicians } from '../lib/posTechnicians'
 import { Icon } from '../components/Icon'
 import { MyContractsButton } from '../components/contracts/MyContractsButton'
 import { SalesPageShell } from '../components/SalesPageShell'
@@ -520,48 +520,6 @@ export function PosPage() {
     }
     setSelectedCustomer(customer)
     setDistributorBalanceAmount(0)
-
-    if (!customer) {
-      setSelectedBranch(null)
-      setSelectedDistributor(null)
-      setSelectedSalesRep(null)
-      setBranchSearch('')
-      setDistributorSearch('')
-      setSalesRepSearch('')
-      setTransactionSource('branch')
-      return
-    }
-
-    const applyResolved = (resolvedCustomer: Customer) => {
-      const resolved = resolveCustomerTransactionSource(resolvedCustomer)
-      setTransactionSource(resolved.source)
-      setSelectedBranch(resolved.branch)
-      setSelectedDistributor(resolved.distributor)
-      setSelectedSalesRep(resolved.salesRep)
-      setBranchSearch(resolved.branchSearch)
-      setDistributorSearch(resolved.distributorSearch)
-      setSalesRepSearch(resolved.salesRepSearch)
-    }
-
-    const needsDetail =
-      (customer.sales_user_id && !customer.sales_user) ||
-      (customer.distributor_id && !customer.distributor) ||
-      (customer.branch_id && !customer.branch)
-
-    if (needsDetail) {
-      api
-        .get<Customer>(`/customers/${customer.id}`, {
-          params: { include: 'salesUser,branch,distributor,distributorProfile' },
-        })
-        .then(({ data }) => {
-          setSelectedCustomer(data)
-          applyResolved(data)
-        })
-        .catch(() => applyResolved(customer))
-      return
-    }
-
-    applyResolved(customer)
   }
 
   const handleTransactionSourceChange = (source: TransactionSource) => {
@@ -752,8 +710,10 @@ export function PosPage() {
         'filter[status]': 'active',
       }
       if (resolvedAdministrationId) params['filter[administration_id]'] = resolvedAdministrationId
-      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', { params })
-      return data.data
+      const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
+        params: { ...params, include: 'department,job' },
+      })
+      return eligibleTechnicians(data.data)
     },
     enabled: Boolean(resolvedAdministrationId) || Boolean(warehouseId),
   })
@@ -1241,15 +1201,8 @@ export function PosPage() {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'renewal-candidates'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoice'] })
-      if (isEditMode) {
-        setSuccessMsg(`تم حفظ تعديل التعاقد #${invoice.invoice_number ?? invoice.id}`)
-        navigate(`/invoices/${invoice.id}`)
-        return
-      }
-      const successMessage = `تم إنشاء التعاقد #${invoice.invoice_number ?? invoice.id} — ${invoice.lines?.length ?? 0} بند`
       resetDeviceForm()
-      setLastInvoice(invoice)
-      setSuccessMsg(successMessage)
+      navigate(`/contracts/${invoice.id}`)
     },
   })
 
@@ -1259,6 +1212,7 @@ export function PosPage() {
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
+    if (checkoutMutation.isPending) return
     setSubmitAttempted(true)
     const customerId = selectedCustomer?.id
     const isRenewal = contractKind === 'subscription_renewal'
@@ -1487,9 +1441,16 @@ export function PosPage() {
       return
     }
 
+    const sourceIds = checkoutSourceIds({
+      transactionSource,
+      branchId: resolvedBranchId,
+      distributorId: selectedDistributor?.id,
+      salesRepId: selectedSalesRep?.id,
+    })
+
     const payload: CheckoutPayload = {
       customer_id: customerId,
-      branch_id: resolvedBranchId || undefined,
+      branch_id: sourceIds.branch_id,
       contract_kind: contractKind,
       installation_fee: contractKind === 'ownership_transfer' ? 0 : grossInstallationFeePerUnit,
       transportation_fee: contractKind === 'ownership_transfer' ? 0 : transportationFeeAmount,
@@ -1505,17 +1466,8 @@ export function PosPage() {
       payload.warehouse_id = editInvoiceQuery.data.warehouse_id
     }
 
-    if (transactionSource === 'distributor' && selectedDistributor) {
-      payload.distributor_id = selectedDistributor.id
-    }
-
-    if (transactionSource === 'sales' && selectedSalesRep) {
-      payload.sales_user_id = selectedSalesRep.id
-      if (resolvedBranchId) payload.branch_id = resolvedBranchId
-      if (selectedDistributor) {
-        payload.distributor_id = selectedDistributor.id
-      }
-    }
+    if (sourceIds.distributor_id) payload.distributor_id = sourceIds.distributor_id
+    if (sourceIds.sales_user_id) payload.sales_user_id = sourceIds.sales_user_id
 
     if (selectedPromotionId) {
       payload.promotion_id = Number(selectedPromotionId)
@@ -1577,6 +1529,23 @@ export function PosPage() {
     if (deviceLines.length > 0 && !warehouseId && !manualDeviceEntry) {
       messages.push('يجب اختيار مخزن لبيع الأجهزة')
     }
+    if (
+      !manualDeviceEntry &&
+      !allowNegativeInventory &&
+      !isEditMode &&
+      deviceLines.length > 0 &&
+      quantity > available
+    ) {
+      messages.push('الكمية أكبر من المتاح في المخزن')
+    }
+    if (
+      linesMissingStockUnit(deviceLines, unitsQuery.data ?? [], {
+        manualDeviceEntry,
+        allowNegativeInventory,
+      })
+    ) {
+      messages.push(MISSING_STOCK_UNIT_MESSAGE)
+    }
     if (deviceLines.length === 0) {
       messages.push('يجب إضافة جهاز واحد على الأقل')
     }
@@ -1611,6 +1580,11 @@ export function PosPage() {
     renewalSim,
     renewalUsername,
     manualDeviceEntry,
+    allowNegativeInventory,
+    isEditMode,
+    quantity,
+    available,
+    unitsQuery.data,
   ])
 
   const hasDeviceFieldErrors =

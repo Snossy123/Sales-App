@@ -53,6 +53,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
           <button
             type="button"
             onClick={onClose}
+            aria-label="إغلاق"
             className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container-low"
           >
             <Icon name="close" size={22} />

@@ -14,11 +14,16 @@ export function isContractEligibleForProblems(invoice?: SalesInvoice | null): bo
   return Boolean(invoice?.review_status === 'approved' && isActiveContract(invoice))
 }
 
+function canManageContractProblems(user: AuthUser | null): boolean {
+  if (getUserRole(user) === 'collector') return false
+  return userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
+}
+
 export function canTransferContractToProblems(
   user: AuthUser | null,
   invoice?: SalesInvoice | null,
 ): boolean {
-  return userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION) && isContractEligibleForProblems(invoice)
+  return canManageContractProblems(user) && isContractEligibleForProblems(invoice)
 }
 
 export function canRejectContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
@@ -28,12 +33,12 @@ export function canRejectContract(user: AuthUser | null, invoice?: SalesInvoice 
 }
 
 export function canExchangeContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
-  if (!userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION) || !isActiveContract(invoice)) {
+  if (!canManageContractProblems(user) || !isActiveContract(invoice)) {
     return false
   }
   return invoice?.review_status === 'pending' || invoice?.review_status === 'approved'
 }
 
 export function canReturnContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
-  return userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION) && isContractEligibleForProblems(invoice)
+  return canManageContractProblems(user) && isContractEligibleForProblems(invoice)
 }

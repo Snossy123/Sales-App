@@ -43,6 +43,14 @@ function migrateState(state: DemoState): DemoState {
     state.hrmPayrollRecords = seed.hrmPayrollRecords
     state.hrmPayrollGroups = seed.hrmPayrollGroups
   }
+  const seedTechnician = seed.employees.find((employee) => employee.job_title?.includes('فني'))
+  if (seedTechnician && !state.employees.some((employee) => employee.job_title?.includes('فني'))) {
+    state.employees.push(seedTechnician)
+    if (!state.hrmJobs?.some((job) => job.id === seedTechnician.hrm_job_id)) {
+      const job = seed.hrmJobs.find((item) => item.id === seedTechnician.hrm_job_id)
+      if (job) state.hrmJobs.push(job)
+    }
+  }
   if (!state.hrmJobs?.length) {
     state.hrmJobs = seed.hrmJobs
     for (const emp of state.employees ?? []) {
@@ -89,6 +97,15 @@ function migrateState(state: DemoState): DemoState {
   if (!state.counters.distributor) state.counters.distributor = seed.counters.distributor
   if (!state.counters.dailyBranchReport) {
     state.counters.dailyBranchReport = seed.counters.dailyBranchReport
+  }
+  if (!state.paymentVerificationLogs) state.paymentVerificationLogs = []
+  if (!state.collectionFollowUpLogs) state.collectionFollowUpLogs = []
+  if (!state.counters.paymentVerification) state.counters.paymentVerification = 1
+  if (!state.counters.collectionFollowUp) state.counters.collectionFollowUp = 1
+  for (const extra of seed.invoices.filter((invoice) => invoice.id >= 8)) {
+    if (!state.invoices.some((invoice) => invoice.invoice_number === extra.invoice_number)) {
+      state.invoices.push(extra)
+    }
   }
   return state
 }

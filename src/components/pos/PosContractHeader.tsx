@@ -70,17 +70,11 @@ export function PosContractHeader({
   customerLocked = false,
   onAddCustomer,
 }: PosContractHeaderProps) {
-  const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
-  const customerLinkedToDistributor = Boolean(
-    selectedCustomer?.distributor_id && selectedCustomer?.distributor,
-  )
-  const dualAttribution = customerLinkedToSalesRep && customerLinkedToDistributor
-  const sourceToggleOptions = customerLinkedToSalesRep
-    ? []
-    : [
-        { id: 'branch' as const, label: 'فرع' },
-        { id: 'distributor' as const, label: 'موزع' },
-      ]
+  const sourceToggleOptions = [
+    { id: 'branch' as const, label: 'فرع' },
+    { id: 'sales' as const, label: 'موظف' },
+    { id: 'distributor' as const, label: 'موزع' },
+  ]
 
   const sourceReady =
     transactionSource === 'branch'
@@ -144,23 +138,16 @@ export function PosContractHeader({
                 تابع لموظف مبيعات: {selectedCustomer.sales_user.name}
               </p>
             )}
-            {dualAttribution && selectedCustomer?.distributor && (
+            {selectedCustomer?.distributor && (
               <p className="mt-xs text-[13px] leading-snug text-secondary">
-                موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)} (يُحتسب مع الموظف)
+                موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)}
               </p>
             )}
-            {selectedCustomer?.distributor && !selectedCustomer.sales_user_id && (
+            {selectedCustomer?.branch && (
               <p className="mt-xs text-[13px] leading-snug text-secondary">
-                تابع للموزع: {distributorLabel(selectedCustomer.distributor)}
+                تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
               </p>
             )}
-            {selectedCustomer?.branch &&
-              !selectedCustomer.sales_user_id &&
-              !selectedCustomer.distributor_id && (
-                <p className="mt-xs text-[13px] leading-snug text-secondary">
-                  تابع للفرع: {selectedCustomer.branch.name_ar || selectedCustomer.branch.name}
-                </p>
-              )}
           </div>
         )}
 
@@ -183,7 +170,7 @@ export function PosContractHeader({
         )}
 
         <div className={posRequiredWrap(sourceError)}>
-          {customerLinkedToSalesRep || transactionSource === 'sales' ? (
+          {transactionSource === 'sales' ? (
             <>
               <SearchableSelect
                 data-tour="pos-source"

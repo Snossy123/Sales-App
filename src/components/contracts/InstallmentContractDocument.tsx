@@ -178,21 +178,22 @@ function FitOneLine({
   )
 }
 
-function renderTableCol(installmentRows: InstallmentTableCell[], start: number, end: number) {
+function renderTableCol(rows: InstallmentTableCell[], startNumber: number, colKey: string) {
   return (
-    <div className="ic-tcol">
+    <div key={colKey} className="ic-tcol">
       <div className="ic-trow ic-trow--head">
         <span className="ic-tnum">م</span>
         <span className="ic-tcell">استحقاق</span>
+        <span className="ic-tcell">المبلغ</span>
         <span className="ic-tcell">سداد</span>
       </div>
-      {Array.from({ length: end - start + 1 }, (_, i) => {
-        const num = start + i
-        const cell = installmentRows[num - 1] ?? { amount: '', due: '', paid: '' }
+      {rows.map((cell, index) => {
+        const num = startNumber + index
         return (
           <div key={num} className="ic-trow">
             <span className="ic-tnum">{num}</span>
             <span className="ic-tcell">{cell.due}</span>
+            <span className="ic-tcell">{cell.amount}</span>
             <span className="ic-tcell">{cell.paid}</span>
           </div>
         )
@@ -595,7 +596,11 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className="ic-table-title">بيان تقسيط</div>
                 <div className={`ic-table-grid ic-table-grid--cols-${tableCols}`}>
                   {Array.from({ length: tableCols }, (_, i) =>
-                    renderTableCol(installmentRows, i * 12 + 1, i * 12 + 12),
+                    renderTableCol(
+                      installmentRows.slice(i * 12, (i + 1) * 12),
+                      i * 12 + 1,
+                      `installment-col-${i}`,
+                    ),
                   )}
                 </div>
               </div>
@@ -635,7 +640,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 </span>
                 <span className="ic-srow-item">
                   <span className="ic-pill-label">المركبة</span>
-                  <span className="ic-pill ic-pill--sm">{resolveVehicle(line, invoice)}</span>
+                  <span className="ic-pill ic-pill--sm ic-pill--vehicle">{resolveVehicle(line, invoice)}</span>
                 </span>
               </div>
 

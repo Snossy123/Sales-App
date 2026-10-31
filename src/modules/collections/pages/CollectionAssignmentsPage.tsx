@@ -176,7 +176,7 @@ export function CollectionAssignmentsPage() {
 
   return (
     <SalesPageShell
-      title="توزيع عقود التحصيل"
+      title="توزيع التحصيل"
       subtitle="وزّع العقود على المحصلين أو انقل عقداً من موظف لآخر"
       actions={
         <Link
@@ -248,16 +248,23 @@ export function CollectionAssignmentsPage() {
               {workloadQuery.data?.unassigned_count ?? 0}
             </p>
           </div>
-          {(workloadQuery.data?.data ?? []).map((row) => (
-            <div
-              key={row.collector_user_id}
-              className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
-            >
-              <p className="truncate text-xs text-on-surface-variant">{row.collector_name ?? 'محصل'}</p>
-              <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">{row.contract_count}</p>
-              <p className="text-[11px] text-on-surface-variant">عقد مفتوح</p>
-            </div>
-          ))}
+          {collectors.map((collector) => {
+            const assigned = (workloadQuery.data?.data ?? []).find(
+              (row) => row.collector_user_id === collector.id,
+            )
+            return (
+              <div
+                key={collector.id}
+                className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
+              >
+                <p className="truncate text-xs text-on-surface-variant">{collector.name}</p>
+                <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">
+                  {assigned?.contract_count ?? 0}
+                </p>
+                <p className="text-[11px] text-on-surface-variant">عقد مفتوح</p>
+              </div>
+            )
+          })}
         </div>
 
         {selectedIds.length > 0 && (
@@ -313,6 +320,7 @@ export function CollectionAssignmentsPage() {
                   <th className="px-sm py-2">
                     <input
                       type="checkbox"
+                      aria-label="تحديد كل العقود"
                       checked={allChecked}
                       onChange={(e) => {
                         const next: Record<number, boolean> = {}
@@ -338,6 +346,7 @@ export function CollectionAssignmentsPage() {
                     <td className="px-sm py-2">
                       <input
                         type="checkbox"
+                        aria-label={`تحديد عقد ${contract.invoiceNumber}`}
                         checked={Boolean(selected[contract.invoiceId])}
                         onChange={(e) =>
                           setSelected((prev) => ({ ...prev, [contract.invoiceId]: e.target.checked }))
@@ -382,7 +391,7 @@ export function CollectionAssignmentsPage() {
                     <td className="px-sm py-2">
                       {contract.collectionStatus
                         ? (collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus)
-                        : '—'}
+                        : 'بدون متابعة'}
                     </td>
                     <td className="px-sm py-2 tabular-nums">
                       {contract.remaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
