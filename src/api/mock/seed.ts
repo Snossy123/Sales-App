@@ -86,6 +86,7 @@ export interface MockPaymentTransaction {
   payment_source: string
   payment_method?: string
   paid_at: string
+  user_id?: number | null
   collector_user_id?: number | null
   notes?: string | null
   refunded_amount?: number
@@ -122,6 +123,7 @@ export interface MockExpenseRequest {
   distributor?: { id: number; name: string }
   rejection_notes?: string | null
   created_at?: string
+  paid_at?: string | null
 }
 
 export interface DemoState {
@@ -2116,7 +2118,8 @@ export function createSeedState(): DemoState {
         status: 'active',
         payment_source: 'internal',
         payment_method: 'cash',
-        paid_at: '2026-05-01T10:00:00Z',
+        paid_at: new Date().toISOString(),
+        user_id: 1,
       },
     ],
     paymentVerificationLogs: [],
@@ -2131,6 +2134,7 @@ export function createSeedState(): DemoState {
         branch_id: 1,
         notes: 'مصروفات نثرية أسبوع التحصيل',
         created_by: 1,
+        created_at: new Date().toISOString(),
       },
       {
         id: 2,
@@ -2142,6 +2146,7 @@ export function createSeedState(): DemoState {
         distributor_id: 1,
         notes: 'صرف عمولة موزع — رصيد متاح',
         created_by: 1,
+        created_at: new Date().toISOString(),
       },
     ],
     distributorCommissionLedger: [],

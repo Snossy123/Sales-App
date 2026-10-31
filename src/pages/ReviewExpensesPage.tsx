@@ -37,7 +37,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'بانتظار المراجعة',
+  pending: 'مسجّل — مراجعة آخر اليوم',
   approved: 'معتمد',
   rejected: 'مرفوض',
   paid: 'مدفوع',
@@ -138,7 +138,7 @@ export function ReviewExpensesPage() {
   )
 
   return (
-    <SalesPageShell title="مراجعة المصروفات" subtitle="طلبات المصروفات — تشغيل، نثرية، صرف عمولة، مديونية موظف">
+    <SalesPageShell title="مراجعة المصروفات" subtitle="المصروف يُسجَّل فور الطلب — راجع المسجّل آخر اليوم">
       <div className="mb-md flex flex-wrap items-center gap-sm">
         <span className="text-xs font-medium text-on-surface-variant">الفترة:</span>
         <div className="flex flex-wrap gap-1 rounded-lg border border-outline-variant bg-surface-container-low p-0.5">

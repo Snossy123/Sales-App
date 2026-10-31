@@ -28,6 +28,13 @@ const TYPE_LABELS: Record<string, string> = {
   employee_debt: 'مديونية موظف',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'مسجّل — مراجعة آخر اليوم',
+  approved: 'معتمد',
+  rejected: 'مرفوض',
+  paid: 'مدفوع',
+}
+
 export function ReviewExpenseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -83,7 +90,10 @@ export function ReviewExpenseDetailPage() {
         {expense && (
           <div className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={pending ? 'warning' : 'success'} label={expense.status} />
+              <StatusBadge
+                status={expense.status === 'rejected' ? 'error' : pending ? 'warning' : 'success'}
+                label={STATUS_LABELS[expense.status] ?? expense.status}
+              />
               <span className="text-sm">{TYPE_LABELS[expense.expense_type] ?? expense.expense_type}</span>
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">

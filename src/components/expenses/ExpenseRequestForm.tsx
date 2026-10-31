@@ -107,8 +107,12 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
     },
     onSuccess: () => {
       useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
+      setExpenseType('petty_cash')
+      setAmount('')
+      setNotes('')
+      setDistributorId('')
+      setEmployeeId('')
       onSuccess?.()
-      onClose()
     },
   })
 
@@ -116,8 +120,8 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
   const needsEmployee = expenseType === 'employee_debt'
 
   return (
-    <div className="mx-auto max-w-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-      <h2 className="mb-md text-base font-bold text-on-surface">طلب مصروف جديد</h2>
+    <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
+      <h2 className="mb-md text-base font-bold text-on-surface">تسجيل مصروف</h2>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-sm">نوع المصروف</label>
@@ -214,7 +218,7 @@ export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormPro
             disabled={!branchId || !amount || submitMutation.isPending}
             onClick={() => submitMutation.mutate()}
           >
-            إرسال للمراجعة
+            تسجيل المصروف
           </button>
         </div>
       </div>

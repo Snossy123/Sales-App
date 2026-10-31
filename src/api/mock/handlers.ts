@@ -46,7 +46,7 @@ import { getScopedBranchIds as resolveUserBranchIds, getScopedDepartmentId } fro
 import { customerAllPhoneNumbers } from '../../lib/customerForm'
 import { isSuperAdmin } from '../../lib/access'
 import { CONTRACT_TEMPLATES, mockContractPreviewHtml } from '../../lib/contractTemplates'
-import type { DemoPaymentVerificationLog, DemoState, DemoUser } from './seed'
+import type { DemoPaymentVerificationLog, DemoState, DemoUser, MockExpenseRequest } from './seed'
 import { tryHandleAccessoryRequest } from './accessoryHandlers'
 import { tryHandleChatRequest } from './chatHandlers'
 import { tryHandleHrmRequest } from './hrmHandlers'
@@ -3089,6 +3089,8 @@ export function handleMockRequest(
     if (customerId) rows = rows.filter((p) => p.customer_id === customerId)
     if (invoiceId) rows = rows.filter((p) => p.sales_invoice_id === invoiceId)
     if (installmentItemId) rows = rows.filter((p) => p.installment_item_id === installmentItemId)
+    const userId = params.user_id ? Number(params.user_id) : undefined
+    if (userId) rows = rows.filter((p) => p.user_id === userId || p.collector_user_id === userId)
     if (status) rows = rows.filter((p) => p.status === status)
     if (paymentSource) rows = rows.filter((p) => p.payment_source === paymentSource)
     if (search) {
@@ -5409,6 +5411,82 @@ export function handleMockRequest(
       branch,
       collection_reviewer: reviewer ? { id: reviewer.id, name: reviewer.name } : null,
     }
+  }
+
+  if (m === 'GET' && path === 'expense-requests') {
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    let items = [...(state.expenseRequests ?? [])]
+    if (scopedBranchIds != null) {
+      items = items.filter((e) => scopedBranchIds.includes(e.branch_id))
+    }
+    const typeFilter = String(params['filter[expense_type]'] ?? params.expense_type ?? '')
+    if (typeFilter) items = items.filter((e) => e.expense_type === typeFilter)
+    const statusFilter = String(params['filter[status]'] ?? params.status ?? '')
+    if (statusFilter) items = items.filter((e) => e.status === statusFilter)
+    const createdBy = String(params['filter[created_by]'] ?? params.created_by ?? '')
+    if (createdBy) items = items.filter((e) => String(e.created_by ?? '') === createdBy)
+    const employeeId = String(params['filter[employee_id]'] ?? params.employee_id ?? '')
+    if (employeeId) items = items.filter((e) => String(e.employee_id ?? '') === employeeId)
+    const range = paymentPaidRange({
+      paid_from: String(params.created_from ?? ''),
+      paid_to: String(params.created_to ?? ''),
+      period: String(params.period ?? ''),
+    })
+    if (range.from || range.to) {
+      items = items.filter((e) => {
+        const created = e.created_at ? new Date(e.created_at) : new Date()
+        if (range.from && created < range.from) return false
+        if (range.to && created > range.to) return false
+        return true
+      })
+    }
+    const totalAmount = items
+      .filter((e) => e.status !== 'rejected')
+      .reduce((sum, e) => sum + Number(e.amount ?? 0), 0)
+    const rows = items.map((exp) => ({
+      ...exp,
+      branch: state.branches.find((b) => b.id === exp.branch_id),
+      employee: exp.employee_id ? state.employees.find((e) => e.id === exp.employee_id) : undefined,
+      distributor: exp.distributor_id
+        ? state.distributors.find((d) => d.id === exp.distributor_id)
+        : undefined,
+      creator: exp.created_by ? state.users.find((u) => u.id === exp.created_by) : undefined,
+    }))
+    return { ...paginate(rows, params), total_amount: totalAmount }
+  }
+
+  if (m === 'POST' && path === 'expense-requests') {
+    const body = (data ?? {}) as {
+      branch_id?: number
+      expense_type?: string
+      amount?: number
+      notes?: string
+      distributor_id?: number
+      employee_id?: number
+    }
+    if (!body.branch_id || !body.expense_type || !body.amount) {
+      throw mockError(422, 'بيانات طلب المصروف غير مكتملة')
+    }
+    let created: (typeof state.expenseRequests)[number] | undefined
+    mutateState((s) => {
+      const nextId = Math.max(0, ...(s.expenseRequests ?? []).map((e) => e.id)) + 1
+      created = {
+        id: nextId,
+        reference_number: `EXP-${String(nextId).padStart(6, '0')}`,
+        expense_type: body.expense_type as MockExpenseRequest['expense_type'],
+        amount: Number(body.amount),
+        status: 'pending',
+        branch_id: Number(body.branch_id),
+        notes: body.notes ?? null,
+        distributor_id: body.distributor_id ?? null,
+        employee_id: body.employee_id ?? null,
+        created_by: ctx.user?.id ?? 1,
+        created_at: new Date().toISOString(),
+        paid_at: new Date().toISOString(),
+      }
+      s.expenseRequests = [...(s.expenseRequests ?? []), created]
+    })
+    return created
   }
 
   if (m === 'GET' && path === 'review/expenses') {
