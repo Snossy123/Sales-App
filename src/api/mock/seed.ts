@@ -653,7 +653,6 @@ export function createSeedState(): DemoState {
   const planPartialItems = buildInstallmentItems(16, 16, 6000, 4, localDateOffset(-10), 30, 41)
   planPartialItems[0].paid_amount = 750
   planPartialItems[0].status = 'partial'
-  planPartialItems[0].collection_status = 'no_contact'
 
   const planNewDateItems = buildInstallmentItems(17, 17, 4800, 3, upcomingStart, 30, 45)
   planNewDateItems[0].collection_status = 'new_payment_date'
@@ -1188,7 +1187,6 @@ export function createSeedState(): DemoState {
       paid_amount: 3250,
       balance_due: 5250,
       collector_user_id: 4,
-      collection_status: 'no_contact',
       lines: [
         {
           id: 26,
@@ -2637,19 +2635,6 @@ export function createSeedState(): DemoState {
         collection_notes: 'اتصلت ولم يرد',
         created_at: localDateTimeOffset(0, 12),
       },
-      {
-        id: 6,
-        sales_invoice_id: 16,
-        installment_item_id: 41,
-        installment_sequence: 1,
-        invoice_number: 'INV-COL-PRT-0001',
-        user_id: 4,
-        user_name: 'كريم — تحصيل',
-        collection_status: 'no_contact',
-        collection_status_label: 'لم يتم التواصل',
-        collection_notes: 'لم يتم التواصل اليوم',
-        created_at: localDateTimeOffset(0, 13),
-      },
     ],
     expenseRequests: [
       {
@@ -2726,7 +2711,7 @@ export function createSeedState(): DemoState {
       installmentItem: 47,
       payment: 1,
       paymentVerification: 1,
-      collectionFollowUp: 6,
+      collectionFollowUp: 5,
       commissionLedger: 1,
       accountingMapping: 4,
       accountingLine: 7,

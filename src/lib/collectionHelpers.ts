@@ -31,7 +31,11 @@ export const collectionStatusOptions = [
   { value: 'postponed', label: collectionStatusLabels.postponed },
   { value: 'new_payment_date', label: collectionStatusLabels.new_payment_date },
   { value: 'no_answer', label: collectionStatusLabels.no_answer },
-  { value: 'no_contact', label: collectionStatusLabels.no_contact },
+]
+
+export const collectionStatusFilterOptions = [
+  ...collectionStatusOptions,
+  { value: 'none', label: collectionStatusLabels.no_contact },
 ]
 
 export const contractTierFilterOptions = [

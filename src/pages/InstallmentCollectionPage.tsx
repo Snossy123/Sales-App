@@ -21,7 +21,7 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import {
   buildCollectionFollowUpPayload,
   collectionStatusLabels,
-  collectionStatusOptions,
+  collectionStatusFilterOptions,
   computeContractStats,
   filterRowsByContractTier,
   filterInstallmentCollectionRows,
@@ -35,7 +35,7 @@ import {
   normalizeInstallmentItem,
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
-import { userHasPermission } from '../lib/access'
+import { userCanPerform, userHasPermission } from '../lib/access'
 
 type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
@@ -72,7 +72,7 @@ function CollectionDailyStatCards({
     { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: null },
     { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: '' },
     { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats.no_answer, filter: 'no_answer' },
-    { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'no_contact' },
+    { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'none' },
   ] as const
 
   return (
@@ -374,7 +374,7 @@ export function InstallmentCollectionPage() {
   })
 
   const canViewDailyStats =
-    userHasPermission(user, 'installments.collect') || userHasPermission(user, 'installments.view')
+    userCanPerform(user, 'installments.collect') || userCanPerform(user, 'installments.view')
 
   const dailyStatsQuery = useQuery({
     queryKey: ['collection-daily-stats', selectedBranchId, userId],
@@ -720,7 +720,7 @@ export function InstallmentCollectionPage() {
       status,
     }: {
       installmentId: number
-      status: 'no_answer' | 'no_contact'
+      status: 'no_answer'
     }) => {
       const payload = buildCollectionFollowUpPayload({
         collectionStatus: status,
@@ -941,7 +941,7 @@ export function InstallmentCollectionPage() {
                 setCollectionStatusFilter(v)
                 setSelected(null)
               },
-              options: collectionStatusOptions,
+              options: collectionStatusFilterOptions,
             },
             {
               id: 'collector',

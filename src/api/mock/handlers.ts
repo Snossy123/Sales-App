@@ -3925,7 +3925,11 @@ export function handleMockRequest(
           (row) => row.installment_item_id === item.id && row.status === 'open',
         )
         const rowCollectionStatus = item.collection_status ?? inv.collection_status ?? null
-        if (collectionStatusFilter && rowCollectionStatus !== collectionStatusFilter) continue
+        if (collectionStatusFilter === 'none') {
+          if (rowCollectionStatus) continue
+        } else if (collectionStatusFilter && rowCollectionStatus !== collectionStatusFilter) {
+          continue
+        }
         if (installmentStatusFilter && item.status !== installmentStatusFilter) continue
         const paymentMethods = [...new Set(payments.map((payment) => payment.payment_method).filter(Boolean))]
         const latestPaidAt = payments
@@ -4092,27 +4096,52 @@ export function handleMockRequest(
     const todayLogs = (state.collectionFollowUpLogs ?? []).filter(
       (log) => isToday(log.created_at) && scopedInvoiceIds.has(log.sales_invoice_id),
     )
-    const uniqueByStatus = (status: string) =>
-      new Set(
-        todayLogs
-          .filter((log) => log.collection_status === status)
-          .map((log) => log.sales_invoice_id),
-      ).size
-    const paidToday = new Set(
+    const paidTodayIds = new Set(
       state.paymentTransactions
         .filter((payment) => {
           if (payment.status !== 'active' || !isToday(payment.paid_at)) return false
           return scopedInvoiceIds.has(payment.sales_invoice_id)
         })
         .map((payment) => payment.sales_invoice_id),
-    ).size
+    )
+    const latestByInvoice = new Map<number, { created_at: string; status: string | null }>()
+    for (const log of todayLogs) {
+      const createdAt = log.created_at ?? ''
+      const existing = latestByInvoice.get(log.sales_invoice_id)
+      if (!existing || createdAt > existing.created_at) {
+        latestByInvoice.set(log.sales_invoice_id, {
+          created_at: createdAt,
+          status: log.collection_status ?? null,
+        })
+      }
+    }
+
+    const countLatest = (status: string) =>
+      [...latestByInvoice.entries()].filter(([invoiceId, row]) => {
+        if (paidTodayIds.has(invoiceId)) return false
+        return row.status === status
+      }).length
+
+    let noContact = 0
+    for (const invoice of state.invoices) {
+      if (!scopedInvoiceIds.has(invoice.id)) continue
+      if (paidTodayIds.has(invoice.id)) continue
+      if (latestByInvoice.has(invoice.id)) continue
+      const hasOpen = (invoice.installment_plan?.items ?? []).some((item) => {
+        const paid = (state.paymentTransactions ?? [])
+          .filter((payment) => payment.installment_item_id === item.id && payment.status === 'active')
+          .reduce((sum, payment) => sum + Number(payment.amount), 0)
+        return Math.max(0, Number(item.amount) - paid) > 0.009
+      })
+      if (hasOpen) noContact += 1
+    }
 
     return {
-      postponed: uniqueByStatus('postponed'),
-      paid: paidToday,
-      follow_up: new Set(todayLogs.map((log) => log.sales_invoice_id)).size,
-      no_answer: uniqueByStatus('no_answer'),
-      no_contact: uniqueByStatus('no_contact'),
+      postponed: countLatest('postponed'),
+      paid: paidTodayIds.size,
+      follow_up: latestByInvoice.size,
+      no_answer: countLatest('no_answer'),
+      no_contact: noContact,
     }
   }
 

@@ -190,7 +190,7 @@ interface InstallmentCollectionGroupedListProps {
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
-  onQuickCollectionStatus?: (row: InstallmentCollectionRow, status: 'no_answer' | 'no_contact') => void
+  onQuickCollectionStatus?: (row: InstallmentCollectionRow, status: 'no_answer') => void
   quickStatusPendingId?: number | null
   emptyMessage?: string
   collectors?: Array<{ id: number; name: string }>
@@ -377,7 +377,7 @@ function CurrentInstallmentCard({
   selected: boolean
   onSelect: () => void
   onReconcile: () => void
-  onQuickCollectionStatus?: (status: 'no_answer' | 'no_contact') => void
+  onQuickCollectionStatus?: (status: 'no_answer') => void
   quickStatusPending?: boolean
 }) {
   const remaining = rowRemaining(row)
@@ -427,24 +427,14 @@ function CurrentInstallmentCard({
               </button>
             )}
             {onQuickCollectionStatus && !row.is_suspended && (
-              <>
-                <button
-                  type="button"
-                  disabled={quickStatusPending}
-                  onClick={() => onQuickCollectionStatus('no_answer')}
-                  className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
-                >
-                  لم يتم الرد
-                </button>
-                <button
-                  type="button"
-                  disabled={quickStatusPending}
-                  onClick={() => onQuickCollectionStatus('no_contact')}
-                  className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
-                >
-                  لم يتم التواصل
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={quickStatusPending}
+                onClick={() => onQuickCollectionStatus('no_answer')}
+                className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
+              >
+                لم يتم الرد
+              </button>
             )}
           </div>
         </div>
