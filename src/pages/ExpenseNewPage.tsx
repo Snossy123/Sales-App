@@ -8,7 +8,6 @@ export function ExpenseNewPage() {
   return (
     <SalesPageShell title="طلب مصروف" subtitle="إرسال طلب مصروف للمراجعة">
       <ExpenseRequestForm
-        open
         onClose={() => navigate(-1)}
         onSuccess={() => navigate('/review/expenses')}
       />

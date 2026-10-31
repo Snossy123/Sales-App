@@ -121,6 +121,7 @@ export interface MockExpenseRequest {
   employee?: { id: number; name: string }
   distributor?: { id: number; name: string }
   rejection_notes?: string | null
+  created_at?: string
 }
 
 export interface DemoState {

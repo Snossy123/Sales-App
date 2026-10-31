@@ -5417,11 +5417,32 @@ export function handleMockRequest(
     if (scopedBranchIds != null) {
       items = items.filter((e) => scopedBranchIds.includes(e.branch_id))
     }
-    const typeFilter = params.expense_type
+    const typeFilter = String(params['filter[expense_type]'] ?? params.expense_type ?? '')
     if (typeFilter) items = items.filter((e) => e.expense_type === typeFilter)
-    const statusFilter = params.status
+    const statusFilter = String(params['filter[status]'] ?? params.status ?? '')
     if (statusFilter) items = items.filter((e) => e.status === statusFilter)
-    else items = items.filter((e) => e.status === 'pending')
+    const search = String(params.search ?? '').trim().toLowerCase()
+    if (search) {
+      items = items.filter((e) => {
+        const reference = String(e.reference_number ?? '').toLowerCase()
+        const notes = String(e.notes ?? '').toLowerCase()
+        return reference.includes(search) || notes.includes(search)
+      })
+    }
+    const range = paymentPaidRange({
+      paid_from: String(params.created_from ?? ''),
+      paid_to: String(params.created_to ?? ''),
+      period: String(params.period ?? ''),
+    })
+    if (range.from || range.to) {
+      items = items.filter((e) => {
+        const created = e.created_at ? new Date(e.created_at) : new Date()
+        if (range.from && created < range.from) return false
+        if (range.to && created > range.to) return false
+        return true
+      })
+    }
+    const totalAmount = items.reduce((sum, e) => sum + Number(e.amount ?? 0), 0)
 
     const rows = items.map((exp) => ({
       ...exp,
@@ -5436,7 +5457,7 @@ export function handleMockRequest(
         ? state.users.find((u) => u.id === exp.created_by)
         : undefined,
     }))
-    return paginate(rows, params)
+    return { ...paginate(rows, params), total_amount: totalAmount }
   }
 
   if (m === 'GET' && path.match(/^review\/expenses\/\d+$/)) {

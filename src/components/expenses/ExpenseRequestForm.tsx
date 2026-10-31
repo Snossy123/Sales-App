@@ -8,7 +8,6 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Branch, Distributor, Employee, PaginatedResponse } from '../../api/types'
-import { Modal } from '../Modal'
 import { NumericInput } from '../ui/NumericInput'
 import { TextArea } from '../ui/TextArea'
 import { useAuthStore } from '../../stores/authStore'
@@ -21,7 +20,6 @@ const EXPENSE_TYPES = [
 ]
 
 interface ExpenseRequestFormProps {
-  open: boolean
   onClose: () => void
   onSuccess?: () => void
 }
@@ -35,7 +33,7 @@ type ExpenseDraft = {
   employeeId: number | ''
 }
 
-export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
+export function ExpenseRequestForm({ onClose, onSuccess }: ExpenseRequestFormProps) {
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? null
   const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
@@ -64,7 +62,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
         employeeId ||
         expenseType !== 'petty_cash',
     ),
-    enabled: open,
+    enabled: true,
   })
 
   const branchesQuery = useQuery({
@@ -73,7 +71,6 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params: { per_page: 100 } })
       return data.data ?? []
     },
-    enabled: open,
   })
 
   const distributorsQuery = useQuery({
@@ -82,7 +79,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       const { data } = await api.get<PaginatedResponse<Distributor>>('/distributors', { params: { per_page: 100 } })
       return data.data ?? []
     },
-    enabled: open && ['operating', 'distributor_payout'].includes(expenseType),
+    enabled: ['operating', 'distributor_payout'].includes(expenseType),
   })
 
   const employeesQuery = useQuery({
@@ -93,7 +90,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data.data ?? []
     },
-    enabled: open && expenseType === 'employee_debt' && Boolean(branchId),
+    enabled: expenseType === 'employee_debt' && Boolean(branchId),
   })
 
   const submitMutation = useMutation({
@@ -119,7 +116,8 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
   const needsEmployee = expenseType === 'employee_debt'
 
   return (
-    <Modal open={open} onClose={onClose} title="طلب مصروف جديد">
+    <div className="mx-auto max-w-lg rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
+      <h2 className="mb-md text-base font-bold text-on-surface">طلب مصروف جديد</h2>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-sm">نوع المصروف</label>
@@ -220,6 +218,6 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
           </button>
         </div>
       </div>
-    </Modal>
+    </div>
   )
 }
