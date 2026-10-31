@@ -20,6 +20,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   buildCollectionFollowUpPayload,
+  collectionStatusLabels,
   collectionStatusOptions,
   computeContractStats,
   filterRowsByContractTier,
@@ -48,6 +49,60 @@ interface BranchStats {
 
 const transferMethods = ['wallet', 'instapay', 'bank_transfer']
 const COLLECTION_CHROME_STORAGE_KEY = 'collection-chrome-open'
+
+interface CollectionDailyStats {
+  postponed: number
+  paid: number
+  follow_up: number
+  no_answer: number
+  no_contact: number
+}
+
+function CollectionDailyStatCards({
+  stats,
+  activeStatus,
+  onSelectStatus,
+}: {
+  stats: CollectionDailyStats
+  activeStatus: string
+  onSelectStatus: (status: string) => void
+}) {
+  const cards = [
+    { key: 'postponed', label: collectionStatusLabels.postponed, value: stats.postponed, filter: 'postponed' },
+    { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: null },
+    { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: '' },
+    { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats.no_answer, filter: 'no_answer' },
+    { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'no_contact' },
+  ] as const
+
+  return (
+    <div className="mb-sm flex min-w-0 gap-sm overflow-x-auto pb-1">
+      {cards.map((card) => {
+        const clickable = card.filter !== null
+        const active = clickable && card.filter !== '' && activeStatus === card.filter
+        return (
+          <button
+            key={card.key}
+            type="button"
+            disabled={!clickable}
+            onClick={() => {
+              if (card.filter === null) return
+              onSelectStatus(activeStatus === card.filter ? '' : card.filter)
+            }}
+            className={`min-w-[8.5rem] shrink-0 rounded-xl border px-sm py-2 text-right ${
+              active
+                ? 'border-primary bg-primary/10'
+                : 'border-outline-variant bg-surface-container-low'
+            } ${clickable ? 'hover:border-primary/40' : 'cursor-default opacity-95'}`}
+          >
+            <p className="text-[11px] font-medium text-on-surface-variant">{card.label}</p>
+            <p className="mt-0.5 text-lg font-bold tabular-nums text-on-surface">{card.value}</p>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 function branchInstallmentsTitle(name: string) {
   const trimmed = name.trim()
@@ -318,6 +373,20 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
+  const canViewDailyStats =
+    userHasPermission(user, 'installments.collect') || userHasPermission(user, 'installments.view')
+
+  const dailyStatsQuery = useQuery({
+    queryKey: ['collection-daily-stats', selectedBranchId, userId],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {}
+      if (selectedBranchId) params['filter[branch_id]'] = selectedBranchId
+      const { data } = await api.get<CollectionDailyStats>('/collection-daily-stats', { params })
+      return data
+    },
+    enabled: canViewDailyStats && Boolean(selectedBranchId),
+  })
+
   const installmentsQuery = useQuery({
     queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, collectorFilter, sortByReminder],
     queryFn: async () => {
@@ -573,6 +642,7 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       resetInstallmentProcedure()
@@ -628,6 +698,7 @@ export function InstallmentCollectionPage() {
       const installmentId = selected?.id
       const invoiceId = selected?.sales_invoice_id
       await queryClient.invalidateQueries({ queryKey: ['installments'] })
+      await queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
       if (installmentId) {
         await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', installmentId] })
       }
@@ -640,6 +711,31 @@ export function InstallmentCollectionPage() {
       if (reminderIsFuture) {
         setShowFollowUps(true)
       }
+    },
+  })
+
+  const quickStatusMutation = useMutation({
+    mutationFn: async ({
+      installmentId,
+      status,
+    }: {
+      installmentId: number
+      status: 'no_answer' | 'no_contact'
+    }) => {
+      const payload = buildCollectionFollowUpPayload({
+        collectionStatus: status,
+        collectionReminderAt: '',
+        collectionNotes: '',
+      })
+      const { data } = await api.patch(`/installments/${installmentId}/collection-metadata`, payload)
+      return data
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['installments'] })
+      await queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
+      await queryClient.invalidateQueries({
+        queryKey: ['collection-follow-ups', 'installment', variables.installmentId],
+      })
     },
   })
 
@@ -921,6 +1017,16 @@ export function InstallmentCollectionPage() {
 
         {selectedBranchId && selectedBranch ? (
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+            {canViewDailyStats && dailyStatsQuery.data ? (
+              <CollectionDailyStatCards
+                stats={dailyStatsQuery.data}
+                activeStatus={collectionStatusFilter}
+                onSelectStatus={(status) => {
+                  setCollectionStatusFilter(status)
+                  setSelected(null)
+                }}
+              />
+            ) : null}
             <div className="mb-md flex flex-col gap-sm sm:flex-row sm:flex-nowrap sm:items-center">
               <h2 className="shrink-0 text-base font-semibold text-on-surface">
                 {branchInstallmentsTitle(selectedBranch.name_ar || selectedBranch.name)}
@@ -980,6 +1086,15 @@ export function InstallmentCollectionPage() {
                     selectRow(row)
                     setShowReconcile(true)
                   }}
+                  onQuickCollectionStatus={(row, status) => {
+                    if (!row.id) return
+                    quickStatusMutation.mutate({ installmentId: row.id, status })
+                  }}
+                  quickStatusPendingId={
+                    quickStatusMutation.isPending
+                      ? (quickStatusMutation.variables?.installmentId ?? null)
+                      : null
+                  }
                   emptyMessage={collectionListEmptyMessage(contractTierFilter)}
                   collectors={collectorsQuery.data ?? []}
                   canAssign={canAssignCollectors}

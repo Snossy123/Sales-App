@@ -4071,6 +4071,51 @@ export function handleMockRequest(
     }
   }
 
+  if (m === 'GET' && path === 'collection-daily-stats') {
+    const branchFilter = params['filter[branch_id]']
+      ? Number(params['filter[branch_id]'])
+      : undefined
+    const isCollector = ctx.user?.demo_role === 'collector'
+    const collectorId = isCollector ? ctx.user?.id : undefined
+    const scopedInvoiceIds = new Set(
+      state.invoices
+        .filter((inv) => {
+          if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') return false
+          if (branchFilter && inv.branch_id !== branchFilter) return false
+          if (collectorId != null && Number(inv.collector_user_id) !== Number(collectorId)) return false
+          return true
+        })
+        .map((inv) => inv.id),
+    )
+    const todayKey = new Date().toLocaleDateString('en-CA')
+    const isToday = (value?: string | null) => Boolean(value && value.slice(0, 10) === todayKey)
+    const todayLogs = (state.collectionFollowUpLogs ?? []).filter(
+      (log) => isToday(log.created_at) && scopedInvoiceIds.has(log.sales_invoice_id),
+    )
+    const uniqueByStatus = (status: string) =>
+      new Set(
+        todayLogs
+          .filter((log) => log.collection_status === status)
+          .map((log) => log.sales_invoice_id),
+      ).size
+    const paidToday = new Set(
+      state.paymentTransactions
+        .filter((payment) => {
+          if (payment.status !== 'active' || !isToday(payment.paid_at)) return false
+          return scopedInvoiceIds.has(payment.sales_invoice_id)
+        })
+        .map((payment) => payment.sales_invoice_id),
+    ).size
+
+    return {
+      postponed: uniqueByStatus('postponed'),
+      paid: paidToday,
+      follow_up: new Set(todayLogs.map((log) => log.sales_invoice_id)).size,
+      no_answer: uniqueByStatus('no_answer'),
+      no_contact: uniqueByStatus('no_contact'),
+    }
+  }
+
   const followUpHistoryMatch = path.match(/^sales-invoices\/(\d+)\/collection-follow-ups$/)
   if (m === 'GET' && followUpHistoryMatch) {
     const invoiceId = Number(followUpHistoryMatch[1])

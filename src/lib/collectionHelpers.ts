@@ -21,6 +21,8 @@ export const collectionStatusLabels: Record<string, string> = {
   responded: 'تم الرد',
   postponed: 'تأجيلات',
   new_payment_date: 'مواعيد جديدة للدفع',
+  no_answer: 'لم يتم الرد',
+  no_contact: 'لم يتم التواصل',
 }
 
 export const collectionStatusOptions = [
@@ -28,6 +30,8 @@ export const collectionStatusOptions = [
   { value: 'responded', label: collectionStatusLabels.responded },
   { value: 'postponed', label: collectionStatusLabels.postponed },
   { value: 'new_payment_date', label: collectionStatusLabels.new_payment_date },
+  { value: 'no_answer', label: collectionStatusLabels.no_answer },
+  { value: 'no_contact', label: collectionStatusLabels.no_contact },
 ]
 
 export const contractTierFilterOptions = [

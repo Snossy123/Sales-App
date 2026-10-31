@@ -19,7 +19,6 @@ import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/custo
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { Icon } from '../Icon'
-import { Pagination } from '../Pagination'
 import { StatusBadge } from '../StatusBadge'
 import { ContractCollectionActions } from './CustomerCollectionActions'
 
@@ -191,6 +190,8 @@ interface InstallmentCollectionGroupedListProps {
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
+  onQuickCollectionStatus?: (row: InstallmentCollectionRow, status: 'no_answer' | 'no_contact') => void
+  quickStatusPendingId?: number | null
   emptyMessage?: string
   collectors?: Array<{ id: number; name: string }>
   canAssign?: boolean
@@ -369,11 +370,15 @@ function CurrentInstallmentCard({
   selected,
   onSelect,
   onReconcile,
+  onQuickCollectionStatus,
+  quickStatusPending,
 }: {
   row: InstallmentCollectionRow
   selected: boolean
   onSelect: () => void
   onReconcile: () => void
+  onQuickCollectionStatus?: (status: 'no_answer' | 'no_contact') => void
+  quickStatusPending?: boolean
 }) {
   const remaining = rowRemaining(row)
   const installmentNo = row.installment_number ?? row.sequence ?? '—'
@@ -420,6 +425,26 @@ function CurrentInstallmentCard({
               >
                 تصالح
               </button>
+            )}
+            {onQuickCollectionStatus && !row.is_suspended && (
+              <>
+                <button
+                  type="button"
+                  disabled={quickStatusPending}
+                  onClick={() => onQuickCollectionStatus('no_answer')}
+                  className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                >
+                  لم يتم الرد
+                </button>
+                <button
+                  type="button"
+                  disabled={quickStatusPending}
+                  onClick={() => onQuickCollectionStatus('no_contact')}
+                  className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                >
+                  لم يتم التواصل
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -560,6 +585,8 @@ export function InstallmentCollectionGroupedList({
   selectedId,
   onSelect,
   onReconcile,
+  onQuickCollectionStatus,
+  quickStatusPendingId = null,
   emptyMessage = 'لا توجد أقساط مستحقة',
   collectors = [],
   canAssign = false,
@@ -573,24 +600,31 @@ export function InstallmentCollectionGroupedList({
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
   const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
   const [contractOpenByKey, setContractOpenByKey] = useState<Record<string, boolean>>({})
-  const [page, setPage] = useState(1)
-
-  const paginate = pageSize > 0
-  const total = groups.length
-  const lastPage = paginate ? Math.max(1, Math.ceil(total / pageSize)) : 1
+  const [visibleCount, setVisibleCount] = useState(() => (pageSize > 0 ? pageSize : 0))
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setPage(1)
-  }, [pageKey])
+    setVisibleCount(pageSize > 0 ? pageSize : groups.length)
+  }, [pageKey, pageSize, groups.length])
+
+  const visibleGroups = pageSize > 0 ? groups.slice(0, visibleCount) : groups
+  const hasMore = pageSize > 0 && visibleCount < groups.length
 
   useEffect(() => {
-    setPage((current) => Math.min(current, lastPage))
-  }, [lastPage, total])
-
-  const currentPage = Math.min(page, lastPage)
-  const visibleGroups = paginate
-    ? groups.slice((currentPage - 1) * pageSize, (currentPage - 1) * pageSize + pageSize)
-    : groups
+    const node = sentinelRef.current
+    if (!node || !hasMore) return
+    const scrollRoot = node.closest('[class*="overflow-y-auto"]')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) => Math.min(count + pageSize, groups.length))
+        }
+      },
+      { root: scrollRoot instanceof Element ? scrollRoot : null, rootMargin: '80px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, pageSize, groups.length])
 
   const toggleView = (key: string, view: ContractExpandView) => {
     setExpandedViews((prev) => {
@@ -656,7 +690,7 @@ export function InstallmentCollectionGroupedList({
             </div>
           )}
 
-          <div className="space-y-sm">
+          <div className="space-y-xs">
             {customer.contracts.map((contract, contractIndex) => {
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
               const expandedView = expandedViews[contractKey]
@@ -701,10 +735,12 @@ export function InstallmentCollectionGroupedList({
               return (
                 <div
                   key={contractKey}
-                  className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm"
+                  className={`rounded-lg border border-outline-variant/70 bg-surface-container-lowest ${
+                    multipleContracts && !contractOpen ? 'px-sm py-1' : 'p-sm'
+                  }`}
                 >
                   {multipleContracts && !contractOpen ? (
-                    <div className="flex flex-wrap items-center gap-sm">
+                    <div className="flex flex-nowrap items-center gap-xs overflow-x-auto">
                       <button
                         type="button"
                         aria-expanded={false}
@@ -748,8 +784,8 @@ export function InstallmentCollectionGroupedList({
                     </div>
                   ) : (
                     <>
-                  <div className="mb-sm">
-                    <div className="mb-sm flex items-start justify-between gap-2">
+                  <div className="mb-xs">
+                    <div className="mb-xs flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-xs">
                         {multipleContracts ? (
                           <button
@@ -782,7 +818,7 @@ export function InstallmentCollectionGroupedList({
                       </div>
                       {optionsMenu}
                     </div>
-                    <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
+                    <div className="flex flex-nowrap items-center gap-1 overflow-x-auto">
                       <ContractMetaCell label="الأقساط">
                         <span className="tabular-nums">{contract.installmentCount}</span>
                       </ContractMetaCell>
@@ -833,6 +869,12 @@ export function InstallmentCollectionGroupedList({
                       selected={selectedId === current.id}
                       onSelect={() => onSelect(current)}
                       onReconcile={() => onReconcile(current)}
+                      onQuickCollectionStatus={
+                        onQuickCollectionStatus
+                          ? (status) => onQuickCollectionStatus(current, status)
+                          : undefined
+                      }
+                      quickStatusPending={quickStatusPendingId === current.id}
                     />
                   ) : (
                     <button
@@ -887,14 +929,7 @@ export function InstallmentCollectionGroupedList({
           </div>
         </CollapsibleSection>
       ))}
-      {paginate && lastPage > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          lastPage={lastPage}
-          total={total}
-          onPageChange={setPage}
-        />
-      )}
+      {hasMore ? <div ref={sentinelRef} className="h-4" aria-hidden /> : null}
     </div>
   )
 }
