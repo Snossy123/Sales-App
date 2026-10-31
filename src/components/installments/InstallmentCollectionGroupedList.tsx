@@ -9,6 +9,7 @@ import {
   compareCollectionSortKeys,
   compareContractCollection,
   contractCollectionSortKey,
+  contractFilterTier,
   getCurrentInstallment,
   rowAllowsReconciliation,
   rowRemaining,
@@ -571,6 +572,7 @@ export function InstallmentCollectionGroupedList({
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
   const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
+  const [contractOpenByKey, setContractOpenByKey] = useState<Record<string, boolean>>({})
   const [page, setPage] = useState(1)
 
   const paginate = pageSize > 0
@@ -655,10 +657,14 @@ export function InstallmentCollectionGroupedList({
           )}
 
           <div className="space-y-sm">
-            {customer.contracts.map((contract) => {
+            {customer.contracts.map((contract, contractIndex) => {
               const contractKey = `${customer.customerKey}-${contract.invoiceId}`
               const expandedView = expandedViews[contractKey]
               const current = contract.current
+              const multipleContracts = customer.contracts.length > 1
+              const contractOpen =
+                contractOpenByKey[contractKey] ?? (!multipleContracts || contractIndex === 0)
+              const contractTier = contractFilterTier(contract.rows)
               const deviceRow =
                 contract.rows.find((row) => {
                   const serial = String(row.serial_number ?? '').trim()
@@ -671,15 +677,46 @@ export function InstallmentCollectionGroupedList({
               const serial = String(deviceRow?.serial_number ?? '').trim()
               const username = String(deviceRow?.username ?? '').trim()
               const sim = String(deviceRow?.sim_number ?? '').trim()
+              const optionsMenu = (
+                <ContractOptionsMenu
+                  expandedView={expandedView}
+                  onToggleDue={compact ? undefined : () => toggleView(contractKey, 'due')}
+                  onToggleAll={compact ? undefined : () => toggleView(contractKey, 'all')}
+                  canAssign={!compact && canAssign}
+                  collectors={collectors}
+                  collectorUserId={contract.collectorUserId}
+                  assigning={assigningInvoiceId === contract.invoiceId}
+                  onAssignCollector={
+                    onAssignCollector
+                      ? (collectorUserId) => onAssignCollector(contract.invoiceId, collectorUserId)
+                      : undefined
+                  }
+                  canAddAction={Boolean(customer.customerId)}
+                  onAddAction={() =>
+                    setActionsOpenByContract((prev) => ({ ...prev, [contractKey]: true }))
+                  }
+                />
+              )
 
               return (
                 <div
                   key={contractKey}
                   className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-sm"
                 >
-                  <div className="mb-sm">
-                    <div className="mb-sm flex items-start justify-between gap-2">
-                      <p className="min-w-0 font-semibold text-on-surface">
+                  {multipleContracts && !contractOpen ? (
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <button
+                        type="button"
+                        aria-expanded={false}
+                        aria-label={`فتح تعاقد ${contract.invoiceNumber}`}
+                        onClick={() =>
+                          setContractOpenByKey((prev) => ({ ...prev, [contractKey]: true }))
+                        }
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low"
+                      >
+                        <Icon name="expand_more" size={22} />
+                      </button>
+                      <p className="min-w-0 flex-1 font-semibold text-on-surface">
                         تعاقد{' '}
                         {contract.invoiceId > 0 ? (
                           <Link
@@ -694,24 +731,56 @@ export function InstallmentCollectionGroupedList({
                           contract.invoiceNumber
                         )}
                       </p>
-                      <ContractOptionsMenu
-                        expandedView={expandedView}
-                        onToggleDue={compact ? undefined : () => toggleView(contractKey, 'due')}
-                        onToggleAll={compact ? undefined : () => toggleView(contractKey, 'all')}
-                        canAssign={!compact && canAssign}
-                        collectors={collectors}
-                        collectorUserId={contract.collectorUserId}
-                        assigning={assigningInvoiceId === contract.invoiceId}
-                        onAssignCollector={
-                          onAssignCollector
-                            ? (collectorUserId) => onAssignCollector(contract.invoiceId, collectorUserId)
-                            : undefined
-                        }
-                        canAddAction={Boolean(customer.customerId)}
-                        onAddAction={() =>
-                          setActionsOpenByContract((prev) => ({ ...prev, [contractKey]: true }))
-                        }
-                      />
+                      <span className="tabular-nums text-sm font-medium text-on-surface">
+                        {contract.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+                      </span>
+                      <StatusBadge status={contractTier} />
+                      {current && !current.is_suspended ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelect(current)}
+                          className="rounded-lg bg-primary px-md py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90"
+                        >
+                          تحصيل
+                        </button>
+                      ) : null}
+                      {optionsMenu}
+                    </div>
+                  ) : (
+                    <>
+                  <div className="mb-sm">
+                    <div className="mb-sm flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-xs">
+                        {multipleContracts ? (
+                          <button
+                            type="button"
+                            aria-expanded
+                            aria-label={`طي تعاقد ${contract.invoiceNumber}`}
+                            onClick={() =>
+                              setContractOpenByKey((prev) => ({ ...prev, [contractKey]: false }))
+                            }
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low"
+                          >
+                            <Icon name="expand_less" size={22} />
+                          </button>
+                        ) : null}
+                        <p className="min-w-0 font-semibold text-on-surface">
+                        تعاقد{' '}
+                        {contract.invoiceId > 0 ? (
+                          <Link
+                            to={`/contracts/${contract.invoiceId}`}
+                            dir="ltr"
+                            className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {contract.invoiceNumber}
+                          </Link>
+                        ) : (
+                          contract.invoiceNumber
+                        )}
+                        </p>
+                      </div>
+                      {optionsMenu}
                     </div>
                     <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
                       <ContractMetaCell label="الأقساط">
@@ -809,6 +878,8 @@ export function InstallmentCollectionGroupedList({
                         onReconcile={onReconcile}
                       />
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               )
