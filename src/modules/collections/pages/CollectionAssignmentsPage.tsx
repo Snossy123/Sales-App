@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
+import { useInstallmentPages } from '../../../lib/installmentPages'
 import { api, getErrorMessage } from '../../../api/client'
 import type {
   Branch,
@@ -17,7 +19,6 @@ import { StatusBadge } from '../../../components/StatusBadge'
 import { formatDate } from '../../../lib/accounting'
 import {
   collectionStatusLabels,
-  computeContractStats,
   firstDueStatus,
   firstDueStatusLabels,
   firstDueStatusOptions,
@@ -191,22 +192,42 @@ export function CollectionAssignmentsPage() {
     },
   })
 
-  const installmentsQuery = useQuery({
-    queryKey: ['installments', 'assignments', collectorFilter],
+  const debouncedSearch = useDebouncedValue(search.trim(), 300)
+  const tierFilter =
+    dueStatusFilter === 'due' ? 'due_soon' : dueStatusFilter === 'overdue' || dueStatusFilter === 'upcoming' ? dueStatusFilter : ''
+
+  const branchCountsQuery = useQuery({
+    queryKey: ['installments', 'branch-counts'],
     queryFn: async () => {
-      const params: Record<string, string | number> = {
-        per_page: 500,
-        include: 'salesInvoice.customer',
-      }
-      if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
-      const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', { params })
-      return data.data.map((item) => normalizeInstallmentItem(item))
+      const { data } = await api.get<{
+        data: Array<{
+          branch_id: number
+          contracts_count: number
+          overdue_count: number
+          due_soon_count: number
+          upcoming_count: number
+        }>
+      }>('/installments/branch-counts')
+      return data.data
     },
   })
 
+  const installmentsQuery = useInstallmentPages({
+    'filter[collector_user_id]': collectorFilter || undefined,
+    'filter[branch_id]': selectedBranchId ?? undefined,
+    'filter[search]': debouncedSearch || undefined,
+    'filter[contract_tier]': tierFilter || undefined,
+    'filter[due_from]': dateFrom || undefined,
+    'filter[due_to]': dateTo || undefined,
+    'filter[parked_follow_up]': 0,
+  })
+
   const contracts = useMemo((): AssignmentContract[] => {
+    const loaded = (installmentsQuery.data?.pages ?? []).flatMap((page) =>
+      page.data.map((item) => normalizeInstallmentItem(item)),
+    )
     const rowsByInvoice = new Map<number, InstallmentItem[]>()
-    for (const row of installmentsQuery.data ?? []) {
+    for (const row of loaded) {
       if (row.status === 'paid') continue
       const invoiceId = Number(row.sales_invoice_id ?? 0)
       if (!invoiceId) continue
@@ -235,46 +256,22 @@ export function CollectionAssignmentsPage() {
       })
     }
 
-    const q = search.trim().toLowerCase()
-    return built.filter((contract) => {
-      if (selectedBranchId && contract.branchId !== selectedBranchId) return false
-      if (q) {
-        const matchesSearch =
-          contract.customerName.toLowerCase().includes(q) ||
-          contract.invoiceNumber.toLowerCase().includes(q)
-        if (!matchesSearch) return false
-      }
-
-      const due = contract.firstDueDate?.slice(0, 10) ?? ''
-      if (dateFrom && (!due || due < dateFrom)) return false
-      if (dateTo && (!due || due > dateTo)) return false
-      if (dueStatusFilter && contract.firstDueStatus !== dueStatusFilter) return false
-      return true
-    })
-  }, [installmentsQuery.data, search, dateFrom, dateTo, dueStatusFilter, selectedBranchId])
+    return built
+  }, [installmentsQuery.data])
 
   const branchStats = useMemo((): AssignmentBranchStats[] => {
-    const unpaid = (installmentsQuery.data ?? []).filter((row) => row.status !== 'paid')
-    const byBranch = new Map<number, InstallmentItem[]>()
-    for (const row of unpaid) {
-      const branchId = row.branch_id
-      if (!branchId) continue
-      const list = byBranch.get(branchId) ?? []
-      list.push(row)
-      byBranch.set(branchId, list)
-    }
-
     const branches = branchesQuery.data ?? []
+    const counts = new Map((branchCountsQuery.data ?? []).map((row) => [row.branch_id, row]))
     return branches
       .map((branch) => {
-        const rows = (byBranch.get(branch.id) ?? []) as InstallmentCollectionRow[]
-        const {
-          total_contracts: contractsCount,
-          overdue_contracts: overdueCount,
-          due_soon_contracts: dueSoonCount,
-          upcoming_contracts: upcomingCount,
-        } = computeContractStats(rows)
-        return { branch, contractsCount, overdueCount, dueSoonCount, upcomingCount }
+        const count = counts.get(branch.id)
+        return {
+          branch,
+          contractsCount: count?.contracts_count ?? 0,
+          overdueCount: count?.overdue_count ?? 0,
+          dueSoonCount: count?.due_soon_count ?? 0,
+          upcomingCount: count?.upcoming_count ?? 0,
+        }
       })
       .filter(
         (s) =>
@@ -291,7 +288,7 @@ export function CollectionAssignmentsPage() {
           b.upcomingCount - a.upcomingCount ||
           b.contractsCount - a.contractsCount,
       )
-  }, [branchesQuery.data, installmentsQuery.data])
+  }, [branchesQuery.data, branchCountsQuery.data])
 
   const selectedIds = Object.entries(selected)
     .filter(([, checked]) => checked)
@@ -420,18 +417,21 @@ export function CollectionAssignmentsPage() {
           collectorsQuery.isLoading ||
           workloadQuery.isLoading ||
           installmentsQuery.isLoading ||
+          branchCountsQuery.isLoading ||
           branchesQuery.isLoading
         }
         isError={
           collectorsQuery.isError ||
           workloadQuery.isError ||
           installmentsQuery.isError ||
+          branchCountsQuery.isError ||
           branchesQuery.isError
         }
         error={
           collectorsQuery.error ??
           workloadQuery.error ??
           installmentsQuery.error ??
+          branchCountsQuery.error ??
           branchesQuery.error
         }
       >
@@ -664,6 +664,18 @@ export function CollectionAssignmentsPage() {
             </table>
           </div>
         )}
+        {installmentsQuery.hasNextPage ? (
+          <div className="mt-sm text-center">
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline disabled:opacity-50"
+              disabled={installmentsQuery.isFetchingNextPage}
+              onClick={() => void installmentsQuery.fetchNextPage()}
+            >
+              {installmentsQuery.isFetchingNextPage ? 'جاري التحميل…' : 'عرض المزيد'}
+            </button>
+          </div>
+        ) : null}
       </AsyncState>
     </SalesPageShell>
   )

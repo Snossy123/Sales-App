@@ -7,8 +7,10 @@ import {
 } from '../stores/procedureDraftStore'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useInstallmentPages } from '../lib/installmentPages'
 import { api, getErrorMessage } from '../api/client'
-import type { AdminUser, Branch, CollectionPaymentAccount, CollectorOption, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
+import type { AdminUser, Branch, CollectionPaymentAccount, CollectorOption, Employee, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { CollectionFollowUpSidebar } from '../components/installments/CollectionFollowUpSidebar'
 import { InstallmentCollectionGroupedList } from '../components/installments/InstallmentCollectionGroupedList'
@@ -22,11 +24,6 @@ import {
   buildCollectionFollowUpPayload,
   collectionStatusLabels,
   collectionStatusFilterOptions,
-  computeContractStats,
-  filterRowsByContractTier,
-  filterInstallmentCollectionRows,
-  filterRowsWithParkedFollowUp,
-  filterRowsWithoutParkedFollowUp,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../lib/collectionHelpers'
@@ -58,7 +55,9 @@ const COLLECTION_CHROME_STORAGE_KEY = 'collection-chrome-open'
 interface CollectionDailyStats {
   postponed: number
   paid: number
+  paid_invoice_ids?: number[]
   follow_up: number
+  follow_up_invoice_ids?: number[]
   no_answer: number
   no_contact: number
 }
@@ -66,42 +65,63 @@ interface CollectionDailyStats {
 function CollectionDailyStatCards({
   stats,
   activeStatus,
+  followUpActive,
+  paidActive,
   onSelectStatus,
+  onToggleFollowUp,
+  onTogglePaid,
 }: {
   stats: CollectionDailyStats
   activeStatus: string
+  followUpActive: boolean
+  paidActive: boolean
   onSelectStatus: (status: string) => void
+  onToggleFollowUp: () => void
+  onTogglePaid: () => void
 }) {
   const cards = [
     { key: 'postponed', label: collectionStatusLabels.postponed, value: stats.postponed, filter: 'postponed' },
-    { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: null },
-    { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: '' },
+    { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: 'paid' },
+    { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: 'follow_up' },
     { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats.no_answer, filter: 'no_answer' },
     { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'none' },
   ] as const
 
   return (
-    <div className="mb-sm flex min-w-0 gap-sm overflow-x-auto pb-1">
+    <div className="mb-md flex min-w-0 gap-sm overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible">
       {cards.map((card) => {
-        const clickable = card.filter !== null
-        const active = clickable && card.filter !== '' && activeStatus === card.filter
+        const active =
+          card.key === 'follow_up'
+            ? followUpActive
+            : card.key === 'paid'
+              ? paidActive
+              : activeStatus === card.filter
         return (
           <button
             key={card.key}
             type="button"
-            disabled={!clickable}
+            aria-pressed={active}
             onClick={() => {
-              if (card.filter === null) return
+              if (card.key === 'follow_up') {
+                onToggleFollowUp()
+                return
+              }
+              if (card.key === 'paid') {
+                onTogglePaid()
+                return
+              }
               onSelectStatus(activeStatus === card.filter ? '' : card.filter)
             }}
-            className={`min-w-[8.5rem] shrink-0 rounded-xl border px-sm py-2 text-right ${
+            className={`min-w-[8.5rem] shrink-0 rounded-xl border px-sm py-sm text-right sm:min-w-0 ${
               active
-                ? 'border-primary bg-primary/10'
-                : 'border-outline-variant bg-surface-container-low'
-            } ${clickable ? 'hover:border-primary/40' : 'cursor-default opacity-95'}`}
+                ? 'border-transparent bg-primary text-on-primary'
+                : 'border-outline-variant bg-surface-container-low text-on-surface hover:border-primary/40'
+            }`}
           >
-            <p className="text-[11px] font-medium text-on-surface-variant">{card.label}</p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-on-surface">{card.value}</p>
+            <p className={`text-[11px] font-medium ${active ? 'text-on-primary' : 'text-on-surface-variant'}`}>
+              {card.label}
+            </p>
+            <p className="mt-0.5 text-xl font-bold tabular-nums">{card.value}</p>
           </button>
         )
       })}
@@ -284,6 +304,8 @@ export function InstallmentCollectionPage() {
   const [collectionStatusFilter, setCollectionStatusFilter] = useState(
     () => collectionFocus?.collectionStatusFilter ?? '',
   )
+  const [followUpToday, setFollowUpToday] = useState(false)
+  const [paidToday, setPaidToday] = useState(false)
   const [collectorFilter, setCollectorFilter] = useState(() => collectionFocus?.collectorFilter ?? '')
   const [sortByReminder, setSortByReminder] = useState(() => collectionFocus?.sortByReminder ?? false)
   const [customerSearch, setCustomerSearch] = useState(() => collectionFocus?.customerSearch ?? '')
@@ -407,54 +429,74 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
-  const installmentsQuery = useQuery({
-    queryKey: ['installments', 'by-branch', statusFilter, collectionStatusFilter, collectorFilter, sortByReminder],
-    queryFn: async () => {
-      const params: Record<string, string | number> = {
-        per_page: 500,
-        include: 'salesInvoice.customer',
-      }
-      if (statusFilter) params['filter[status]'] = statusFilter
-      if (collectionStatusFilter) params['filter[collection_status]'] = collectionStatusFilter
-      if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
-      if (sortByReminder) params.sort = 'reminder'
+  const paidInvoiceIds = dailyStatsQuery.data?.paid_invoice_ids ?? []
+  const paidInvoiceKey = paidInvoiceIds.join(',')
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
 
-      const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', { params })
+  const paidInstallmentsQuery = useInstallmentPages(
+    {
+      'filter[branch_id]': selectedBranchId ?? undefined,
+      'filter[invoice_ids]': paidInvoiceKey || undefined,
+      'filter[search]': debouncedCustomerSearch || undefined,
+    },
+    paidToday && paidInvoiceIds.length > 0,
+  )
+
+  const branchCountsQuery = useQuery({
+    queryKey: ['installments', 'branch-counts'],
+    queryFn: async () => {
+      const { data } = await api.get<{
+        data: Array<{
+          branch_id: number
+          contracts_count: number
+          overdue_count: number
+          due_soon_count: number
+          upcoming_count: number
+        }>
+      }>('/installments/branch-counts')
       return data.data
-        .map((item) => normalizeInstallmentItem(item) as InstallmentRow)
-        .filter((item) => item.status !== 'paid')
     },
   })
 
-  const installmentsByBranch = useMemo(() => {
-    const map = new Map<number, InstallmentRow[]>()
-    for (const row of (installmentsQuery.data ?? []) as InstallmentRow[]) {
-      const branchId = row.branch_id
-      if (!branchId) continue
-      const list = map.get(branchId) ?? []
-      list.push(row)
-      map.set(branchId, list)
-    }
-    return map
-  }, [installmentsQuery.data])
+  const installmentsQuery = useInstallmentPages(
+    {
+      'filter[branch_id]': selectedBranchId ?? undefined,
+      'filter[status]': statusFilter || undefined,
+      'filter[collection_status]': collectionStatusFilter || undefined,
+      'filter[collector_user_id]': collectorFilter || undefined,
+      'filter[search]': debouncedCustomerSearch || undefined,
+      'filter[contract_tier]':
+        contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
+          ? contractTierFilter
+          : undefined,
+      'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
+      'filter[parked_follow_up]': followUpToday ? undefined : 0,
+      'filter[follow_up_today]': followUpToday ? 1 : undefined,
+      sort: sortByReminder ? 'reminder' : undefined,
+    },
+    Boolean(selectedBranchId) && !paidToday,
+  )
+
+  const branchRows = useMemo(
+    () =>
+      (installmentsQuery.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentRow),
+      ),
+    [installmentsQuery.data],
+  )
 
   const branchStats = useMemo((): BranchStats[] => {
     const branches = branchesQuery.data ?? []
+    const counts = new Map((branchCountsQuery.data ?? []).map((row) => [row.branch_id, row]))
     return branches
       .map((branch) => {
-        const rows = installmentsByBranch.get(branch.id) ?? []
-        const {
-          total_contracts: contractsCount,
-          overdue_contracts: overdueCount,
-          due_soon_contracts: dueSoonCount,
-          upcoming_contracts: upcomingCount,
-        } = computeContractStats(rows)
+        const count = counts.get(branch.id)
         return {
           branch,
-          contractsCount,
-          overdueCount,
-          dueSoonCount,
-          upcomingCount,
+          contractsCount: count?.contracts_count ?? 0,
+          overdueCount: count?.overdue_count ?? 0,
+          dueSoonCount: count?.due_soon_count ?? 0,
+          upcomingCount: count?.upcoming_count ?? 0,
         }
       })
       .filter(
@@ -472,7 +514,7 @@ export function InstallmentCollectionPage() {
           b.upcomingCount - a.upcomingCount ||
           b.contractsCount - a.contractsCount,
       )
-  }, [branchesQuery.data, installmentsByBranch])
+  }, [branchesQuery.data, branchCountsQuery.data])
 
   useEffect(() => {
     if (selectedBranchId != null) return
@@ -490,7 +532,7 @@ export function InstallmentCollectionPage() {
       if (installmentsQuery.isSuccess || !savedDraft?.selectedId) restoredRef.current = true
       return
     }
-    const row = (installmentsQuery.data ?? []).find((item) => item.id === savedDraft.selectedId)
+    const row = branchRows.find((item) => item.id === savedDraft.selectedId)
     if (!row) {
       if (installmentsQuery.isSuccess) restoredRef.current = true
       return
@@ -500,7 +542,7 @@ export function InstallmentCollectionPage() {
       setSelectedBranchId(savedDraft.selectedBranchId)
     }
     restoredRef.current = true
-  }, [installmentsQuery.data, installmentsQuery.isSuccess, savedDraft])
+  }, [branchRows, installmentsQuery.isSuccess, savedDraft])
 
   const installmentDraftSnapshot = useMemo<InstallmentDraft>(
     () => ({
@@ -581,27 +623,29 @@ export function InstallmentCollectionPage() {
     useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.installments, userId)
   }
 
-  const branchRows = useMemo(() => {
-    if (!selectedBranchId) return []
-    return installmentsByBranch.get(selectedBranchId) ?? []
-  }, [installmentsByBranch, selectedBranchId])
-
-  const filteredRows = useMemo(() => {
-    let rows = branchRows
-    rows = filterRowsByContractTier(rows, contractTierFilter)
-    rows = filterInstallmentCollectionRows(rows, customerSearch)
-    return filterRowsWithoutParkedFollowUp(rows)
-  }, [branchRows, contractTierFilter, customerSearch])
-
-  const followUpRows = useMemo(
-    () => filterRowsWithParkedFollowUp(filterInstallmentCollectionRows(branchRows, customerSearch)),
-    [branchRows, customerSearch],
+  const paidRows = useMemo(
+    () =>
+      (paidInstallmentsQuery.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentRow),
+      ),
+    [paidInstallmentsQuery.data],
   )
 
-  const selectedContractRows = useMemo(() => {
-    if (!selected?.sales_invoice_id) return []
-    return branchRows.filter((r) => r.sales_invoice_id === selected.sales_invoice_id)
-  }, [branchRows, selected?.sales_invoice_id])
+  const filteredRows = paidToday ? paidRows : branchRows
+  const listQuery = paidToday ? paidInstallmentsQuery : installmentsQuery
+
+  const contractInstallmentsQuery = useInstallmentPages(
+    { 'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined },
+    Boolean(selected?.sales_invoice_id),
+  )
+
+  const selectedContractRows = useMemo(
+    () =>
+      (contractInstallmentsQuery.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentRow),
+      ),
+    [contractInstallmentsQuery.data],
+  )
 
   const selectedIsOverdueContract = useMemo(() => {
     return selectedContractRows.some((r) => r.display_tier === 'overdue' || r.status === 'overdue')
@@ -907,7 +951,7 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
   }
 
-  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all')
+  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all' || followUpToday || paidToday)
   const activeFilterCount = [
     customerSearch,
     statusFilter,
@@ -924,6 +968,8 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
     setStatusFilter('')
     setCollectionStatusFilter('')
+    setFollowUpToday(false)
+    setPaidToday(false)
     setCollectorFilter('')
     setContractTierFilter('all')
     setSortByReminder(false)
@@ -967,6 +1013,7 @@ export function InstallmentCollectionPage() {
               label: 'حالة التحصيل',
               value: collectionStatusFilter,
               onChange: (v) => {
+                setFollowUpToday(false)
                 setCollectionStatusFilter(v)
                 setSelected(null)
               },
@@ -1017,9 +1064,9 @@ export function InstallmentCollectionPage() {
       }
     >
       <AsyncState
-        isLoading={branchesQuery.isLoading || installmentsQuery.isLoading}
-        isError={branchesQuery.isError || installmentsQuery.isError}
-        error={branchesQuery.error ?? installmentsQuery.error}
+        isLoading={branchesQuery.isLoading || branchCountsQuery.isLoading || listQuery.isLoading}
+        isError={branchesQuery.isError || branchCountsQuery.isError || listQuery.isError}
+        error={branchesQuery.error ?? branchCountsQuery.error ?? listQuery.error}
       >
         {showChrome && (branchStats.length === 0 ? (
           <p className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md text-center text-on-surface-variant">
@@ -1045,15 +1092,32 @@ export function InstallmentCollectionPage() {
         ))}
 
         {selectedBranchId && selectedBranch ? (
-          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
+          <>
             <CollectionDailyStatCards
               stats={dailyStatsQuery.data ?? emptyDailyStats}
               activeStatus={collectionStatusFilter}
+              followUpActive={followUpToday}
+              paidActive={paidToday}
               onSelectStatus={(status) => {
+                setFollowUpToday(false)
+                setPaidToday(false)
                 setCollectionStatusFilter(status)
                 setSelected(null)
               }}
+              onToggleFollowUp={() => {
+                setFollowUpToday((active) => !active)
+                setPaidToday(false)
+                setCollectionStatusFilter('')
+                setSelected(null)
+              }}
+              onTogglePaid={() => {
+                setPaidToday((active) => !active)
+                setFollowUpToday(false)
+                setCollectionStatusFilter('')
+                setSelected(null)
+              }}
             />
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
             <div className="mb-md flex flex-col gap-sm sm:flex-row sm:flex-nowrap sm:items-center">
               <h2 className="shrink-0 text-base font-semibold text-on-surface">
                 {branchInstallmentsTitle(selectedBranch.name_ar || selectedBranch.name)}
@@ -1123,7 +1187,7 @@ export function InstallmentCollectionPage() {
                       sortByReminder,
                     })
                   }
-                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}`}
+                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
@@ -1139,7 +1203,18 @@ export function InstallmentCollectionPage() {
                       ? (quickStatusMutation.variables?.installmentId ?? null)
                       : null
                   }
-                  emptyMessage={collectionListEmptyMessage(contractTierFilter)}
+                  emptyMessage={
+                    paidToday
+                      ? 'لا توجد عقود تم دفعها اليوم'
+                      : followUpToday
+                        ? 'لا توجد عقود تحتاج متابعة اليوم'
+                        : collectionListEmptyMessage(contractTierFilter)
+                  }
+                  hasNextPage={listQuery.hasNextPage}
+                  isFetchingNextPage={listQuery.isFetchingNextPage}
+                  onLoadMore={() => {
+                    if (!listQuery.isFetchingNextPage) void listQuery.fetchNextPage()
+                  }}
                   collectors={collectorsQuery.data ?? []}
                   canAssign={canAssignCollectors}
                   onAssignCollector={(invoiceId, collectorUserId) =>
@@ -1206,6 +1281,7 @@ export function InstallmentCollectionPage() {
               </div>
             </div>
           </section>
+          </>
         ) : (
           branchStats.length > 0 && (
             <p className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low p-md text-center text-sm text-on-surface-variant">
@@ -1217,8 +1293,9 @@ export function InstallmentCollectionPage() {
       <CollectionFollowUpSidebar
         open={showFollowUps}
         onClose={() => setShowFollowUps(false)}
-        rows={followUpRows}
-        pageKey={`${selectedBranchId}-${customerSearch}`}
+        branchId={selectedBranchId}
+        search={debouncedCustomerSearch}
+        pageKey={`${selectedBranchId}-${debouncedCustomerSearch}`}
         selectedId={selected?.id as number | undefined}
         onSelect={selectRow}
         onReconcile={(row) => {

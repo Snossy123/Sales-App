@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, getErrorMessage } from '../../api/client'
@@ -22,7 +22,7 @@ import { Icon } from '../Icon'
 import { StatusBadge } from '../StatusBadge'
 import { ContractCollectionActions } from './CustomerCollectionActions'
 
-const DEFAULT_PAGE_SIZE = 10
+const INSTALLMENT_PAGE_SIZE = 10
 
 interface ContractGroup {
   invoiceId: number
@@ -198,10 +198,12 @@ interface InstallmentCollectionGroupedListProps {
   onAssignCollector?: (invoiceId: number, collectorUserId: number | null) => void
   assigningInvoiceId?: number | null
   compact?: boolean
-  pageSize?: number
   pageKey?: string | number
   focusCustomerId?: number | null
   onOpenProfile?: (customerId: number) => void
+  hasNextPage?: boolean
+  isFetchingNextPage?: boolean
+  onLoadMore?: () => void
 }
 
 function InstallmentMetricCell({
@@ -530,19 +532,29 @@ function ContractAllInstallmentsTable({
 }: {
   invoiceId: number
 } & Omit<InstallmentCollectionGroupedListProps, 'rows' | 'emptyMessage' | 'sortMode'>) {
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ['installments', 'by-invoice', invoiceId],
-    queryFn: async () => {
-      const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', {
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get<{
+        data: InstallmentItem[]
+        meta?: { current_page: number; last_page: number }
+        current_page?: number
+        last_page?: number
+      }>('/installments', {
         params: {
-          per_page: 500,
+          page: pageParam,
+          per_page: INSTALLMENT_PAGE_SIZE,
           'filter[sales_invoice_id]': invoiceId,
           include: 'salesInvoice.customer',
         },
       })
-      return sortContractInstallments(
-        data.data.map((item) => normalizeInstallmentItem(item) as InstallmentCollectionRow),
-      )
+      return data
+    },
+    getNextPageParam: (lastPage) => {
+      const current = lastPage.meta?.current_page ?? lastPage.current_page ?? 1
+      const last = lastPage.meta?.last_page ?? lastPage.last_page ?? 1
+      return current < last ? current + 1 : undefined
     },
     enabled: invoiceId > 0,
   })
@@ -555,19 +567,35 @@ function ContractAllInstallmentsTable({
     return <p className="text-sm text-error">{getErrorMessage(query.error)}</p>
   }
 
-  const rows = query.data ?? []
+  const rows = sortContractInstallments(
+    (query.data?.pages ?? []).flatMap((page) =>
+      page.data.map((item) => normalizeInstallmentItem(item) as InstallmentCollectionRow),
+    ),
+  )
   if (rows.length === 0) {
     return <p className="text-sm text-on-surface-variant">لا توجد أقساط على هذا التعاقد</p>
   }
 
   return (
-    <InstallmentDetailsTable
-      rows={rows}
-      selectedId={selectedId}
-      onSelect={onSelect}
-      onReconcile={onReconcile}
-      showPaymentColumns
-    />
+    <div>
+      <InstallmentDetailsTable
+        rows={rows}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onReconcile={onReconcile}
+        showPaymentColumns
+      />
+      {query.hasNextPage ? (
+        <button
+          type="button"
+          className="mt-sm text-sm text-primary hover:underline disabled:opacity-50"
+          disabled={query.isFetchingNextPage}
+          onClick={() => void query.fetchNextPage()}
+        >
+          {query.isFetchingNextPage ? 'جاري التحميل…' : 'عرض المزيد'}
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -585,16 +613,17 @@ export function InstallmentCollectionGroupedList({
   onAssignCollector,
   assigningInvoiceId = null,
   compact = false,
-  pageSize = DEFAULT_PAGE_SIZE,
   pageKey,
   focusCustomerId = null,
   onOpenProfile,
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  onLoadMore,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
   const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
   const [contractOpenByKey, setContractOpenByKey] = useState<Record<string, boolean>>({})
-  const [visibleCount, setVisibleCount] = useState(() => (pageSize > 0 ? pageSize : 0))
   const sentinelRef = useRef<HTMLDivElement>(null)
   const focusRef = useRef<HTMLDivElement>(null)
   const focusIndex = focusCustomerId
@@ -602,33 +631,23 @@ export function InstallmentCollectionGroupedList({
     : -1
 
   useEffect(() => {
-    const base = pageSize > 0 ? pageSize : groups.length
-    setVisibleCount(focusIndex >= 0 ? Math.max(base, focusIndex + 1) : base)
-  }, [pageKey, pageSize, groups.length, focusIndex])
-
-  useEffect(() => {
     if (focusIndex < 0) return
     focusRef.current?.scrollIntoView({ block: 'start' })
-  }, [focusIndex, visibleCount])
-
-  const visibleGroups = pageSize > 0 ? groups.slice(0, visibleCount) : groups
-  const hasMore = pageSize > 0 && visibleCount < groups.length
+  }, [focusIndex, pageKey])
 
   useEffect(() => {
     const node = sentinelRef.current
-    if (!node || !hasMore) return
+    if (!node || !hasNextPage || !onLoadMore) return
     const scrollRoot = node.closest('[class*="overflow-y-auto"]')
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisibleCount((count) => Math.min(count + pageSize, groups.length))
-        }
+        if (entries.some((entry) => entry.isIntersecting)) onLoadMore()
       },
       { root: scrollRoot instanceof Element ? scrollRoot : null, rootMargin: '80px' },
     )
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasMore, pageSize, groups.length])
+  }, [hasNextPage, onLoadMore])
 
   const toggleView = (key: string, view: ContractExpandView) => {
     setExpandedViews((prev) => {
@@ -651,7 +670,7 @@ export function InstallmentCollectionGroupedList({
 
   return (
     <div className="space-y-sm">
-      {visibleGroups.map((customer, index) => (
+      {groups.map((customer, index) => (
         <div
           key={customer.customerKey}
           ref={customer.customerId === focusCustomerId ? focusRef : undefined}
@@ -941,7 +960,11 @@ export function InstallmentCollectionGroupedList({
         </CollapsibleSection>
         </div>
       ))}
-      {hasMore ? <div ref={sentinelRef} className="h-4" aria-hidden /> : null}
+      {hasNextPage ? (
+        <div ref={sentinelRef} className="h-8 text-center text-xs text-on-surface-variant">
+          {isFetchingNextPage ? 'جاري التحميل…' : ''}
+        </div>
+      ) : null}
     </div>
   )
 }

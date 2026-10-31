@@ -4262,6 +4262,8 @@ export function handleMockRequest(
       postponed: countLatest('postponed'),
       paid: paidTodayIds.size,
       follow_up: latestByInvoice.size,
+      paid_invoice_ids: [...paidTodayIds],
+      follow_up_invoice_ids: [...latestByInvoice.keys()],
       no_answer: countLatest('no_answer'),
       no_contact: noContact,
     }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInstallmentPages } from '../../../lib/installmentPages'
 import { api } from '../../../api/client'
-import type { AdminUser, CollectionPaymentAccount, Distributor, Employee, InstallmentItem, PaginatedResponse } from '../../../api/types'
+import type { AdminUser, CollectionPaymentAccount, Distributor, Employee, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { InstallmentCollectionGroupedList } from '../../../components/installments/InstallmentCollectionGroupedList'
@@ -10,7 +11,6 @@ import { SalesPageShell } from '../../../components/SalesPageShell'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import {
   buildCollectionFollowUpPayload,
-  filterRowsByContractTier,
   type ContractTierFilter,
   type InstallmentCollectionRow,
 } from '../../../lib/collectionHelpers'
@@ -47,33 +47,39 @@ export function ExternalCollectionPage() {
   const selectedCustomerId = selected?.customer_id as number | undefined
   const selectedBranchId = typeof selected?.branch_id === 'number' ? selected.branch_id : null
 
-  const installmentsQuery = useQuery({
-    queryKey: ['installments', 'external', debouncedSearch],
-    queryFn: async () => {
-      const { data } = await api.get<{ data: InstallmentItem[] }>('/installments', {
-        params: {
-          per_page: 100,
-          include: 'salesInvoice.customer',
-          'filter[search]': debouncedSearch,
-        },
-      })
-      return data.data
-        .map((item) => normalizeInstallmentItem(item) as InstallmentRow)
-        .filter((item) => item.status !== 'paid')
+  const installmentsQuery = useInstallmentPages(
+    {
+      'filter[search]': debouncedSearch,
+      'filter[contract_tier]':
+        contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
+          ? contractTierFilter
+          : undefined,
+      'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
+      'filter[parked_follow_up]': 0,
     },
-    enabled: canSearch,
-  })
+    canSearch,
+  )
 
-  const rows = useMemo(() => {
-    return filterRowsByContractTier((installmentsQuery.data ?? []) as InstallmentRow[], contractTierFilter)
-  }, [installmentsQuery.data, contractTierFilter])
+  const rows = useMemo(
+    () =>
+      (installmentsQuery.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentRow),
+      ),
+    [installmentsQuery.data],
+  )
 
-  const selectedContractRows = useMemo(() => {
-    if (!selected?.sales_invoice_id) return []
-    return ((installmentsQuery.data ?? []) as InstallmentRow[]).filter(
-      (r) => r.sales_invoice_id === selected.sales_invoice_id,
-    )
-  }, [installmentsQuery.data, selected?.sales_invoice_id])
+  const contractInstallmentsQuery = useInstallmentPages(
+    { 'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined },
+    Boolean(selected?.sales_invoice_id),
+  )
+
+  const selectedContractRows = useMemo(
+    () =>
+      (contractInstallmentsQuery.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentRow),
+      ),
+    [contractInstallmentsQuery.data],
+  )
 
   const selectedIsOverdueContract = useMemo(() => {
     return selectedContractRows.some((r) => r.display_tier === 'overdue' || r.status === 'overdue')
@@ -433,6 +439,11 @@ export function ExternalCollectionPage() {
                 onReconcile={(row) => {
                   selectRow(row)
                   setShowReconcile(true)
+                }}
+                hasNextPage={installmentsQuery.hasNextPage}
+                isFetchingNextPage={installmentsQuery.isFetchingNextPage}
+                onLoadMore={() => {
+                  if (!installmentsQuery.isFetchingNextPage) void installmentsQuery.fetchNextPage()
                 }}
                 emptyMessage={
                   contractTierFilter === 'overdue'

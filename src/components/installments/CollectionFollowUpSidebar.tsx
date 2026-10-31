@@ -1,29 +1,49 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Icon } from '../Icon'
 import { InstallmentCollectionGroupedList } from './InstallmentCollectionGroupedList'
-import type { CollectionSortMode, InstallmentCollectionRow } from '../../lib/collectionHelpers'
+import type { InstallmentCollectionRow } from '../../lib/collectionHelpers'
+import { normalizeInstallmentItem } from '../../lib/sales'
+import { useInstallmentPages } from '../../lib/installmentPages'
 
 interface CollectionFollowUpSidebarProps {
   open: boolean
   onClose: () => void
-  rows: InstallmentCollectionRow[]
+  branchId?: number | null
+  search?: string
   selectedId?: number | null
   onSelect: (row: InstallmentCollectionRow) => void
   onReconcile: (row: InstallmentCollectionRow) => void
-  sortMode?: CollectionSortMode
   pageKey?: string | number
 }
 
 export function CollectionFollowUpSidebar({
   open,
   onClose,
-  rows,
+  branchId,
+  search,
   selectedId,
   onSelect,
   onReconcile,
-  sortMode = 'reminder',
   pageKey,
 }: CollectionFollowUpSidebarProps) {
+  const query = useInstallmentPages(
+    {
+      'filter[branch_id]': branchId ?? undefined,
+      'filter[search]': search || undefined,
+      'filter[parked_follow_up]': 1,
+      sort: 'reminder',
+    },
+    open && Boolean(branchId),
+  )
+
+  const rows = useMemo(
+    () =>
+      (query.data?.pages ?? []).flatMap((page) =>
+        page.data.map((item) => normalizeInstallmentItem(item) as InstallmentCollectionRow),
+      ),
+    [query.data],
+  )
+
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -76,16 +96,27 @@ export function CollectionFollowUpSidebar({
           </button>
         </div>
         <div className="min-h-0 flex-1 space-y-sm overflow-y-auto p-md">
-          <InstallmentCollectionGroupedList
-            rows={rows}
-            sortMode={sortMode}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onReconcile={onReconcile}
-            emptyMessage="لا توجد متابعات قادمة لهذا الفرع"
-            compact
-            pageKey={pageKey}
-          />
+          {query.isLoading ? (
+            <p className="text-sm text-on-surface-variant">جاري التحميل…</p>
+          ) : query.isError ? (
+            <p className="text-sm text-error">تعذر تحميل المتابعات</p>
+          ) : (
+            <InstallmentCollectionGroupedList
+              rows={rows}
+              sortMode="reminder"
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onReconcile={onReconcile}
+              emptyMessage="لا توجد متابعات قادمة لهذا الفرع"
+              compact
+              pageKey={pageKey}
+              hasNextPage={query.hasNextPage}
+              isFetchingNextPage={query.isFetchingNextPage}
+              onLoadMore={() => {
+                if (!query.isFetchingNextPage) void query.fetchNextPage()
+              }}
+            />
+          )}
         </div>
       </aside>
     </div>
