@@ -81,11 +81,7 @@ export function CustomerOwnershipTransfersSection({
             {transfersFrom.map((transfer) => (
               <CollapsibleSection
                 key={transfer.id}
-                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — ${
-                  transfer.status === 'pending_installation'
-                    ? 'نقل قيد التنفيذ إلى'
-                    : 'نُقل إلى'
-                } ${transfer.to_customer?.name ?? 'عميل آخر'}`}
+                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — نُقل إلى ${transfer.to_customer?.name ?? 'عميل آخر'}`}
                 summary={
                   [
                     ownershipTransferStatusLabel(transfer.status),
@@ -151,9 +147,7 @@ export function CustomerOwnershipTransfersSection({
             {transfersTo.map((transfer) => (
               <CollapsibleSection
                 key={transfer.id}
-                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — ${
-                  transfer.status === 'pending_installation' ? 'بانتظار التركيب — من' : 'من'
-                } ${transfer.from_customer?.name ?? 'مالك سابق'}`}
+                title={`${transfer.source_invoice?.invoice_number ?? `#${transfer.source_sales_invoice_id}`} — من ${transfer.from_customer?.name ?? 'مالك سابق'}`}
                 summary={
                   [
                     ownershipTransferStatusLabel(transfer.status),
@@ -170,9 +164,7 @@ export function CustomerOwnershipTransfersSection({
               >
                 <div className="rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm">
                   <p className="text-on-surface-variant">
-                    {transfer.status === 'pending_installation'
-                      ? 'بعد «تم التنفيذ» من مهمة التركيب على عقد نقل الملكية ينتقل التعاقد هنا ويُجدول المتبقي من الأقساط.'
-                      : 'يشمل هذا التعاقد جدول الأقساط (المدفوع والمتبقي) — يظهر أيضاً في تبويب «التعاقدات».'}
+                    يشمل هذا التعاقد جدول الأقساط (المدفوع والمتبقي) — يظهر أيضاً في تبويب «التعاقدات».
                   </p>
                   <p className="mt-sm">
                     <span className="text-on-surface-variant">المالك السابق: </span>

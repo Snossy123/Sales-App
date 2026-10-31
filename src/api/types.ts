@@ -644,7 +644,7 @@ export interface OwnershipTransferPaidInstallment {
   status: string
 }
 
-export type OwnershipTransferStatus = 'pending_installation' | 'completed'
+export type OwnershipTransferStatus = 'completed'
 
 export interface OwnershipTransfer {
   id: number
@@ -1596,6 +1596,7 @@ export interface CrmCallLog {
   crm_task?: { id: number; title?: string | null; status?: string | null } | null
   start_time?: string | null
   customer_id?: number | null
+  contract_case_id?: number | null
   referral_lead_id?: number | null
   service_evaluation_request_id?: number | null
   audio_url?: string | null

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../api/client'
-import type { PaginatedResponse, SalesInvoice } from '../api/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, getErrorMessage } from '../api/client'
+import type { CrmCallLog, PaginatedResponse, SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
@@ -12,7 +12,14 @@ import {
   contractCaseStatusLabels,
   contractCaseTypeLabels,
 } from '../lib/contractStatus'
+import { Modal } from '../components/Modal'
+import { CallLogFormModal } from '../modules/crm/components/CallLogFormModal'
+import { formatDatetime12hDisplay } from '../lib/datetime12h'
 import { formatInvoiceDate } from '../lib/sales'
+
+interface CaseCallLog extends CrmCallLog {
+  linked_to_case?: boolean
+}
 
 interface ContractCaseRow {
   id: number
@@ -36,9 +43,35 @@ const STATUS_OPTIONS = [
   ...Object.entries(contractCaseStatusLabels).map(([value, label]) => ({ value, label })),
 ]
 
+const REVERTIBLE = new Set(['open', 'in_progress', 'completed'])
+
 export function ContractCasesPage() {
+  const queryClient = useQueryClient()
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [callsCase, setCallsCase] = useState<ContractCaseRow | null>(null)
+  const [logOpen, setLogOpen] = useState(false)
+
+  const revertMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.post(`/contract-cases/${id}/revert`)
+    },
+    onSuccess: async () => {
+      setActionError(null)
+      await queryClient.invalidateQueries({ queryKey: ['contract-cases'] })
+    },
+    onError: (error) => setActionError(getErrorMessage(error)),
+  })
+
+  const callsQuery = useQuery({
+    queryKey: ['contract-cases', callsCase?.id, 'call-logs'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CaseCallLog[] }>(`/contract-cases/${callsCase?.id}/call-logs`)
+      return data.data ?? []
+    },
+    enabled: Boolean(callsCase),
+  })
 
   const query = useQuery({
     queryKey: ['contract-cases', 'list', typeFilter, statusFilter],
@@ -81,6 +114,8 @@ export function ContractCasesPage() {
           },
         ]}
       />
+
+      {actionError ? <p className="mb-sm text-sm text-error">{actionError}</p> : null}
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <DataTable<ContractCaseRow>
@@ -128,21 +163,109 @@ export function ContractCasesPage() {
             {
               key: 'actions',
               header: '',
-              render: (row) =>
-                row.sales_invoice?.id ? (
-                  <Link
-                    to={`/contracts/${row.sales_invoice.id}`}
+              render: (row) => (
+                <div className="flex items-center gap-3">
+                  {REVERTIBLE.has(row.status) ? (
+                    <button
+                      type="button"
+                      className="text-sm text-error hover:underline disabled:opacity-50"
+                      disabled={revertMutation.isPending}
+                      onClick={() => {
+                        const confirmed = window.confirm(
+                          'هيترجع العقد نشط والجهاز للعميل، والحالة هتتلغى',
+                        )
+                        if (!confirmed) return
+                        revertMutation.mutate(row.id)
+                      }}
+                    >
+                      إرجاع الحالة
+                    </button>
+                  ) : null}
+                  {row.sales_invoice?.id ? (
+                    <Link
+                      to={`/contracts/${row.sales_invoice.id}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      عرض العقد
+                    </Link>
+                  ) : null}
+                  <button
+                    type="button"
                     className="text-sm text-primary hover:underline"
+                    onClick={() => setCallsCase(row)}
                   >
-                    عرض العقد
-                  </Link>
-                ) : (
-                  '—'
-                ),
+                    المكالمات
+                  </button>
+                </div>
+              ),
             },
           ]}
         />
       </AsyncState>
+
+      <Modal
+        open={Boolean(callsCase)}
+        onClose={() => {
+          setCallsCase(null)
+          setLogOpen(false)
+        }}
+        title="مكالمات العميل"
+        size="lg"
+      >
+        {callsCase ? (
+          <div className="space-y-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-on-surface-variant">
+                {callsCase.sales_invoice?.customer?.name ?? 'العميل'} · {callsCase.sales_invoice?.invoice_number ?? ''}
+              </p>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary"
+                onClick={() => setLogOpen(true)}
+              >
+                تسجيل مكالمة
+              </button>
+            </div>
+            {callsQuery.isLoading ? <p className="text-sm">جاري تحميل السجل…</p> : null}
+            {callsQuery.isError ? <p className="text-sm text-error">{getErrorMessage(callsQuery.error)}</p> : null}
+            <ul className="space-y-2">
+              {(callsQuery.data ?? []).map((call) => (
+                <li key={call.id} className="rounded-lg border border-outline-variant/70 px-sm py-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{formatDatetime12hDisplay(call.start_time)}</span>
+                    {call.linked_to_case ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">مرتبطة بالحالة</span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1">
+                    {call.user?.name ?? call.mobile_name ?? '—'}
+                    {call.mobile_number ? (
+                      <>
+                        {' '}
+                        · <span dir="ltr">{call.mobile_number}</span>
+                      </>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-on-surface-variant">{call.statement || '—'}</p>
+                </li>
+              ))}
+              {!callsQuery.isLoading && (callsQuery.data?.length ?? 0) === 0 ? (
+                <li className="text-sm text-on-surface-variant">لا توجد مكالمات لهذا العميل.</li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
+      </Modal>
+
+      <CallLogFormModal
+        open={logOpen && Boolean(callsCase)}
+        onClose={() => setLogOpen(false)}
+        lockedCustomerId={callsCase?.sales_invoice?.customer?.id}
+        lockedCaseId={callsCase?.id}
+        onSaved={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['contract-cases', callsCase?.id, 'call-logs'] })
+        }}
+      />
     </div>
   )
 }

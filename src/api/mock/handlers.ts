@@ -3058,6 +3058,26 @@ export function handleMockRequest(
     return { id: Number(path.split('/')[1]), status: 'completed' }
   }
 
+  if (m === 'POST' && path.match(/^contract-cases\/\d+\/revert$/)) {
+    return { id: Number(path.split('/')[1]), status: 'cancelled' }
+  }
+
+  if (m === 'GET' && path.match(/^contract-cases\/\d+\/call-logs$/)) {
+    return { data: [] }
+  }
+
+  if (m === 'POST' && path.match(/^contract-cases\/\d+\/call-logs$/)) {
+    const body = (data ?? {}) as Record<string, unknown>
+    return {
+      id: Date.now(),
+      status: 'open',
+      contract_case_id: Number(path.split('/')[1]),
+      customer_id: body.customer_id ?? null,
+      statement: 'مكالمة مرتبطة بالحالة',
+      linked_to_case: true,
+    }
+  }
+
   if (m === 'GET' && path.match(/^sales-invoices\/\d+\/ownership-transfer-contract$/)) {
     return mockContractPreviewHtml('ownership_transfer')
   }

@@ -51,6 +51,7 @@ import {
   previewTaskTitle,
   statementFormLabel,
 } from '../lib/callStatementForm'
+import { CallLogFormModal } from '../components/CallLogFormModal'
 import {
   customerToCallContactOptions,
   datetimeLocalToIso,
@@ -226,9 +227,7 @@ export function CrmCallLogsPage() {
     statement_form: emptyStatementForm(),
     service_evaluation_request_id: '' as number | '',
   })
-  const [createAudioFile, setCreateAudioFile] = useState<File | null>(null)
   const [editAudioFile, setEditAudioFile] = useState<File | null>(null)
-  const [createWithTask, setCreateWithTask] = useState(false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const debouncedSearch = useDebouncedValue(search.trim(), 250)
@@ -261,8 +260,7 @@ export function CrmCallLogsPage() {
       statement_form: emptyStatementForm(),
       service_evaluation_request_id: '',
     })
-    setCreateAudioFile(null)
-    setCreateWithTask(false)
+    setEditAudioFile(null)
     setTaskEmployeeId('')
     resetContactState()
   }
@@ -362,7 +360,7 @@ export function CrmCallLogsPage() {
     },
   })
 
-  const needEmployees = taskModalOpen || (panelOpen && createWithTask)
+  const needEmployees = taskModalOpen
 
   const employeesQuery = useQuery({
     queryKey: ['employees', 'crm-call-task'],
@@ -388,61 +386,6 @@ export function CrmCallLogsPage() {
     follow_up_date: form.statement_form.follow_up_date
       ? datetimeLocalToIso(form.statement_form.follow_up_date) ?? form.statement_form.follow_up_date
       : null,
-  })
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedContact || !form.mobile_number.trim()) {
-        throw new Error('اختر جهة اتصال من البحث (عميل أو ترشيح)')
-      }
-      if (createWithTask) {
-        if (!canCreateTaskFromStatement(form.statement_form)) {
-          throw new Error('حدد المطلوب التالي في الإفادة لإنشاء مهمة')
-        }
-        if (taskEmployeeId === '') {
-          throw new Error('اختر موظفاً للمهمة')
-        }
-      }
-
-      const { data } = await api.post<CrmCallLog>('/crm/call-logs', {
-        mobile_number: form.mobile_number,
-        mobile_name: form.mobile_name || undefined,
-        customer_id: form.customer_id ? Number(form.customer_id) : undefined,
-        lead_id: form.lead_id ? Number(form.lead_id) : undefined,
-        referral_lead_id: form.referral_lead_id ? Number(form.referral_lead_id) : undefined,
-        call_type: form.call_type,
-        duration: form.duration ? Number(form.duration) : undefined,
-        statement_form: statementPayload(),
-        service_evaluation_request_id: form.service_evaluation_request_id
-          ? Number(form.service_evaluation_request_id)
-          : undefined,
-        start_time: datetimeLocalToIso(form.start_time) ?? new Date().toISOString(),
-      })
-      if (createAudioFile) {
-        await uploadCallAudio(data.id, createAudioFile)
-      }
-
-      let taskId: number | null = null
-      if (createWithTask && taskEmployeeId !== '') {
-        const { data: created } = await api.post<{ call_log: CrmCallLog; task: CrmTask }>(
-          `/crm/call-logs/${data.id}/create-task`,
-          { employee_id: Number(taskEmployeeId) },
-        )
-        taskId = created.task.id
-      }
-
-      return { call: data, taskId }
-    },
-    onSuccess: ({ taskId }) => {
-      queryClient.invalidateQueries({ queryKey: ['crm', 'call-logs'] })
-      if (taskId) {
-        queryClient.invalidateQueries({ queryKey: ['crm-tasks'] })
-      }
-      setPanelOpen(false)
-      resetCreateForm()
-      setToast(taskId ? `تم تسجيل المكالمة وإنشاء المهمة #${taskId}` : 'تم تسجيل المكالمة')
-    },
-    onError: (err) => setToast(getErrorMessage(err)),
   })
 
   const updateMutation = useMutation({
@@ -802,117 +745,14 @@ export function CrmCallLogsPage() {
         </CrmTable>
       </AsyncState>
 
-      <Modal
+      <CallLogFormModal
         open={panelOpen}
         onClose={() => {
           setPanelOpen(false)
           resetCreateForm()
         }}
-        title="تسجيل مكالمة"
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            createMutation.mutate()
-          }}
-          className="space-y-sm"
-        >
-          <ContactPickerSection {...contactPickerProps} />
-          <div>
-            <label className="mb-1 block text-sm font-medium">وقت المكالمة</label>
-            <input
-              type="datetime-local"
-              value={form.start_time}
-              onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-              required
-              className={inputClass}
-              dir="ltr"
-            />
-          </div>
-          <NumericInput
-            type="number"
-            placeholder="المدة بالثواني"
-            value={form.duration}
-            onChange={(e) => setForm({ ...form, duration: e.target.value })}
-            className={inputClass}
-            dir="ltr"
-          />
-          <StatementFormFields
-            value={form.statement_form}
-            onChange={(statement_form) => setForm({ ...form, statement_form })}
-          />
-          {evaluationSelect}
-          <div className="space-y-sm rounded-lg border border-outline-variant/70 p-sm">
-            <label className="flex items-center gap-sm text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={createWithTask}
-                onChange={(e) => {
-                  setCreateWithTask(e.target.checked)
-                  if (!e.target.checked) setTaskEmployeeId('')
-                }}
-              />
-              إنشاء مهمة من الإفادة بعد الحفظ
-            </label>
-            {createWithTask && (
-              <>
-                {!canCreateTaskFromStatement(form.statement_form) && (
-                  <p className="text-xs text-on-surface-variant">حدد «المطلوب التالي» في الإفادة أولاً.</p>
-                )}
-                <div>
-                  <label className="mb-1 block text-xs text-on-surface-variant">الموظف المسؤول</label>
-                  <select
-                    value={taskEmployeeId}
-                    onChange={(e) => setTaskEmployeeId(e.target.value ? Number(e.target.value) : '')}
-                    className={inputClass}
-                    required={createWithTask}
-                  >
-                    <option value="">— اختر موظفاً —</option>
-                    {(employeesQuery.data ?? []).map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {canCreateTaskFromStatement(form.statement_form) && (
-                  <p className="text-xs text-on-surface-variant">
-                    معاينة: {previewTaskTitle(form.statement_form, contactLabel || form.mobile_number)}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">إرفاق ملف صوتي للمكالمة</label>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => setCreateAudioFile(e.target.files?.[0] ?? null)}
-              className="w-full text-sm"
-            />
-            {createAudioFile && (
-              <p className="mt-1 text-xs text-on-surface-variant">{createAudioFile.name}</p>
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={
-              createMutation.isPending ||
-              !selectedContact ||
-              (createWithTask &&
-                (!canCreateTaskFromStatement(form.statement_form) || taskEmployeeId === ''))
-            }
-            className="rounded-lg bg-secondary px-md py-2 text-sm font-bold text-on-secondary disabled:opacity-50"
-          >
-            {createMutation.isPending
-              ? 'جاري الحفظ...'
-              : createWithTask
-                ? 'حفظ وإنشاء مهمة'
-                : 'حفظ'}
-          </button>
-        </form>
-      </Modal>
+        onSaved={(message) => setToast(message)}
+      />
 
       <Modal
         open={Boolean(editCall) && !taskModalOpen}
