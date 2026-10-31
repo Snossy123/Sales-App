@@ -1565,6 +1565,8 @@ export type CallStatementOutcome =
   | 'not_interested'
   | 'unavailable'
   | 'callback_requested'
+  | 'problem_resolved'
+  | 'problem_ongoing'
 
 export type CallStatementNextAction =
   | 'callback'

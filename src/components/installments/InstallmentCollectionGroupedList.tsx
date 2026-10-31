@@ -200,6 +200,8 @@ interface InstallmentCollectionGroupedListProps {
   compact?: boolean
   pageSize?: number
   pageKey?: string | number
+  focusCustomerId?: number | null
+  onOpenProfile?: (customerId: number) => void
 }
 
 function InstallmentMetricCell({
@@ -585,6 +587,8 @@ export function InstallmentCollectionGroupedList({
   compact = false,
   pageSize = DEFAULT_PAGE_SIZE,
   pageKey,
+  focusCustomerId = null,
+  onOpenProfile,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
@@ -592,10 +596,20 @@ export function InstallmentCollectionGroupedList({
   const [contractOpenByKey, setContractOpenByKey] = useState<Record<string, boolean>>({})
   const [visibleCount, setVisibleCount] = useState(() => (pageSize > 0 ? pageSize : 0))
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const focusRef = useRef<HTMLDivElement>(null)
+  const focusIndex = focusCustomerId
+    ? groups.findIndex((group) => group.customerId === focusCustomerId)
+    : -1
 
   useEffect(() => {
-    setVisibleCount(pageSize > 0 ? pageSize : groups.length)
-  }, [pageKey, pageSize, groups.length])
+    const base = pageSize > 0 ? pageSize : groups.length
+    setVisibleCount(focusIndex >= 0 ? Math.max(base, focusIndex + 1) : base)
+  }, [pageKey, pageSize, groups.length, focusIndex])
+
+  useEffect(() => {
+    if (focusIndex < 0) return
+    focusRef.current?.scrollIntoView({ block: 'start' })
+  }, [focusIndex, visibleCount])
 
   const visibleGroups = pageSize > 0 ? groups.slice(0, visibleCount) : groups
   const hasMore = pageSize > 0 && visibleCount < groups.length
@@ -638,11 +652,15 @@ export function InstallmentCollectionGroupedList({
   return (
     <div className="space-y-sm">
       {visibleGroups.map((customer, index) => (
-        <CollapsibleSection
+        <div
           key={customer.customerKey}
+          ref={customer.customerId === focusCustomerId ? focusRef : undefined}
+          className="scroll-mt-4"
+        >
+        <CollapsibleSection
           title={customer.customerName}
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
-          defaultOpen={compact || index === 0}
+          defaultOpen={compact || index === 0 || customer.customerId === focusCustomerId}
           actions={
             customer.customerId ? (
               <Link
@@ -650,7 +668,10 @@ export function InstallmentCollectionGroupedList({
                 title="فتح بروفايل العميل"
                 aria-label={`فتح بروفايل العميل ${customer.customerName}`}
                 className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (customer.customerId) onOpenProfile?.(customer.customerId)
+                }}
               >
                 <Icon name="open_in_new" size={16} />
                 بروفايل
@@ -918,6 +939,7 @@ export function InstallmentCollectionGroupedList({
             })}
           </div>
         </CollapsibleSection>
+        </div>
       ))}
       {hasMore ? <div ref={sentinelRef} className="h-4" aria-hidden /> : null}
     </div>

@@ -292,6 +292,17 @@ export function InstallmentCollectionPanel({
             <dd className="flex items-center gap-2">
               <span dir="ltr">{String(selected.invoice_number ?? '—')}</span>
               {selected.sales_invoice_id ? (
+                <button
+                  type="button"
+                  title="سجل متابعة العقد"
+                  aria-label="سجل متابعة العقد"
+                  onClick={() => setShowFollowUpHistory(true)}
+                  className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-1 text-primary hover:bg-primary/20"
+                >
+                  <Icon name="history" size={16} />
+                </button>
+              ) : null}
+              {selected.sales_invoice_id ? (
                 <Link
                   to={`/contracts/${selected.sales_invoice_id}`}
                   className="text-xs text-primary hover:underline"
@@ -584,18 +595,7 @@ export function InstallmentCollectionPanel({
           title="متابعة التحصيل"
           icon="schedule"
           className="mb-sm"
-          summary="إضافة موعد أو ملاحظة جديدة — السجل للتاريخ السابق"
-          actions={
-            <button
-              type="button"
-              title="سجل متابعة التحصيل"
-              aria-label="سجل متابعة التحصيل"
-              onClick={() => setShowFollowUpHistory(true)}
-              className="inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-1 text-primary hover:bg-primary/20"
-            >
-              <Icon name="history" size={18} />
-            </button>
-          }
+          summary="إضافة موعد أو ملاحظة جديدة — السجل على العقد"
         >
           <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
           <select
@@ -643,9 +643,8 @@ export function InstallmentCollectionPanel({
         </CollapsibleSection>
 
         <CollectionFollowUpHistoryModal
-          installmentId={selected.id}
+          salesInvoiceId={selected.sales_invoice_id}
           invoiceNumber={selected.invoice_number}
-          installmentSequence={selected.installment_number ?? selected.sequence}
           open={showFollowUpHistory}
           onClose={() => setShowFollowUpHistory(false)}
         />

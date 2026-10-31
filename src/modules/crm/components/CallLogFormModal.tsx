@@ -21,6 +21,7 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import {
   CALL_NEXT_ACTION_OPTIONS,
   CALL_OUTCOME_OPTIONS,
+  PROBLEM_CALL_OUTCOME_OPTIONS,
   CALL_PRIORITY_OPTIONS,
   canCreateTaskFromStatement,
   emptyStatementForm,
@@ -381,7 +382,7 @@ export function CallLogFormModal({
                 className={inputClass}
               >
                 <option value="">— اختر —</option>
-                {CALL_OUTCOME_OPTIONS.map((opt) => (
+                {PROBLEM_CALL_OUTCOME_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>

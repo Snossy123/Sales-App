@@ -36,6 +36,11 @@ import {
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
 import { userHasPermission } from '../lib/access'
+import {
+  clearInstallmentCollectionFocus,
+  readInstallmentCollectionFocus,
+  saveInstallmentCollectionFocus,
+} from '../lib/installmentCollectionFocus'
 
 type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
@@ -263,6 +268,7 @@ export function InstallmentCollectionPage() {
   const canAssignCollectors = userHasPermission(user, 'installments.assign')
   const savedDraft = readProcedureDraft<InstallmentDraft>(PROCEDURE_DRAFT_IDS.installments, userId)
   const restoredRef = useRef(false)
+  const [collectionFocus] = useState(() => readInstallmentCollectionFocus())
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(
     () => savedDraft?.selectedBranchId ?? null,
   )
@@ -271,12 +277,16 @@ export function InstallmentCollectionPage() {
   const [paymentMethod, setPaymentMethod] = useState(() => savedDraft?.paymentMethod ?? 'cash')
   const [accountId, setAccountId] = useState<number | ''>(() => savedDraft?.accountId ?? '')
   const [senderNumber, setSenderNumber] = useState(() => savedDraft?.senderNumber ?? '')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [contractTierFilter, setContractTierFilter] = useState<ContractTierFilter>('all')
-  const [collectionStatusFilter, setCollectionStatusFilter] = useState('')
-  const [collectorFilter, setCollectorFilter] = useState('')
-  const [sortByReminder, setSortByReminder] = useState(false)
-  const [customerSearch, setCustomerSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState(() => collectionFocus?.statusFilter ?? '')
+  const [contractTierFilter, setContractTierFilter] = useState<ContractTierFilter>(
+    () => collectionFocus?.contractTierFilter ?? 'all',
+  )
+  const [collectionStatusFilter, setCollectionStatusFilter] = useState(
+    () => collectionFocus?.collectionStatusFilter ?? '',
+  )
+  const [collectorFilter, setCollectorFilter] = useState(() => collectionFocus?.collectorFilter ?? '')
+  const [sortByReminder, setSortByReminder] = useState(() => collectionFocus?.sortByReminder ?? false)
+  const [customerSearch, setCustomerSearch] = useState(() => collectionFocus?.customerSearch ?? '')
   const [showFollowUps, setShowFollowUps] = useState(false)
   const [collectionStatus, setCollectionStatus] = useState(() => savedDraft?.collectionStatus ?? '')
   const [collectionReminderAt, setCollectionReminderAt] = useState(
@@ -306,6 +316,10 @@ export function InstallmentCollectionPage() {
       return true
     }
   })
+
+  useEffect(() => {
+    if (collectionFocus) clearInstallmentCollectionFocus()
+  }, [collectionFocus])
 
   const selectedCustomerId = selected?.customer_id as number | undefined
 
@@ -755,6 +769,9 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
       resetInstallmentProcedure()
     },
   })
@@ -773,6 +790,9 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
     },
   })
 
@@ -1083,6 +1103,18 @@ export function InstallmentCollectionPage() {
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
                   sortMode={sortByReminder ? 'reminder' : 'priority'}
+                  focusCustomerId={collectionFocus?.customerId ?? null}
+                  onOpenProfile={(customerId) =>
+                    saveInstallmentCollectionFocus({
+                      customerId,
+                      customerSearch,
+                      statusFilter,
+                      contractTierFilter,
+                      collectionStatusFilter,
+                      collectorFilter,
+                      sortByReminder,
+                    })
+                  }
                   pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}

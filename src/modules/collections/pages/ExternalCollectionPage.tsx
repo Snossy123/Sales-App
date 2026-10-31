@@ -276,6 +276,9 @@ export function ExternalCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
       resetSelection()
     },
   })
@@ -294,6 +297,9 @@ export function ExternalCollectionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
     },
   })
 
@@ -315,7 +321,12 @@ export function ExternalCollectionPage() {
       })
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      if (selected?.sales_invoice_id) {
+        queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
+      }
+    },
   })
 
   const resumeMutation = useMutation({

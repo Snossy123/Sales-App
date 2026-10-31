@@ -9,6 +9,13 @@ export const CALL_OUTCOME_OPTIONS: { value: CallStatementOutcome; label: string 
   { value: 'callback_requested', label: 'يطلب معاودة' },
 ]
 
+export const PROBLEM_CALL_OUTCOME_OPTIONS: { value: CallStatementOutcome; label: string }[] = [
+  { value: 'problem_resolved', label: 'المشكلة اتحلت' },
+  { value: 'problem_ongoing', label: 'المشكلة لسه قائمة' },
+  { value: 'unavailable', label: 'مش متاح' },
+  { value: 'callback_requested', label: 'يطلب معاودة' },
+]
+
 export const CALL_NEXT_ACTION_OPTIONS: { value: CallStatementNextAction; label: string }[] = [
   { value: 'callback', label: 'معاودة اتصال' },
   { value: 'schedule_visit', label: 'جدولة زيارة' },
@@ -44,7 +51,9 @@ export function normalizeStatementForm(form?: CallStatementForm | null): CallSta
 export function statementFormLabel(form?: CallStatementForm | null): string {
   if (!form) return '—'
   const parts: string[] = []
-  const outcome = CALL_OUTCOME_OPTIONS.find((o) => o.value === form.outcome)?.label
+  const outcome = [...CALL_OUTCOME_OPTIONS, ...PROBLEM_CALL_OUTCOME_OPTIONS].find(
+    (o) => o.value === form.outcome,
+  )?.label
   const action = CALL_NEXT_ACTION_OPTIONS.find((o) => o.value === form.next_action)?.label
   const priority = CALL_PRIORITY_OPTIONS.find((o) => o.value === form.priority)?.label
   if (outcome) parts.push(outcome)

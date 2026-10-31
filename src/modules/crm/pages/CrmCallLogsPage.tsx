@@ -592,6 +592,8 @@ export function CrmCallLogsPage() {
     if (outcome === 'not_interested') return { label: 'مرفوض', color: '#dc2626', tint: '#fdecec' }
     if (outcome === 'unavailable') return { label: 'لم يرد', color: '#64748b', tint: '#eef1f7' }
     if (outcome === 'callback_requested') return { label: 'متابعة', color: '#b45309', tint: '#fef3e2' }
+    if (outcome === 'problem_resolved') return { label: 'المشكلة اتحلت', color: '#15803d', tint: '#e7f6ec' }
+    if (outcome === 'problem_ongoing') return { label: 'لسه قائمة', color: '#b45309', tint: '#fef3e2' }
     if (row.crm_task_id) return { label: 'مهمة', color: '#2563eb', tint: '#eff4fe' }
     return { label: '—', color: '#64748b', tint: '#eef1f7' }
   }
