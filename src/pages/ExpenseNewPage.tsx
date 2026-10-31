@@ -105,7 +105,7 @@ export function ExpenseNewPage() {
   return (
     <SalesPageShell title="طلب مصروف" subtitle="المصروف يُسجَّل فورًا — المراجعة تتأكد منه آخر اليوم">
       <div className="mb-md max-w-sm">
-        <KpiCard label="مصروفات اليوم" value={`${formatMoney(expensesTotal)} ج.م`} icon="receipt_long" />
+        <KpiCard label="مصروفات اليوم" value={formatMoney(expensesTotal)} icon="receipt_long" />
       </div>
 
       <section className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md">

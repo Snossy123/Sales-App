@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useProcedureDraft } from '../../hooks/useProcedureDraft'
 import {
   PROCEDURE_DRAFT_IDS,
@@ -40,6 +40,7 @@ function distributorLabel(distributor: Distributor) {
 
 export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
   const user = useAuthStore((s) => s.user)
+  const activeBranchId = useAuthStore((s) => s.branchId)
   const userId = user?.id ?? null
   const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
   const [expenseType, setExpenseType] = useState(() =>
@@ -47,7 +48,9 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
   )
   const [amount, setAmount] = useState(() => saved?.amount ?? '')
   const [notes, setNotes] = useState(() => saved?.notes ?? '')
-  const [branchId, setBranchId] = useState<number | ''>(() => saved?.branchId ?? user?.branch_id ?? '')
+  const [branchId, setBranchId] = useState<number | ''>(
+    () => saved?.branchId ?? activeBranchId ?? user?.branch_id ?? '',
+  )
   const [distributorId, setDistributorId] = useState<number | ''>(() => saved?.distributorId ?? '')
   const [employeeId, setEmployeeId] = useState<number | ''>(() => saved?.employeeId ?? '')
 
@@ -55,6 +58,12 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     () => ({ expenseType, amount, notes, branchId, distributorId, employeeId }),
     [expenseType, amount, notes, branchId, distributorId, employeeId],
   )
+
+  useEffect(() => {
+    if (open && !branchId && activeBranchId) {
+      setBranchId(activeBranchId)
+    }
+  }, [open, branchId, activeBranchId])
 
   useProcedureDraft({
     id: PROCEDURE_DRAFT_IDS.expense,

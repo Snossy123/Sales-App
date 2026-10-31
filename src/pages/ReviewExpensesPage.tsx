@@ -229,7 +229,7 @@ export function ReviewExpensesPage() {
 
       {customReady && query.data ? (
         <div className="mb-md max-w-sm">
-          <KpiCard label="إجمالي المصروفات" value={`${formatMoney(Number(query.data.total_amount ?? 0))} ج.م`} icon="payments" />
+          <KpiCard label="إجمالي المصروفات" value={formatMoney(Number(query.data.total_amount ?? 0))} icon="payments" />
         </div>
       ) : null}
 

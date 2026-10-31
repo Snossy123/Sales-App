@@ -274,8 +274,8 @@ export function InstallmentCollectionPanel({
         <dl className="mb-md space-y-1.5 text-sm">
           <div className="flex justify-between gap-sm">
             <dt className="text-on-surface-variant">العميل</dt>
-            <dd className="flex items-center gap-2 font-medium text-on-surface">
-              <span>{String(selected.customer_name ?? '—')}</span>
+            <dd className="flex min-w-0 items-center gap-2 font-medium text-on-surface">
+              <span className="truncate">{String(selected.customer_name ?? '—')}</span>
               {selected.customer_id ? (
                 <Link
                   to={`/customers/${selected.customer_id}`}

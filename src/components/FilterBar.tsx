@@ -82,7 +82,7 @@ export function FilterBar({
       data-tour={dataTour}
       className="mb-md rounded-lg border border-outline-variant bg-surface-container-low p-sm"
     >
-      <div className="grid grid-cols-1 items-end gap-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 items-end gap-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]">
         {onSearchChange !== undefined && (
           <FilterField
             label="بحث"

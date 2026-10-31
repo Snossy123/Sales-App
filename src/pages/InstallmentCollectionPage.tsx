@@ -880,7 +880,7 @@ export function InstallmentCollectionPage() {
             لا توجد أقساط مستحقة على أي فرع
           </p>
         ) : (
-          <div className="mb-md grid grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mb-md grid min-w-0 grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-3">
             {branchStats.map((stats) => (
               <BranchInstallmentCard
                 key={stats.branch.id}
@@ -929,7 +929,7 @@ export function InstallmentCollectionPage() {
               onClear={clearFilters}
             />
 
-            <div className="grid gap-md xl:grid-cols-[minmax(0,1.15fr)_minmax(26rem,0.95fr)]">
+            <div className="grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
               <div className="min-w-0">
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
@@ -955,6 +955,7 @@ export function InstallmentCollectionPage() {
                 />
               </div>
 
+              <div className="min-w-0 self-start lg:sticky lg:top-md">
               <InstallmentCollectionPanel
                 selected={selected}
                 selectedIsOverdueContract={selectedIsOverdueContract}
@@ -1004,6 +1005,7 @@ export function InstallmentCollectionPage() {
                 suspendMutation={suspendMutation}
                 resumeMutation={resumeMutation}
               />
+              </div>
             </div>
           </section>
         ) : (

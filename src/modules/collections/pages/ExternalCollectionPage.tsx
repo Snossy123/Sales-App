@@ -410,7 +410,7 @@ export function ExternalCollectionPage() {
             </span>
           </div>
 
-          <div className="grid gap-md xl:grid-cols-[minmax(0,1.15fr)_minmax(26rem,0.95fr)]">
+          <div className="grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
             <div className="min-w-0">
               <InstallmentCollectionGroupedList
                 rows={rows}
@@ -434,6 +434,7 @@ export function ExternalCollectionPage() {
               />
             </div>
 
+            <div className="min-w-0 self-start lg:sticky lg:top-md">
             <InstallmentCollectionPanel
               selected={selected}
               selectedIsOverdueContract={selectedIsOverdueContract}
@@ -484,6 +485,7 @@ export function ExternalCollectionPage() {
               suspendMutation={suspendMutation}
               resumeMutation={resumeMutation}
             />
+            </div>
           </div>
         </AsyncState>
       )}
