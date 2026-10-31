@@ -7,7 +7,7 @@ import {
 } from '../stores/procedureDraftStore'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../api/client'
+import { api, getErrorMessage } from '../api/client'
 import type { AdminUser, Branch, CollectionPaymentAccount, CollectorOption, Employee, InstallmentItem, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { CollectionFollowUpSidebar } from '../components/installments/CollectionFollowUpSidebar'
@@ -1098,6 +1098,11 @@ export function InstallmentCollectionPage() {
               </div>
             </div>
 
+            {quickStatusMutation.isError ? (
+              <p className="mb-sm text-sm text-error" role="alert">
+                {getErrorMessage(quickStatusMutation.error)}
+              </p>
+            ) : null}
             <div className={`grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:min-h-0 lg:overflow-hidden ${showChrome ? 'lg:max-h-[calc(100dvh-8.5rem)]' : 'lg:max-h-[calc(100dvh-13rem)]'}`}>
               <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
                 <InstallmentCollectionGroupedList
