@@ -229,9 +229,9 @@ function ContractMetaCell({
   dir?: 'ltr' | 'rtl'
 }) {
   return (
-    <div className="min-w-0 rounded-lg bg-surface-container-low/60 px-sm py-1.5">
+    <div className="flex shrink-0 items-baseline gap-1.5 rounded-lg bg-surface-container-low/60 px-2 py-1">
       <p className="text-[11px] font-medium text-on-surface-variant">{label}</p>
-      <div className="mt-0.5 truncate text-xs font-semibold text-on-surface" dir={dir}>
+      <div className="whitespace-nowrap text-xs font-semibold text-on-surface" dir={dir}>
         {children}
       </div>
     </div>
@@ -713,7 +713,7 @@ export function InstallmentCollectionGroupedList({
                         }
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
                       <ContractMetaCell label="الأقساط">
                         <span className="tabular-nums">{contract.installmentCount}</span>
                       </ContractMetaCell>
