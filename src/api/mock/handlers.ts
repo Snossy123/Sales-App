@@ -4080,6 +4080,7 @@ export function handleMockRequest(
       ? Number(params['filter[branch_id]'])
       : undefined
     const isCollector = ctx.user?.demo_role === 'collector'
+    const collectorFilter = String(params['filter[collector_user_id]'] ?? '').trim()
     const collectorId = isCollector ? ctx.user?.id : undefined
     const scopedInvoiceIds = new Set(
       state.invoices
@@ -4087,6 +4088,14 @@ export function handleMockRequest(
           if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') return false
           if (branchFilter && inv.branch_id !== branchFilter) return false
           if (collectorId != null && Number(inv.collector_user_id) !== Number(collectorId)) return false
+          if (collectorFilter === 'unassigned' && inv.collector_user_id) return false
+          if (
+            collectorFilter
+            && collectorFilter !== 'unassigned'
+            && Number(inv.collector_user_id) !== Number(collectorFilter)
+          ) {
+            return false
+          }
           return true
         })
         .map((inv) => inv.id),

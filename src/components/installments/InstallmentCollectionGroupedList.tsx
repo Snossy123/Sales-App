@@ -212,9 +212,9 @@ function InstallmentMetricCell({
   dir?: 'ltr' | 'rtl'
 }) {
   return (
-    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-sm py-2.5 text-center">
+    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-xs py-1.5 text-center">
       <p className="text-[11px] font-medium text-on-surface-variant">{label}</p>
-      <div className="mt-1 flex min-h-[1.75rem] items-center justify-center text-sm font-bold text-on-surface" dir={dir}>
+      <div className="mt-0.5 flex min-h-[1.5rem] items-center justify-center text-sm font-bold text-on-surface" dir={dir}>
         {children}
       </div>
     </div>
@@ -386,7 +386,7 @@ function CurrentInstallmentCard({
 
   return (
     <div className={`rounded-xl border p-md ${tierRowClass(tier, selected)}`}>
-      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-xs sm:grid-cols-3 lg:grid-cols-5">
         <InstallmentMetricCell label="رقم القسط">
           <span className="tabular-nums">#{installmentNo}</span>
         </InstallmentMetricCell>
@@ -403,14 +403,14 @@ function CurrentInstallmentCard({
           <StatusBadge status={tier} />
         </InstallmentMetricCell>
 
-        <div className="col-span-2 rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-sm py-2.5 text-center sm:col-span-3 xl:col-span-1">
+        <div className="col-span-2 rounded-lg border border-outline-variant/40 bg-surface-container-low/50 px-xs py-1.5 text-center sm:col-span-3 lg:col-span-1">
           <p className="text-[11px] font-medium text-on-surface-variant">الإجراء</p>
-          <div className="mt-1 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-2">
+          <div className="mt-0.5 flex min-h-[1.5rem] flex-nowrap items-center justify-center gap-1">
             {!row.is_suspended ? (
               <button
                 type="button"
                 onClick={onSelect}
-                className="rounded-lg bg-primary px-md py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90"
+                className="rounded-lg bg-primary px-sm py-1 text-xs font-medium text-on-primary hover:bg-primary/90"
               >
                 تحصيل
               </button>
@@ -421,7 +421,7 @@ function CurrentInstallmentCard({
               <button
                 type="button"
                 onClick={onReconcile}
-                className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary"
+                className="rounded-lg border border-outline-variant px-sm py-1 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary"
               >
                 تصالح
               </button>
@@ -431,7 +431,7 @@ function CurrentInstallmentCard({
                 type="button"
                 disabled={quickStatusPending}
                 onClick={() => onQuickCollectionStatus('no_answer')}
-                className="rounded-lg border border-outline-variant px-sm py-1.5 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                className="whitespace-nowrap rounded-lg border border-outline-variant px-sm py-1 text-xs font-medium text-on-surface-variant hover:border-primary/40 hover:text-primary disabled:opacity-50"
               >
                 لم يتم الرد
               </button>

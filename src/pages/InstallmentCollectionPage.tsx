@@ -35,7 +35,7 @@ import {
   normalizeInstallmentItem,
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
-import { userCanPerform, userHasPermission } from '../lib/access'
+import { userHasPermission } from '../lib/access'
 
 type InstallmentRow = InstallmentCollectionRow & Record<string, unknown>
 
@@ -373,18 +373,24 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
-  const canViewDailyStats =
-    userCanPerform(user, 'installments.collect') || userCanPerform(user, 'installments.view')
+  const emptyDailyStats: CollectionDailyStats = {
+    postponed: 0,
+    paid: 0,
+    follow_up: 0,
+    no_answer: 0,
+    no_contact: 0,
+  }
 
   const dailyStatsQuery = useQuery({
-    queryKey: ['collection-daily-stats', selectedBranchId, userId],
+    queryKey: ['collection-daily-stats', selectedBranchId, collectorFilter, userId],
     queryFn: async () => {
       const params: Record<string, string | number> = {}
       if (selectedBranchId) params['filter[branch_id]'] = selectedBranchId
+      if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
       const { data } = await api.get<CollectionDailyStats>('/collection-daily-stats', { params })
       return data
     },
-    enabled: canViewDailyStats && Boolean(selectedBranchId),
+    enabled: Boolean(selectedBranchId),
   })
 
   const installmentsQuery = useQuery({
@@ -1017,16 +1023,14 @@ export function InstallmentCollectionPage() {
 
         {selectedBranchId && selectedBranch ? (
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-            {canViewDailyStats && dailyStatsQuery.data ? (
-              <CollectionDailyStatCards
-                stats={dailyStatsQuery.data}
-                activeStatus={collectionStatusFilter}
-                onSelectStatus={(status) => {
-                  setCollectionStatusFilter(status)
-                  setSelected(null)
-                }}
-              />
-            ) : null}
+            <CollectionDailyStatCards
+              stats={dailyStatsQuery.data ?? emptyDailyStats}
+              activeStatus={collectionStatusFilter}
+              onSelectStatus={(status) => {
+                setCollectionStatusFilter(status)
+                setSelected(null)
+              }}
+            />
             <div className="mb-md flex flex-col gap-sm sm:flex-row sm:flex-nowrap sm:items-center">
               <h2 className="shrink-0 text-base font-semibold text-on-surface">
                 {branchInstallmentsTitle(selectedBranch.name_ar || selectedBranch.name)}
