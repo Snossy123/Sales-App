@@ -430,7 +430,7 @@ function CurrentInstallmentCard({
                 تصالح
               </button>
             )}
-            {onQuickCollectionStatus && !row.is_suspended && (
+            {onQuickCollectionStatus && !row.is_suspended && row.collection_status !== 'no_answer' && (
               <button
                 type="button"
                 disabled={quickStatusPending}
