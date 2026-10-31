@@ -56,6 +56,7 @@ interface CollectionDailyStats {
   postponed: number
   paid: number
   paid_invoice_ids?: number[]
+  paid_installment_ids?: number[]
   follow_up: number
   follow_up_invoice_ids?: number[]
   no_answer: number
@@ -429,17 +430,17 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
-  const paidInvoiceIds = dailyStatsQuery.data?.paid_invoice_ids ?? []
-  const paidInvoiceKey = paidInvoiceIds.join(',')
+  const paidInstallmentIds = dailyStatsQuery.data?.paid_installment_ids ?? []
+  const paidInstallmentKey = paidInstallmentIds.join(',')
   const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
 
   const paidInstallmentsQuery = useInstallmentPages(
     {
       'filter[branch_id]': selectedBranchId ?? undefined,
-      'filter[invoice_ids]': paidInvoiceKey || undefined,
+      'filter[ids]': paidInstallmentKey || undefined,
       'filter[search]': debouncedCustomerSearch || undefined,
     },
-    paidToday && paidInvoiceIds.length > 0,
+    paidToday && paidInstallmentIds.length > 0,
   )
 
   const branchCountsQuery = useQuery({

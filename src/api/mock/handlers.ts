@@ -3955,6 +3955,10 @@ export function handleMockRequest(
     const invoiceFilter = params['filter[sales_invoice_id]']
       ? Number(params['filter[sales_invoice_id]'])
       : undefined
+    const installmentIdsFilter = String(params['filter[ids]'] ?? '')
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => id > 0)
     const collectorFilter = params['filter[collector_user_id]']
       ? String(params['filter[collector_user_id]'])
       : ''
@@ -4011,7 +4015,8 @@ export function handleMockRequest(
         )
         const confirmedPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
         const remaining = Math.max(0, Number(item.amount) - confirmedPaid)
-        if (!invoiceFilter && remaining <= 0.009) continue
+        if (installmentIdsFilter.length > 0 && !installmentIdsFilter.includes(item.id)) continue
+        if (!invoiceFilter && installmentIdsFilter.length === 0 && remaining <= 0.009) continue
         const due = new Date(`${String(item.due_date).slice(0, 10)}T12:00:00`)
         const today = new Date()
         today.setHours(0, 0, 0, 0)
@@ -4214,14 +4219,18 @@ export function handleMockRequest(
     const todayLogs = (state.collectionFollowUpLogs ?? []).filter(
       (log) => isToday(log.created_at) && scopedInvoiceIds.has(log.sales_invoice_id),
     )
-    const paidTodayIds = new Set(
-      state.paymentTransactions
-        .filter((payment) => {
-          if (payment.status !== 'active' || !isToday(payment.paid_at)) return false
-          return scopedInvoiceIds.has(payment.sales_invoice_id)
-        })
-        .map((payment) => payment.sales_invoice_id),
-    )
+    const paidTodayPayments = state.paymentTransactions.filter((payment) => {
+      if (payment.status !== 'active' || !isToday(payment.paid_at)) return false
+      return scopedInvoiceIds.has(payment.sales_invoice_id)
+    })
+    const paidTodayIds = new Set(paidTodayPayments.map((payment) => payment.sales_invoice_id))
+    const paidTodayInstallmentIds = [
+      ...new Set(
+        paidTodayPayments
+          .map((payment) => payment.installment_item_id)
+          .filter((id): id is number => id != null),
+      ),
+    ]
     const latestByInvoice = new Map<number, { created_at: string; status: string | null }>()
     for (const log of todayLogs) {
       const createdAt = log.created_at ?? ''
@@ -4263,6 +4272,7 @@ export function handleMockRequest(
       paid: paidTodayIds.size,
       follow_up: latestByInvoice.size,
       paid_invoice_ids: [...paidTodayIds],
+      paid_installment_ids: paidTodayInstallmentIds,
       follow_up_invoice_ids: [...latestByInvoice.keys()],
       no_answer: countLatest('no_answer'),
       no_contact: noContact,
