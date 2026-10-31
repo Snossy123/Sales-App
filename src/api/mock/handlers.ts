@@ -65,6 +65,29 @@ type MockCollectionActionLog = {
 }
 
 const mockCollectionActionLogs: MockCollectionActionLog[] = []
+
+function mockCollectionActionsSummary(customerId: number, status?: string | null) {
+  const logs = mockCollectionActionLogs.filter((entry) => entry.customer_id === customerId)
+  const deviceNote = [...logs].reverse().find((entry) => entry.action_type === 'device_disable_note')
+  const whatsappWarnings: Record<number, { logged_at: string; sales_invoice_id: number }> = {}
+  for (const entry of [...logs].reverse().filter((e) => e.action_type === 'whatsapp_warning' && e.sales_invoice_id)) {
+    const invoiceId = entry.sales_invoice_id!
+    if (!whatsappWarnings[invoiceId]) {
+      whatsappWarnings[invoiceId] = {
+        logged_at: entry.created_at,
+        sales_invoice_id: invoiceId,
+      }
+    }
+  }
+  return {
+    customer_status: status ?? 'active',
+    portal_blocked: status === 'blocked',
+    device_disable_note: deviceNote
+      ? { logged_at: deviceNote.created_at, notes: deviceNote.notes ?? null }
+      : null,
+    whatsapp_warnings: whatsappWarnings,
+  }
+}
 const mockCollectionAssignments: Array<{
   id: number
   sales_invoice_id: number
@@ -2328,14 +2351,37 @@ export function handleMockRequest(
     })
     return {
       action: { customer_id: customer.id, sales_invoice_id: invoiceId, action_type: 'whatsapp_warning' },
-      summary: {
-        customer_status: customer.status ?? 'active',
-        portal_blocked: customer.status === 'blocked',
-        device_disable_note: null,
-        whatsapp_warnings: {
-          [invoiceId]: { logged_at: createdAt, sales_invoice_id: invoiceId },
-        },
-      },
+      summary: mockCollectionActionsSummary(customer.id, customer.status),
+    }
+  }
+
+  if (m === 'DELETE' && path.match(/^customers\/\d+\/collection-actions\/device-disable-note$/)) {
+    const customerId = Number(path.split('/')[1])
+    const customer = state.customers.find((c) => c.id === customerId)
+    if (!customer) throw mockError(404, 'العميل غير موجود')
+    for (let index = mockCollectionActionLogs.length - 1; index >= 0; index -= 1) {
+      const entry = mockCollectionActionLogs[index]
+      if (entry.customer_id === customerId && entry.action_type === 'device_disable_note') {
+        mockCollectionActionLogs.splice(index, 1)
+        break
+      }
+    }
+    return { summary: mockCollectionActionsSummary(customerId, customer.status) }
+  }
+
+  if (m === 'DELETE' && path.match(/^sales-invoices\/\d+\/collection-actions\/whatsapp-warning$/)) {
+    const invoiceId = Number(path.split('/')[1])
+    const invoice = state.invoices.find((inv) => inv.id === invoiceId)
+    if (!invoice) throw mockError(404, 'الفاتورة غير موجودة')
+    for (let index = mockCollectionActionLogs.length - 1; index >= 0; index -= 1) {
+      const entry = mockCollectionActionLogs[index]
+      if (entry.sales_invoice_id === invoiceId && entry.action_type === 'whatsapp_warning') {
+        mockCollectionActionLogs.splice(index, 1)
+      }
+    }
+    const customer = state.customers.find((c) => c.id === invoice.customer_id)
+    return {
+      summary: customer ? mockCollectionActionsSummary(customer.id, customer.status) : null,
     }
   }
 

@@ -118,6 +118,42 @@ export function ContractCollectionActions({
     onError: (err) => setError(getErrorMessage(err)),
   })
 
+  const cancelWarningMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.delete<{ summary: CollectionActionsSummary }>(
+        `/sales-invoices/${invoiceId}/collection-actions/whatsapp-warning`,
+      )
+      return data
+    },
+    onSuccess: (data) => {
+      if (customerId) {
+        queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
+      }
+      setError('')
+      setModalOpen(false)
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
+  const cancelDeviceMutation = useMutation({
+    mutationFn: async () => {
+      if (!customerId) throw new Error('عميل غير محدد')
+      const { data } = await api.delete<{ summary: CollectionActionsSummary }>(
+        `/customers/${customerId}/collection-actions/device-disable-note`,
+      )
+      return data
+    },
+    onSuccess: (data) => {
+      if (customerId) {
+        queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
+      }
+      setDeviceModalOpen(false)
+      setError('')
+      setModalOpen(false)
+    },
+    onError: (err) => setError(getErrorMessage(err)),
+  })
+
   const closeActionsModal = () => {
     setModalOpen(false)
     setError('')
@@ -150,16 +186,54 @@ export function ContractCollectionActions({
 
       <div className="mb-sm flex flex-wrap gap-sm text-[11px] text-on-surface-variant">
         {warning && (
-          <span className="rounded-full bg-surface-container-high px-sm py-0.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-sm py-0.5">
             تم إرسال رسالة تحذيرية · {formatDatetime12hDisplay(warning.logged_at)}
+            <button
+              type="button"
+              disabled={cancelWarningMutation.isPending}
+              onClick={() => {
+                if (window.confirm('إلغاء الرسالة التحذيرية على هذا العقد؟')) {
+                  cancelWarningMutation.mutate()
+                }
+              }}
+              className="font-medium text-error hover:underline disabled:opacity-50"
+            >
+              إلغاء
+            </button>
           </span>
         )}
         {portalBlocked && (
-          <span className="rounded-full bg-error/10 px-sm py-0.5 text-error">رسيت متأخر مفعّل</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-sm py-0.5 text-error">
+            رسيت متأخر مفعّل
+            <button
+              type="button"
+              disabled={portalMutation.isPending}
+              onClick={() => {
+                if (window.confirm('إلغاء رسيت متأخر لهذا العميل؟')) {
+                  portalMutation.mutate(true)
+                }
+              }}
+              className="font-medium underline disabled:opacity-50"
+            >
+              إلغاء
+            </button>
+          </span>
         )}
         {deviceNote && (
-          <span className="rounded-full bg-surface-container-high px-sm py-0.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-sm py-0.5">
             تم تسجيل فقد إشارة الجهاز · {formatDatetime12hDisplay(deviceNote.logged_at)}
+            <button
+              type="button"
+              disabled={cancelDeviceMutation.isPending}
+              onClick={() => {
+                if (window.confirm('إلغاء تسجيل فقد إشارة الجهاز؟')) {
+                  cancelDeviceMutation.mutate()
+                }
+              }}
+              className="font-medium text-error hover:underline disabled:opacity-50"
+            >
+              إلغاء
+            </button>
           </span>
         )}
       </div>
@@ -175,15 +249,29 @@ export function ContractCollectionActions({
           <button
             type="button"
             onClick={() => {
+              if (warning) {
+                if (window.confirm('إلغاء الرسالة التحذيرية على هذا العقد؟')) {
+                  cancelWarningMutation.mutate()
+                }
+                return
+              }
               if (window.confirm('إرسال رسالة تحذيرية لهذا التعاقد؟')) {
                 whatsappMutation.mutate()
               }
             }}
-            disabled={!hasPhone || whatsappMutation.isPending}
-            title={!hasPhone ? 'لا يوجد رقم هاتف للعميل' : undefined}
-            className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm font-medium text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={(!warning && !hasPhone) || whatsappMutation.isPending || cancelWarningMutation.isPending}
+            title={!warning && !hasPhone ? 'لا يوجد رقم هاتف للعميل' : undefined}
+            className={`w-full rounded-lg border px-sm py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+              warning
+                ? 'border-error/40 text-error hover:bg-error/5'
+                : 'border-outline-variant text-primary hover:border-primary/40'
+            }`}
           >
-            {whatsappMutation.isPending ? 'جاري الإرسال…' : 'رسالة تحذيرية'}
+            {whatsappMutation.isPending || cancelWarningMutation.isPending
+              ? 'جاري التنفيذ…'
+              : warning
+                ? 'إلغاء الرسالة التحذيرية'
+                : 'رسالة تحذيرية'}
           </button>
 
           <button
@@ -209,13 +297,23 @@ export function ContractCollectionActions({
             type="button"
             onClick={() => {
               setError('')
+              if (deviceNote) {
+                if (window.confirm('إلغاء تسجيل فقد إشارة الجهاز؟')) {
+                  cancelDeviceMutation.mutate()
+                }
+                return
+              }
               setModalOpen(false)
               setDeviceModalOpen(true)
             }}
-            disabled={deviceMutation.isPending}
-            className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm font-medium hover:border-primary/40 hover:text-primary"
+            disabled={deviceMutation.isPending || cancelDeviceMutation.isPending}
+            className={`w-full rounded-lg border px-sm py-2 text-sm font-medium ${
+              deviceNote
+                ? 'border-error/40 text-error hover:bg-error/5'
+                : 'border-outline-variant hover:border-primary/40 hover:text-primary'
+            }`}
           >
-            فقد اشارة الجهاز
+            {cancelDeviceMutation.isPending ? 'جاري الإلغاء…' : deviceNote ? 'إلغاء فقد اشارة الجهاز' : 'فقد اشارة الجهاز'}
           </button>
         </div>
       </Modal>

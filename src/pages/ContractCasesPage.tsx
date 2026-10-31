@@ -51,7 +51,7 @@ export function ContractCasesPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [callsCase, setCallsCase] = useState<ContractCaseRow | null>(null)
-  const [logOpen, setLogOpen] = useState(false)
+  const [savedNote, setSavedNote] = useState<string | null>(null)
 
   const revertMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -207,25 +207,16 @@ export function ContractCasesPage() {
         open={Boolean(callsCase)}
         onClose={() => {
           setCallsCase(null)
-          setLogOpen(false)
+          setSavedNote(null)
         }}
         title="مكالمات العميل"
         size="lg"
       >
         {callsCase ? (
           <div className="space-y-sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-on-surface-variant">
-                {callsCase.sales_invoice?.customer?.name ?? 'العميل'} · {callsCase.sales_invoice?.invoice_number ?? ''}
-              </p>
-              <button
-                type="button"
-                className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary"
-                onClick={() => setLogOpen(true)}
-              >
-                تسجيل مكالمة
-              </button>
-            </div>
+            <p className="text-sm text-on-surface-variant">
+              {callsCase.sales_invoice?.invoice_number ?? ''}
+            </p>
             {callsQuery.isLoading ? <p className="text-sm">جاري تحميل السجل…</p> : null}
             {callsQuery.isError ? <p className="text-sm text-error">{getErrorMessage(callsQuery.error)}</p> : null}
             <ul className="space-y-2">
@@ -253,19 +244,21 @@ export function ContractCasesPage() {
                 <li className="text-sm text-on-surface-variant">لا توجد مكالمات لهذا العميل.</li>
               ) : null}
             </ul>
+            {savedNote ? <p className="text-sm text-primary">{savedNote}</p> : null}
+            <CallLogFormModal
+              open
+              embedded
+              onClose={() => undefined}
+              lockedCustomerId={callsCase.sales_invoice?.customer?.id}
+              lockedCaseId={callsCase.id}
+              onSaved={async (message) => {
+                setSavedNote(message)
+                await queryClient.invalidateQueries({ queryKey: ['contract-cases', callsCase.id, 'call-logs'] })
+              }}
+            />
           </div>
         ) : null}
       </Modal>
-
-      <CallLogFormModal
-        open={logOpen && Boolean(callsCase)}
-        onClose={() => setLogOpen(false)}
-        lockedCustomerId={callsCase?.sales_invoice?.customer?.id}
-        lockedCaseId={callsCase?.id}
-        onSaved={async () => {
-          await queryClient.invalidateQueries({ queryKey: ['contract-cases', callsCase?.id, 'call-logs'] })
-        }}
-      />
     </div>
   )
 }
