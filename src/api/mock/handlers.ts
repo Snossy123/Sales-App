@@ -3135,6 +3135,49 @@ export function handleMockRequest(
     if (userId) rows = rows.filter((p) => p.user_id === userId || p.collector_user_id === userId)
     if (status) rows = rows.filter((p) => p.status === status)
     if (paymentSource) rows = rows.filter((p) => p.payment_source === paymentSource)
+
+    const invoiceBranchId = (salesInvoiceId: number) =>
+      state.invoices.find((invoice) => invoice.id === salesInvoiceId)?.branch_id
+    const scopedBranchIds = getScopedBranchIds(state, ctx)
+    if (scopedBranchIds) {
+      rows = rows.filter((p) => {
+        const branchId = invoiceBranchId(p.sales_invoice_id)
+        return branchId != null && scopedBranchIds.includes(branchId)
+      })
+    }
+
+    const isSales = ctx.user?.roles?.some((role) => role.name === 'Sales') || ctx.user?.demo_role === 'sales'
+    if (isSales) {
+      rows = rows.filter((p) => (p.payment_method ?? 'cash') === 'cash')
+    } else {
+      const channel = String(params.channel ?? '')
+      const method = String(params.payment_method ?? '').trim()
+      const transferMethods = [
+        ...new Set(
+          mockCollectionAccounts
+            .filter((account) => account.is_active)
+            .map((account) => account.payment_method)
+            .filter(Boolean),
+        ),
+      ]
+      if (channel === 'cash') {
+        rows = rows.filter((p) => (p.payment_method ?? 'cash') === 'cash')
+      } else if (channel === 'transfer') {
+        const allowed = method && transferMethods.includes(method) ? [method] : transferMethods
+        rows = rows.filter((p) => allowed.includes(p.payment_method ?? ''))
+      } else if (method) {
+        rows = rows.filter((p) => (p.payment_method ?? '') === method)
+      }
+
+      const branchId = params.branch_id ? Number(params.branch_id) : undefined
+      if (branchId) {
+        if (!isBranchInScope(state, ctx, branchId)) {
+          rows = []
+        } else {
+          rows = rows.filter((p) => invoiceBranchId(p.sales_invoice_id) === branchId)
+        }
+      }
+    }
     if (search) {
       rows = rows.filter((p) => {
         const name = state.customers.find((c) => c.id === p.customer_id)?.name ?? ''
@@ -4125,24 +4168,28 @@ export function handleMockRequest(
       }
     }
 
+    const invoiceHasOpenRemaining = (invoiceId: number) => {
+      const invoice = state.invoices.find((row) => row.id === invoiceId)
+      return (invoice?.installment_plan?.items ?? []).some((item) => {
+        const paid = (state.paymentTransactions ?? [])
+          .filter((payment) => payment.installment_item_id === item.id && payment.status === 'active')
+          .reduce((sum, payment) => sum + Number(payment.amount), 0)
+        return Math.max(0, Number(item.amount) - paid) > 0.009
+      })
+    }
+
     const countLatest = (status: string) =>
       [...latestByInvoice.entries()].filter(([invoiceId, row]) => {
-        if (paidTodayIds.has(invoiceId)) return false
+        if (paidTodayIds.has(invoiceId) && !invoiceHasOpenRemaining(invoiceId)) return false
         return row.status === status
       }).length
 
     let noContact = 0
     for (const invoice of state.invoices) {
       if (!scopedInvoiceIds.has(invoice.id)) continue
-      if (paidTodayIds.has(invoice.id)) continue
+      if (paidTodayIds.has(invoice.id) && !invoiceHasOpenRemaining(invoice.id)) continue
       if (latestByInvoice.has(invoice.id)) continue
-      const hasOpen = (invoice.installment_plan?.items ?? []).some((item) => {
-        const paid = (state.paymentTransactions ?? [])
-          .filter((payment) => payment.installment_item_id === item.id && payment.status === 'active')
-          .reduce((sum, payment) => sum + Number(payment.amount), 0)
-        return Math.max(0, Number(item.amount) - paid) > 0.009
-      })
-      if (hasOpen) noContact += 1
+      if (invoiceHasOpenRemaining(invoice.id)) noContact += 1
     }
 
     return {

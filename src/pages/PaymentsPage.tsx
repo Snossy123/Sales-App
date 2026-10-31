@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { PaginatedResponse } from '../api/types'
+import type { Branch, PaginatedResponse } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
@@ -12,6 +12,7 @@ import { PaymentOriginLink } from '../components/payments/PaymentOriginLink'
 import { RefundPaymentModal, type RefundPaymentTarget } from '../components/payments/RefundPaymentModal'
 import { openPaymentReceiptPrint } from '../lib/paymentReceipt'
 import { userCanPerform } from '../lib/access'
+import { canPickBranch } from '../lib/dataScope'
 import { useAuthStore } from '../stores/authStore'
 
 export interface PaymentTransactionRow {
@@ -44,6 +45,16 @@ const sourceLabels: Record<string, string> = {
 
 type SourceFilter = '' | 'all_payments' | 'contract_disbursement'
 type PaymentPeriod = 'day' | 'week' | 'month' | 'year' | 'custom'
+type ChannelFilter = '' | 'cash' | 'transfer'
+
+const paymentMethodLabels: Record<string, string> = {
+  cash: 'نقدي',
+  wallet: 'محفظة',
+  instapay: 'إنستاباي',
+  bank_transfer: 'تحويل بنكي',
+  card: 'بطاقة',
+  distributor_balance: 'رصيد موزع',
+}
 
 const periodOptions: { id: PaymentPeriod; label: string }[] = [
   { id: 'day', label: 'يوم' },
@@ -73,8 +84,14 @@ function formatPaidAt(value?: string) {
 export function PaymentsPage() {
   const user = useAuthStore((s) => s.user)
   const canRefund = userCanPerform(user, 'payments.refund')
+  const isSales =
+    user?.roles?.some((role) => role.name === 'Sales') || user?.demo_role === 'sales'
+  const showBranchFilter = canPickBranch(user) && !isSales
   const [statusFilter, setStatusFilter] = useState('active')
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all_payments')
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('')
+  const [methodFilter, setMethodFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [period, setPeriod] = useState<PaymentPeriod>('day')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -84,8 +101,43 @@ export function PaymentsPage() {
 
   const customReady = period !== 'custom' || Boolean(dateFrom || dateTo)
 
+  const transferMethodsQuery = useQuery({
+    queryKey: ['collection-accounts', 'active', 'payment-methods'],
+    enabled: !isSales,
+    queryFn: async () => {
+      const { data } = await api.get<{ data: { payment_method: string; is_active?: boolean }[] }>(
+        '/collection-accounts/active',
+      )
+      return [...new Set(data.data.map((account) => account.payment_method).filter(Boolean))]
+    },
+  })
+
+  const branchesQuery = useQuery({
+    queryKey: ['branches', 'payments-filter'],
+    enabled: showBranchFilter,
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Branch>>('/branches', {
+        params: { per_page: 100, 'filter[is_active]': 1 },
+      })
+      return data.data
+    },
+  })
+
   const paymentsQuery = useQuery({
-    queryKey: ['payment-transactions', statusFilter, sourceFilter, period, dateFrom, dateTo, search, page],
+    queryKey: [
+      'payment-transactions',
+      statusFilter,
+      sourceFilter,
+      channelFilter,
+      methodFilter,
+      branchFilter,
+      period,
+      dateFrom,
+      dateTo,
+      search,
+      page,
+      isSales,
+    ],
     enabled: customReady,
     queryFn: async () => {
       const params: Record<string, string | number> = { per_page: 15, page }
@@ -93,6 +145,9 @@ export function PaymentsPage() {
       if (sourceFilter === 'contract_disbursement') {
         params.payment_source = 'contract_disbursement'
       }
+      if (!isSales && channelFilter) params.channel = channelFilter
+      if (!isSales && channelFilter === 'transfer' && methodFilter) params.payment_method = methodFilter
+      if (showBranchFilter && branchFilter) params.branch_id = Number(branchFilter)
       if (search.trim()) params.search = search.trim()
       if (period === 'custom') {
         if (dateFrom) params.paid_from = dateFrom
@@ -110,6 +165,9 @@ export function PaymentsPage() {
     Boolean(search.trim()) ||
     statusFilter !== 'active' ||
     sourceFilter !== 'all_payments' ||
+    channelFilter !== '' ||
+    methodFilter !== '' ||
+    branchFilter !== '' ||
     period !== 'day' ||
     Boolean(dateFrom || dateTo)
 
@@ -164,6 +222,65 @@ export function PaymentsPage() {
             : undefined
         }
         selects={[
+          ...(!isSales
+            ? [
+                {
+                  id: 'channel',
+                  label: 'كاش أو تحويل',
+                  value: channelFilter,
+                  onChange: (value: string) => {
+                    setChannelFilter(value as ChannelFilter)
+                    setMethodFilter('')
+                    setPage(1)
+                  },
+                  options: [
+                    { value: '', label: 'الكل' },
+                    { value: 'cash', label: 'كاش' },
+                    { value: 'transfer', label: 'تحويل' },
+                  ],
+                },
+              ]
+            : []),
+          ...(!isSales && channelFilter === 'transfer'
+            ? [
+                {
+                  id: 'payment_method',
+                  label: 'طريقة الدفع',
+                  value: methodFilter,
+                  onChange: (value: string) => {
+                    setMethodFilter(value)
+                    setPage(1)
+                  },
+                  options: [
+                    { value: '', label: 'كل طرق التحويل' },
+                    ...(transferMethodsQuery.data ?? []).map((method) => ({
+                      value: method,
+                      label: paymentMethodLabels[method] ?? method,
+                    })),
+                  ],
+                },
+              ]
+            : []),
+          ...(showBranchFilter
+            ? [
+                {
+                  id: 'branch',
+                  label: 'الفرع',
+                  value: branchFilter,
+                  onChange: (value: string) => {
+                    setBranchFilter(value)
+                    setPage(1)
+                  },
+                  options: [
+                    { value: '', label: 'كل الفروع' },
+                    ...(branchesQuery.data ?? []).map((branch) => ({
+                      value: String(branch.id),
+                      label: branch.name_ar || branch.name,
+                    })),
+                  ],
+                },
+              ]
+            : []),
           {
             id: 'source',
             label: 'النوع',
@@ -196,6 +313,9 @@ export function PaymentsPage() {
         onClear={() => {
           setStatusFilter('active')
           setSourceFilter('all_payments')
+          setChannelFilter('')
+          setMethodFilter('')
+          setBranchFilter('')
           setPeriod('day')
           setDateFrom('')
           setDateTo('')

@@ -1341,6 +1341,7 @@ export function createSeedState(): DemoState {
         'sales.pos.accessories',
         'sales.pos.catalog',
         'sales.invoices.view',
+        'payments.view',
         'sales.invoices.edit_before_review',
         'sales.daily_mission',
         ...INVENTORY_MANAGE_REPLACEMENTS,
