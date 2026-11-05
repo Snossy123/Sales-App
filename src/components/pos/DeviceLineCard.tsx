@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ContractKind, Employee, GpsProduct } from '../../api/types'
 import type { DiscountMode } from '../../lib/discount'
 import { isGpsUsernameComplete } from '../../lib/gpsUsername'
+import { normalizeDigits } from '../../lib/normalizeDigits'
 import {
   computeInstallmentCount,
   computeMinDownPayment,
@@ -404,7 +405,7 @@ export function DeviceLineCard({
                       <label className={posLabelClass}>أرقام اللوحة</label>
                       <input
                         value={line.vehiclePlateNumbers}
-                        onChange={(e) => patch({ vehiclePlateNumbers: e.target.value })}
+                        onChange={(e) => patch({ vehiclePlateNumbers: normalizeDigits(e.target.value) })}
                         dir="ltr"
                         className={fieldErrorClass(
                           Boolean(fieldErrors.vehiclePlateNumbers),
@@ -424,7 +425,7 @@ export function DeviceLineCard({
                       <label className={posLabelClass}>الشاسيه</label>
                       <input
                         value={line.chassisNumber}
-                        onChange={(e) => patch({ chassisNumber: e.target.value })}
+                        onChange={(e) => patch({ chassisNumber: normalizeDigits(e.target.value) })}
                         dir="ltr"
                         className={fieldErrorClass(Boolean(fieldErrors.chassisNumber), posInputClass)}
                       />
@@ -436,7 +437,7 @@ export function DeviceLineCard({
                       <label className={posLabelClass}>الموتور</label>
                       <input
                         value={line.engineNumber}
-                        onChange={(e) => patch({ engineNumber: e.target.value })}
+                        onChange={(e) => patch({ engineNumber: normalizeDigits(e.target.value) })}
                         dir="ltr"
                         className={fieldErrorClass(Boolean(fieldErrors.engineNumber), posInputClass)}
                       />
