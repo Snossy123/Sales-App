@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { Branch, PaginatedResponse } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
+import { NumericInput } from '../../../components/ui/NumericInput'
 import { DataTable, type Column } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
@@ -919,7 +920,7 @@ export function HrmReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-on-surface mb-1">السلفة اليومية (ج.م)</label>
-              <input
+              <NumericInput
                 type="number"
                 min="0"
                 step="0.01"
@@ -930,7 +931,7 @@ export function HrmReportsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-on-surface mb-1">البونص اليومي (ج.م)</label>
-              <input
+              <NumericInput
                 type="number"
                 min="0"
                 step="0.01"
@@ -941,7 +942,7 @@ export function HrmReportsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-on-surface mb-1">الخصم اليومي (ج.م)</label>
-              <input
+              <NumericInput
                 type="number"
                 min="0"
                 step="0.01"

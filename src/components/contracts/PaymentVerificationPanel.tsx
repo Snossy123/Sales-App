@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { SalesInvoice } from '../../api/types'
+import { NumericInput } from '../ui/NumericInput'
 import { useAuthStore } from '../../stores/authStore'
 import { userCanPerform } from '../../lib/access'
 import {
@@ -153,7 +154,7 @@ export function PaymentVerificationPanel({ invoice, ledger }: PaymentVerificatio
           <>
             <label className="block text-xs text-on-surface-variant">
               المبلغ
-              <input
+              <NumericInput
                 type="number"
                 min="0"
                 step="0.01"

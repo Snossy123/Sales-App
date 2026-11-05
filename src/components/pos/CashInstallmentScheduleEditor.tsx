@@ -4,6 +4,7 @@ import {
   resizeCashScheduleItems,
   type CashScheduleItem,
 } from '../../lib/cashSchedule'
+import { NumericInput } from '../ui/NumericInput'
 import { PosMoneyInput } from './PosMoneyInput'
 import { posInputClass, posLabelClass } from './posFormStyles'
 
@@ -34,7 +35,7 @@ export function CashInstallmentScheduleEditor({
     <div className="space-y-sm">
       <div className="max-w-[10rem]">
         <label className={posLabelClass}>عدد الأقساط</label>
-        <input
+        <NumericInput
           type="number"
           min={1}
           max={maxCount}

@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { linesMissingStockUnit } from './posCheckout'
 import { checkoutSourceIds, sourceFieldFor } from './posCheckoutSource'
 import { eligibleTechnicians } from './posTechnicians'
-import { normalizeDigits } from './normalizeDigits'
-import { normalizeScannedInput } from './scanner'
+import { normalizeScannedDigits, normalizeScannedInput } from './scanner'
 import { formatGpsUsername, isGpsUsernameComplete, parseGpsUsername } from './gpsUsername'
 
 describe('stock unit guard', () => {
@@ -72,11 +71,10 @@ describe('device identity', () => {
     expect(normalizeScannedInput('SN-UX-1001\r\n')).toBe('SN-UX-1001')
   })
 
-  it('converts Arabic serial digits and keeps letters', () => {
-    expect(normalizeDigits(normalizeScannedInput('٨٦١٧٦٨٠٧٩١\r\n'))).toBe('8617680791')
-    expect(normalizeDigits(normalizeScannedInput('SN-١٢٣\n'))).toBe('SN-123')
-    expect(normalizeDigits('۱۲۳')).toBe('123')
-    expect(normalizeDigits('WBA١٢٣')).toBe('WBA123')
+  it('stores an Arabic serial as English digits only', () => {
+    expect(normalizeScannedDigits('٨٦١٧٦٨٠٧٩١\r\n')).toBe('8617680791')
+    expect(normalizeScannedDigits('SN-١٢٣\n')).toBe('123')
+    expect(normalizeScannedDigits('۱۲۳')).toBe('123')
   })
 
   it('keeps a restored Eleraqy username', () => {

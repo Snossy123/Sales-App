@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObjec
 import type { ContractKind, Employee, GpsProduct } from '../../api/types'
 import { resolveGpsUnitPrice } from '../../lib/gpsProductPricing'
 import type { DiscountMode } from '../../lib/discount'
-import { normalizeDigits, parseLocalizedNumber } from '../../lib/normalizeDigits'
+import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import { normalizeScannedDigits, normalizeScannedInput } from '../../lib/scanner'
 import { computeMinDownPayment, suggestInstallmentAmount } from '../../lib/sales'
 import { cashRemainder, isCustomCashSchedule, seedCashScheduleItems } from '../../lib/cashSchedule'
@@ -96,12 +96,7 @@ export function useDeviceLineEditor({
   }, [index, autoFocusSerial, lockedFromSource])
 
   const patchScanned = (field: 'serialNumber' | 'simNumber' | 'username', raw: string) => {
-    const next =
-      field === 'serialNumber'
-        ? normalizeDigits(normalizeScannedInput(raw))
-        : field === 'username'
-          ? normalizeScannedInput(raw)
-          : normalizeScannedDigits(raw)
+    const next = field === 'username' ? normalizeScannedInput(raw) : normalizeScannedDigits(raw)
     patch({ [field]: next } as Partial<DeviceLineDraft>)
   }
 
