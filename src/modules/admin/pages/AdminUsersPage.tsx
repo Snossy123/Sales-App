@@ -315,9 +315,12 @@ export function AdminUsersPage() {
           ))}
         </div>
         {selectedPermissions.length > 0 && (
-          <p className="mt-xs text-[11px] leading-relaxed text-on-surface-variant">
-            الصلاحيات الناتجة: {selectedPermissions.join(' · ')}
-          </p>
+          <div className="mt-xs">
+            <p id="user-effective-permissions-label" className="mb-xs text-xs text-on-surface-variant">الصلاحيات الناتجة</p>
+            <div role="region" aria-labelledby="user-effective-permissions-label" tabIndex={0} className="max-h-48 overflow-y-auto overscroll-contain rounded-lg border border-outline-variant p-sm text-[11px] leading-relaxed text-on-surface-variant [overflow-wrap:anywhere]">
+              {selectedPermissions.join(' · ')}
+            </div>
+          </div>
         )}
       </div>
     </>
@@ -429,17 +432,21 @@ export function AdminUsersPage() {
       </AsyncState>
 
       <Modal open={panelOpen || editId !== null} onClose={() => { setPanelOpen(false); setEditId(null); setFormError('') }} title={editId ? 'تعديل مستخدم' : 'مستخدم جديد'}>
+        <div className="flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col">
         {formError && (
-          <div className="mb-sm max-h-[150px] overflow-y-auto">
+          <div className="mb-sm max-h-[20dvh] shrink-0 overflow-y-auto">
             <ToastBanner message={formError} onDismiss={() => setFormError('')} variant="error" />
           </div>
         )}
-        <form onSubmit={(e) => { e.preventDefault(); setFormError(''); saveMutation.mutate() }} className="grid gap-sm sm:grid-cols-2">
-          {formFields}
-          <button type="submit" disabled={saveMutation.isPending} className="rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary sm:col-span-2">
+        <form onSubmit={(e) => { e.preventDefault(); setFormError(''); saveMutation.mutate() }} className="flex min-h-0 flex-col">
+          <div className="grid min-h-0 gap-sm overflow-y-auto overscroll-contain pe-1 sm:grid-cols-2">
+            {formFields}
+          </div>
+          <button type="submit" disabled={saveMutation.isPending} className="mt-sm shrink-0 rounded-lg bg-secondary py-2 text-sm font-bold text-on-secondary">
             حفظ
           </button>
         </form>
+        </div>
       </Modal>
     </div>
   )

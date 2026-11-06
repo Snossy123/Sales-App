@@ -1,3 +1,7 @@
+import { inspectPosDraftRestoration } from '../lib/posDraftRestoration'
+import { Modal } from '../components/Modal'
+import { useSuspendedPosStore, readActivePosDraft } from '../stores/suspendedPosStore'
+import { canAccessBranch } from '../lib/access'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,6 +23,7 @@ import type {
   Promotion,
   Service,
   SubscriptionRenewalCandidate,
+  Warehouse,
 } from '../api/types'
 import {
   contractPrintPath,
@@ -37,7 +42,6 @@ import { SalesPageShell } from '../components/SalesPageShell'
 import { StartTourButton } from '../components/tour/StartTourButton'
 import { usePageTour } from '../hooks/usePageTour'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
-import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import { useAuthStore } from '../stores/authStore'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { isDeviceContractDraftMeaningful } from '../lib/procedureDrafts'
@@ -99,6 +103,14 @@ function addDays(dateStr: string, days: number): string {
 }
 
 export function PosPage() {
+  const userId = useAuthStore((state) => state.user?.id)
+  const { id } = useParams<{ id?: string }>()
+  const [params] = useSearchParams()
+  const [revision, setRevision] = useState(0)
+  return <PosPageForm key={`${userId}:${id ?? params.get('edit') ?? 'new'}:${revision}`} onSessionChange={() => setRevision((value) => value + 1)} />
+}
+
+function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -114,6 +126,28 @@ export function PosPage() {
   const hydratedEditRef = useRef<number | null>(null)
   const warehouseId = useAuthStore((s) => s.warehouseId)
   const user = useAuthStore((s) => s.user)
+  const draftUserId = user?.id ?? null
+  const [deviceDraft] = useState(() => {
+    if (isEditMode) return null
+    const session = draftUserId == null ? undefined : useSuspendedPosStore.getState().sessions[draftUserId]
+    return readActivePosDraft(draftUserId) ?? (session ? null : readDeviceDraft(draftUserId))
+  })
+  const [draftIdentity] = useState(() => {
+    const session = draftUserId == null ? undefined : useSuspendedPosStore.getState().sessions[draftUserId]
+    return { id: session?.activeId ?? crypto.randomUUID(), generation: session?.generation ?? 0 }
+  })
+  const [draftError, setDraftError] = useState('')
+  const [suspendedOpen, setSuspendedOpen] = useState(false)
+  const [deleteSuspendedId, setDeleteSuspendedId] = useState<string | null>(null)
+  const suspendedContracts = useSuspendedPosStore((state) => state.contracts)
+  const suspendedSessions = useSuspendedPosStore((state) => state.sessions)
+  const suspended = suspendedContracts.filter((entry) => entry.userId === draftUserId && entry.id !== (draftUserId == null ? null : suspendedSessions[draftUserId]?.activeId)).sort((a, b) => b.updatedAt - a.updatedAt)
+  const [userEdited, setUserEdited] = useState(deviceDraft?.userEdited ?? false)
+  const [contextRestored, setContextRestored] = useState(!deviceDraft)
+  const [restoreContextError, setRestoreContextError] = useState('')
+  const snapshotRef = useRef<DeviceContractDraft | null>(null)
+  const draftCompleted = useRef(false)
+
   const contextBranchId = useAuthStore((s) => s.branchId)
   const contextDepartmentId = useAuthStore((s) => s.departmentId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
@@ -166,28 +200,26 @@ export function PosPage() {
       (s.name_ar || s.name).includes('مدى الحياة'),
   )
 
-  const [transferIncludeDisassemblyAndAssembly, setTransferIncludeDisassemblyAndAssembly] = useState(false)
-  const [transferPaymentTerm, setTransferPaymentTerm] = useState<'cash' | 'installment'>('cash')
-  const [transferDownPayment, setTransferDownPayment] = useState(0)
-  const [transferInstallmentCount, setTransferInstallmentCount] = useState(1)
-  const [transferIntervalType, setTransferIntervalType] = useState<'monthly' | 'weekly'>('monthly')
-  const [transferFirstDueDate, setTransferFirstDueDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [transferIncludeDisassemblyAndAssembly, setTransferIncludeDisassemblyAndAssembly] = useState(() => deviceDraft?.transferIncludeDisassemblyAndAssembly ?? false)
+  const [transferPaymentTerm, setTransferPaymentTerm] = useState<'cash' | 'installment'>(() => deviceDraft?.transferPaymentTerm ?? 'cash')
+  const [transferDownPayment, setTransferDownPayment] = useState(() => deviceDraft?.transferDownPayment ?? 0)
+  const [transferInstallmentCount, setTransferInstallmentCount] = useState(() => deviceDraft?.transferInstallmentCount ?? 1)
+  const [transferIntervalType, setTransferIntervalType] = useState<'monthly' | 'weekly'>(() => deviceDraft?.transferIntervalType ?? 'monthly')
+  const [transferFirstDueDate, setTransferFirstDueDate] = useState(() => deviceDraft?.transferFirstDueDate ?? new Date().toISOString().split('T')[0])
 
   const ownershipFeeAmount = Number(
-    ownershipTransferService?.cash_price ?? ownershipTransferService?.default_price ?? 200,
+    deviceDraft?.transferServicePrices?.ownershipFeeAmount ?? ownershipTransferService?.cash_price ?? ownershipTransferService?.default_price ?? 200,
   )
   const uninstallFeeAmount = Number(
-    uninstallService?.cash_price ?? uninstallService?.default_price ?? 100,
+    deviceDraft?.transferServicePrices?.uninstallFeeAmount ?? uninstallService?.cash_price ?? uninstallService?.default_price ?? 100,
   )
   const installationFeeAmount = Number(
-    installationServiceForTransfer?.cash_price ?? installationServiceForTransfer?.default_price ?? 500,
+    deviceDraft?.transferServicePrices?.installationFeeAmount ?? installationServiceForTransfer?.cash_price ?? installationServiceForTransfer?.default_price ?? 500,
   )
 
-  const draftUserId = user?.id ?? null
-  const deviceDraft = readDeviceDraft(draftUserId, isEditMode)
 
   const [contractKind, setContractKind] = useState<ContractKind>(() =>
-    searchParams.get('contract_kind') === 'subscription_renewal'
+    !deviceDraft && searchParams.get('contract_kind') === 'subscription_renewal'
       ? 'subscription_renewal'
       : deviceDraft?.contractKind ?? 'new_contract',
   )
@@ -195,22 +227,22 @@ export function PosPage() {
     () => deviceDraft?.sourceTransferInvoice ?? null,
   )
   const [sourceTransferDevice, setSourceTransferDevice] = useState<CustomerContractDevice | null>(
-    null,
+    () => deviceDraft?.sourceTransferDevice ?? null,
   )
   const [sourceRenewalCandidate, setSourceRenewalCandidate] =
     useState<SubscriptionRenewalCandidate | null>(() => deviceDraft?.sourceRenewalCandidate ?? null)
   const [selectedCustomerDevice, setSelectedCustomerDevice] = useState<CustomerContractDevice | null>(
-    null,
+    () => deviceDraft?.selectedCustomerDevice ?? null,
   )
-  const [renewalManualDevice, setRenewalManualDevice] = useState(false)
+  const [renewalManualDevice, setRenewalManualDevice] = useState(() => deviceDraft?.renewalManualDevice ?? false)
   const [renewalSerial, setRenewalSerial] = useState(
-    () => deviceDraft?.deviceLines?.[0]?.serialNumber ?? '',
+    () => deviceDraft?.renewalSerial ?? deviceDraft?.deviceLines?.[0]?.serialNumber ?? '',
   )
-  const [renewalSim, setRenewalSim] = useState(() => deviceDraft?.deviceLines?.[0]?.simNumber ?? '')
+  const [renewalSim, setRenewalSim] = useState(() => deviceDraft?.renewalSim ?? deviceDraft?.deviceLines?.[0]?.simNumber ?? '')
   const [renewalUsername, setRenewalUsername] = useState(
-    () => deviceDraft?.deviceLines?.[0]?.username ?? '',
+    () => deviceDraft?.renewalUsername ?? deviceDraft?.deviceLines?.[0]?.username ?? '',
   )
-  const [renewalCustomerLocked, setRenewalCustomerLocked] = useState(false)
+  const [renewalCustomerLocked, setRenewalCustomerLocked] = useState(() => deviceDraft?.renewalCustomerLocked ?? false)
   const [transactionSource, setTransactionSource] = useState<TransactionSource>(
     () => deviceDraft?.transactionSource ?? 'branch',
   )
@@ -261,75 +293,22 @@ export function PosPage() {
   )
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
-  const hasAutoSelectedPromotion = useRef(false)
+  const hasAutoSelectedPromotion = useRef(Boolean(deviceDraft))
   const hydratedRenewalLineRef = useRef<number | null>(null)
-  const skipDefaultFeeOnce = useRef(Boolean(deviceDraft))
-
-  const deviceDraftSnapshot = useMemo<DeviceContractDraft>(
-    () => ({
-      contractKind,
-      sourceTransferInvoice,
-      sourceRenewalCandidate,
-      transactionSource,
-      branchSearch,
-      selectedBranch,
-      distributorSearch,
-      selectedDistributor,
-      salesRepSearch,
-      selectedSalesRep,
-      customerSearch,
-      selectedCustomer,
-      quantity,
-      deviceLines,
-      applyInstallationFee,
-      installationFee,
-      applyTransportationFee,
-      transportationFee,
-      feeDiscountAmount,
-      feeDiscountPercent,
-      contractDate,
-      selectedPromotionId,
-      distributorBalanceAmount,
-    }),
-    [
-      contractKind,
-      sourceTransferInvoice,
-      sourceRenewalCandidate,
-      transactionSource,
-      branchSearch,
-      selectedBranch,
-      distributorSearch,
-      selectedDistributor,
-      salesRepSearch,
-      selectedSalesRep,
-      customerSearch,
-      selectedCustomer,
-      quantity,
-      deviceLines,
-      applyInstallationFee,
-      installationFee,
-      applyTransportationFee,
-      transportationFee,
-      feeDiscountAmount,
-      feeDiscountPercent,
-      contractDate,
-      selectedPromotionId,
-      distributorBalanceAmount,
-    ],
-  )
-
-  useProcedureDraft({
-    id: PROCEDURE_DRAFT_IDS.posDevice,
-    userId: draftUserId,
-    titleAr: 'تعاقد أجهزة',
-    resumePath: '/pos',
-    snapshot: deviceDraftSnapshot,
-    isMeaningful: isDeviceContractDraftMeaningful(deviceDraftSnapshot),
-    enabled: !isEditMode,
-  })
+  const restoredLineKeys = useRef(new Set(deviceDraft?.deviceLines.map((line) => line.key) ?? []))
+  const restoredOwnershipSource = useRef(deviceDraft?.sourceTransferInvoice ?? deviceDraft?.sourceTransferDevice)
+  const restoredRenewalSource = useRef(deviceDraft?.sourceRenewalCandidate)
 
   const resetDeviceForm = () => {
+    setUserEdited(false)
+    setTransferIncludeDisassemblyAndAssembly(false)
+    setTransferPaymentTerm('cash')
+    setTransferDownPayment(0)
+    setTransferInstallmentCount(1)
+    setTransferIntervalType('monthly')
+    setTransferFirstDueDate(new Date().toISOString().split('T')[0])
     setContractKind('new_contract')
+    setSourceTransferDevice(null)
     setSourceTransferInvoice(null)
     setSourceRenewalCandidate(null)
     setSelectedCustomerDevice(null)
@@ -444,14 +423,14 @@ export function PosPage() {
   })
 
   useEffect(() => {
-    if (searchParams.get('contract_kind') === 'subscription_renewal' || renewalLineIdFromUrl) {
+    if (!deviceDraft && (searchParams.get('contract_kind') === 'subscription_renewal' || renewalLineIdFromUrl)) {
       setContractKind('subscription_renewal')
     }
-  }, [searchParams, renewalLineIdFromUrl])
+  }, [searchParams, renewalLineIdFromUrl, deviceDraft])
 
   useEffect(() => {
     const candidate = renewalHydrateQuery.data
-    if (!candidate || !renewalLineIdFromUrl) return
+    if (deviceDraft || !candidate || !renewalLineIdFromUrl) return
     if (hydratedRenewalLineRef.current === renewalLineIdFromUrl) return
 
     hydratedRenewalLineRef.current = renewalLineIdFromUrl
@@ -471,7 +450,7 @@ export function PosPage() {
       setCustomerSearch(candidate.customer_name ?? '')
     }
     setSearchParams({}, { replace: true })
-  }, [renewalHydrateQuery.data, renewalLineIdFromUrl, setSearchParams])
+  }, [renewalHydrateQuery.data, renewalLineIdFromUrl, setSearchParams, deviceDraft])
 
   const activePromotionsQuery = useQuery({
     queryKey: ['pricing', 'promotions', 'active'],
@@ -676,7 +655,7 @@ export function PosPage() {
       }
     }
 
-    if (devices.length === 0 && !sourceRenewalCandidate) {
+    if (devices.length === 0 && !sourceRenewalCandidate && !selectedCustomerDevice) {
       setRenewalManualDevice(true)
       setSelectedCustomerDevice(null)
     }
@@ -740,14 +719,18 @@ export function PosPage() {
   const unitsQuery = useQuery({
     queryKey: ['product-units', 'pos', warehouseId],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
-        params: {
-          per_page: 100,
-          'filter[warehouse_id]': warehouseId,
-          'filter[state]': 'available',
-        },
-      })
-      return data.data
+      const units: ProductUnit[] = []
+      let page = 1
+      let lastPage: number
+      do {
+        const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
+          params: { per_page: 100, page, 'filter[warehouse_id]': warehouseId, 'filter[state]': 'available' },
+        })
+        units.push(...data.data)
+        lastPage = data.last_page
+        page += 1
+      } while (page <= lastPage)
+      return units
     },
     enabled: Boolean(warehouseId),
   })
@@ -810,12 +793,13 @@ export function PosPage() {
       return 0
     }
     const targetRenewalType = deviceLines[0]?.renewalType ?? 'annual'
+    if (deviceDraft?.transferServicePrices && sourceTransferInvoice?.id === deviceDraft.sourceTransferInvoice?.id && sourceTransferDevice?.id === deviceDraft.sourceTransferDevice?.id && targetRenewalType === deviceDraft.deviceLines[0]?.renewalType) return deviceDraft.transferServicePrices.subscriptionUpgradeAmount
     return ownershipTransferLifetimeUpgradeAmount(
       productQuery.data,
       sourceTransferRenewalType,
       targetRenewalType,
     )
-  }, [contractKind, deviceLines, productQuery.data, sourceTransferRenewalType])
+  }, [contractKind, deviceLines, productQuery.data, sourceTransferRenewalType, deviceDraft, sourceTransferInvoice, sourceTransferDevice])
 
   const transferServicesTotal = useMemo(() => {
     const base = ownershipFeeAmount + subscriptionUpgradeAmount
@@ -830,10 +814,11 @@ export function PosPage() {
   ])
 
   useEffect(() => {
+    if (deviceDraft && (!servicesQuery.isSuccess || servicesQuery.isFetching)) return
     if (transferDownPayment > transferServicesTotal) {
       setTransferDownPayment(transferServicesTotal)
     }
-  }, [transferServicesTotal, transferDownPayment])
+  }, [transferServicesTotal, transferDownPayment, deviceDraft, servicesQuery.isSuccess, servicesQuery.isFetching])
 
   useEffect(() => {
     if (isEditMode) return
@@ -871,7 +856,9 @@ export function PosPage() {
               : contractKind === 'ownership_transfer'
                 ? 0
                 : installmentPrice
-        if (existing) {
+        if (existing && restoredLineKeys.current.has(existing.key)) {
+          next.push(existing)
+        } else if (existing) {
           next.push({
             ...existing,
             productUnitId: manualDeviceEntry ? undefined : unit?.id ?? existing.productUnitId,
@@ -912,6 +899,8 @@ export function PosPage() {
       return
     }
 
+    if (restoredOwnershipSource.current && (restoredOwnershipSource.current === sourceTransferInvoice || restoredOwnershipSource.current === sourceTransferDevice)) return
+    restoredOwnershipSource.current = null
     if (sourceTransferInvoice) {
       const sourceLine = sourceTransferInvoice.lines?.find(
         (line) =>
@@ -1053,6 +1042,8 @@ export function PosPage() {
       return
     }
 
+    if (restoredRenewalSource.current && restoredRenewalSource.current === sourceRenewalCandidate) return
+    restoredRenewalSource.current = null
     const renewalType = deviceLines[0]?.renewalType ?? 'annual'
     const price = productQuery.data
       ? resolveGpsUnitPrice(productQuery.data, {
@@ -1175,14 +1166,165 @@ export function PosPage() {
   )
 
   useEffect(() => {
-    if (isEditMode) return
-    if (!servicesQuery.isSuccess) return
-    if (skipDefaultFeeOnce.current) {
-      skipDefaultFeeOnce.current = false
-      return
-    }
+    if (isEditMode || deviceDraft || !servicesQuery.isSuccess) return
     setInstallationFee(defaultInstallationFee)
-  }, [defaultInstallationFee, isEditMode, servicesQuery.isSuccess])
+  }, [defaultInstallationFee, isEditMode, servicesQuery.isSuccess, deviceDraft])
+
+  const transferServicePrices = useMemo(() => ({ ownershipFeeAmount, uninstallFeeAmount, installationFeeAmount, subscriptionUpgradeAmount }), [ownershipFeeAmount, uninstallFeeAmount, installationFeeAmount, subscriptionUpgradeAmount])
+  const deviceDraftSnapshot = useMemo<DeviceContractDraft>(
+    () => ({
+      transferServicePrices,
+      warehouseId: contextRestored ? warehouseId : deviceDraft?.warehouseId ?? warehouseId,
+      contextBranchId: contextRestored ? contextBranchId : deviceDraft?.contextBranchId ?? contextBranchId,
+      contextDepartmentId: contextRestored ? contextDepartmentId : deviceDraft?.contextDepartmentId ?? contextDepartmentId,
+      sourceTransferDevice,
+      selectedCustomerDevice,
+      renewalManualDevice,
+      renewalSerial,
+      renewalSim,
+      renewalUsername,
+      renewalCustomerLocked,
+      transferIncludeDisassemblyAndAssembly,
+      transferPaymentTerm,
+      transferDownPayment,
+      transferInstallmentCount,
+      transferIntervalType,
+      transferFirstDueDate,
+      userEdited,
+
+      contractKind,
+      sourceTransferInvoice,
+      sourceRenewalCandidate,
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      quantity,
+      deviceLines,
+      applyInstallationFee,
+      installationFee,
+      applyTransportationFee,
+      transportationFee,
+      feeDiscountAmount,
+      feeDiscountPercent,
+      contractDate,
+      selectedPromotionId,
+      distributorBalanceAmount,
+    }),
+    [
+      transferServicePrices,
+      contextRestored,
+      deviceDraft,
+      warehouseId,
+      contextBranchId,
+      contextDepartmentId,
+      sourceTransferDevice,
+      selectedCustomerDevice,
+      renewalManualDevice,
+      renewalSerial,
+      renewalSim,
+      renewalUsername,
+      renewalCustomerLocked,
+      transferIncludeDisassemblyAndAssembly,
+      transferPaymentTerm,
+      transferDownPayment,
+      transferInstallmentCount,
+      transferIntervalType,
+      transferFirstDueDate,
+      userEdited,
+      contractKind,
+      sourceTransferInvoice,
+      sourceRenewalCandidate,
+      transactionSource,
+      branchSearch,
+      selectedBranch,
+      distributorSearch,
+      selectedDistributor,
+      salesRepSearch,
+      selectedSalesRep,
+      customerSearch,
+      selectedCustomer,
+      quantity,
+      deviceLines,
+      applyInstallationFee,
+      installationFee,
+      applyTransportationFee,
+      transportationFee,
+      feeDiscountAmount,
+      feeDiscountPercent,
+      contractDate,
+      selectedPromotionId,
+      distributorBalanceAmount,
+    ],
+  )
+
+  const draftMeaningful = isDeviceContractDraftMeaningful(deviceDraftSnapshot) && Boolean(
+    userEdited || selectedCustomer || customerSearch.trim() || selectedDistributor || selectedSalesRep ||
+    sourceTransferInvoice || sourceTransferDevice || sourceRenewalCandidate ||
+    deviceLines.some((line) => line.username.trim() || line.simNumber.trim() || line.technician || line.vehicleType),
+  )
+  useEffect(() => { snapshotRef.current = deviceDraftSnapshot }, [deviceDraftSnapshot])
+  useEffect(() => {
+    if (isEditMode || draftUserId == null || !draftMeaningful || !contextRestored) return
+    const timer = window.setTimeout(() => {
+      if (draftCompleted.current) return
+      try {
+        const saved = useSuspendedPosStore.getState().saveActive(draftUserId, draftIdentity.id, deviceDraftSnapshot, draftIdentity.generation)
+        if (saved) {
+          useProcedureDraftStore.getState().upsertDraft({ id: PROCEDURE_DRAFT_IDS.posDevice, userId: draftUserId, titleAr: 'تعاقد أجهزة', resumePath: '/pos', payload: deviceDraftSnapshot })
+          setDraftError('')
+        }
+      } catch { setDraftError('تعذر حفظ المسودة على المتصفح. تحقق من مساحة التخزين قبل تعليق التعاقد أو مغادرة الصفحة.') }
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [deviceDraftSnapshot, draftMeaningful, draftUserId, draftIdentity, isEditMode, contextRestored])
+  useEffect(() => {
+    const flush = () => {
+      if (isEditMode || draftUserId == null || draftCompleted.current || !snapshotRef.current) return
+      const payload = snapshotRef.current
+      if (!payload.userEdited && !payload.selectedCustomer && !payload.customerSearch.trim() && !payload.sourceTransferInvoice && !payload.sourceRenewalCandidate) return
+      try { useSuspendedPosStore.getState().saveActive(draftUserId, draftIdentity.id, payload, draftIdentity.generation) }
+      catch { /* The visible autosave error keeps the form available; pagehide cannot show a dialog. */ }
+    }
+    window.addEventListener('pagehide', flush)
+    return () => { window.removeEventListener('pagehide', flush); flush() }
+  }, [draftUserId, draftIdentity, isEditMode])
+
+  useEffect(() => {
+    if (!deviceDraft || isEditMode || draftUserId == null) return
+    let cancelled = false
+    const restore = async () => {
+      try {
+        const savedBranchId = deviceDraft.contextBranchId ?? deviceDraft.selectedBranch?.id
+        const savedWarehouseId = deviceDraft.warehouseId
+        const [branchResult, warehouseResult] = await Promise.all([
+          savedBranchId ? api.get<Branch>(`/branches/${savedBranchId}`) : Promise.resolve(null),
+          savedWarehouseId ? api.get<Warehouse>(`/warehouses/${savedWarehouseId}`) : Promise.resolve(null),
+        ])
+        if (cancelled) return
+        const branch = branchResult?.data
+        const warehouse = warehouseResult?.data
+        if (branch && (!canAccessBranch(user, branch) || branch.is_active === false)) throw new Error('الفرع المحفوظ غير متاح لك حاليًا.')
+        if (warehouse && (warehouse.is_active === false || (savedBranchId && warehouse.branch_id !== savedBranchId))) throw new Error('المخزن المحفوظ غير متاح لهذا الفرع.')
+        const context = useAuthStore.getState()
+        useAuthStore.setState({
+          departmentId: branch?.administration_id ?? branch?.department_id ?? deviceDraft.contextDepartmentId ?? context.departmentId,
+          branchId: savedBranchId ?? context.branchId,
+          warehouseId: savedWarehouseId === undefined ? context.warehouseId : savedWarehouseId,
+        })
+        setContextRestored(true)
+      } catch (error) {
+        if (!cancelled) setRestoreContextError(`${getErrorMessage(error)} يمكنك اختيار استخدام الفرع والمخزن الحاليين ثم إعادة اختيار المصدر.`)
+      }
+    }
+    void restore()
+    return () => { cancelled = true }
+  }, [deviceDraft, draftUserId, isEditMode, user])
 
   const checkoutMutation = useMutation({
     mutationFn: async (payload: CheckoutPayload) => {
@@ -1194,6 +1336,11 @@ export function PosPage() {
       return data
     },
     onSuccess: (invoice) => {
+      draftCompleted.current = true
+      if (!isEditMode && draftUserId != null) {
+        try { useSuspendedPosStore.getState().finish(draftUserId, draftIdentity.generation) }
+        catch { window.alert('تم تسجيل التعاقد بنجاح، لكن تعذر إزالة مسودته من المتصفح. لا تسجّلها مرة أخرى.') }
+      }
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['gps-stock'] })
       queryClient.invalidateQueries({ queryKey: ['product-units'] })
@@ -1201,10 +1348,91 @@ export function PosPage() {
       queryClient.invalidateQueries({ queryKey: ['installments'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'renewal-candidates'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoice'] })
-      resetDeviceForm()
+      try { useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId) } catch { /* The completed session cannot restore the old draft. */ }
       navigate(`/contracts/${invoice.id}`)
     },
   })
+
+  const clearLegacyDraft = () => {
+    try { useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId) }
+    catch { /* The persistent session marker prevents an old legacy draft from being restored. */ }
+  }
+  const suspendCurrent = () => {
+    if (isEditMode || draftUserId == null || !draftMeaningful || checkoutMutation.isPending) return
+    try {
+      useSuspendedPosStore.getState().park(draftUserId, draftIdentity.id, deviceDraftSnapshot, draftIdentity.generation)
+      draftCompleted.current = true
+      clearLegacyDraft()
+      setSearchParams({}, { replace: true })
+      onSessionChange()
+    } catch { setDraftError('تعذر حفظ التعاقد المعلق. لم يتم تفريغ الفورم؛ تحقق من مساحة التخزين وحاول مجددًا.') }
+  }
+  const resumeSuspended = (targetId: string) => {
+    if (draftUserId == null || checkoutMutation.isPending) return
+    try {
+      useSuspendedPosStore.getState().resume(draftUserId, targetId, draftMeaningful ? {
+        id: draftIdentity.id, userId: draftUserId, payload: deviceDraftSnapshot,
+      } : null, draftIdentity.generation)
+      draftCompleted.current = true
+      clearLegacyDraft()
+      setSearchParams({}, { replace: true })
+      onSessionChange()
+    } catch { setDraftError('تعذر تبديل التعاقدات. بيانات التعاقد الحالي محفوظة في الفورم؛ تحقق من مساحة التخزين.') }
+  }
+  const clearActiveForm = () => {
+    if (isEditMode) { resetDeviceForm(); return }
+    if (draftUserId == null || checkoutMutation.isPending) return
+    try {
+      useSuspendedPosStore.getState().finish(draftUserId, draftIdentity.generation)
+      draftCompleted.current = true
+      clearLegacyDraft()
+      setSearchParams({}, { replace: true })
+      onSessionChange()
+    } catch { setDraftError('تعذر مسح المسودة من التخزين. لم يتم تفريغ الفورم.') }
+  }
+
+  const [pricesAcknowledged, setPricesAcknowledged] = useState(false)
+  const restoreCustomerQuery = useQuery({
+    queryKey: ['pos-restored-customer', selectedCustomer?.id, draftIdentity.id],
+    queryFn: async () => (await api.get<Customer>(`/customers/${selectedCustomer!.id}`)).data,
+    enabled: Boolean(deviceDraft && !isEditMode && selectedCustomer?.id),
+    staleTime: 0,
+  })
+  const restoreWarehouseQuery = useQuery({
+    queryKey: ['pos-restored-warehouse', warehouseId],
+    queryFn: async () => (await api.get<Warehouse>(`/warehouses/${warehouseId}`)).data,
+    enabled: Boolean(deviceDraft && !isEditMode && warehouseId && contextRestored),
+  })
+  const restoredSourceInvoiceId = sourceTransferInvoice?.id ?? sourceTransferDevice?.sales_invoice_id ?? sourceRenewalCandidate?.sales_invoice_id
+  const restoreSourceQuery = useQuery({
+    queryKey: ['pos-restored-source-invoice', restoredSourceInvoiceId],
+    queryFn: async () => (await api.get<SalesInvoice>(`/sales-invoices/${restoredSourceInvoiceId}`)).data,
+    enabled: Boolean(deviceDraft && !isEditMode && restoredSourceInvoiceId),
+  })
+  const restoration = deviceDraft && !isEditMode ? inspectPosDraftRestoration(deviceDraftSnapshot, {
+    branches: (branchesQuery.data ?? []).filter((branch) => canAccessBranch(user, branch)),
+    warehouses: restoreWarehouseQuery.data ? [restoreWarehouseQuery.data] : [],
+    units: unitsQuery.data ?? [], product: productQuery.data,
+  }) : { issues: [], priceWarnings: [] }
+  if (deviceDraft && !isEditMode && servicesQuery.isSuccess) {
+    if (contractKind === 'new_contract' && applyInstallationFee && Math.abs(installationFee - defaultInstallationFee) > 0.009) restoration.priceWarnings.push(`رسوم التركيب المحفوظة ${installationFee} ج.م؛ الرسوم الحالية ${defaultInstallationFee} ج.م.`)
+    if (contractKind === 'ownership_transfer') {
+      const currentOwnershipFee = Number(ownershipTransferService?.cash_price ?? ownershipTransferService?.default_price ?? 200)
+      if (Math.abs(ownershipFeeAmount - currentOwnershipFee) > 0.009) restoration.priceWarnings.push(`رسوم نقل الملكية المحفوظة ${ownershipFeeAmount} ج.م؛ الرسوم الحالية ${currentOwnershipFee} ج.م.`)
+      if (transferIncludeDisassemblyAndAssembly) {
+        const currentUninstall = Number(uninstallService?.cash_price ?? uninstallService?.default_price ?? 100)
+        const currentInstall = Number(installationServiceForTransfer?.cash_price ?? installationServiceForTransfer?.default_price ?? 500)
+        if (Math.abs(uninstallFeeAmount - currentUninstall) > 0.009 || Math.abs(installationFeeAmount - currentInstall) > 0.009) restoration.priceWarnings.push('رسوم الفك أو التركيب تغيّرت منذ تعليق هذا التعاقد.')
+      }
+    }
+    if (contractKind === 'subscription_renewal' && selectedCustomerDevice && customerDevicesQuery.isSuccess && !customerDevicesQuery.data.some((device) => device.product_unit_id === selectedCustomerDevice.product_unit_id && device.id === selectedCustomerDevice.id)) restoration.issues.push('الجهاز المحفوظ لم يعد ضمن أجهزة العميل المتاحة. أعد اختيار جهاز العميل.')
+    if (restoreSourceQuery.data && ['cancelled', 'returned', 'transferred'].includes(restoreSourceQuery.data.contract_status || '')) restoration.issues.push('التعاقد الأصلي لم يعد متاحًا لإتمام هذه العملية. أعد اختيار المصدر.')
+    if (selectedPromotionId && activePromotionsQuery.isSuccess && !activePromotionsQuery.data.some((promotion) => promotion.id === Number(selectedPromotionId))) restoration.issues.push('العرض المحفوظ لم يعد متاحًا؛ اختر عرضًا آخر أو أزل العرض الحالي.')
+    if (employeesQuery.isSuccess && deviceLines.some((line) => line.technician && !employeesQuery.data.some((employee) => employee.id === line.technician!.id))) restoration.issues.push('أحد الفنيين المختارين لم يعد ضمن الفنيين المتاحين لهذا المصدر. أعد اختياره.')
+  }
+  const restoreChecking = Boolean(deviceDraft && !isEditMode && (!contextRestored || (restoredSourceInvoiceId && restoreSourceQuery.isFetching) || branchesQuery.isFetching || branchesQuery.isPending || servicesQuery.isFetching || servicesQuery.isPending || (warehouseId && restoreWarehouseQuery.isFetching) || productQuery.isFetching || productQuery.isPending || (warehouseId && (unitsQuery.isPending || unitsQuery.isFetching || stockQuery.isFetching)) || (selectedCustomer && restoreCustomerQuery.isFetching)))
+  const restoreUnavailable = Boolean(deviceDraft && !isEditMode && (restoreContextError || restoreSourceQuery.isError || restoreWarehouseQuery.isError || servicesQuery.isError || branchesQuery.isError || productQuery.isError || unitsQuery.isError || restoreCustomerQuery.isError || restoreCustomerQuery.data?.status === 'blocked'))
+  const restoreBlocked = restoreChecking || restoreUnavailable || restoration.issues.length > 0 || (restoration.priceWarnings.length > 0 && !pricesAcknowledged)
 
   const updateDeviceLine = (index: number, line: DeviceLineDraft) => {
     setDeviceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
@@ -1212,7 +1440,7 @@ export function PosPage() {
 
   const handleCheckout = (e: FormEvent) => {
     e.preventDefault()
-    if (checkoutMutation.isPending) return
+    if (checkoutMutation.isPending || restoreBlocked) return
     setSubmitAttempted(true)
     const customerId = selectedCustomer?.id
     const isRenewal = contractKind === 'subscription_renewal'
@@ -1619,7 +1847,7 @@ export function PosPage() {
     undefined
 
   const submitDisabled =
-    checkoutMutation.isPending ||
+    checkoutMutation.isPending || restoreBlocked ||
     !selectedCustomer ||
     !sourceReady ||
     deviceLines.length === 0 ||
@@ -1663,11 +1891,32 @@ export function PosPage() {
       }
       actions={
         <>
-          {!isEditMode ? <MyContractsButton /> : null}
+          {!isEditMode ? <>
+            <button type="button" disabled={!draftMeaningful || checkoutMutation.isPending || !contextRestored} onClick={suspendCurrent} className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-3 py-2 text-sm text-primary disabled:opacity-50"><Icon name="pause_circle" size={20} />تعليق التعاقد</button>
+            <button type="button" disabled={checkoutMutation.isPending} onClick={() => setSuspendedOpen(true)} title="التعاقدات المعلّقة" aria-label={`التعاقدات المعلقة: ${suspended.length}`} className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary disabled:opacity-50"><Icon name="pending_actions" size={20} /><span>المعلّقات</span><span className="rounded-full bg-primary px-2 text-on-primary">{suspended.length}</span></button>
+            <MyContractsButton />
+          </> : null}
           <StartTourButton tourId="pos" />
         </>
       }
     >
+      {draftError && <p role="alert" className="mb-3 rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">{draftError}</p>}
+      {deviceDraft && !isEditMode && (restoreChecking || restoreUnavailable || restoration.issues.length > 0 || restoration.priceWarnings.length > 0) && (
+        <div className="mb-3 space-y-2 rounded-lg border border-tertiary/30 bg-tertiary/10 p-3 text-sm">
+          {restoreChecking && <p>جارٍ التحقق من صلاحية بيانات التعاقد والمخزون والأسعار الحالية...</p>}
+          {restoreUnavailable && <p role="alert">{restoreContextError || 'تعذر التحقق من بعض البيانات المحفوظة أو أنها لم تعد متاحة. اختر البيانات مجددًا أو أعد المحاولة.'}</p>}
+          {!restoreChecking && restoration.issues.map((issue) => <p role="alert" key={issue}>{issue}</p>)}
+          {restoration.priceWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+          {restoration.priceWarnings.length > 0 && <label className="flex items-center gap-2"><input type="checkbox" checked={pricesAcknowledged} onChange={(event) => setPricesAcknowledged(event.target.checked)} />راجعت الأسعار الحالية وأرغب بالاحتفاظ بالأسعار المحفوظة.</label>}
+          {restoration.issues.some((issue) => issue.includes('وحدات المخزون')) && <button type="button" className="text-primary underline" disabled={unitsQuery.isFetching} onClick={() => {
+            const units = unitsQuery.data ?? []
+            setDeviceLines((lines) => lines.map((line, index) => ({ ...line, productUnitId: units[index]?.id, imei: units[index]?.imei, serialNumber: units[index]?.serial_number || '' })))
+            setUserEdited(true)
+          }}>إعادة اختيار وحدات المخزون الحالية (سيتم تحديث السريالات)</button>}
+          {restoreContextError && <button type="button" className="text-primary underline" onClick={() => { setRestoreContextError(''); setContextRestored(true); setSelectedBranch(null); setSelectedDistributor(null); setSelectedSalesRep(null); setTransactionSource('branch'); setUserEdited(true) }}>استخدام الفرع والمخزن الحاليين وإعادة اختيار المصدر</button>}
+          <button type="button" className="ms-3 text-primary underline" onClick={() => { void branchesQuery.refetch(); void stockQuery.refetch(); void unitsQuery.refetch(); void productQuery.refetch(); void servicesQuery.refetch(); if (restoredSourceInvoiceId) void restoreSourceQuery.refetch(); if (warehouseId) void restoreWarehouseQuery.refetch(); if (selectedCustomer) void restoreCustomerQuery.refetch() }}>إعادة التحقق</button>
+        </div>
+      )}
       {isEditMode && editInvoiceQuery.isError ? (
         <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm text-sm text-error">
           تعذر تحميل التعاقد للتعديل.
@@ -1689,7 +1938,7 @@ export function PosPage() {
           لا توجد صلاحية لتعديل هذا التعاقد في حالته الحالية.
         </p>
       ) : null}
-      {isEditMode ? null : <PosContractTypeTabs onClear={resetDeviceForm} />}
+      {isEditMode ? null : <PosContractTypeTabs onClear={clearActiveForm} />}
       <PosContractKindSelector
         value={contractKind}
         onChange={(kind) => {
@@ -1737,6 +1986,7 @@ export function PosPage() {
       <form
         id="pos-checkout-form"
         onSubmit={handleCheckout}
+        onChangeCapture={() => setUserEdited(true)}
         className="pos-form w-full pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
       >
         <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
@@ -2018,6 +2268,25 @@ export function PosPage() {
           actionLabel={isEditMode ? 'حفظ التعديل' : isOwnershipTransfer ? 'إتمام نقل الملكية' : 'إتمام التعاقد'}
         />
       </form>
+      <Modal open={suspendedOpen} onClose={() => { setSuspendedOpen(false); setDeleteSuspendedId(null) }} title="التعاقدات المعلّقة" size="lg">
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto" dir="rtl">
+          <p className="text-xs text-on-surface-variant">محفوظة لهذا المستخدم على هذا المتصفح حتى استكمالها أو حذفها. عند الاستكمال، يُعلّق التعاقد الحالي تلقائيًا.</p>
+          {draftError && <p role="alert" className="text-sm text-error">{draftError}</p>}
+          {!suspended.length && <p className="py-6 text-center text-sm text-on-surface-variant">لا توجد تعاقدات معلّقة.</p>}
+          {suspended.map((entry) => <div key={entry.id} className="rounded-lg border border-outline-variant p-3">
+            <p className="font-bold">{entry.payload.selectedCustomer?.name || entry.payload.customerSearch || 'بدون عميل محدد'}</p>
+            <p className="text-sm text-on-surface-variant">{contractKindLabel(entry.payload.contractKind)} · {entry.payload.deviceLines.length} جهاز · {new Date(entry.updatedAt).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button type="button" disabled={checkoutMutation.isPending} onClick={() => resumeSuspended(entry.id)} className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary">استكمال</button>
+              {deleteSuspendedId !== entry.id ? <button type="button" onClick={() => setDeleteSuspendedId(entry.id)} className="text-sm text-error">حذف</button> : <>
+                <span className="text-sm">حذف هذا التعاقد المعلّق نهائيًا؟</span>
+                <button type="button" className="text-sm font-bold text-error" onClick={() => { try { useSuspendedPosStore.getState().remove(entry.userId, entry.id); setDeleteSuspendedId(null) } catch { setDraftError('تعذر حذف التعاقد من التخزين.') } }}>تأكيد الحذف</button>
+                <button type="button" className="text-sm text-primary" onClick={() => setDeleteSuspendedId(null)}>إلغاء</button>
+              </>}
+            </div>
+          </div>)}
+        </div>
+      </Modal>
       <CustomerCreateModal
         open={addCustomerOpen}
         onClose={() => setAddCustomerOpen(false)}

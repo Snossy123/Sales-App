@@ -16,6 +16,29 @@ import type { CombinerAccessoryLine, CombinerChipId, FeeLineInstance } from '../
 import { PROCEDURE_DRAFT_IDS, readProcedureDraft } from './procedureDraftStore'
 
 export interface DeviceContractDraft {
+  userEdited?: boolean
+  warehouseId?: number | null
+  contextBranchId?: number | null
+  contextDepartmentId?: number | null
+  sourceTransferDevice?: CustomerContractDevice | null
+  selectedCustomerDevice?: CustomerContractDevice | null
+  renewalManualDevice?: boolean
+  renewalSerial?: string
+  renewalSim?: string
+  renewalUsername?: string
+  renewalCustomerLocked?: boolean
+  transferServicePrices?: {
+    ownershipFeeAmount: number
+    uninstallFeeAmount: number
+    installationFeeAmount: number
+    subscriptionUpgradeAmount: number
+  }
+  transferIncludeDisassemblyAndAssembly?: boolean
+  transferPaymentTerm?: 'cash' | 'installment'
+  transferDownPayment?: number
+  transferInstallmentCount?: number
+  transferIntervalType?: 'monthly' | 'weekly'
+  transferFirstDueDate?: string
   contractKind: ContractKind
   sourceTransferInvoice: SalesInvoice | null
   sourceRenewalCandidate: SubscriptionRenewalCandidate | null
