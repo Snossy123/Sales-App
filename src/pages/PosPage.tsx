@@ -1,3 +1,4 @@
+import { PosContextUnavailableError, posContextFailure } from '../lib/posContextFailure'
 import { inspectPosDraftRestoration } from '../lib/posDraftRestoration'
 import { Modal } from '../components/Modal'
 import { useSuspendedPosStore, readActivePosDraft } from '../stores/suspendedPosStore'
@@ -107,10 +108,23 @@ export function PosPage() {
   const { id } = useParams<{ id?: string }>()
   const [params] = useSearchParams()
   const [revision, setRevision] = useState(0)
-  return <PosPageForm key={`${userId}:${id ?? params.get('edit') ?? 'new'}:${revision}`} onSessionChange={() => setRevision((value) => value + 1)} />
+  const [completedContract, setCompletedContract] = useState<{ userId: typeof userId; invoice: SalesInvoice } | null>(null)
+  return <PosPageForm
+    key={`${userId}:${id ?? params.get('edit') ?? 'new'}:${revision}`}
+    lastInvoice={completedContract && completedContract.userId === userId ? completedContract.invoice : null}
+    onSessionChange={() => { setCompletedContract(null); setRevision((value) => value + 1) }}
+    onCheckoutComplete={(invoice) => {
+      setCompletedContract({ userId, invoice })
+      setRevision((value) => value + 1)
+    }}
+  />
 }
 
-function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
+function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
+  onSessionChange: () => void
+  onCheckoutComplete: (invoice: SalesInvoice) => void
+  lastInvoice: SalesInvoice | null
+}) {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -145,6 +159,8 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
   const [userEdited, setUserEdited] = useState(deviceDraft?.userEdited ?? false)
   const [contextRestored, setContextRestored] = useState(!deviceDraft)
   const [restoreContextError, setRestoreContextError] = useState('')
+  const [restoreContextUnavailable, setRestoreContextUnavailable] = useState(false)
+  const [restoreAttempt, setRestoreAttempt] = useState(0)
   const snapshotRef = useRef<DeviceContractDraft | null>(null)
   const draftCompleted = useRef(false)
 
@@ -283,8 +299,7 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
   const [contractDate, setContractDate] = useState(
     () => deviceDraft?.contractDate ?? new Date().toISOString().split('T')[0],
   )
-  const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
-  const [successMsg, setSuccessMsg] = useState('')
+  const successMsg = lastInvoice ? 'تم تسجيل التعاقد بنجاح. يمكنك طباعة العقد من الروابط التالية.' : ''
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>(
     () => deviceDraft?.selectedPromotionId ?? '',
   )
@@ -338,8 +353,6 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
     setSelectedPromotionId('')
     setDistributorBalanceAmount(0)
     setSubmitAttempted(false)
-    setSuccessMsg('')
-    setLastInvoice(null)
     hasAutoSelectedPromotion.current = false
     useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId)
   }
@@ -1296,7 +1309,7 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
   }, [draftUserId, draftIdentity, isEditMode])
 
   useEffect(() => {
-    if (!deviceDraft || isEditMode || draftUserId == null) return
+    if (!deviceDraft || isEditMode || draftUserId == null || contextRestored) return
     let cancelled = false
     const restore = async () => {
       try {
@@ -1309,8 +1322,8 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
         if (cancelled) return
         const branch = branchResult?.data
         const warehouse = warehouseResult?.data
-        if (branch && (!canAccessBranch(user, branch) || branch.is_active === false)) throw new Error('الفرع المحفوظ غير متاح لك حاليًا.')
-        if (warehouse && (warehouse.is_active === false || (savedBranchId && warehouse.branch_id !== savedBranchId))) throw new Error('المخزن المحفوظ غير متاح لهذا الفرع.')
+        if (branch && (!canAccessBranch(user, branch) || branch.is_active === false)) throw new PosContextUnavailableError('الفرع المحفوظ غير متاح لك حاليًا.')
+        if (warehouse && (warehouse.is_active === false || (savedBranchId && warehouse.branch_id !== savedBranchId))) throw new PosContextUnavailableError('المخزن المحفوظ غير متاح لهذا الفرع.')
         const context = useAuthStore.getState()
         useAuthStore.setState({
           departmentId: branch?.administration_id ?? branch?.department_id ?? deviceDraft.contextDepartmentId ?? context.departmentId,
@@ -1319,12 +1332,16 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
         })
         setContextRestored(true)
       } catch (error) {
-        if (!cancelled) setRestoreContextError(`${getErrorMessage(error)} يمكنك اختيار استخدام الفرع والمخزن الحاليين ثم إعادة اختيار المصدر.`)
+        if (!cancelled) {
+          const failure = posContextFailure(error)
+          setRestoreContextError(failure.message)
+          setRestoreContextUnavailable(failure.unavailable)
+        }
       }
     }
     void restore()
     return () => { cancelled = true }
-  }, [deviceDraft, draftUserId, isEditMode, user])
+  }, [deviceDraft, draftUserId, isEditMode, user, restoreAttempt, contextRestored])
 
   const checkoutMutation = useMutation({
     mutationFn: async (payload: CheckoutPayload) => {
@@ -1349,7 +1366,12 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'renewal-candidates'] })
       queryClient.invalidateQueries({ queryKey: ['sales-invoice'] })
       try { useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId) } catch { /* The completed session cannot restore the old draft. */ }
-      navigate(`/contracts/${invoice.id}`)
+      if (isEditMode) {
+        navigate(`/contracts/${invoice.id}`)
+      } else {
+        setSearchParams({}, { replace: true })
+        onCheckoutComplete(invoice)
+      }
     },
   })
 
@@ -1430,7 +1452,7 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
     if (selectedPromotionId && activePromotionsQuery.isSuccess && !activePromotionsQuery.data.some((promotion) => promotion.id === Number(selectedPromotionId))) restoration.issues.push('العرض المحفوظ لم يعد متاحًا؛ اختر عرضًا آخر أو أزل العرض الحالي.')
     if (employeesQuery.isSuccess && deviceLines.some((line) => line.technician && !employeesQuery.data.some((employee) => employee.id === line.technician!.id))) restoration.issues.push('أحد الفنيين المختارين لم يعد ضمن الفنيين المتاحين لهذا المصدر. أعد اختياره.')
   }
-  const restoreChecking = Boolean(deviceDraft && !isEditMode && (!contextRestored || (restoredSourceInvoiceId && restoreSourceQuery.isFetching) || branchesQuery.isFetching || branchesQuery.isPending || servicesQuery.isFetching || servicesQuery.isPending || (warehouseId && restoreWarehouseQuery.isFetching) || productQuery.isFetching || productQuery.isPending || (warehouseId && (unitsQuery.isPending || unitsQuery.isFetching || stockQuery.isFetching)) || (selectedCustomer && restoreCustomerQuery.isFetching)))
+  const restoreChecking = Boolean(deviceDraft && !isEditMode && ((!contextRestored && !restoreContextError) || (restoredSourceInvoiceId && restoreSourceQuery.isFetching) || branchesQuery.isFetching || branchesQuery.isPending || servicesQuery.isFetching || servicesQuery.isPending || (warehouseId && restoreWarehouseQuery.isFetching) || productQuery.isFetching || productQuery.isPending || (warehouseId && (unitsQuery.isPending || unitsQuery.isFetching || stockQuery.isFetching)) || (selectedCustomer && restoreCustomerQuery.isFetching)))
   const restoreUnavailable = Boolean(deviceDraft && !isEditMode && (restoreContextError || restoreSourceQuery.isError || restoreWarehouseQuery.isError || servicesQuery.isError || branchesQuery.isError || productQuery.isError || unitsQuery.isError || restoreCustomerQuery.isError || restoreCustomerQuery.data?.status === 'blocked'))
   const restoreBlocked = restoreChecking || restoreUnavailable || restoration.issues.length > 0 || (restoration.priceWarnings.length > 0 && !pricesAcknowledged)
 
@@ -1913,8 +1935,8 @@ function PosPageForm({ onSessionChange }: { onSessionChange: () => void }) {
             setDeviceLines((lines) => lines.map((line, index) => ({ ...line, productUnitId: units[index]?.id, imei: units[index]?.imei, serialNumber: units[index]?.serial_number || '' })))
             setUserEdited(true)
           }}>إعادة اختيار وحدات المخزون الحالية (سيتم تحديث السريالات)</button>}
-          {restoreContextError && <button type="button" className="text-primary underline" onClick={() => { setRestoreContextError(''); setContextRestored(true); setSelectedBranch(null); setSelectedDistributor(null); setSelectedSalesRep(null); setTransactionSource('branch'); setUserEdited(true) }}>استخدام الفرع والمخزن الحاليين وإعادة اختيار المصدر</button>}
-          <button type="button" className="ms-3 text-primary underline" onClick={() => { void branchesQuery.refetch(); void stockQuery.refetch(); void unitsQuery.refetch(); void productQuery.refetch(); void servicesQuery.refetch(); if (restoredSourceInvoiceId) void restoreSourceQuery.refetch(); if (warehouseId) void restoreWarehouseQuery.refetch(); if (selectedCustomer) void restoreCustomerQuery.refetch() }}>إعادة التحقق</button>
+          {restoreContextUnavailable && <button type="button" className="text-primary underline" onClick={() => { setRestoreContextError(''); setContextRestored(true); setSelectedBranch(null); setSelectedDistributor(null); setSelectedSalesRep(null); setTransactionSource('branch'); setUserEdited(true) }}>استخدام الفرع والمخزن الحاليين وإعادة اختيار المصدر</button>}
+          <button type="button" className="ms-3 text-primary underline" onClick={() => { setRestoreContextError(''); setRestoreContextUnavailable(false); setRestoreAttempt((attempt) => attempt + 1); void branchesQuery.refetch(); void stockQuery.refetch(); void unitsQuery.refetch(); void productQuery.refetch(); void servicesQuery.refetch(); if (restoredSourceInvoiceId) void restoreSourceQuery.refetch(); if (warehouseId) void restoreWarehouseQuery.refetch(); if (selectedCustomer) void restoreCustomerQuery.refetch() }}>إعادة التحقق</button>
         </div>
       )}
       {isEditMode && editInvoiceQuery.isError ? (
