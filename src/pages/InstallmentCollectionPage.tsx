@@ -1,3 +1,4 @@
+import { refreshCollectionData } from '../lib/collectionRefresh'
 import { isAxiosError } from 'axios'
 import { Modal } from '../components/Modal'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -75,7 +76,7 @@ function CollectionDailyStatCards({
   onToggleFollowUp,
   onTogglePaid,
 }: {
-  stats: CollectionDailyStats
+  stats?: CollectionDailyStats
   activeStatus: string
   followUpActive: boolean
   paidActive: boolean
@@ -84,12 +85,12 @@ function CollectionDailyStatCards({
   onTogglePaid: () => void
 }) {
   const cards = [
-    { key: 'postponed', label: collectionStatusLabels.postponed, value: stats.postponed, filter: 'postponed' },
-    { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: 'paid' },
-    { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: 'follow_up' },
-    { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد', value: stats.scheduled_no_answer ?? 0, filter: 'scheduled_no_answer' },
-    { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats.no_answer, filter: 'no_answer' },
-    { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'none' },
+    { key: 'postponed', label: collectionStatusLabels.postponed, value: stats?.postponed ?? '—', filter: 'postponed' },
+    { key: 'paid', label: 'تم الدفع اليوم', value: stats?.paid ?? '—', filter: 'paid' },
+    { key: 'follow_up', label: 'متابعة اليوم', value: stats?.follow_up ?? '—', filter: 'follow_up' },
+    { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد', value: stats?.scheduled_no_answer ?? (stats ? 0 : '—'), filter: 'scheduled_no_answer' },
+    { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats?.no_answer ?? '—', filter: 'no_answer' },
+    { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats?.no_contact ?? '—', filter: 'none' },
   ] as const
 
   return (
@@ -416,14 +417,6 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
-  const emptyDailyStats: CollectionDailyStats = {
-    postponed: 0,
-    paid: 0,
-    follow_up: 0,
-    no_answer: 0,
-    no_contact: 0,
-  }
-
   const dailyStatsQuery = useQuery({
     queryKey: ['collection-daily-stats', selectedBranchId, collectorFilter, userId],
     queryFn: async () => {
@@ -444,6 +437,7 @@ export function InstallmentCollectionPage() {
     {
       'filter[branch_id]': selectedBranchId ?? undefined,
       'filter[ids]': paidInstallmentKey || undefined,
+      'filter[collector_user_id]': collectorFilter || undefined,
       'filter[search]': debouncedCustomerSearch || undefined,
     },
     paidToday && paidInstallmentIds.length > 0,
@@ -694,13 +688,7 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selected?.id),
   })
 
-  const refreshCollectionLists = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['installments'] }),
-      queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] }),
-      queryClient.invalidateQueries({ queryKey: ['collection-follow-ups'] }),
-    ])
-  }
+  const refreshCollectionLists = () => refreshCollectionData(queryClient)
 
   const collectMutation = useMutation<{ id?: number; related_payment_ids?: number[] } | null | undefined, Error, { applyExcessToFollowing?: boolean; clearCollectionAction?: boolean } | void>({
     mutationFn: async (vars) => {
@@ -1106,8 +1094,13 @@ export function InstallmentCollectionPage() {
 
         {selectedBranchId && selectedBranch ? (
           <>
+            {dailyStatsQuery.isFetching && <p role="status" className="mb-2 text-xs text-on-surface-variant">جارٍ تحديث أرقام التحصيل...</p>}
+            {dailyStatsQuery.isError && <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">
+              <span>تعذر تحديث أرقام التحصيل. {dailyStatsQuery.data ? 'الأرقام المعروضة من آخر تحديث ناجح.' : 'الأرقام غير متاحة حاليًا.'}</span>
+              <button type="button" disabled={dailyStatsQuery.isFetching} className="font-bold underline" onClick={() => { void refreshCollectionLists() }}>إعادة المحاولة</button>
+            </div>}
             <CollectionDailyStatCards
-              stats={dailyStatsQuery.data ?? emptyDailyStats}
+              stats={dailyStatsQuery.data}
               activeStatus={collectionStatusFilter}
               followUpActive={followUpToday}
               paidActive={paidToday}
