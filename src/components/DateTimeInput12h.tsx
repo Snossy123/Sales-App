@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Icon } from './Icon'
 import {
   emptyDateTime12hParts,
   formatDatetimeLocal,
@@ -7,7 +9,7 @@ import {
   type DayPeriod,
 } from '../lib/datetime12h'
 
-const inputClass = 'rounded border border-outline-variant px-sm py-2 text-sm'
+const inputClass = 'min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-2 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50'
 const hourOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 const minuteOptions = Array.from({ length: 60 }, (_, index) => index)
 
@@ -18,14 +20,12 @@ interface DateTimeInput12hProps {
   disabled?: boolean
 }
 
-function getParts(value: string): DateTime12hParts {
-  return parseDatetimeLocal(value) ?? emptyDateTime12hParts
-}
-
 export function DateTimeInput12h({ value, onChange, className = '', disabled }: DateTimeInput12hProps) {
-  const parts = getParts(value)
+  const [pendingParts, setPendingParts] = useState<DateTime12hParts>(emptyDateTime12hParts)
+  const parts = parseDatetimeLocal(value) ?? { ...pendingParts, date: '' }
 
   const emit = (next: DateTime12hParts) => {
+    setPendingParts(next)
     if (!next.date) {
       onChange('')
       return
@@ -34,21 +34,26 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
   }
 
   return (
-    <div className={`grid grid-cols-1 gap-xs sm:grid-cols-[minmax(0,1.4fr)_auto_auto_auto] sm:items-center ${className}`}>
+    <div className={`min-w-0 space-y-2 ${className}`}>
       <input
         type="date"
+        aria-label="تاريخ التذكير"
         value={parts.date}
         disabled={disabled}
         onChange={(e) => emit({ ...parts, date: e.target.value })}
         className={`${inputClass} w-full`}
         dir="ltr"
       />
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+          <Icon name="schedule" size={22} />
+        </span>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1" dir="ltr">
         <select
           value={parts.hour}
           disabled={disabled}
           onChange={(e) => emit({ ...parts, hour: Number(e.target.value) })}
-          className={`${inputClass} min-w-[4.5rem]`}
+          className={`${inputClass} w-16 flex-1 text-center tabular-nums`}
           aria-label="الساعة"
         >
           {hourOptions.map((hour) => (
@@ -62,7 +67,7 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
           value={parts.minute}
           disabled={disabled}
           onChange={(e) => emit({ ...parts, minute: Number(e.target.value) })}
-          className={`${inputClass} min-w-[4.5rem]`}
+          className={`${inputClass} w-16 flex-1 text-center tabular-nums`}
           aria-label="الدقيقة"
         >
           {minuteOptions.map((minute) => (
@@ -72,19 +77,22 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
           ))}
         </select>
       </div>
-      <select
-        value={parts.period}
-        disabled={disabled}
-        onChange={(e) => emit({ ...parts, period: e.target.value as DayPeriod })}
-        className={`${inputClass} min-w-[4.5rem]`}
-        aria-label="صباحاً أو مساءً"
-      >
+      <div role="group" aria-label="صباحاً أو مساءً" className="inline-flex shrink-0 overflow-hidden rounded-lg border border-primary/20">
         {(Object.keys(periodLabels) as DayPeriod[]).map((period) => (
-          <option key={period} value={period}>
+          <button
+            key={period}
+            type="button"
+            disabled={disabled}
+            aria-label={period === 'am' ? 'صباحاً' : 'مساءً'}
+            aria-pressed={parts.period === period}
+            onClick={() => emit({ ...parts, period })}
+            className={`min-w-[2.5rem] px-2 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${parts.period === period ? 'bg-primary text-on-primary' : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-high'}`}
+          >
             {periodLabels[period]}
-          </option>
+          </button>
         ))}
-      </select>
+      </div>
+      </div>
     </div>
   )
 }
