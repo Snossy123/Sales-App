@@ -875,9 +875,14 @@ export function InstallmentCollectionGroupedList({
                         {sim || '—'}
                       </ContractMetaCell>
                       {contract.collectionReminderAt ? (
-                        <ContractMetaCell label="التذكير">
-                          {formatDatetime12hDisplay(contract.collectionReminderAt)}
-                        </ContractMetaCell>
+                        <span
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                          title={`موعد التذكير: ${formatDatetime12hDisplay(contract.collectionReminderAt)}`}
+                        >
+                          <Icon name="schedule" size={16} />
+                          <span className="sr-only">موعد التذكير: </span>
+                          <span className="tabular-nums">{formatDatetime12hDisplay(contract.collectionReminderAt)}</span>
+                        </span>
                       ) : null}
                     </div>
                   </div>

@@ -306,6 +306,7 @@ export function InstallmentCollectionPage() {
     () => collectionFocus?.collectionStatusFilter ?? '',
   )
   const [followUpToday, setFollowUpToday] = useState(false)
+  const [completedContracts, setCompletedContracts] = useState(false)
   const [paidToday, setPaidToday] = useState(false)
   const [collectorFilter, setCollectorFilter] = useState(() => collectionFocus?.collectorFilter ?? '')
   const [sortByReminder, setSortByReminder] = useState(() => collectionFocus?.sortByReminder ?? false)
@@ -462,18 +463,26 @@ export function InstallmentCollectionPage() {
   const installmentsQuery = useInstallmentPages(
     {
       'filter[branch_id]': selectedBranchId ?? undefined,
-      'filter[status]': statusFilter || undefined,
-      'filter[collection_status]': collectionStatusFilter || undefined,
-      'filter[collector_user_id]': collectorFilter || undefined,
-      'filter[search]': debouncedCustomerSearch || undefined,
-      'filter[contract_tier]':
-        contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
-          ? contractTierFilter
-          : undefined,
-      'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
-      'filter[parked_follow_up]': followUpToday ? undefined : 0,
-      'filter[follow_up_today]': followUpToday ? 1 : undefined,
-      sort: sortByReminder ? 'reminder' : undefined,
+      ...(completedContracts ? {
+        'filter[status]': 'paid',
+        'filter[fully_paid_contract]': 1,
+        'filter[collector_user_id]': collectorFilter || undefined,
+        'filter[search]': debouncedCustomerSearch || undefined,
+      } : {
+        'filter[status]': statusFilter || undefined,
+        'filter[collection_status]': collectionStatusFilter || (followUpToday ? undefined : 'none'),
+        'filter[collector_user_id]': collectorFilter || undefined,
+        'filter[search]': debouncedCustomerSearch || undefined,
+        'filter[contract_tier]':
+          contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
+            ? contractTierFilter
+            : undefined,
+        'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
+        'filter[unhandled_today]': !collectionStatusFilter && !followUpToday ? 1 : undefined,
+        'filter[parked_follow_up]': followUpToday ? undefined : 0,
+        'filter[follow_up_today]': followUpToday ? 1 : undefined,
+        sort: sortByReminder ? 'reminder' : undefined,
+      }),
     },
     Boolean(selectedBranchId) && !paidToday,
   )
@@ -680,6 +689,14 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selected?.id),
   })
 
+  const refreshCollectionLists = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['installments'] }),
+      queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['collection-follow-ups'] }),
+    ])
+  }
+
   const collectMutation = useMutation<{ id?: number; related_payment_ids?: number[] } | null | undefined, Error, { applyExcessToFollowing?: boolean } | void>({
     mutationFn: async (vars) => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
@@ -705,9 +722,8 @@ export function InstallmentCollectionPage() {
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
-      queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       resetInstallmentProcedure()
@@ -719,8 +735,8 @@ export function InstallmentCollectionPage() {
       const { data } = await api.post(`/installments/reconciliations/${reconciliationId}/close`, {})
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       resetInstallmentProcedure()
     },
   })
@@ -734,8 +750,8 @@ export function InstallmentCollectionPage() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       resetInstallmentProcedure()
     },
   })
@@ -756,21 +772,7 @@ export function InstallmentCollectionPage() {
       return data
     },
     onSuccess: async () => {
-      const reminderIsFuture =
-        Boolean(collectionReminderAt) && new Date(collectionReminderAt).getTime() > Date.now()
-      const installmentId = selected?.id
-      const invoiceId = selected?.sales_invoice_id
-      await queryClient.invalidateQueries({ queryKey: ['installments'] })
-      await queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
-      if (installmentId) {
-        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', installmentId] })
-      }
-      if (invoiceId) {
-        await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', invoiceId] })
-      }
-      if (reminderIsFuture) {
-        setShowFollowUps(true)
-      }
+      await refreshCollectionLists()
       resetInstallmentProcedure()
     },
   })
@@ -792,11 +794,8 @@ export function InstallmentCollectionPage() {
       return data
     },
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ['installments'] })
-      await queryClient.invalidateQueries({ queryKey: ['collection-daily-stats'] })
-      await queryClient.invalidateQueries({
-        queryKey: ['collection-follow-ups', 'installment', variables.installmentId],
-      })
+      await refreshCollectionLists()
+      if (selected?.id === variables.installmentId) resetInstallmentProcedure()
     },
   })
 
@@ -808,8 +807,8 @@ export function InstallmentCollectionPage() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
@@ -829,8 +828,8 @@ export function InstallmentCollectionPage() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       if (selected?.sales_invoice_id) {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
@@ -860,14 +859,13 @@ export function InstallmentCollectionPage() {
       return data
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['installments'] })
+      await refreshCollectionLists()
       if (selected?.id) {
         await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', 'installment', selected.id] })
       }
       if (selected?.sales_invoice_id) {
         await queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
-      setShowFollowUps(true)
       resetInstallmentProcedure()
     },
   })
@@ -881,8 +879,8 @@ export function InstallmentCollectionPage() {
       )
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       resetInstallmentProcedure()
     },
   })
@@ -901,8 +899,8 @@ export function InstallmentCollectionPage() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
+    onSuccess: async () => {
+      await refreshCollectionLists()
       queryClient.invalidateQueries({ queryKey: ['collection-assignments'] })
     },
   })
@@ -952,7 +950,7 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
   }
 
-  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all' || followUpToday || paidToday)
+  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all' || followUpToday || paidToday || completedContracts)
   const activeFilterCount = [
     customerSearch,
     statusFilter,
@@ -966,6 +964,7 @@ export function InstallmentCollectionPage() {
     localStorage.setItem(COLLECTION_CHROME_STORAGE_KEY, String(showChrome))
   }, [showChrome])
   const clearFilters = () => {
+    setCompletedContracts(false)
     setCustomerSearch('')
     setStatusFilter('')
     setCollectionStatusFilter('')
@@ -1100,18 +1099,21 @@ export function InstallmentCollectionPage() {
               followUpActive={followUpToday}
               paidActive={paidToday}
               onSelectStatus={(status) => {
+                setCompletedContracts(false)
                 setFollowUpToday(false)
                 setPaidToday(false)
                 setCollectionStatusFilter(status)
                 setSelected(null)
               }}
               onToggleFollowUp={() => {
+                setCompletedContracts(false)
                 setFollowUpToday((active) => !active)
                 setPaidToday(false)
                 setCollectionStatusFilter('')
                 setSelected(null)
               }}
               onTogglePaid={() => {
+                setCompletedContracts(false)
                 setPaidToday((active) => !active)
                 setFollowUpToday(false)
                 setCollectionStatusFilter('')
@@ -1140,6 +1142,22 @@ export function InstallmentCollectionPage() {
                 />
               </div>
               <div className="flex shrink-0 items-center gap-sm">
+                <button
+                  type="button"
+                  title="العقود المسددة بالكامل"
+                  aria-label="عرض العقود المسددة بالكامل"
+                  aria-pressed={completedContracts}
+                  onClick={() => {
+                    setCompletedContracts((active) => !active)
+                    setPaidToday(false)
+                    setFollowUpToday(false)
+                    setSelected(null)
+                  }}
+                  className={`inline-flex h-9 items-center gap-1 rounded-lg border px-2 text-sm ${completedContracts ? 'border-primary bg-primary text-on-primary' : 'border-primary/30 bg-primary/10 text-primary'}`}
+                >
+                  <Icon name="task_alt" size={18} />
+                  <span>مسددة بالكامل</span>
+                </button>
                 <button
                   type="button"
                   aria-expanded={showChrome}
@@ -1188,7 +1206,7 @@ export function InstallmentCollectionPage() {
                       sortByReminder,
                     })
                   }
-                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}`}
+                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
@@ -1205,7 +1223,9 @@ export function InstallmentCollectionPage() {
                       : null
                   }
                   emptyMessage={
-                    paidToday
+                    completedContracts
+                      ? 'لا توجد عقود مسددة بالكامل'
+                      : paidToday
                       ? 'لا توجد عقود تم دفعها اليوم'
                       : followUpToday
                         ? 'لا توجد عقود تحتاج متابعة اليوم'
