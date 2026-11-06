@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
 import type { AdminUser, CollectionPaymentAccount, Distributor, Employee } from '../../api/types'
 import { CollapsibleSection } from '../CollapsibleSection'
+import { todayReminderDatetime } from '../../lib/datetime12h'
+import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
 import { DateTimeInput12h } from '../DateTimeInput12h'
 import { Icon } from '../Icon'
 import { InsightBanner } from '../InsightBanner'
@@ -599,7 +601,13 @@ export function InstallmentCollectionPanel({
           <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
           <select
             value={collectionStatus}
-            onChange={(e) => onCollectionStatusChange(e.target.value)}
+            onChange={(e) => {
+              const status = e.target.value
+              onCollectionStatusChange(status)
+              if (status === 'new_payment_date' && !collectionReminderAt) {
+                onCollectionReminderAtChange(todayReminderDatetime(useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'))
+              }
+            }}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
           >
             <option value="">—</option>
@@ -612,10 +620,7 @@ export function InstallmentCollectionPanel({
           <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
           <DateTimeInput12h
             value={collectionReminderAt}
-            onChange={(value) => {
-              onCollectionReminderAtChange(value)
-              if (value && !collectionStatus) onCollectionStatusChange('new_payment_date')
-            }}
+            onChange={onCollectionReminderAtChange}
             className="mb-sm"
           />
           <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
@@ -626,12 +631,14 @@ export function InstallmentCollectionPanel({
             rows={2}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
           />
+          {collectionStatus === 'new_payment_date' && !collectionReminderAt && <p role="alert" className="mb-sm text-sm text-error">حدد تاريخ التذكير لحفظ الموعد الجديد.</p>}
           {metadataMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(metadataMutation.error)}</p>}
           <button
             type="button"
             onClick={() => metadataMutation.mutate()}
             disabled={
               metadataMutation.isPending ||
+              (collectionStatus === 'new_payment_date' && !collectionReminderAt) ||
               !canCollectPayment ||
               !hasCollectionFollowUpDraft({
                 collectionStatus,

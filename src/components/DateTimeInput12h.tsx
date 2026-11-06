@@ -44,6 +44,7 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
         className={`${inputClass} w-full`}
         dir="ltr"
       />
+      {!parts.date && <p className="text-xs text-on-surface-variant">لم يتم اختيار تاريخ التذكير بعد.</p>}
       {parts.date && <p className="text-xs text-on-surface-variant" aria-live="polite">
         موعد التذكير: {new Date(`${parts.date}T12:00`).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric', numberingSystem: 'latn' })}
       </p>}

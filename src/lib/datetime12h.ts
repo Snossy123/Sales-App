@@ -77,3 +77,12 @@ export const emptyDateTime12hParts: DateTime12hParts = {
   minute: 0,
   period: 'am',
 }
+
+/** A real datetime-local value for today's reminder in the organization's timezone. */
+export function todayReminderDatetime(timeZone = 'Africa/Cairo', now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)!.value
+  return `${part('year')}-${part('month')}-${part('day')}T00:00`
+}

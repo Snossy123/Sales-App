@@ -5,6 +5,7 @@ import {
   parseDatetimeLocal,
   to12HourParts,
   to24Hour,
+  todayReminderDatetime,
 } from './datetime12h'
 
 describe('datetime12h', () => {
@@ -34,6 +35,12 @@ describe('datetime12h', () => {
     expect(
       formatDatetimeLocal({ date: '2026-03-15', hour: 12, minute: 5, period: 'am' }),
     ).toBe('2026-03-15T00:05')
+  })
+
+  it('fills a real reminder datetime using the organization day around Cairo midnight', () => {
+    expect(todayReminderDatetime('Africa/Cairo', new Date('2026-11-06T21:59:59Z'))).toBe('2026-11-06T00:00')
+    expect(todayReminderDatetime('Africa/Cairo', new Date('2026-11-06T22:00:00Z'))).toBe('2026-11-07T00:00')
+    expect(todayReminderDatetime('UTC', new Date('2026-11-06T22:00:00Z'))).toBe('2026-11-06T00:00')
   })
 
   it('displays empty values as an em dash', () => {
