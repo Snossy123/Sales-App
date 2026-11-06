@@ -14,15 +14,22 @@ import { TextArea } from '../ui/TextArea'
 import { useAuthStore } from '../../stores/authStore'
 
 const EXPENSE_TYPES = [
-  { value: 'petty_cash', label: 'نثرية' },
-  { value: 'distributor_payout', label: 'صرف عمولة' },
-  { value: 'employee_debt', label: 'مديونية موظف' },
-]
+  { value: 'petty_cash', label: 'مصروفات نثرية' },
+  { value: 'distributor_payout', label: 'صرف عمولة الموزع' },
+  { value: 'employee_payout', label: 'صرف عمولة الموظف / نسبة تركيب خارجي' },
+];
 
 interface ExpenseRequestFormProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
+}
+
+type ExpenseContract = {
+  id: number
+  invoice_number: string
+  invoice_date: string
+  customer?: { name: string } | null
 }
 
 type ExpenseDraft = {
@@ -32,6 +39,7 @@ type ExpenseDraft = {
   branchId: number | ''
   distributorId: number | ''
   employeeId: number | ''
+  contractIds: number[]
 }
 
 function distributorLabel(distributor: Distributor) {
@@ -44,7 +52,9 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
   const userId = user?.id ?? null
   const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
   const [expenseType, setExpenseType] = useState(() =>
-    saved?.expenseType === 'operating' ? 'distributor_payout' : (saved?.expenseType ?? 'petty_cash'),
+    saved?.expenseType === 'operating' ? 'distributor_payout'
+      : saved?.expenseType === 'employee_debt' ? 'employee_payout'
+      : (saved?.expenseType ?? 'petty_cash'),
   )
   const [amount, setAmount] = useState(() => saved?.amount ?? '')
   const [notes, setNotes] = useState(() => saved?.notes ?? '')
@@ -54,9 +64,11 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
   const [distributorId, setDistributorId] = useState<number | ''>(() => saved?.distributorId ?? '')
   const [employeeId, setEmployeeId] = useState<number | ''>(() => saved?.employeeId ?? '')
 
+  const [contractIds, setContractIds] = useState<number[]>(() => saved?.contractIds ?? [])
+
   const expenseDraftSnapshot = useMemo<ExpenseDraft>(
-    () => ({ expenseType, amount, notes, branchId, distributorId, employeeId }),
-    [expenseType, amount, notes, branchId, distributorId, employeeId],
+    () => ({ expenseType, amount, notes, branchId, distributorId, employeeId, contractIds }),
+    [expenseType, amount, notes, branchId, distributorId, employeeId, contractIds],
   )
 
   useEffect(() => {
@@ -76,6 +88,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
         notes.trim() ||
         distributorId ||
         employeeId ||
+        contractIds.length > 0 ||
         expenseType !== 'petty_cash',
     ),
     enabled: open,
@@ -109,7 +122,26 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data.data ?? []
     },
-    enabled: open && expenseType === 'employee_debt' && Boolean(branchId),
+    enabled: open && expenseType === 'employee_payout' && Boolean(branchId),
+  })
+
+  const contractsQuery = useQuery({
+    queryKey: ['sales-invoices', 'expense-form', branchId],
+    queryFn: async () => {
+      const contracts: ExpenseContract[] = []
+      let page = 1
+      let lastPage = 1
+      do {
+        const { data } = await api.get<PaginatedResponse<ExpenseContract>>('/sales-invoices', {
+          params: { per_page: 100, page, 'filter[branch_id]': branchId },
+        })
+        contracts.push(...data.data)
+        lastPage = data.last_page
+        page += 1
+      } while (page <= lastPage)
+      return contracts
+    },
+    enabled: open && Boolean(branchId),
   })
 
   const submitMutation = useMutation({
@@ -121,6 +153,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
         notes: notes || undefined,
         distributor_id: distributorId || undefined,
         employee_id: employeeId || undefined,
+        contract_ids: contractIds,
       })
       return data
     },
@@ -131,12 +164,13 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       setNotes('')
       setDistributorId('')
       setEmployeeId('')
+      setContractIds([])
       onSuccess?.()
     },
   })
 
   const needsDistributor = expenseType === 'distributor_payout'
-  const needsEmployee = expenseType === 'employee_debt'
+  const needsEmployee = expenseType === 'employee_payout'
   const canSubmit =
     Boolean(branchId && amount) &&
     (!needsDistributor || Boolean(distributorId)) &&
@@ -171,6 +205,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
             value={branchId}
             onChange={(e) => {
               setBranchId(e.target.value ? Number(e.target.value) : '')
+              setContractIds([])
               setDistributorId('')
               setEmployeeId('')
             }}
@@ -225,6 +260,35 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
+        </div>
+        <div>
+          <details className="rounded-lg border border-outline-variant">
+            <summary className="cursor-pointer px-3 py-2 text-sm">
+              العقود المرتبطة بالمصروف ({contractIds.length})
+            </summary>
+            <div className="max-h-60 space-y-2 overflow-y-auto px-3 pb-3">
+              {contractsQuery.isPending && branchId && <p className="text-sm">جارٍ تحميل العقود...</p>}
+              {contractsQuery.isError && (
+                <p role="alert" className="text-sm text-error">{getErrorMessage(contractsQuery.error)}</p>
+              )}
+              {!branchId && <p className="text-sm">اختر الفرع أولاً</p>}
+              {contractsQuery.isSuccess && contractsQuery.data.length === 0 && (
+                <p className="text-sm">لا توجد عقود لهذا الفرع</p>
+              )}
+              {(contractsQuery.data ?? []).map((contract) => (
+                <label key={contract.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={contractIds.includes(contract.id)}
+                    onChange={(event) => setContractIds((ids) => event.target.checked
+                      ? [...ids, contract.id]
+                      : ids.filter((id) => id !== contract.id))}
+                  />
+                  <span>{contract.invoice_number} - {contract.customer?.name ?? 'بدون عميل'} - {contract.invoice_date?.slice(0, 10)}</span>
+                </label>
+              ))}
+            </div>
+          </details>
         </div>
         <div>
           <label className="mb-1 block text-sm">ملاحظات / السبب</label>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { PaginatedResponse } from '../api/types'
@@ -29,7 +30,7 @@ const TYPE_LABELS: Record<string, string> = {
   operating: 'تشغيل',
   petty_cash: 'نثرية',
   distributor_payout: 'صرف عمولة',
-  employee_debt: 'مديونية موظف',
+  employee_payout: 'صرف عمولة الموظف / نسبة تركيب خارجي',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -69,7 +70,11 @@ export function ExpenseNewPage() {
       {
         key: 'ref',
         header: 'المرجع',
-        render: (row: ExpenseRow) => row.reference_number ?? `#${row.id}`,
+        render: (row: ExpenseRow) => (
+          <Link to={`/review/expenses/${row.id}`} className="text-primary hover:underline">
+            {row.reference_number ?? `#${row.id}`}
+          </Link>
+        ),
       },
       {
         key: 'type',

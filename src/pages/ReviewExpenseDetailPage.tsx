@@ -19,13 +19,19 @@ interface ExpenseDetail {
   employee?: { name?: string }
   distributor?: { name?: string }
   creator?: { name?: string }
+  contracts?: Array<{
+    id: number
+    invoice_number?: string
+    invoice_date?: string | null
+    customer?: { name?: string } | null
+  }>
 }
 
 const TYPE_LABELS: Record<string, string> = {
   operating: 'تشغيل',
   petty_cash: 'نثرية',
   distributor_payout: 'صرف عمولة',
-  employee_debt: 'مديونية موظف',
+  employee_payout: 'صرف عمولة الموظف / نسبة تركيب خارجي',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -122,6 +128,37 @@ export function ReviewExpenseDetailPage() {
                 <dd>{expense.notes ?? '—'}</dd>
               </div>
             </dl>
+            <section aria-labelledby="expense-contracts-heading" className="space-y-2">
+              <h2 id="expense-contracts-heading" className="text-sm font-medium">العقود المرتبطة بالمصروف</h2>
+              {expense.contracts?.length ? (
+                <div className="overflow-x-auto rounded-lg border border-outline-variant">
+                  <table className="w-full text-start text-sm">
+                    <thead className="bg-surface-container-low">
+                      <tr>
+                        <th scope="col" className="p-3 text-start">رقم العقد</th>
+                        <th scope="col" className="p-3 text-start">اسم العميل</th>
+                        <th scope="col" className="p-3 text-start">تاريخ العقد</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expense.contracts.map((contract) => (
+                        <tr key={contract.id} className="border-t border-outline-variant">
+                          <td className="p-3">
+                            <Link to={`/contracts/${contract.id}`} className="text-primary hover:underline">
+                              {contract.invoice_number || `#${contract.id}`}
+                            </Link>
+                          </td>
+                          <td className="p-3">{contract.customer?.name ?? '—'}</td>
+                          <td className="p-3">{contract.invoice_date?.slice(0, 10) || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-on-surface-variant">لا توجد عقود مرتبطة بهذا المصروف</p>
+              )}
+            </section>
             {pending && canApprove && (
               <div className="flex gap-2 pt-2">
                 <button

@@ -33,7 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   operating: 'تشغيل',
   petty_cash: 'نثرية',
   distributor_payout: 'صرف عمولة',
-  employee_debt: 'مديونية موظف',
+  employee_payout: 'صرف عمولة الموظف / نسبة تركيب خارجي',
 }
 
 const STATUS_LABELS: Record<string, string> = {

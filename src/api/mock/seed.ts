@@ -109,7 +109,7 @@ export interface DemoPaymentVerificationLog {
 export interface MockExpenseRequest {
   id: number
   reference_number: string
-  expense_type: 'operating' | 'petty_cash' | 'distributor_payout' | 'employee_debt'
+  expense_type: 'operating' | 'petty_cash' | 'distributor_payout' | 'employee_payout'
   amount: number
   status: 'pending' | 'approved' | 'rejected' | 'paid'
   branch_id: number
