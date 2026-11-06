@@ -54,6 +54,7 @@ import { InstallmentCollectionPage } from '../pages/InstallmentCollectionPage'
 import { PaymentReceiptPrintPage } from '../pages/PaymentReceiptPrintPage'
 import { PaymentsPage } from '../pages/PaymentsPage'
 import { FaqPage } from '../pages/FaqPage'
+import { UserManualPage } from '../pages/UserManualPage'
 import { MyProfilePage } from '../pages/MyProfilePage'
 import { FeedbackPage } from '../pages/FeedbackPage'
 import { PromotionsPage } from '../modules/pricing/pages/PromotionsPage'
@@ -265,6 +266,7 @@ export function AppRoutes() {
             <Route path="installments/assignments" element={<CollectionAssignmentsPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="help/faq" element={<FaqPage />} />
+            <Route path="help/manual" element={<UserManualPage />} />
             <Route path="profile" element={<MyProfilePage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="feedback" element={<FeedbackPage />} />
