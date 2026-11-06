@@ -1285,7 +1285,10 @@ export function InstallmentCollectionPage() {
                 collectionStatus={collectionStatus}
                 onCollectionStatusChange={setCollectionStatus}
                 collectionReminderAt={collectionReminderAt}
-                onCollectionReminderAtChange={setCollectionReminderAt}
+                onCollectionReminderAtChange={(value) => {
+                  setCollectionReminderAt(value)
+                  if (value) setCollectionStatus('new_payment_date')
+                }}
                 collectionNotes={collectionNotes}
                 onCollectionNotesChange={setCollectionNotes}
                 deferDate={deferDate}
