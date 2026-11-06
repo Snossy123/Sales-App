@@ -30,6 +30,7 @@ import { useAuthStore } from '../stores/authStore'
 type InventoryView = 'custody' | 'log'
 
 interface BranchInventoryResponse {
+  sellable_stock_count?: number
   units: ProductUnit[]
   grouped: {
     new: ProductUnit[]
@@ -172,6 +173,7 @@ export function BranchInventoryPage() {
   const units = useMemo(() => query.data?.units ?? [], [query.data])
   const vouchers = useMemo(() => vouchersQuery.data ?? [], [vouchersQuery.data])
 
+  const sellableStockCount = query.data?.sellable_stock_count ?? 0
   const bucketCounts = useMemo(() => {
     const counts = Object.fromEntries(CUSTODY_BUCKET_OPTIONS.map((option) => [option.value, 0])) as Record<
       string,
@@ -380,6 +382,7 @@ export function BranchInventoryPage() {
       {view === 'custody' && (
         <>
           <div className="mb-md grid grid-cols-2 gap-md lg:grid-cols-4">
+            <KpiCard label="أجهزة متاحة للبيع" value={query.isSuccess ? sellableStockCount : '—'} icon="inventory_2" />
             {CUSTODY_BUCKET_OPTIONS.map((option) => {
               const selected = bucketFilter === option.value
               return (
