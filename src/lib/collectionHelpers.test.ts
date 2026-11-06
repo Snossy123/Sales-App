@@ -275,6 +275,18 @@ describe('collectionHelpers', () => {
     expect(filterRowsWithoutParkedFollowUp(rows, now).map((row) => row.id)).toEqual([1, 2, 3])
   })
 
+  it('classifies a reminder-only appointment as a new payment date, including midnight', () => {
+    expect(buildCollectionFollowUpPayload({
+      collectionStatus: '', collectionReminderAt: '2026-11-06T00:00', collectionNotes: '',
+    })).toEqual({ collection_status: 'new_payment_date', collection_reminder_at: '2026-11-06T00:00' })
+    expect(buildCollectionFollowUpPayload({
+      collectionStatus: 'no_answer', collectionReminderAt: '2026-11-06T00:00', collectionNotes: '',
+    }).collection_status).toBe('no_answer')
+    expect(buildCollectionFollowUpPayload({
+      collectionStatus: '', collectionReminderAt: '', collectionNotes: 'ملاحظة فقط',
+    })).toEqual({ collection_notes: 'ملاحظة فقط' })
+  })
+
   it('builds a follow-up payload from filled fields only', () => {
     expect(
       buildCollectionFollowUpPayload({

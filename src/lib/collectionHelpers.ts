@@ -311,6 +311,8 @@ export function buildCollectionFollowUpPayload(input: {
   }
   if (input.collectionReminderAt) {
     payload.collection_reminder_at = input.collectionReminderAt
+    // A new appointment replaces an old no-answer/postponed classification.
+    if (!input.collectionStatus) payload.collection_status = 'new_payment_date'
   }
   if (input.collectionNotes.trim()) {
     payload.collection_notes = input.collectionNotes.trim()

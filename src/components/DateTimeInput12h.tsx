@@ -44,6 +44,9 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
         className={`${inputClass} w-full`}
         dir="ltr"
       />
+      {parts.date && <p className="text-xs text-on-surface-variant" aria-live="polite">
+        موعد التذكير: {new Date(`${parts.date}T12:00`).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric', numberingSystem: 'latn' })}
+      </p>}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
           <Icon name="schedule" size={22} />

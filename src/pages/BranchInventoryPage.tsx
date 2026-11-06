@@ -99,8 +99,11 @@ export function BranchInventoryPage() {
   const canDelete = userCanPerform(user, 'inventory.branch.delete')
   const [unitEditor, setUnitEditor] = useState<ProductUnit | 'new' | null>(null)
   const [deleteUnit, setDeleteUnit] = useState<ProductUnit | null>(null)
-  const canReceive = userCanPerform(user, 'inventory.branch.receive')
-  const canIssue = userCanPerform(user, 'inventory.branch.issue')
+  const canReceive = userCanPerform(user, 'inventory.branch.receive.add')
+  const canIssue = userCanPerform(user, 'inventory.branch.issue.add')
+  const canViewReceipts = userCanPerform(user, 'inventory.branch.receive.view')
+  const canViewIssues = userCanPerform(user, 'inventory.branch.issue.view')
+  const canViewVouchers = canViewReceipts || canViewIssues
   const canMarkVisit = canReceive || userCanPerform(user, 'inventory.branch.maintenance')
   const queryClient = useQueryClient()
   const refreshInventory = () => {
@@ -147,7 +150,7 @@ export function BranchInventoryPage() {
   })
 
   const vouchersQuery = useQuery({
-    queryKey: ['custody-vouchers', user?.branch_id],
+    queryKey: ['custody-vouchers', user?.id, user?.branch_id, canViewReceipts, canViewIssues],
     queryFn: async () => {
       const params: Record<string, number> = { per_page: 100 }
       if (user?.branch_id) params.branch_id = user.branch_id
@@ -156,11 +159,11 @@ export function BranchInventoryPage() {
       })
       return data.data ?? []
     },
-    enabled: Boolean(user),
+    enabled: Boolean(user) && canViewVouchers,
   })
 
   const unitHistoryQuery = useQuery({
-    queryKey: ['custody-vouchers', 'unit', selectedUnit?.id],
+    queryKey: ['custody-vouchers', 'unit', user?.id, selectedUnit?.id, canViewReceipts, canViewIssues],
     queryFn: async () => {
       const vouchers: CustodyVoucher[] = []
       let page = 1
@@ -175,7 +178,7 @@ export function BranchInventoryPage() {
       } while (page <= lastPage)
       return vouchers
     },
-    enabled: selectedUnit != null,
+    enabled: selectedUnit != null && canViewVouchers,
   })
 
   const onVisibleRowsChange = useCallback((rows: ProductUnit[]) => {
@@ -378,7 +381,7 @@ export function BranchInventoryPage() {
         {(
           [
             { id: 'custody' as const, label: 'العهدة' },
-            { id: 'log' as const, label: 'السجل' },
+            ...(canViewVouchers ? [{ id: 'log' as const, label: 'السجل' }] : []),
           ]
         ).map((tab) => (
           <button
@@ -586,7 +589,7 @@ export function BranchInventoryPage() {
         </>
       )}
 
-      {view === 'log' && (
+      {view === 'log' && canViewVouchers && (
         <>
           <FilterBar
             search={logSearch}
@@ -722,7 +725,7 @@ export function BranchInventoryPage() {
                 error={unitHistoryQuery.error}
               >
                 <div className="overflow-x-auto rounded-lg border border-outline-variant">
-                  <DeviceHistoryTable vouchers={unitHistoryQuery.data ?? []} />
+                  {canViewVouchers && <DeviceHistoryTable vouchers={unitHistoryQuery.data ?? []} />}
                 </div>
               </AsyncState>
             </div>

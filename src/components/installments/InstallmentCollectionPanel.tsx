@@ -612,7 +612,10 @@ export function InstallmentCollectionPanel({
           <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
           <DateTimeInput12h
             value={collectionReminderAt}
-            onChange={onCollectionReminderAtChange}
+            onChange={(value) => {
+              onCollectionReminderAtChange(value)
+              if (value && !collectionStatus) onCollectionStatusChange('new_payment_date')
+            }}
             className="mb-sm"
           />
           <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
@@ -623,6 +626,7 @@ export function InstallmentCollectionPanel({
             rows={2}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
           />
+          {metadataMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(metadataMutation.error)}</p>}
           <button
             type="button"
             onClick={() => metadataMutation.mutate()}

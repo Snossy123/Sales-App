@@ -61,8 +61,14 @@ export const INVENTORY_MANAGE_REPLACEMENTS = [
   'inventory.branch.add',
   'inventory.branch.edit',
   'inventory.branch.delete',
-  'inventory.branch.receive',
-  'inventory.branch.issue',
+  'inventory.branch.receive.view',
+  'inventory.branch.receive.add',
+  'inventory.branch.receive.edit',
+  'inventory.branch.receive.delete',
+  'inventory.branch.issue.view',
+  'inventory.branch.issue.add',
+  'inventory.branch.issue.edit',
+  'inventory.branch.issue.delete',
   'inventory.branch.maintenance',
   'accessory_stock.view',
   'accessory_stock.add',
@@ -238,8 +244,14 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'inventory.branch.add', module: 'inventory', category: 'add', label: 'إضافة جهاز لمخزون الفرع', description: 'تسجيل جهاز في مخزن الفرع' },
   { key: 'inventory.branch.edit', module: 'inventory', category: 'edit', label: 'تعديل أجهزة مخزون الفرع', description: 'تعديل بيانات الجهاز وتصنيفه' },
   { key: 'inventory.branch.delete', module: 'inventory', category: 'delete', label: 'حذف أجهزة مخزون الفرع', description: 'حذف الأجهزة غير المرتبطة بعقود أو حركات مسجلة' },
-  { key: 'inventory.branch.receive', module: 'inventory', category: 'other', label: 'إذن استلام', description: 'استلام جهاز عميل في عهدة الفرع' },
-  { key: 'inventory.branch.issue', module: 'inventory', category: 'other', label: 'إذن صرف', description: 'صرف جهاز من عهدة الفرع' },
+  { key: 'inventory.branch.receive.view', module: 'inventory', category: 'view', label: 'عرض إذن الاستلام', description: 'عرض أذون الاستلام' },
+  { key: 'inventory.branch.receive.add', module: 'inventory', category: 'add', label: 'إضافة إذن الاستلام', description: 'إضافة أذون الاستلام' },
+  { key: 'inventory.branch.receive.edit', module: 'inventory', category: 'edit', label: 'تعديل إذن الاستلام', description: 'تعديل أذون الاستلام' },
+  { key: 'inventory.branch.receive.delete', module: 'inventory', category: 'delete', label: 'حذف إذن الاستلام', description: 'حذف أذون الاستلام' },
+  { key: 'inventory.branch.issue.view', module: 'inventory', category: 'view', label: 'عرض إذن الصرف', description: 'عرض أذون الصرف' },
+  { key: 'inventory.branch.issue.add', module: 'inventory', category: 'add', label: 'إضافة إذن الصرف', description: 'إضافة أذون الصرف' },
+  { key: 'inventory.branch.issue.edit', module: 'inventory', category: 'edit', label: 'تعديل إذن الصرف', description: 'تعديل أذون الصرف' },
+  { key: 'inventory.branch.issue.delete', module: 'inventory', category: 'delete', label: 'حذف إذن الصرف', description: 'حذف أذون الصرف' },
   { key: 'inventory.branch.maintenance', module: 'inventory', category: 'other', label: 'تحويل للصيانة', description: 'تحويل جهاز من مخزون الفرع إلى الصيانة' },
   { key: 'device_movements.view', module: 'inventory', category: 'view', label: 'عرض حركات الأجهزة', description: 'عرض قائمة حركات الأجهزة وتفاصيلها' },
   { key: 'device_movements.create', module: 'inventory', category: 'add', label: 'إنشاء حركة أجهزة', description: 'إرسال أجهزة عملاء بسيريال إلى مستلم' },
@@ -373,7 +385,7 @@ const PERMISSIONS: PermissionDefinition[] = [
 ]
 
 /** Legacy umbrella key: kept in the API/DB as an alias, hidden from the admin UI. */
-const HIDDEN_PERMISSION_KEYS = new Set(['sales.pos'])
+const HIDDEN_PERMISSION_KEYS = new Set(['sales.pos', 'inventory.branch.receive', 'inventory.branch.issue'])
 
 const catalogByKey = new Map(PERMISSIONS.map((p) => [p.key, p]))
 

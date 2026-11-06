@@ -79,7 +79,7 @@ const STRICT_ACTION_PERMISSIONS = new Set(['payments.refund', 'roles.manage'])
 /** In-page actions: super_admin always; admin unless the key is denylisted; others need the key. */
 export function userCanPerform(user: AuthUser | null, permission: string): boolean {
   if (isSuperAdmin(user)) return true
-  if (STRICT_ACTION_PERMISSIONS.has(permission)) {
+  if (STRICT_ACTION_PERMISSIONS.has(permission) || permission.startsWith('inventory.branch.receive.') || permission.startsWith('inventory.branch.issue.')) {
     return userHasPermission(user, permission)
   }
   if (isAnyAdmin(user)) return true
