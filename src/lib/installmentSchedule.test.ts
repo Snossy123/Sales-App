@@ -7,6 +7,19 @@ import {
 } from './installmentSchedule'
 
 describe('installmentSchedule', () => {
+  it('handles API timestamps when editing existing contracts', () => {
+    expect(lastInstallmentDate('2026-01-15T00:00:00.000000Z', 3, 'monthly')).toBe('2026-03-15')
+    expect(lastInstallmentDate('2026-01-15 00:00:00', 3, 'weekly')).toBe('2026-01-29')
+    expect(lastInstallmentDate('2026-01-31T00:00:00Z', 2, 'monthly')).toBe('2026-02-28')
+  })
+
+  it('does not display NaN for invalid dates or installment counts', () => {
+    expect(lastInstallmentDate('invalid', 3, 'monthly')).toBeNull()
+    expect(lastInstallmentDate('2026-02-30', 3, 'monthly')).toBeNull()
+    expect(lastInstallmentDate('2026-01-15', NaN, 'monthly')).toBeNull()
+    expect(addMonthsNoOverflow('invalid', 1)).toBe('')
+  })
+
   it('advances monthly dues by calendar month, not 30 days', () => {
     expect(installmentDueDate('2026-01-15', 1, 'monthly')).toBe('2026-02-15')
     expect(installmentDueDate('2026-01-15', 2, 'monthly')).toBe('2026-03-15')

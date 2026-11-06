@@ -1,3 +1,5 @@
+import { useAuthStore } from '../../stores/authStore'
+import { contractReviewPermissions } from '../../lib/contractReviewPermissions'
 import type { ReactNode } from 'react'
 import type { SalesInvoice } from '../../api/types'
 import {
@@ -18,6 +20,9 @@ export function ContractReviewDecisionPanel({
   invoice,
   children,
 }: ContractReviewDecisionPanelProps) {
+  const user = useAuthStore((state) => state.user)
+  if (!contractReviewPermissions(user).canView) return null
+
   const summary = invoiceContractSummary(invoice)
   const ledger = reconcileContractLedger(invoice)
   const isInstallment = invoice.payment_term === 'installment'

@@ -56,7 +56,7 @@ export function deviceDraftsFromInvoice(
       installmentAmount: Number(plan?.installment_amount ?? draft.installmentAmount),
       downPayment: Number(plan?.down_payment ?? draft.downPayment),
       intervalType: (plan?.interval_type as IntervalType) || 'monthly',
-      firstDueDate: plan?.first_due_date ?? draft.firstDueDate,
+      firstDueDate: plan?.first_due_date?.slice(0, 10) || draft.firstDueDate,
       technician: technicianFromLine(line),
       vehicleType: (line.vehicle_type as VehicleType) || '',
       vehiclePlateLetters: line.vehicle_plate_letters ?? '',

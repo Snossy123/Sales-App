@@ -1,3 +1,4 @@
+import { contractReviewPermissions } from '../lib/contractReviewPermissions'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -29,8 +30,7 @@ export function InvoiceReviewDetailPage() {
   const [convertOpen, setConvertOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
   const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
-  const canApprove = userHasPermission(user, 'review.approve') || reviewRole
-  const canReject = userHasPermission(user, 'review.reject') || reviewRole
+  const { canApprove, canReject, canView: canViewDecision } = contractReviewPermissions(user)
   const canPrint = userHasPermission(user, 'review.print') || reviewRole
 
   const query = useQuery({
@@ -155,7 +155,7 @@ export function InvoiceReviewDetailPage() {
     >
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {invoice && (
-          <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+          <div className={`grid grid-cols-1 items-start gap-md ${canViewDecision ? 'lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]' : ''}`}>
             <ContractReviewDetails invoice={invoice} />
 
             <ContractReviewDecisionPanel invoice={invoice}>

@@ -1,3 +1,4 @@
+import { Application, Calendar, Exchange, Fingerprint, SettingTwo, Tool, Toolkit, PeoplePlus } from '@icon-park/react'
 import { useMemo, useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -106,6 +107,26 @@ const CHIP_ICONS: Record<CombinerChipId, string> = {
   site_transfer: 'swap_horiz',
 }
 
+const SERVICE_PICKER_ICONS = {
+  build: Tool,
+  tune: SettingTwo,
+  event_repeat: Calendar,
+  home_repair_service: Toolkit,
+  handyman: Tool,
+  swap_horiz: Exchange,
+  person: PeoplePlus,
+  memory: Application,
+  password: Fingerprint,
+  miscellaneous_services: Application,
+}
+
+function ServicePickerIcon({ name, filled = false }: { name: string; filled?: boolean }) {
+  const PickerIcon = SERVICE_PICKER_ICONS[name as keyof typeof SERVICE_PICKER_ICONS] ?? Application
+  return <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center" aria-hidden="true">
+    <PickerIcon theme={filled ? 'filled' : 'outline'} size={22} fill="currentColor" />
+  </span>
+}
+
 const SERVICE_CATEGORY_ICONS: Partial<Record<ServiceCategory, string>> = {
   maintenance: 'build',
   software: 'tune',
@@ -115,6 +136,7 @@ const SERVICE_CATEGORY_ICONS: Partial<Record<ServiceCategory, string>> = {
   transfer: 'swap_horiz',
   site_transfer: 'swap_horiz',
   ownership_transfer: 'person',
+  user_transfer: 'swap_horiz',
   programming: 'memory',
   reset_password: 'password',
   other: 'miscellaneous_services',
@@ -775,6 +797,7 @@ export function ServiceCombinerPage() {
       return {
         ...identityFromCustomerDevice(selectedCustomerDevice),
         serialNumber: contractSerial,
+        username: contractUsername,
       }
     }
     if (manualDeviceEntry) {
@@ -1057,6 +1080,8 @@ export function ServiceCombinerPage() {
       (service) => service.id === (item.serviceId ?? item.line.service_id),
     )?.category ??
     item.chipId
+  const userTransferSelected = feeLines.some((item) => feeLineCategory(item) === 'user_transfer')
+  const userTransferValid = !userTransferSelected || (listedDeviceSelected && Boolean(contractUsername.trim()) && contractUsername.trim() !== (selectedCustomerDevice?.username?.trim() || identityFromCustomerDevice(selectedCustomerDevice!).username))
   const softwareSelected = feeLines.some((item) => feeLineCategory(item) === 'software')
   const hasSelectedServices = selectedChips.size > 0 || feeLines.length > 0
 
@@ -1116,6 +1141,7 @@ export function ServiceCombinerPage() {
     hasSelectedServices &&
     total > 0 &&
     contractDeviceReady &&
+    userTransferValid &&
     renewalValid &&
     externalValid &&
     feesValid &&
@@ -1361,9 +1387,11 @@ export function ServiceCombinerPage() {
             <PosSectionCard
               number={2}
               title="جهاز العميل"
-              subtitle="اختياري — الجهاز المختار يُطبّق على كل خدمات العقد"
-              highlighted={submitAttempted && hasContractDevice && !contractDeviceReady}
+              subtitle={userTransferSelected ? 'اختر جهاز العميل وأدخل اسم المستخدم الجديد لنقل اليوزر' : 'اختياري — الجهاز المختار يُطبّق على كل خدمات العقد'}
+              highlighted={submitAttempted && ((hasContractDevice && !contractDeviceReady) || !userTransferValid)}
             >
+              {userTransferSelected && <p className="mb-2 text-sm text-on-surface-variant">{selectedCustomerDevice ? `اليوزر الحالي: ${selectedCustomerDevice.username || '—'} — أدخل يوزرًا جديدًا مختلفًا.` : 'يجب اختيار جهاز مسجل للعميل لتنفيذ نقل اليوزر.'}</p>}
+              {submitAttempted && !userTransferValid && <p role="alert" className="mb-2 text-sm text-error">اختر جهاز العميل وأدخل يوزرًا جديدًا مختلفًا عن الحالي.</p>}
               <CustomerContractDevicePicker
                 devices={customerDevices}
                 loading={customerDevicesQuery.isLoading}
@@ -1384,6 +1412,7 @@ export function ServiceCombinerPage() {
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
                 allowSerialEdit={softwareSelected}
+                allowUsernameEdit={userTransferSelected}
                 showErrors={submitAttempted && hasContractDevice}
                 registerOrigin={registerOrigin}
                 onRegisterOriginChange={setRegisterOrigin}
@@ -1418,7 +1447,7 @@ export function ServiceCombinerPage() {
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
                     }`}
                   >
-                    <Icon name={CHIP_ICONS[chip.id]} size={22} filled={active} />
+                    <ServicePickerIcon name={CHIP_ICONS[chip.id]} filled={active} />
                     {chip.label}
                   </button>
                 )
@@ -1442,9 +1471,8 @@ export function ServiceCombinerPage() {
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/40 hover:bg-surface-container'
                     }`}
                   >
-                    <Icon
+                    <ServicePickerIcon
                       name={SERVICE_CATEGORY_ICONS[service.category] ?? 'miscellaneous_services'}
-                      size={22}
                       filled={active}
                     />
                     <span>{service.name_ar || service.name}</span>

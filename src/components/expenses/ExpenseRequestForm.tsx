@@ -130,7 +130,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     queryFn: async () => {
       const contracts: ExpenseContract[] = []
       let page = 1
-      let lastPage = 1
+      let lastPage: number
       do {
         const { data } = await api.get<PaginatedResponse<ExpenseContract>>('/sales-invoices', {
           params: { per_page: 100, page, 'filter[branch_id]': branchId },
@@ -143,6 +143,20 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     },
     enabled: open && Boolean(branchId),
   })
+
+  const commissionType = expenseType === 'distributor_payout' || expenseType === 'employee_payout'
+  const commissionAvailability = useQuery({
+    queryKey: ['expense-contract-commissions', branchId, expenseType],
+    queryFn: async () => {
+      const { data } = await api.get<{ blocked_contract_ids: number[] }>('/expense-requests/contract-commissions', {
+        params: { branch_id: branchId, expense_type: expenseType },
+      })
+      return data.blocked_contract_ids
+    },
+    enabled: open && Boolean(branchId) && commissionType,
+  })
+  const blockedContractIds = new Set(commissionType ? commissionAvailability.data ?? [] : [])
+  const hasBlockedSelection = contractIds.some((id) => blockedContractIds.has(id))
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -157,6 +171,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data
     },
+    onError: () => { if (commissionType) void commissionAvailability.refetch() },
     onSuccess: () => {
       useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
       setExpenseType('petty_cash')
@@ -175,6 +190,8 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     Boolean(branchId && amount) &&
     (!needsDistributor || Boolean(distributorId)) &&
     (!needsEmployee || Boolean(employeeId)) &&
+    !hasBlockedSelection &&
+    (!commissionType || commissionAvailability.isSuccess) &&
     !submitMutation.isPending
 
   return (
@@ -187,6 +204,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
             value={expenseType}
             onChange={(e) => {
               setExpenseType(e.target.value)
+              setContractIds([])
               setDistributorId('')
               setEmployeeId('')
             }}
@@ -275,16 +293,20 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
               {contractsQuery.isSuccess && contractsQuery.data.length === 0 && (
                 <p className="text-sm">لا توجد عقود لهذا الفرع</p>
               )}
+              {commissionType && commissionAvailability.isFetching && <p className="text-sm">جارٍ التحقق من العمولات السابقة...</p>}
+              {commissionType && commissionAvailability.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(commissionAvailability.error)}</p>}
+              {hasBlockedSelection && <p role="alert" className="text-sm text-error">يوجد عقد مختار تم صرف عمولته. أزل اختياره قبل الحفظ.</p>}
               {(contractsQuery.data ?? []).map((contract) => (
-                <label key={contract.id} className="flex items-center gap-2 text-sm">
+                <label key={contract.id} className={`flex items-center gap-2 text-sm ${blockedContractIds.has(contract.id) ? 'text-on-surface-variant' : ''}`}>
                   <input
                     type="checkbox"
                     checked={contractIds.includes(contract.id)}
+                    disabled={!contractIds.includes(contract.id) && commissionType && (!commissionAvailability.isSuccess || blockedContractIds.has(contract.id))}
                     onChange={(event) => setContractIds((ids) => event.target.checked
                       ? [...ids, contract.id]
                       : ids.filter((id) => id !== contract.id))}
                   />
-                  <span>{contract.invoice_number} - {contract.customer?.name ?? 'بدون عميل'} - {contract.invoice_date?.slice(0, 10)}</span>
+                  <span>{contract.invoice_number} - {contract.customer?.name ?? 'بدون عميل'} - {contract.invoice_date?.slice(0, 10)}{blockedContractIds.has(contract.id) ? ' — سبق تسجيل عمولة من نفس النوع' : ''}</span>
                 </label>
               ))}
             </div>

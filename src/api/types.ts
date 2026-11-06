@@ -722,6 +722,7 @@ export type ServiceCategory =
   | 'installation'
   | 'uninstall'
   | 'transfer'
+  | 'user_transfer'
   | 'site_transfer'
   | 'ownership_transfer'
   | 'programming'

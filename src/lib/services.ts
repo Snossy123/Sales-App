@@ -7,6 +7,7 @@ export const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: 'installation', label: 'تركيب' },
   { value: 'uninstall', label: 'فك' },
   { value: 'transfer', label: 'نقل' },
+  { value: 'user_transfer', label: 'نقل يوزر' },
   { value: 'site_transfer', label: 'نقل على الموقع' },
   { value: 'ownership_transfer', label: 'نقل ملكية' },
   { value: 'programming', label: 'برمجة' },

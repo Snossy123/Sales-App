@@ -1,11 +1,16 @@
 export type InstallmentIntervalType = 'monthly' | 'weekly'
 
 function parseDateOnly(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return new Date(year, (month ?? 1) - 1, day ?? 1)
+  const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/)
+  if (!match) return new Date(NaN)
+  const [, year, month, day] = match.map(Number)
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return new Date(NaN)
+  return date
 }
 
 function formatDateOnly(date: Date): string {
+  if (!Number.isFinite(date.getTime())) return ''
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -20,6 +25,7 @@ export function addDays(dateStr: string, days: number): string {
 
 export function addMonthsNoOverflow(dateStr: string, months: number): string {
   const date = parseDateOnly(dateStr)
+  if (!Number.isFinite(date.getTime()) || !Number.isFinite(months)) return ''
   const day = date.getDate()
   const target = new Date(date.getFullYear(), date.getMonth() + months, 1)
   const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
@@ -58,6 +64,6 @@ export function lastInstallmentDate(
   intervalType: InstallmentIntervalType | string | undefined,
   intervalDays?: number,
 ): string | null {
-  if (count < 1 || !firstDueDate) return null
+  if (!Number.isInteger(count) || count < 1 || !firstDueDate || !Number.isFinite(parseDateOnly(firstDueDate).getTime())) return null
   return installmentDueDate(firstDueDate, count - 1, intervalType, intervalDays)
 }

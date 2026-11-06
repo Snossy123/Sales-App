@@ -9,6 +9,7 @@ import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { CustodyVoucherDetails } from '../components/inventory/CustodyVoucherDetails'
+import { BranchInventoryUnitForm } from '../components/inventory/BranchInventoryUnitForm'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
 import { DeviceInformation, DeviceHistoryTable } from '../components/inventory/DeviceReport'
 import { InventoryUnitTags } from '../components/inventory/InventoryUnitTags'
@@ -93,10 +94,25 @@ function PageSelectCheckbox({
 
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
+  const canAdd = userCanPerform(user, 'inventory.branch.add')
+  const canEdit = userCanPerform(user, 'inventory.branch.edit')
+  const canDelete = userCanPerform(user, 'inventory.branch.delete')
+  const [unitEditor, setUnitEditor] = useState<ProductUnit | 'new' | null>(null)
+  const [deleteUnit, setDeleteUnit] = useState<ProductUnit | null>(null)
   const canReceive = userCanPerform(user, 'inventory.branch.receive')
   const canIssue = userCanPerform(user, 'inventory.branch.issue')
   const canMarkVisit = canReceive || userCanPerform(user, 'inventory.branch.maintenance')
   const queryClient = useQueryClient()
+  const refreshInventory = () => {
+    queryClient.invalidateQueries({ queryKey: ['branch-inventory'] })
+    queryClient.invalidateQueries({ queryKey: ['custody-vouchers'] })
+    queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    queryClient.invalidateQueries({ queryKey: ['product-units'] })
+  }
+  const deleteMutation = useMutation({
+    mutationFn: async (unitId: number) => api.delete(`/inventory/branch/units/${unitId}`),
+    onSuccess: () => { setDeleteUnit(null); setSelectedUnit(null); refreshInventory() },
+  })
   const [view, setView] = useState<InventoryView>('custody')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [voucherMode, setVoucherMode] = useState<'receive' | 'issue'>('receive')
@@ -327,8 +343,9 @@ export function BranchInventoryPage() {
       title="مخزون الفرع"
       subtitle={view === 'custody' ? 'الأجهزة الحالية في العهدة' : 'سجل أذون الاستلام والصرف'}
       actions={
-        view === 'custody' && (canReceive || canIssue) ? (
+        view === 'custody' && (canReceive || canIssue || canAdd) ? (
           <div className="flex gap-2">
+            {canAdd && <button type="button" className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary" onClick={() => setUnitEditor('new')}>إضافة جهاز</button>}
             {canReceive && (
               <button
                 type="button"
@@ -556,13 +573,11 @@ export function BranchInventoryPage() {
                     key: 'details',
                     header: '',
                     render: (row) => (
-                      <button
-                        type="button"
-                        className="text-sm font-bold text-primary hover:underline"
-                        onClick={() => setSelectedUnit(row)}
-                      >
-                        تفاصيل
-                      </button>
+                      <div className="flex gap-3">
+                        <button type="button" className="text-sm font-bold text-primary hover:underline" onClick={() => setSelectedUnit(row)}>تفاصيل</button>
+                        {canEdit && <button type="button" className="text-sm text-primary hover:underline" onClick={() => setUnitEditor(row)}>تعديل</button>}
+                        {canDelete && <button type="button" className="text-sm text-error hover:underline" onClick={() => { deleteMutation.reset(); setDeleteUnit(row) }}>حذف</button>}
+                      </div>
                     ),
                   },
                 ]}
@@ -773,6 +788,13 @@ export function BranchInventoryPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {unitEditor && <BranchInventoryUnitForm unit={unitEditor === 'new' ? null : unitEditor} branchId={user?.branch_id} onClose={() => setUnitEditor(null)} onSuccess={() => { setUnitEditor(null); refreshInventory() }} />}
+      <Modal open={Boolean(deleteUnit)} onClose={() => { if (!deleteMutation.isPending) setDeleteUnit(null) }} title="حذف الجهاز">
+        <p className="mb-3 text-sm">هل تريد حذف الجهاز {deleteUnit ? productUnitDisplayCode(deleteUnit) : ''}؟</p>
+        {deleteMutation.isError && <p role="alert" className="mb-3 text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
+        <div className="flex justify-end gap-2"><button type="button" disabled={deleteMutation.isPending} onClick={() => setDeleteUnit(null)} className="rounded-lg border px-4 py-2 text-sm">إلغاء</button><button type="button" disabled={deleteMutation.isPending} onClick={() => { if (deleteUnit) deleteMutation.mutate(deleteUnit.id) }} className="rounded-lg bg-error px-4 py-2 text-sm text-white disabled:opacity-50">{deleteMutation.isPending ? 'جارٍ الحذف...' : 'حذف'}</button></div>
       </Modal>
 
       <CustodyVoucherModal

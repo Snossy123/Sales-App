@@ -1,3 +1,4 @@
+import { contractReviewPermissions } from '../lib/contractReviewPermissions'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -47,6 +48,7 @@ export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const canViewDecision = contractReviewPermissions(user).canView
   const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
   const canPrint = userHasPermission(user, 'review.print') || reviewRole
   const canViewFollowUpHistory = userCanPerform(user, 'installments.view')
@@ -255,7 +257,7 @@ export function ContractDetailPage() {
             </div>
 
             {activeTab === 'details' && (
-              <div className="grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+              <div className={`grid grid-cols-1 items-start gap-md ${canViewDecision ? 'lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]' : ''}`}>
                 <ContractReviewDetails invoice={invoice} />
                 <ContractReviewDecisionPanel invoice={invoice} />
               </div>

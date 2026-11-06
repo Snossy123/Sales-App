@@ -93,7 +93,7 @@ export interface InstallmentCollectionPanelProps {
   collectMutation: UseMutationResult<
     { id?: number; related_payment_ids?: number[] } | null | undefined,
     Error,
-    { applyExcessToFollowing?: boolean } | void,
+    { applyExcessToFollowing?: boolean; clearCollectionAction?: boolean } | void,
     unknown
   >
   closeReconcileMutation: UseMutationResult<unknown, Error, number, unknown>

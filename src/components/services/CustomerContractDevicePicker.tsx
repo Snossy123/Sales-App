@@ -117,6 +117,7 @@ interface CustomerContractDevicePickerProps {
   showIdentityFields: boolean
   identityLocked: boolean
   allowSerialEdit?: boolean
+  allowUsernameEdit?: boolean
   showErrors?: boolean
   registerOrigin?: 'legacy' | 'external'
   onRegisterOriginChange?: (origin: 'legacy' | 'external') => void
@@ -144,6 +145,7 @@ export function CustomerContractDevicePicker({
   showIdentityFields,
   identityLocked,
   allowSerialEdit = false,
+  allowUsernameEdit = false,
   showErrors = false,
   registerOrigin = 'legacy',
   onRegisterOriginChange,
@@ -261,12 +263,12 @@ export function CustomerContractDevicePicker({
             {simError && <p className="mt-xs text-xs text-error">رقم الشريحة مطلوب</p>}
           </div>
           <div className={posRequiredWrap(usernameError)}>
-            <label className={posLabelClass}>اسم المستخدم</label>
+            <label className={posLabelClass}>{allowUsernameEdit ? 'اسم المستخدم الجديد' : 'اسم المستخدم'}</label>
             <GpsUsernameInput
               value={username}
               onChange={onUsernameChange}
               hasError={usernameError}
-              disabled={identityLocked}
+              disabled={identityLocked && !allowUsernameEdit}
             />
             {usernameError && <p className="mt-xs text-xs text-error">اسم المستخدم مطلوب</p>}
           </div>

@@ -1,3 +1,5 @@
+import { isAxiosError } from 'axios'
+import { Modal } from '../components/Modal'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProcedureDraft } from '../hooks/useProcedureDraft'
 import {
@@ -59,6 +61,7 @@ interface CollectionDailyStats {
   paid_installment_ids?: number[]
   follow_up: number
   follow_up_invoice_ids?: number[]
+  scheduled_no_answer?: number
   no_answer: number
   no_contact: number
 }
@@ -84,12 +87,13 @@ function CollectionDailyStatCards({
     { key: 'postponed', label: collectionStatusLabels.postponed, value: stats.postponed, filter: 'postponed' },
     { key: 'paid', label: 'تم الدفع اليوم', value: stats.paid, filter: 'paid' },
     { key: 'follow_up', label: 'متابعة اليوم', value: stats.follow_up, filter: 'follow_up' },
+    { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد', value: stats.scheduled_no_answer ?? 0, filter: 'scheduled_no_answer' },
     { key: 'no_answer', label: collectionStatusLabels.no_answer, value: stats.no_answer, filter: 'no_answer' },
     { key: 'no_contact', label: collectionStatusLabels.no_contact, value: stats.no_contact, filter: 'none' },
   ] as const
 
   return (
-    <div className="mb-md flex min-w-0 gap-sm overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible">
+    <div className="mb-md flex min-w-0 gap-sm overflow-x-auto pb-1 sm:grid sm:grid-cols-3 xl:grid-cols-6 sm:overflow-visible">
       {cards.map((card) => {
         const active =
           card.key === 'follow_up'
@@ -305,6 +309,7 @@ export function InstallmentCollectionPage() {
   const [collectionStatusFilter, setCollectionStatusFilter] = useState(
     () => collectionFocus?.collectionStatusFilter ?? '',
   )
+  const [collectionActionPrompt, setCollectionActionPrompt] = useState<{ applyExcessToFollowing?: boolean; actions?: string[] } | null>(null)
   const [followUpToday, setFollowUpToday] = useState(false)
   const [completedContracts, setCompletedContracts] = useState(false)
   const [paidToday, setPaidToday] = useState(false)
@@ -479,7 +484,7 @@ export function InstallmentCollectionPage() {
             : undefined,
         'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
         'filter[unhandled_today]': !collectionStatusFilter && !followUpToday ? 1 : undefined,
-        'filter[parked_follow_up]': followUpToday ? undefined : 0,
+        'filter[parked_follow_up]': followUpToday || collectionStatusFilter ? undefined : 0,
         'filter[follow_up_today]': followUpToday ? 1 : undefined,
         sort: sortByReminder ? 'reminder' : undefined,
       }),
@@ -697,7 +702,7 @@ export function InstallmentCollectionPage() {
     ])
   }
 
-  const collectMutation = useMutation<{ id?: number; related_payment_ids?: number[] } | null | undefined, Error, { applyExcessToFollowing?: boolean } | void>({
+  const collectMutation = useMutation<{ id?: number; related_payment_ids?: number[] } | null | undefined, Error, { applyExcessToFollowing?: boolean; clearCollectionAction?: boolean } | void>({
     mutationFn: async (vars) => {
       if (!selected?.sales_invoice_id) throw new Error('فاتورة غير محددة')
       const payload: Record<string, unknown> = {
@@ -716,13 +721,21 @@ export function InstallmentCollectionPage() {
       if (distributorBalanceAmount > 0) {
         payload.distributor_balance_amount = distributorBalanceAmount
       }
+      if (vars?.clearCollectionAction) payload.clear_collection_action = true
       if (vars?.applyExcessToFollowing) {
         payload.apply_excess_to_following = true
       }
       const { data } = await api.post(`/sales-invoices/${selected.sales_invoice_id}/installments/collect`, payload)
       return data
     },
+    onError: (error, variables) => {
+      if (isAxiosError(error) && error.response?.data?.code === 'collection_action_active') {
+        setCollectionActionPrompt({ applyExcessToFollowing: variables?.applyExcessToFollowing, actions: error.response.data.actions })
+      }
+    },
     onSuccess: async () => {
+      setCollectionActionPrompt(null)
+      await queryClient.invalidateQueries({ queryKey: ['collection-actions-summary'] })
       await refreshCollectionLists()
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
@@ -1311,6 +1324,14 @@ export function InstallmentCollectionPage() {
           )
         )}
       </AsyncState>
+      <Modal open={collectionActionPrompt !== null} title="إجراء قائم على العقد" onClose={() => { if (!collectMutation.isPending) setCollectionActionPrompt(null) }}>
+        <p className="mb-3 text-sm">يوجد إجراء تحصيل قائم: {collectionActionPrompt?.actions?.join('، ')}. هل تريد إلغاء الإجراء ثم تأكيد التحصيل؟ إلغاء «ريسيت متأخر» أو «فقد الإشارة» يسري على العميل، والرسالة التحذيرية على هذا العقد فقط.</p>
+        {collectMutation.isError && <p role="alert" className="mb-3 text-sm text-error">{getErrorMessage(collectMutation.error)}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" disabled={collectMutation.isPending} onClick={() => { setCollectionActionPrompt(null); collectMutation.reset() }} className="rounded-lg border px-3 py-2 text-sm">رجوع بدون تحصيل</button>
+          <button type="button" disabled={collectMutation.isPending} onClick={() => collectMutation.mutate({ ...collectionActionPrompt, clearCollectionAction: true })} className="rounded-lg bg-primary px-3 py-2 text-sm text-on-primary disabled:opacity-50">{collectMutation.isPending ? 'جارٍ التحصيل...' : 'إلغاء الإجراء وتأكيد التحصيل'}</button>
+        </div>
+      </Modal>
       <CollectionFollowUpSidebar
         open={showFollowUps}
         onClose={() => setShowFollowUps(false)}

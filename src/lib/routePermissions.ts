@@ -12,6 +12,9 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/inventory': 'inventory.gps.view',
   '/inventory/branch': [
     'inventory.branch.view',
+    'inventory.branch.add',
+    'inventory.branch.edit',
+    'inventory.branch.delete',
     'inventory.branch.receive',
     'inventory.branch.issue',
     'inventory.branch.maintenance',

@@ -43,6 +43,8 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
+  const [checkingOverdue, setCheckingOverdue] = useState(false)
+  const [issuanceWarningError, setIssuanceWarningError] = useState<string | null>(null)
   const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
   const customerQuery = debouncedCustomerSearch.trim()
@@ -209,6 +211,26 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
     },
   })
 
+  const handleSave = async () => {
+    if (mode !== 'issue') { submitMutation.mutate(); return }
+    if (!resolvedUnit || checkingOverdue || submitMutation.isPending) return
+    setCheckingOverdue(true)
+    setIssuanceWarningError(null)
+    try {
+      const { data } = await api.get<{ overdue_count: number; overdue_amount: number }>(
+        `/inventory/branch/units/${resolvedUnit.id}/issuance-warning`,
+      )
+      if (data.overdue_count > 0 && !window.confirm(
+        `تحذير: الجهاز مرتبط بـ ${data.overdue_count} قسط متأخر بإجمالي ${data.overdue_amount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م. هل تريد الاستمرار في إذن الصرف؟`,
+      )) return
+      submitMutation.mutate()
+    } catch (error) {
+      setIssuanceWarningError(getErrorMessage(error))
+    } finally {
+      setCheckingOverdue(false)
+    }
+  }
+
   const unitReady = Boolean(resolvedUnit) || (mode === 'receive' && needsRegister && serialCode.trim())
   const customerReady = inventoryBucket !== 'custody_customer' || Boolean(customerId)
   const recipientReady =
@@ -223,7 +245,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
     <Modal
       open={open}
       onClose={() => {
-        if (addCustomerOpen) return
+        if (addCustomerOpen || checkingOverdue || submitMutation.isPending) return
         onClose()
       }}
       title={mode === 'receive' ? 'إذن استلام جهاز' : 'إذن صرف'}
@@ -244,7 +266,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
         </div>
       ) : (
       <>
-      <div className="space-y-4">
+      <fieldset disabled={checkingOverdue || submitMutation.isPending} className="space-y-4">
         {(
           selectedCustomer ? (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -514,6 +536,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
           />
         </div>
 
+        {issuanceWarningError && <p role="alert" className="text-sm text-error">{issuanceWarningError}</p>}
         {submitMutation.isError && (
           <p className="text-sm text-error">{getErrorMessage(submitMutation.error)}</p>
         )}
@@ -525,14 +548,14 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
           <button
             type="button"
             className="rounded-lg bg-primary px-4 py-2 text-sm text-on-primary disabled:opacity-50"
-            disabled={!canSubmit || submitMutation.isPending}
-            onClick={() => submitMutation.mutate()}
+            disabled={!canSubmit || submitMutation.isPending || checkingOverdue}
+            onClick={() => { void handleSave() }}
           >
-            {submitMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
+            {checkingOverdue ? 'جارٍ فحص الأقساط...' : submitMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
           </button>
         </div>
         </>
-      </div>
+      </fieldset>
       <CustomerCreateModal
         open={addCustomerOpen}
         startWithDevices

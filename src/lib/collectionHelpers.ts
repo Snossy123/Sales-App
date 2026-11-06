@@ -22,6 +22,7 @@ export const collectionStatusLabels: Record<string, string> = {
   postponed: 'تأجيلات',
   new_payment_date: 'مواعيد جديدة للدفع',
   no_answer: 'لم يتم الرد',
+  scheduled_no_answer: 'مواعيد لم يتم الرد',
   no_contact: 'لم يتم التواصل',
 }
 
@@ -35,6 +36,7 @@ export const collectionStatusOptions = [
 
 export const collectionStatusFilterOptions = [
   ...collectionStatusOptions,
+  { value: 'scheduled_no_answer', label: collectionStatusLabels.scheduled_no_answer },
   { value: 'none', label: collectionStatusLabels.no_contact },
 ]
 
