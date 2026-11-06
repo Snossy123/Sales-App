@@ -8,6 +8,7 @@ interface ModalProps {
   title: string
   children: ReactNode
   size?: 'sm' | 'md' | 'lg'
+  headerActions?: ReactNode
 }
 
 const sizeClass = {
@@ -16,7 +17,7 @@ const sizeClass = {
   lg: 'max-w-2xl',
 }
 
-export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, size = 'md', headerActions }: ModalProps) {
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -49,6 +50,8 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
           <h2 id="modal-title" className="text-lg font-bold text-on-surface">
             {title}
           </h2>
+          <div className="flex items-center gap-2">
+          {headerActions}
           <button
             type="button"
             onClick={onClose}
@@ -57,6 +60,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
           >
             <Icon name="close" size={22} />
           </button>
+          </div>
         </div>
         <div className="p-md">{children}</div>
       </div>

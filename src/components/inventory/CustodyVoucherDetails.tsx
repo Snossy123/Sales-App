@@ -47,6 +47,8 @@ export function CustodyVoucherDetails({
       <DetailField label="النوع" value={voucherTypeLabel(voucher.type)} />
       <DetailField label="التاريخ والوقت" value={formatDatetime12hDisplay(voucher.created_at)} />
       {!compact && <DetailField label="السريال" value={unit ? productUnitDisplayCode(unit) : '—'} mono />}
+      <DetailField label="اسم المستخدم" value={unit?.username?.trim() || '—'} />
+      <DetailField label="رقم الشريحة" value={unit?.sim_number?.trim() || '—'} mono />
       {!compact && <DetailField label="الموديل" value={model} />}
       <DetailField label="الموظف" value={voucher.employee?.name ?? '—'} />
       <DetailField label="العميل" value={customer} />

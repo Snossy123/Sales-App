@@ -1,3 +1,4 @@
+import chromeCss from '../styles/contract-print-chrome.css?raw'
 import installmentContractCss from '../styles/installment-contract.css?raw'
 
 function absolutizeImageSources(root: HTMLElement): string {
@@ -73,7 +74,7 @@ async function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
 
 function buildPrintDocument(contractHtml: string): string {
   const origin = window.location.origin
-  const css = absolutizeCssUrls(installmentContractCss, origin)
+  const css = absolutizeCssUrls(chromeCss + installmentContractCss.replace("@import './contract-print-chrome.css';", ''), origin)
   return `<!DOCTYPE html>
 <html dir="ltr" lang="ar">
 <head>

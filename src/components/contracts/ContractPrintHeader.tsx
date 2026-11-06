@@ -4,14 +4,16 @@ interface ContractPrintHeaderProps {
   title: string
   branchLabel?: string
   extra?: ReactNode
+  companyName?: string
+  logoUrl?: string
 }
 
-export function ContractPrintHeader({ title, branchLabel, extra }: ContractPrintHeaderProps) {
+export function ContractPrintHeader({ title, branchLabel, extra, companyName, logoUrl }: ContractPrintHeaderProps) {
   return (
     <header className="ic-header">
       <div className="ic-head-ar">
         <div className="ic-head-ar-top">مؤسسة</div>
-        <div className="ic-head-ar-main">العراقى للتجارة</div>
+        <div className="ic-head-ar-main">{companyName || 'العراقى للتجارة'}</div>
         <div className="ic-head-ar-sub">{branchLabel ?? ''}</div>
       </div>
       <div className="ic-head-center">
@@ -19,7 +21,7 @@ export function ContractPrintHeader({ title, branchLabel, extra }: ContractPrint
           <span>Eleraqy</span>
           <span>Trading</span>
         </div>
-        <img className="ic-logo-img" src="/contract/logo.png" alt="Eleraqy Trading" />
+        <img className="ic-logo-img" src={logoUrl || '/contract/logo.png'} alt="Eleraqy Trading" />
         <div className="ic-title-badge">{title}</div>
         {extra}
       </div>

@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
-import type { Customer, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
+import type { Customer, CustomerContractDevice, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { CUSTODY_BUCKET_OPTIONS, productUnitDisplayCode } from '../../lib/inventoryBuckets'
+import { CUSTODY_BUCKET_OPTIONS } from '../../lib/inventoryBuckets'
 import { normalizeScannedDigits } from '../../lib/scanner'
 import { CustodyVoucherDetails } from './CustodyVoucherDetails'
 import { CustomerCreateModal } from '../customers/CustomerCreateModal'
 import { Modal } from '../Modal'
-import { InventoryUnitTags } from './InventoryUnitTags'
 
 interface CustodyVoucherModalProps {
   open: boolean
@@ -29,6 +28,9 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const serialRef = useRef<HTMLInputElement>(null)
   const customerSearchRef = useRef<HTMLInputElement>(null)
   const [serialCode, setSerialCode] = useState('')
+  const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false)
+  const [deviceSearch, setDeviceSearch] = useState('')
+  const lookupVersion = useRef(0)
   const [resolvedUnit, setResolvedUnit] = useState<ProductUnit | null>(null)
   const [needsRegister, setNeedsRegister] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
@@ -41,7 +43,6 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
-  const [customerGateWaived, setCustomerGateWaived] = useState(false)
   const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
   const customerQuery = debouncedCustomerSearch.trim()
@@ -89,35 +90,45 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
     enabled:
       open &&
       !selectedCustomer &&
-      customerQuery.length >= 2 &&
-      ((mode === 'receive' && inventoryBucket === 'custody_customer') ||
-        (mode === 'issue' && recipientType === 'customer')),
+      customerQuery.length >= 2,
   })
 
   const confirmCustomer = (customer: Customer) => {
+    resetDevice()
     setSelectedCustomer(customer)
     setCustomerId(customer.id)
-    setCustomerGateWaived(false)
     setAddCustomerOpen(false)
   }
 
+  const resetDevice = () => {
+    lookupVersion.current += 1
+    setSerialCode('')
+    setDeviceSearch('')
+    setResolvedUnit(null)
+    setNeedsRegister(false)
+    setLookupError(null)
+    setIsLookingUp(false)
+    setDeviceDropdownOpen(false)
+  }
+
   const clearCustomer = () => {
+    resetDevice()
     setSelectedCustomer(null)
     setCustomerId('')
     setCustomerSearch('')
   }
 
-  const waiveCustomerGate = () => {
-    setCustomerGateWaived(true)
-    clearCustomer()
-    if (mode === 'receive') {
-      setInventoryBucket('')
-      return
-    }
-    setRecipientType('employee')
-  }
+  const customerDevicesQuery = useQuery({
+    queryKey: ['customers', customerId, 'devices'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CustomerContractDevice[] }>(`/customers/${customerId}/devices`)
+      return data.data ?? []
+    },
+    enabled: open && Boolean(customerId),
+  })
 
   const lookupUnit = async (raw: string) => {
+    const version = ++lookupVersion.current
     const code = normalizeScannedDigits(raw)
     setSerialCode(code)
     setResolvedUnit(null)
@@ -129,9 +140,11 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
     setIsLookingUp(true)
     try {
       const { data } = await api.get<ProductUnit>('/product-units/lookup', { params: { code } })
+      if (version !== lookupVersion.current) return
       setResolvedUnit(data)
       setNeedsRegister(false)
     } catch (error) {
+      if (version !== lookupVersion.current) return
       const message = getErrorMessage(error)
       if (mode === 'receive') {
         setNeedsRegister(true)
@@ -140,13 +153,14 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
         setLookupError(message)
       }
     } finally {
-      setIsLookingUp(false)
+      if (version === lookupVersion.current) setIsLookingUp(false)
     }
   }
 
   const handleSerialKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault()
+      setDeviceDropdownOpen(false)
       void lookupUnit(serialCode)
     }
   }
@@ -169,9 +183,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
             notes: notes || undefined,
           }
         }
-        if (inventoryBucket === 'custody_customer') {
-          payload.customer_id = customerId
-        }
+        if (customerId) payload.customer_id = customerId
         const { data } = await api.post<CustodyVoucher>('/inventory/custody/receive', payload)
         return data
       }
@@ -206,11 +218,6 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
         ? Boolean(employeeId)
         : Boolean(customerId)
   const canSubmit = Boolean(unitReady && recipientReady && branchId && !isLookingUp)
-  const customerGate =
-    !customerGateWaived &&
-    ((mode === 'receive' && inventoryBucket === 'custody_customer') ||
-      (mode === 'issue' && recipientType === 'customer'))
-  const showDetails = !customerGate || Boolean(selectedCustomer)
 
   return (
     <Modal
@@ -238,7 +245,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
       ) : (
       <>
       <div className="space-y-4">
-        {customerGate && (
+        {(
           selectedCustomer ? (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
               <div className="flex items-start justify-between gap-2">
@@ -305,64 +312,109 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className="text-xs font-bold text-on-surface-variant hover:text-primary hover:underline"
-                onClick={waiveCustomerGate}
-              >
-                {mode === 'receive' ? 'استلام بدون عميل' : 'صرف لموظف'}
-              </button>
+
             </div>
           )
         )}
 
-        {showDetails && (
         <>
-        <div>
-          <label className="mb-1 block text-sm font-medium">مسح السريال</label>
+        <div
+          className="relative"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setDeviceDropdownOpen(false)
+              if (serialCode && !resolvedUnit && !needsRegister && !isLookingUp) void lookupUnit(serialCode)
+            }
+          }}
+        >
+          <label htmlFor="custody-device" className="mb-1 block text-sm font-medium">مسح السريال / اختيار جهاز</label>
           <input
+            id="custody-device"
             ref={serialRef}
             type="text"
+            role="combobox"
+            aria-expanded={deviceDropdownOpen}
+            aria-controls="custody-device-options"
+            aria-autocomplete="list"
             autoComplete="off"
-            placeholder="امسح أو اكتب السريال ثم Enter"
-            inputMode="numeric"
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-sm tracking-wide focus:border-primary focus:outline-none"
+            placeholder="اختر جهاز العميل أو امسح السريال"
+            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm focus:border-primary focus:outline-none"
             value={serialCode}
+            onFocus={() => {
+              setDeviceSearch('')
+              setDeviceDropdownOpen(true)
+            }}
             onChange={(e) => {
-              setSerialCode(normalizeScannedDigits(e.target.value))
+              lookupVersion.current += 1
+              const code = normalizeScannedDigits(e.target.value)
+              setSerialCode(code)
+              setDeviceSearch(code)
+              setDeviceDropdownOpen(true)
               setLookupError(null)
               setResolvedUnit(null)
               setNeedsRegister(false)
+              setIsLookingUp(false)
             }}
-            onKeyDown={handleSerialKeyDown}
-            onBlur={() => {
-              if (serialCode && !resolvedUnit && !needsRegister && !isLookingUp) {
-                void lookupUnit(serialCode)
-              }
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setDeviceDropdownOpen(false)
+              else if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                setDeviceDropdownOpen(true)
+                document.querySelector<HTMLButtonElement>('#custody-device-options button')?.focus()
+              } else handleSerialKeyDown(event)
             }}
           />
+          {deviceDropdownOpen && (
+            <ul id="custody-device-options" role="listbox" aria-label="أجهزة العميل" className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-md">
+              {customerDevicesQuery.isFetching ? (
+                <li className="p-3 text-sm">جارٍ تحميل أجهزة العميل...</li>
+              ) : customerDevicesQuery.isError ? (
+                <li role="alert" className="p-3 text-sm text-error">{getErrorMessage(customerDevicesQuery.error)}</li>
+              ) : (() => {
+                const devices = (customerDevicesQuery.data ?? []).filter((device) =>
+                  [device.serial_number, device.physical_serial, device.product_model?.name, device.product_model?.name_ar]
+                    .some((value) => value?.toLowerCase().includes(deviceSearch.toLowerCase())),
+                )
+                return devices.length ? devices.map((device) => {
+                  const code = device.serial_number || device.physical_serial
+                  return (
+                    <li key={device.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={Boolean(code && serialCode === code)}
+                        disabled={!code}
+                        className="block w-full px-3 py-2 text-start text-sm hover:bg-primary/10 focus:bg-primary/10 disabled:opacity-50"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                            event.preventDefault()
+                            const item = event.currentTarget.parentElement
+                            const next = event.key === 'ArrowDown' ? item?.nextElementSibling : item?.previousElementSibling
+                            next?.querySelector<HTMLButtonElement>('button')?.focus()
+                          } else if (event.key === 'Escape') {
+                            serialRef.current?.focus()
+                            setDeviceDropdownOpen(false)
+                          }
+                        }}
+                        onClick={() => {
+                          if (!code) return
+                          setDeviceDropdownOpen(false)
+                          setDeviceSearch('')
+                          void lookupUnit(code)
+                        }}
+                      >
+                        {code || 'بدون سريال'} — {device.product_model?.name_ar || device.product_model?.name || 'جهاز'}
+                      </button>
+                    </li>
+                  )
+                }) : <li className="p-3 text-sm text-on-surface-variant">{customerId ? 'لا توجد أجهزة مطابقة. يمكنك مسح أو كتابة السريال ثم Enter.' : 'اختر العميل لعرض أجهزته أو امسح السريال.'}</li>
+              })()}
+            </ul>
+          )}
           {isLookingUp && <p className="mt-1 text-xs text-on-surface-variant">جاري البحث...</p>}
-          {lookupError && <p className="mt-1 text-xs text-error">{lookupError}</p>}
+          {lookupError && <p role="alert" className="mt-1 text-xs text-error">{lookupError}</p>}
         </div>
-
-        {resolvedUnit && (
-          <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-mono text-sm font-semibold">{productUnitDisplayCode(resolvedUnit)}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {resolvedUnit.product_model?.name_ar ?? resolvedUnit.product_model?.name ?? '—'}
-                </p>
-              </div>
-              <InventoryUnitTags state={resolvedUnit.state} inventoryBucket={resolvedUnit.inventory_bucket} />
-            </div>
-            {resolvedUnit.custody_employee?.name && (
-              <p className="mt-2 text-xs text-on-surface-variant">
-                عهدة حالية: {resolvedUnit.custody_employee.name}
-              </p>
-            )}
-          </div>
-        )}
 
         {mode === 'receive' && needsRegister && (
           <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3">
@@ -391,17 +443,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
                         ? 'border-primary bg-primary text-on-primary'
                         : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/50'
                     }`}
-                    onClick={() => {
-                      if (option.value === 'customer') {
-                        setRecipientType('customer')
-                        setEmployeeId('')
-                        setCustomerGateWaived(false)
-                        return
-                      }
-                      setRecipientType('employee')
-                      setCustomerGateWaived(true)
-                      clearCustomer()
-                    }}
+                    onClick={() => setRecipientType(option.value)}
                   >
                     {option.label}
                   </button>
@@ -448,17 +490,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
                           ? 'border-primary bg-primary text-on-primary'
                           : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/50'
                       }`}
-                      onClick={() => {
-                        setInventoryBucket(option.value)
-                        if (option.value === 'custody_customer') {
-                          setCustomerGateWaived(false)
-                          return
-                        }
-                        setCustomerGateWaived(true)
-                        setCustomerId('')
-                        setCustomerSearch('')
-                        setSelectedCustomer(null)
-                      }}
+                      onClick={() => setInventoryBucket(option.value)}
                     >
                       {option.label}
                     </button>
@@ -500,7 +532,6 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
           </button>
         </div>
         </>
-        )}
       </div>
       <CustomerCreateModal
         open={addCustomerOpen}

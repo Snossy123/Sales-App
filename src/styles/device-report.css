@@ -1,0 +1,72 @@
+@font-face {
+  font-family: 'AL Mateen';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Neue Bold'), local('Helvetica-Bold'), local('Arial');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'AL Mateen';
+  src: url('/fonts/B-ALMATEEN.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-002F, U+003A-10FFFF;
+}
+
+@page { size: A4 portrait; margin: 12mm; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #eee; color: #222; font: 700 11pt 'AL Mateen', Arial, Helvetica, sans-serif; direction: rtl; }
+.preview-toolbar { padding: 14px; text-align: center; }
+.preview-toolbar button { padding: 10px 24px; cursor: pointer; font: inherit; }
+.device-report { width: 210mm; max-width: 100%; margin: 0 auto 20px; padding: 12mm; background: white; }
+h1 { font-size: 18pt; margin: 5mm 0; } h2 { font-size: 12pt; margin: 6mm 0 3mm; break-after: avoid; }
+.report-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3mm; font-size: 9pt; color: #444; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #bbb; padding: 2mm; text-align: right; vertical-align: top; overflow-wrap: anywhere; white-space: pre-wrap; font-weight: inherit; }
+th { background: #f3f3f3; font-weight: bold; }
+.device-information { font-size: 10pt; } .device-information th { width: 26%; }
+.device-history { font-size: 8pt; line-height: 1.5; }
+.device-history th:nth-child(1) { width: 14%; } .device-history th:nth-child(2) { width: 13%; } .device-history th:nth-child(3) { width: 18%; } .device-history th:nth-child(4) { width: 15%; } .device-history th:nth-child(5) { width: 14%; } .device-history th:nth-child(6) { width: 26%; }
+thead { display: table-header-group; } tr { break-inside: avoid; page-break-inside: avoid; }
+.report-signatures { display: flex; justify-content: space-between; gap: 3mm; margin-top: 12mm; padding-top: 5mm; break-inside: avoid; page-break-inside: avoid; border-top: 1px solid #aaa; }
+.report-signatures div { text-align: center; flex: 1; font-size: 10pt; }.report-signatures span { display: block; margin-top: 10mm; }
+@media screen and (max-width: 650px) { .device-report { padding: 16px; } }
+@media print {
+  html, body { background: white; width: auto; margin: 0; padding: 0; }
+  .preview-toolbar { display: none !important; }
+  .device-report { width: auto; max-width: none; padding: 0; margin: 0; box-shadow: none; }
+  th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* Match the sales document branding while allowing a longer report title. */
+.device-report { --ic-red: #e30613; --ic-ink: #111; }
+.device-report .ic-header { direction: rtl; grid-template-columns: 1fr 1.25fr 1fr; margin-bottom: 5mm; padding-bottom: 4mm; border-bottom-width: 2px; break-inside: avoid; }
+.device-report .ic-head-ar-main { font-size: 19pt; white-space: normal; }
+.device-report .ic-head-ar-top { font-size: 15pt; }
+.device-report .ic-head-en-main { font-size: 14pt; white-space: normal; }
+.device-report .ic-head-en-top, .device-report .ic-head-en-sub { font-size: 10pt; }
+.device-report .ic-brandwords { gap: 4mm; }
+.device-report .ic-title-badge { font-size: 13pt; white-space: normal; line-height: 1.4; margin-bottom: 0; padding: 1mm 2mm; box-shadow: none; }
+.device-report h2 { border-bottom: 1px solid var(--ic-red); padding-bottom: 1mm; }
+.preview-toolbar button { background: #e30613; color: white; border: 0; border-radius: 6px; font-weight: bold; }
+
+
+
+.device-report {
+  position: relative;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  font-synthesis: none;
+  -webkit-font-smoothing: auto;
+  text-rendering: geometricPrecision;
+  line-height: 1.28;
+}
+.device-report > .ic-frame-border { position: absolute; inset: 3mm; width: calc(100% - 6mm); height: calc(100% - 6mm); object-fit: fill; pointer-events: none; user-select: none; z-index: 0; }
+.device-report > :not(.ic-frame-border) { position: relative; z-index: 1; }
+@media print {
+  /* Repeat the sales frame on every page, outside the report content margins. */
+  .device-report > .ic-frame-border { position: fixed; inset: -9mm; width: calc(100% + 18mm); height: calc(100% + 18mm); }
+}

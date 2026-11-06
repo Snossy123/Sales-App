@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { normalizeDigits } from '../lib/normalizeDigits'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -8,6 +10,9 @@ import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { CustodyVoucherDetails } from '../components/inventory/CustodyVoucherDetails'
 import { CustodyVoucherModal } from '../components/inventory/CustodyVoucherModal'
+import { DeviceInformation, DeviceHistoryTable } from '../components/inventory/DeviceReport'
+import { InventoryUnitTags } from '../components/inventory/InventoryUnitTags'
+import { openDeviceReport } from '../lib/printDeviceReport'
 import { Modal } from '../components/Modal'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
@@ -46,7 +51,7 @@ function voucherDateKey(createdAt?: string | null): string {
 }
 
 function compactSearch(value?: string | null): string {
-  return (value ?? '').replace(/\s/g, '').toLowerCase()
+  return normalizeDigits(value ?? '').replace(/\s/g, '').toLowerCase()
 }
 
 function modelName(unit?: ProductUnit | null): string {
@@ -85,48 +90,6 @@ function PageSelectCheckbox({
   )
 }
 
-function DeviceField({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
-  return (
-    <div>
-      <p className="text-on-surface-variant">{label}</p>
-      <p className={`font-medium ${mono ? 'font-mono' : ''}`}>{value?.trim() || '—'}</p>
-    </div>
-  )
-}
-
-function CustodyDeviceSummary({ unit }: { unit: ProductUnit }) {
-  const serial = productUnitDisplayCode(unit)
-  const physicalSerial = unit.physical_serial?.trim() ?? ''
-  const simNumber = unit.sim_number?.trim() ?? ''
-  const showPhysicalSerial = physicalSerial !== '' && physicalSerial !== serial
-  const showSim = simNumber !== '' && simNumber !== serial && simNumber !== physicalSerial
-
-  return (
-    <div className="grid grid-cols-1 gap-sm text-sm sm:grid-cols-2">
-      {showPhysicalSerial && <DeviceField label="السريال الفعلي" value={physicalSerial} mono />}
-      <DeviceField label="اسم المستخدم" value={unit.username} />
-      {showSim && <DeviceField label="رقم الشريحة" value={simNumber} mono />}
-      <DeviceField label="الموديل" value={modelName(unit)} />
-      <DeviceField label="التصنيف" value={inventoryBucketLabel(unit.inventory_bucket)} />
-      <DeviceField label="الحالة" value={productUnitStateLabel(unit.state)} />
-      <DeviceField label="الموظف" value={unit.custody_employee?.name} />
-      <DeviceField label="العميل" value={unit.custody_customer?.name} />
-      <DeviceField label="تاريخ الاستلام" value={formatDatetime12hDisplay(unit.custody_received_at)} />
-      {unit.inventory_bucket === 'custody_maintenance' && (
-        <>
-          <DeviceField label="حالة الصيانة" value={maintenanceVisitStatusLabel(unit)} />
-          <DeviceField label="تاريخ الدخول" value={formatVisitDate(unit.maintenance_entered_on)} />
-          <DeviceField label="تاريخ الخروج" value={formatVisitDate(unit.maintenance_exited_on)} />
-        </>
-      )}
-      <div className="sm:col-span-2">
-        <p className="text-on-surface-variant">ملاحظات الجهاز</p>
-        <p className="font-medium whitespace-pre-wrap">{unit.notes?.trim() || '—'}</p>
-      </div>
-    </div>
-  )
-}
-
 export function BranchInventoryPage() {
   const user = useAuthStore((s) => s.user)
   const canReceive = userCanPerform(user, 'inventory.branch.receive')
@@ -147,6 +110,7 @@ export function BranchInventoryPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [selectedVoucher, setSelectedVoucher] = useState<CustodyVoucher | null>(null)
+  const [printError, setPrintError] = useState('')
   const [selectedUnit, setSelectedUnit] = useState<ProductUnit | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [visibleIds, setVisibleIds] = useState<number[]>([])
@@ -181,10 +145,18 @@ export function BranchInventoryPage() {
   const unitHistoryQuery = useQuery({
     queryKey: ['custody-vouchers', 'unit', selectedUnit?.id],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
-        params: { product_unit_id: selectedUnit!.id, per_page: 100 },
-      })
-      return data.data ?? []
+      const vouchers: CustodyVoucher[] = []
+      let page = 1
+      let lastPage: number
+      do {
+        const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
+          params: { product_unit_id: selectedUnit!.id, per_page: 100, page },
+        })
+        vouchers.push(...(data.data ?? []))
+        lastPage = data.last_page
+        page += 1
+      } while (page <= lastPage)
+      return vouchers
     },
     enabled: selectedUnit != null,
   })
@@ -197,8 +169,8 @@ export function BranchInventoryPage() {
     })
   }, [])
 
-  const units = query.data?.units ?? []
-  const vouchers = vouchersQuery.data ?? []
+  const units = useMemo(() => query.data?.units ?? [], [query.data])
+  const vouchers = useMemo(() => vouchersQuery.data ?? [], [vouchersQuery.data])
 
   const bucketCounts = useMemo(() => {
     const counts = Object.fromEntries(CUSTODY_BUCKET_OPTIONS.map((option) => [option.value, 0])) as Record<
@@ -334,11 +306,14 @@ export function BranchInventoryPage() {
       if (dateFrom && dateKey && dateKey < dateFrom) return false
       if (dateTo && dateKey && dateKey > dateTo) return false
       if (!q) return true
-      const serial = voucher.product_unit ? productUnitDisplayCode(voucher.product_unit).toLowerCase() : ''
-      const number = (voucher.voucher_number ?? '').toLowerCase()
-      const employee = (voucher.employee?.name ?? voucher.creator?.name ?? '').toLowerCase()
-      const customer = (voucher.customer?.name ?? '').toLowerCase()
-      return serial.includes(q) || number.includes(q) || employee.includes(q) || customer.includes(q)
+      const unit = voucher.product_unit
+      const values = [
+        unit ? productUnitDisplayCode(unit) : '',
+        unit?.serial_number, unit?.physical_serial, unit?.username, unit?.sim_number,
+        voucher.voucher_number, voucher.employee?.name, voucher.creator?.name, voucher.customer?.name,
+      ]
+      const compactQuery = compactSearch(q)
+      return values.some((value) => compactSearch(value).includes(compactQuery))
     })
   }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo])
 
@@ -556,7 +531,11 @@ export function BranchInventoryPage() {
                   {
                     key: 'customer',
                     header: 'العميل',
-                    render: (row) => row.custody_customer?.name ?? '—',
+                    render: (row) => row.custody_customer ? (
+                      <Link to={`/customers/${row.custody_customer.id}`} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>
+                        {row.custody_customer.name}
+                      </Link>
+                    ) : '—',
                   },
                   {
                     key: 'received_at',
@@ -594,7 +573,7 @@ export function BranchInventoryPage() {
           <FilterBar
             search={logSearch}
             onSearchChange={setLogSearch}
-            searchPlaceholder="بحث برقم الإذن أو السريال"
+            searchPlaceholder="بحث برقم الإذن أو السريال أو اسم المستخدم أو رقم الشريحة"
             dateFrom={dateFrom}
             dateTo={dateTo}
             onDateFromChange={setDateFrom}
@@ -657,7 +636,11 @@ export function BranchInventoryPage() {
                   {
                     key: 'customer',
                     header: 'العميل',
-                    render: (row) => row.customer?.name ?? '—',
+                    render: (row) => row.customer ? (
+                      <Link to={`/customers/${row.customer.id}`} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>
+                        {row.customer.name}
+                      </Link>
+                    ) : '—',
                   },
                   {
                     key: 'received_at',
@@ -697,10 +680,22 @@ export function BranchInventoryPage() {
         onClose={() => setSelectedUnit(null)}
         title={selectedUnit ? `سجل الجهاز ${productUnitDisplayCode(selectedUnit)}` : 'سجل الجهاز'}
         size="lg"
+        headerActions={
+          <button type="button" className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+            disabled={!unitHistoryQuery.isSuccess || unitHistoryQuery.isFetching}
+            onClick={() => {
+              setPrintError('')
+              if (selectedUnit && !openDeviceReport(selectedUnit, unitHistoryQuery.data ?? [])) {
+                setPrintError('تعذر فتح التقرير. يرجى السماح بالنوافذ المنبثقة وإعادة المحاولة.')
+              }
+            }}>طباعة التقرير</button>
+        }
       >
         {selectedUnit && (
-          <div className="max-h-[70vh] space-y-md overflow-y-auto">
-            <CustodyDeviceSummary unit={selectedUnit} />
+          <div dir="rtl" className="max-h-[70vh] space-y-3 overflow-y-auto">
+            <InventoryUnitTags state={selectedUnit.state} inventoryBucket={selectedUnit.inventory_bucket} />
+            {printError && <p role="alert" className="text-sm text-error">{printError}</p>}
+            <DeviceInformation unit={selectedUnit} />
             <div className="space-y-sm">
               <h3 className="text-sm font-bold text-on-surface">سجل العهدة</h3>
               <AsyncState
@@ -708,17 +703,9 @@ export function BranchInventoryPage() {
                 isError={unitHistoryQuery.isError}
                 error={unitHistoryQuery.error}
               >
-                {(unitHistoryQuery.data ?? []).length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">لا يوجد سجل لهذا الجهاز.</p>
-                ) : (
-                  <div className="space-y-sm">
-                    {(unitHistoryQuery.data ?? []).map((voucher) => (
-                      <div key={voucher.id} className="rounded-lg border border-outline-variant p-sm">
-                        <CustodyVoucherDetails compact deviceNotes={selectedUnit.notes} voucher={voucher} />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="overflow-x-auto rounded-lg border border-outline-variant">
+                  <DeviceHistoryTable vouchers={unitHistoryQuery.data ?? []} />
+                </div>
               </AsyncState>
             </div>
           </div>

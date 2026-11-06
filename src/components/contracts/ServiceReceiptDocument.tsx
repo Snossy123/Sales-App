@@ -1,3 +1,4 @@
+import { ContractPrintBorder } from './ContractPrintBorder'
 import type { ReactNode } from 'react'
 import type { InstallmentItem, SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
@@ -125,13 +126,7 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
   return (
     <article className="installment-contract service-receipt">
       <div className="ic-frame">
-        <img
-          className="ic-frame-border"
-          src="/contract-frame.svg"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-        />
+        <ContractPrintBorder src="/contract-frame.svg" />
 
         <ContractPrintHeader title="بيان فك وتركيب" branchLabel={branchDisplay} />
 
