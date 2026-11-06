@@ -1,11 +1,16 @@
 import { isValidElement, useMemo, useState, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import manualSource from '../../../docs/client-user-manual-ar.md?raw'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { manualHeadingId, manualSectionsMatching, parseManual } from '../lib/userManual'
 
+const manualModules = import.meta.glob('../../docs/client-user-manual-ar.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+const manualSource = manualModules['../../docs/client-user-manual-ar.md'] ?? ''
 const manual = parseManual(manualSource)
 
 function nodeText(node: ReactNode): string {
