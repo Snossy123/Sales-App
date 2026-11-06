@@ -331,10 +331,12 @@ export function hasFutureCollectionReminder(
   rows: InstallmentCollectionRow[],
   now: number = Date.now(),
 ): boolean {
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
   return rows.some((row) => {
     if (!row.collection_reminder_at) return false
     const reminderAt = new Date(row.collection_reminder_at).getTime()
-    return Number.isFinite(reminderAt) && reminderAt > now
+    return Number.isFinite(reminderAt) && reminderAt >= today.getTime()
   })
 }
 

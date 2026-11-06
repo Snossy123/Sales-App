@@ -29,6 +29,14 @@ function makeRow(overrides: Partial<InstallmentCollectionRow> & { id: number }):
   }
 }
 
+it('keeps reminders from earlier today active until the day ends', () => {
+  const now = new Date(2026, 10, 6, 18, 0).getTime()
+  const reminder = new Date(2026, 10, 6, 0, 0).toISOString()
+  const row = makeRow({ collection_reminder_at: reminder })
+  expect(hasFutureCollectionReminder([row], now)).toBe(true)
+  expect(hasFutureCollectionReminder([row], new Date(2026, 10, 7, 0, 0).getTime())).toBe(false)
+})
+
 describe('collectionHelpers', () => {
   it('computes remaining from remaining, total_due, or amount minus paid', () => {
     expect(rowRemaining(makeRow({ id: 1, remaining: 250 }))).toBe(250)
