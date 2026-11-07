@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getErrorMessage } from '../../../api/client'
@@ -6,6 +6,7 @@ import type { ServiceEvaluationQuestion } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { CallLogFormModal } from '../../crm/components/CallLogFormModal'
 import { formatDate } from '../../../lib/accounting'
 import {
   EVALUATION_STATUS_LABELS,
@@ -24,6 +25,9 @@ export function EvaluationRecordPage() {
   const queryClient = useQueryClient()
   const requestId = Number(id)
 
+  const [callFormOpen, setCallFormOpen] = useState(false)
+  const [callMessage, setCallMessage] = useState('')
+  const initializedRequest = useRef<number | null>(null)
   const [overallRating, setOverallRating] = useState<number | ''>('')
   const [notes, setNotes] = useState('')
   const [answers, setAnswers] = useState<AnswerState>({})
@@ -52,7 +56,8 @@ export function EvaluationRecordPage() {
   }, [request?.call_log?.id])
 
   useEffect(() => {
-    if (!request) return
+    if (!request || initializedRequest.current === request.id) return
+    initializedRequest.current = request.id
     setOverallRating(request.overall_rating ?? '')
     setNotes(request.notes ?? '')
     const initial: AnswerState = {}
@@ -148,6 +153,7 @@ export function EvaluationRecordPage() {
         value={value.answer_text ?? ''}
         onChange={(e) => patchAnswer(question.id, { answer_text: e.target.value })}
         disabled={!isPending}
+        maxLength={2000}
         rows={2}
         className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
       />
@@ -206,6 +212,15 @@ export function EvaluationRecordPage() {
                     </dd>
                   </div>
                 </dl>
+                <div className="mt-md flex flex-wrap gap-sm">
+                  {request.customer_phone && (
+                    <a href={`tel:${request.customer_phone.replace(/[^+\d]/g, '')}`} className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary">اتصال بالعميل</a>
+                  )}
+                  {isPending && request.customer_id && (
+                    <button type="button" onClick={() => setCallFormOpen(true)} className="rounded-lg border border-outline-variant px-md py-2 text-sm">تسجيل مكالمة التقييم</button>
+                  )}
+                </div>
+                {callMessage && <p role="status" className="mt-sm text-sm text-primary">{callMessage}</p>}
               </section>
             </div>
 
@@ -225,6 +240,8 @@ export function EvaluationRecordPage() {
                 ) : (
                   <p className="mb-md text-sm text-on-surface-variant">لم تُربط مكالمة بعد.</p>
                 )}
+                {linkCallMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(linkCallMutation.error)}</p>}
+                {linkableCallsQuery.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(linkableCallsQuery.error)}</p>}
                 {isPending && (
                   <div className="flex flex-wrap items-end gap-sm">
                     <div className="min-w-[200px] flex-1">
@@ -321,6 +338,7 @@ export function EvaluationRecordPage() {
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
+                        maxLength={2000}
                         rows={3}
                         className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
                       />
@@ -362,6 +380,15 @@ export function EvaluationRecordPage() {
           </div>
         )}
       </AsyncState>
+      {request && isPending && request.customer_id && (
+        <CallLogFormModal open={callFormOpen} onClose={() => setCallFormOpen(false)}
+          lockedCustomerId={request.customer_id} lockedEvaluationId={requestId}
+          onSaved={(message) => {
+            setCallMessage(message)
+            void queryClient.invalidateQueries({ queryKey: ['review', 'evaluation-request', requestId] })
+            void queryClient.invalidateQueries({ queryKey: ['review', 'linkable-calls', requestId] })
+          }} />
+      )}
     </div>
   )
 }

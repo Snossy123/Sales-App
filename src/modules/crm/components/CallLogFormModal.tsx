@@ -53,6 +53,7 @@ export function CallLogFormModal({
   onSaved,
   lockedCustomerId,
   lockedCaseId,
+  lockedEvaluationId,
   embedded = false,
 }: {
   open: boolean
@@ -60,6 +61,7 @@ export function CallLogFormModal({
   onSaved?: (message: string) => void
   lockedCustomerId?: number
   lockedCaseId?: number
+  lockedEvaluationId?: number
   embedded?: boolean
 }) {
   const queryClient = useQueryClient()
@@ -81,20 +83,24 @@ export function CallLogFormModal({
     duration: '',
     start_time: nowDatetimeLocal(),
     statement_form: emptyStatementForm(),
-    service_evaluation_request_id: '' as number | '',
+    service_evaluation_request_id: (lockedEvaluationId ?? '') as number | '',
   })
 
   useEffect(() => {
     if (!open) return
     setFormError(null)
+    setCreateAudioFile(null)
+    setCreateWithTask(false)
     setCaseId(lockedCaseId ?? '')
     setForm((prev) => ({
       ...prev,
       customer_id: lockedCustomerId ?? '',
+      service_evaluation_request_id: lockedEvaluationId ?? '',
+      duration: '',
       start_time: nowDatetimeLocal(),
       statement_form: emptyStatementForm(),
     }))
-  }, [open, lockedCustomerId, lockedCaseId])
+  }, [open, lockedCustomerId, lockedCaseId, lockedEvaluationId])
 
   const lockedCustomerQuery = useQuery({
     queryKey: ['customers', lockedCustomerId, 'call-form'],
@@ -161,7 +167,7 @@ export function CallLogFormModal({
       })
       return (data.data ?? []).filter((row) => row.status !== 'cancelled')
     },
-    enabled: open && Boolean(customerId) && !lockedCaseId,
+    enabled: open && !lockedEvaluationId && Boolean(customerId) && !lockedCaseId,
     retry: false,
   })
 
@@ -173,7 +179,7 @@ export function CallLogFormModal({
       })
       return data.data ?? []
     },
-    enabled: open && Boolean(customerId),
+    enabled: open && !lockedEvaluationId && Boolean(customerId),
     retry: false,
   })
 
@@ -234,9 +240,9 @@ export function CallLogFormModal({
         call_type: form.call_type,
         duration: form.duration ? Number(form.duration) : undefined,
         statement_form: statementForm,
-        service_evaluation_request_id: form.service_evaluation_request_id
+        service_evaluation_request_id: lockedEvaluationId ?? (form.service_evaluation_request_id
           ? Number(form.service_evaluation_request_id)
-          : undefined,
+          : undefined),
         start_time: datetimeLocalToIso(form.start_time) ?? new Date().toISOString(),
         contract_case_id: caseId === '' ? undefined : Number(caseId),
       }
@@ -283,7 +289,7 @@ export function CallLogFormModal({
   })
 
   const problemMode = Boolean(lockedCaseId)
-  const showCasePicker = !problemMode && Boolean(customerId) && !casesQuery.isError
+  const showCasePicker = !lockedEvaluationId && !problemMode && Boolean(customerId) && !casesQuery.isError
 
   if (!open) return null
 
@@ -411,6 +417,8 @@ export function CallLogFormModal({
               <label className="mb-1 block text-sm font-medium text-on-surface">المدة بالثواني</label>
               <NumericInput
                 type="number"
+                min={0}
+                step={1}
                 placeholder="0"
                 value={form.duration}
                 onChange={(e) => setForm({ ...form, duration: e.target.value })}
@@ -418,61 +426,76 @@ export function CallLogFormModal({
                 dir="ltr"
               />
             </div>
-            <StatementFields
-              value={form.statement_form}
-              onChange={(statement_form) => setForm({ ...form, statement_form })}
-            />
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">ربط بتقييم (تفتيش)</label>
-              <select
-                value={form.service_evaluation_request_id}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    service_evaluation_request_id: e.target.value ? Number(e.target.value) : '',
-                  })
-                }
-                className={inputClass}
-                disabled={!customerId}
-              >
-                <option value="">— بدون ربط —</option>
-                {(evaluationsQuery.data ?? []).map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    تقييم #{ev.id}
-                    {ev.executed_at ? ` · ${ev.executed_at.slice(0, 10)}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-sm rounded-lg border border-outline-variant/70 p-sm">
-              <label className="flex items-center gap-sm text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={createWithTask}
-                  onChange={(e) => setCreateWithTask(e.target.checked)}
+            {lockedEvaluationId ? (
+              <Field label="ملاحظات مكالمة التقييم">
+                <TextArea
+                  mode="arabic"
+                  value={form.statement_form.notes ?? ''}
+                  onChange={(e) => setForm({ ...form, statement_form: { ...form.statement_form, notes: e.target.value } })}
+                  rows={3}
+                  maxLength={2000}
+                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
                 />
-                إنشاء مهمة من الإفادة بعد الحفظ
-              </label>
-              {createWithTask ? (
+              </Field>
+            ) : (
+              <>
+              <StatementFields
+                value={form.statement_form}
+                onChange={(statement_form) => setForm({ ...form, statement_form })}
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-on-surface">ربط بتقييم (تفتيش)</label>
                 <select
-                  value={taskEmployeeId}
-                  onChange={(e) => setTaskEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                  value={form.service_evaluation_request_id}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      service_evaluation_request_id: e.target.value ? Number(e.target.value) : '',
+                    })
+                  }
                   className={inputClass}
+                  disabled={!customerId}
                 >
-                  <option value="">— اختر موظفاً —</option>
-                  {(employeesQuery.data ?? []).map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
+                  <option value="">— بدون ربط —</option>
+                  {(evaluationsQuery.data ?? []).map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      تقييم #{ev.id}
+                      {ev.executed_at ? ` · ${ev.executed_at.slice(0, 10)}` : ''}
                     </option>
                   ))}
                 </select>
-              ) : null}
-              {createWithTask && canCreateTaskFromStatement(form.statement_form) ? (
-                <p className="text-xs text-on-surface-variant">
-                  معاينة: {previewTaskTitle(form.statement_form, form.mobile_name || form.mobile_number)}
-                </p>
-              ) : null}
-            </div>
+              </div>
+              <div className="space-y-sm rounded-lg border border-outline-variant/70 p-sm">
+                <label className="flex items-center gap-sm text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={createWithTask}
+                    onChange={(e) => setCreateWithTask(e.target.checked)}
+                  />
+                  إنشاء مهمة من الإفادة بعد الحفظ
+                </label>
+                {createWithTask ? (
+                  <select
+                    value={taskEmployeeId}
+                    onChange={(e) => setTaskEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                    className={inputClass}
+                  >
+                    <option value="">— اختر موظفاً —</option>
+                    {(employeesQuery.data ?? []).map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                {createWithTask && canCreateTaskFromStatement(form.statement_form) ? (
+                  <p className="text-xs text-on-surface-variant">
+                    معاينة: {previewTaskTitle(form.statement_form, form.mobile_name || form.mobile_number)}
+                  </p>
+                ) : null}
+              </div>
+              </>
+            )}
             <div>
               <label className="mb-1 block text-sm font-medium text-on-surface">إرفاق ملف صوتي للمكالمة</label>
               <input
@@ -504,7 +527,7 @@ export function CallLogFormModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="تسجيل مكالمة" size="lg">
+    <Modal open={open} onClose={onClose} title={lockedEvaluationId ? 'تسجيل مكالمة تقييم العميل' : 'تسجيل مكالمة'} size="lg">
       {formBody}
     </Modal>
   )
