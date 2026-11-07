@@ -61,6 +61,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/contract-templates': 'settings.manage',
   '/invoices/review': ['review.view_queue', 'review.view_detail'],
   '/review/collections': 'review.view_collections',
+  '/review/branch-inventory': 'review.view_branch_inventory',
   '/review/expenses': 'review.view_expenses',
   '/expenses/new': 'expenses.submit',
   '/invoices': ['review.view_contracts', 'sales.invoices.view'],

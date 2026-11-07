@@ -317,6 +317,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'review.record_evaluation', module: 'review', category: 'other', label: 'تسجيل تقييم العميل', description: 'تسجيل إجابات العميل بعد الاتصال به' },
   { key: 'review.view_collections', module: 'review', category: 'view', label: 'عرض مراجعة التحصيلات', description: 'استعراض العقود التي تم تحصيل أقساط عليها' },
   { key: 'review.confirm_collections', module: 'review', category: 'other', label: 'تأكيد مراجعة التحصيل', description: 'تأكيد صحة التحصيل دون صلاحية التحصيل نفسها' },
+  { key: 'review.view_branch_inventory', module: 'review', category: 'view', label: 'مراجعة مخزون الفرع', description: 'عرض مخزون الفروع وأذون الاستلام والصرف وسجل كل جهاز' },
   { key: 'review.view_expenses', module: 'review', category: 'view', label: 'عرض مراجعة المصروفات', description: 'استعراض طلبات المصروفات بانتظار الاعتماد' },
   { key: 'review.approve_expenses', module: 'review', category: 'other', label: 'اعتماد المصروفات', description: 'الموافقة على أو رفض طلبات المصروفات' },
   { key: 'installments.collect', module: 'installments', category: 'other', label: 'تحصيل الأقساط', description: 'تسجيل تحصيل الأقساط من العملاء' },

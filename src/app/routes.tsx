@@ -245,6 +245,7 @@ export function AppRoutes() {
             <Route path="invoices/review/:id" element={<InvoiceReviewDetailPage />} />
             <Route path="review/collections" element={<ReviewCollectionsPage />} />
             <Route path="review/collections/:id" element={<ReviewCollectionDetailPage />} />
+            <Route path="review/branch-inventory" element={<BranchInventoryPage reviewMode />} />
             <Route path="review/expenses" element={<ReviewExpensesPage />} />
             <Route path="review/expenses/:id" element={<ReviewExpenseDetailPage />} />
             <Route path="expenses/new" element={<ExpenseNewPage />} />

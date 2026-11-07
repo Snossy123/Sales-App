@@ -1,3 +1,4 @@
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { Link } from 'react-router-dom'
 import { normalizeDigits } from '../lib/normalizeDigits'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -92,19 +93,24 @@ function PageSelectCheckbox({
   )
 }
 
-export function BranchInventoryPage() {
+export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boolean }) {
+  const branchOptions = useBranchFilterOptions()
+  const [branchFilter, setBranchFilter] = useState('')
   const user = useAuthStore((s) => s.user)
-  const canAdd = userCanPerform(user, 'inventory.branch.add')
-  const canEdit = userCanPerform(user, 'inventory.branch.edit')
-  const canDelete = userCanPerform(user, 'inventory.branch.delete')
+  const canAdd = !reviewMode && userCanPerform(user, 'inventory.branch.add')
+  const canEdit = !reviewMode && userCanPerform(user, 'inventory.branch.edit')
+  const canDelete = !reviewMode && userCanPerform(user, 'inventory.branch.delete')
   const [unitEditor, setUnitEditor] = useState<ProductUnit | 'new' | null>(null)
   const [deleteUnit, setDeleteUnit] = useState<ProductUnit | null>(null)
-  const canReceive = userCanPerform(user, 'inventory.branch.receive.add')
-  const canIssue = userCanPerform(user, 'inventory.branch.issue.add')
-  const canViewReceipts = userCanPerform(user, 'inventory.branch.receive.view')
-  const canViewIssues = userCanPerform(user, 'inventory.branch.issue.view')
+  const canReceive = !reviewMode && userCanPerform(user, 'inventory.branch.receive.add')
+  const canIssue = !reviewMode && userCanPerform(user, 'inventory.branch.issue.add')
+  const canViewReceipts = reviewMode || userCanPerform(user, 'inventory.branch.receive.view')
+  const canViewIssues = reviewMode || userCanPerform(user, 'inventory.branch.issue.view')
   const canViewVouchers = canViewReceipts || canViewIssues
-  const canMarkVisit = canReceive || userCanPerform(user, 'inventory.branch.maintenance')
+  const canMarkVisit = !reviewMode && (canReceive || userCanPerform(user, 'inventory.branch.maintenance'))
+  const branchId = reviewMode ? Number(branchFilter) || undefined : user?.branch_id
+  const inventoryEndpoint = reviewMode ? '/review/branch-inventory' : '/inventory/branch'
+  const vouchersEndpoint = reviewMode ? '/review/branch-inventory/vouchers' : '/inventory/custody/vouchers'
   const queryClient = useQueryClient()
   const refreshInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['branch-inventory'] })
@@ -139,37 +145,43 @@ export function BranchInventoryPage() {
   const [visitError, setVisitError] = useState('')
 
   const query = useQuery({
-    queryKey: ['branch-inventory', user?.branch_id],
+    queryKey: ['branch-inventory', user?.id, branchId, reviewMode],
     queryFn: async () => {
       const params: Record<string, number> = {}
-      if (user?.branch_id) params.branch_id = user.branch_id
-      const { data } = await api.get<BranchInventoryResponse>('/inventory/branch', { params })
+      if (branchId) params.branch_id = branchId
+      const { data } = await api.get<BranchInventoryResponse>(inventoryEndpoint, { params })
       return data
     },
     enabled: Boolean(user),
   })
 
   const vouchersQuery = useQuery({
-    queryKey: ['custody-vouchers', user?.id, user?.branch_id, canViewReceipts, canViewIssues],
-    queryFn: async () => {
-      const params: Record<string, number> = { per_page: 100 }
-      if (user?.branch_id) params.branch_id = user.branch_id
-      const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
-        params,
-      })
-      return data.data ?? []
-    },
-    enabled: Boolean(user) && canViewVouchers,
-  })
-
-  const unitHistoryQuery = useQuery({
-    queryKey: ['custody-vouchers', 'unit', user?.id, selectedUnit?.id, canViewReceipts, canViewIssues],
+    queryKey: ['custody-vouchers', user?.id, branchId, reviewMode, canViewReceipts, canViewIssues],
     queryFn: async () => {
       const vouchers: CustodyVoucher[] = []
       let page = 1
       let lastPage: number
       do {
-        const { data } = await api.get<PaginatedResponse<CustodyVoucher>>('/inventory/custody/vouchers', {
+        const { data } = await api.get<PaginatedResponse<CustodyVoucher>>(vouchersEndpoint, {
+          params: { branch_id: branchId, per_page: 100, page },
+        })
+        vouchers.push(...(data.data ?? []))
+        lastPage = data.last_page ?? 1
+        page += 1
+      } while (page <= lastPage)
+      return vouchers
+    },
+    enabled: Boolean(user) && canViewVouchers,
+  })
+
+  const unitHistoryQuery = useQuery({
+    queryKey: ['custody-vouchers', 'unit', user?.id, reviewMode, selectedUnit?.id, canViewReceipts, canViewIssues],
+    queryFn: async () => {
+      const vouchers: CustodyVoucher[] = []
+      let page = 1
+      let lastPage: number
+      do {
+        const { data } = await api.get<PaginatedResponse<CustodyVoucher>>(vouchersEndpoint, {
           params: { product_unit_id: selectedUnit!.id, per_page: 100, page },
         })
         vouchers.push(...(data.data ?? []))
@@ -343,7 +355,7 @@ export function BranchInventoryPage() {
 
   return (
     <SalesPageShell
-      title="مخزون الفرع"
+      title={reviewMode ? 'مراجعة مخزون الفرع' : 'مخزون الفرع'}
       subtitle={view === 'custody' ? 'الأجهزة الحالية في العهدة' : 'سجل أذون الاستلام والصرف'}
       actions={
         view === 'custody' && (canReceive || canIssue || canAdd) ? (
@@ -377,11 +389,12 @@ export function BranchInventoryPage() {
         ) : undefined
       }
     >
+      {reviewMode && <FilterBar selects={[{ id: 'review-branch', label: 'الفرع', value: branchFilter, options: branchOptions, onChange: (value) => { setBranchFilter(value); setSelectedUnit(null); setSelectedVoucher(null) } }]} />}
       <div className="mb-4 flex gap-2 border-b border-outline-variant">
         {(
           [
             { id: 'custody' as const, label: 'العهدة' },
-            ...(canViewVouchers ? [{ id: 'log' as const, label: 'السجل' }] : []),
+            ...(canViewVouchers ? [{ id: 'log' as const, label: reviewMode ? 'الاستلام والصرف' : 'السجل' }] : []),
           ]
         ).map((tab) => (
           <button
@@ -487,6 +500,7 @@ export function BranchInventoryPage() {
                 onVisibleRowsChange={maintenanceMode ? onVisibleRowsChange : undefined}
                 emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
                 columns={[
+                  ...(reviewMode ? [{ key: 'branch', header: 'الفرع', render: (row: ProductUnit) => row.warehouse?.branch?.name_ar ?? row.warehouse?.branch?.name ?? '—' }] : []),
                   ...(maintenanceMode && canMarkVisit
                     ? [
                         {
@@ -570,7 +584,7 @@ export function BranchInventoryPage() {
                     key: 'issued_at',
                     header: 'تاريخ الصرف',
                     className: 'tabular-nums',
-                    render: () => '—',
+                    render: (row) => formatDatetime12hDisplay(row.custody_issued_at),
                   },
                   {
                     key: 'details',
@@ -633,6 +647,7 @@ export function BranchInventoryPage() {
                 striped={false}
                 emptyMessage={hasLogFilters ? 'لا توجد أذون مطابقة' : 'لا توجد أذون استلام أو صرف بعد.'}
                 columns={[
+                  ...(reviewMode ? [{ key: 'branch', header: 'الفرع', render: (row: CustodyVoucher) => row.branch?.name_ar ?? row.branch?.name ?? '—' }] : []),
                   {
                     key: 'type',
                     header: 'النوع',
@@ -681,6 +696,8 @@ export function BranchInventoryPage() {
                     key: 'details',
                     header: '',
                     render: (row) => (
+                      <div className="flex gap-3">
+                      {reviewMode && row.product_unit && <button type="button" className="text-sm text-primary hover:underline" onClick={() => setSelectedUnit(row.product_unit!)}>سجل الجهاز</button>}
                       <button
                         type="button"
                         className="text-sm font-bold text-primary hover:underline"
@@ -688,6 +705,7 @@ export function BranchInventoryPage() {
                       >
                         تفاصيل
                       </button>
+                      </div>
                     ),
                   },
                 ]}
