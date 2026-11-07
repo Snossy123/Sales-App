@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api, getErrorMessage } from '../../api/client'
 import type { CollectionActionsSummary } from '../../api/types'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
@@ -49,12 +49,7 @@ export function ContractCollectionActions({
     onOpenActionsChange?.(open)
   }
 
-  useEffect(() => {
-    if (openActions) {
-      setActionsModalOpen(true)
-      setError('')
-    }
-  }, [openActions])
+  const isActionsModalOpen = onOpenActionsChange ? openActions : actionsModalOpen
 
   const summaryQuery = useCollectionActionsSummary(customerId)
   const summary = summaryQuery.data
@@ -73,6 +68,8 @@ export function ContractCollectionActions({
       if (customerId) {
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
+      void queryClient.invalidateQueries({ queryKey: ['review-collection'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-collections'] })
       setError('')
       setModalOpen(false)
     },
@@ -94,6 +91,8 @@ export function ContractCollectionActions({
       }
       setDeviceModalOpen(false)
       setDeviceNotes('')
+      void queryClient.invalidateQueries({ queryKey: ['review-collection'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-collections'] })
       setError('')
     },
     onError: (err) => setError(getErrorMessage(err)),
@@ -112,6 +111,8 @@ export function ContractCollectionActions({
       if (customerId) {
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
+      void queryClient.invalidateQueries({ queryKey: ['review-collection'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-collections'] })
       setError('')
       setModalOpen(false)
     },
@@ -129,6 +130,8 @@ export function ContractCollectionActions({
       if (customerId) {
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
+      void queryClient.invalidateQueries({ queryKey: ['review-collection'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-collections'] })
       setError('')
       setModalOpen(false)
     },
@@ -147,6 +150,8 @@ export function ContractCollectionActions({
       if (customerId) {
         queryClient.setQueryData(summaryQueryKey(customerId), data.summary)
       }
+      void queryClient.invalidateQueries({ queryKey: ['review-collection'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-collections'] })
       setDeviceModalOpen(false)
       setError('')
       setModalOpen(false)
@@ -163,7 +168,7 @@ export function ContractCollectionActions({
 
   return (
     <>
-      {error && !actionsModalOpen && (
+      {error && !isActionsModalOpen && (
         <p className="mb-sm rounded border border-error/30 bg-error/5 px-sm py-xs text-xs text-error">
           {error}
         </p>
@@ -192,7 +197,7 @@ export function ContractCollectionActions({
               type="button"
               disabled={cancelWarningMutation.isPending}
               onClick={() => {
-                if (window.confirm('إلغاء الرسالة التحذيرية على هذا العقد؟')) {
+                if (window.confirm('إلغاء تسجيل التحذير على هذا العقد؟ الرسالة المرسلة لن تُسحب.')) {
                   cancelWarningMutation.mutate()
                 }
               }}
@@ -238,7 +243,7 @@ export function ContractCollectionActions({
         )}
       </div>
 
-      <Modal open={actionsModalOpen} onClose={closeActionsModal} title="إجراءات التحصيل" size="sm">
+      <Modal open={isActionsModalOpen} onClose={closeActionsModal} title="إجراءات التحصيل" size="sm">
         {error && (
           <p className="mb-sm rounded border border-error/30 bg-error/5 px-sm py-xs text-xs text-error">
             {error}
@@ -250,7 +255,7 @@ export function ContractCollectionActions({
             type="button"
             onClick={() => {
               if (warning) {
-                if (window.confirm('إلغاء الرسالة التحذيرية على هذا العقد؟')) {
+                if (window.confirm('إلغاء تسجيل التحذير على هذا العقد؟ الرسالة المرسلة لن تُسحب.')) {
                   cancelWarningMutation.mutate()
                 }
                 return

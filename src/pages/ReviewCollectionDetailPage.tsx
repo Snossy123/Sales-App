@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type { CollectionFollowUpLog, InstallmentItem, PaymentTransaction, SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ContractCollectionActions } from '../components/installments/CustomerCollectionActions'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
@@ -13,18 +14,51 @@ import { formatDatetime12hDisplay } from '../lib/datetime12h'
 import { formatMoney } from '../lib/theme'
 import { useAuthStore } from '../stores/authStore'
 
+interface CollectionActionHistory {
+  id: number
+  action_type: string
+  notes?: string | null
+  created_at?: string | null
+  cancelled_at?: string | null
+  user_name?: string | null
+  sales_invoice_id?: number | null
+}
+
+const actionLabels: Record<string, string> = {
+  device_disable_note: 'تسجيل فقد إشارة الجهاز',
+  whatsapp_warning: 'إرسال رسالة تحذيرية',
+  portal_login_disabled: 'تفعيل رسيت متأخر',
+  portal_login_enabled: 'إلغاء رسيت متأخر',
+  device_disable_note_cancelled: 'إلغاء تسجيل فقد إشارة الجهاز',
+  whatsapp_warning_cancelled: 'إلغاء تسجيل الرسالة التحذيرية',
+}
+
+function cairoDateTime(value?: string | null) {
+  if (!value || Number.isNaN(Date.parse(value))) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(value))
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`
+}
+
 export function ReviewCollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const canConfirm = userHasPermission(user, 'review.confirm_collections')
+  const canManageActions = canConfirm || userHasPermission(user, 'installments.collect')
+  const [historyDay, setHistoryDay] = useState('')
+  const [historyFrom, setHistoryFrom] = useState('')
+  const [historyTo, setHistoryTo] = useState('')
   const [notes, setNotes] = useState('')
 
   const query = useQuery({
     queryKey: ['review-collection', id],
     queryFn: async () => {
-      const { data } = await api.get<SalesInvoice & { collection_follow_ups: CollectionFollowUpLog[] }>(`/review/collections/${id}`)
+      const { data } = await api.get<SalesInvoice & { collection_follow_ups: CollectionFollowUpLog[]; collection_actions: CollectionActionHistory[] }>(`/review/collections/${id}`)
       return data
     },
     enabled: Boolean(id),
@@ -45,6 +79,15 @@ export function ReviewCollectionDetailPage() {
   const payments = (invoice?.payment_transactions ?? []) as PaymentTransaction[]
   const installments = (invoice?.installment_items ?? []) as InstallmentItem[]
   const history = [
+    ...(invoice?.collection_actions ?? []).map((action) => ({
+      id: `action-${action.id}`,
+      date: action.created_at,
+      user: action.user_name,
+      title: `${actionLabels[action.action_type] ?? action.action_type}${action.cancelled_at ? ' (تم إلغاؤه)' : ''}`,
+      installment: action.sales_invoice_id ? 'على مستوى العقد' : 'على مستوى العميل — يشمل كل عقوده',
+      notes: action.notes,
+      reminder: null,
+    })),
     ...payments.map((payment) => ({
       id: `payment-${payment.id}`,
       date: payment.paid_at,
@@ -73,6 +116,15 @@ export function ReviewCollectionDetailPage() {
       reminder: null,
     }] : []),
   ].sort((a, b) => (Date.parse(b.date ?? '') || 0) - (Date.parse(a.date ?? '') || 0))
+  const invalidHistoryRange = Boolean(historyFrom && historyTo && historyFrom > historyTo)
+  const filteredHistory = history.filter((event) => {
+    if (invalidHistoryRange) return false
+    const value = cairoDateTime(event.date)
+    if (historyDay && value.slice(0, 10) !== historyDay) return false
+    if (historyFrom && value < historyFrom) return false
+    if (historyTo && value > historyTo) return false
+    return true
+  })
   const isPending = invoice?.collection_review_status === 'pending'
 
   return (
@@ -178,20 +230,46 @@ export function ReviewCollectionDetailPage() {
               </div>
             </section>
 
+            {canManageActions && (
+              <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                <h2 className="mb-3 text-base font-semibold">إجراءات التحصيل</h2>
+                <p className="mb-3 text-xs text-on-surface-variant">رسيت متأخر وفقد إشارة الجهاز إجراءات على مستوى العميل وتشمل كل عقوده. إلغاء تسجيل التحذير لا يسحب رسالة واتساب المرسلة.</p>
+                <ContractCollectionActions customerId={invoice.customer_id} invoiceId={invoice.id} hasPhone={Boolean(invoice.customer?.phone)} />
+              </section>
+            )}
+
             <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
                 <Icon name="history" />
                 سجل إجراءات التحصيل
               </h2>
-              {history.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">لا توجد إجراءات مسجلة حتى الآن</p>
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <label className="text-xs text-on-surface-variant">
+                  اليوم
+                  <input type="date" value={historyDay} onChange={(e) => { setHistoryDay(e.target.value); setHistoryFrom(''); setHistoryTo('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                </label>
+                <label className="text-xs text-on-surface-variant">
+                  من وقت (بتوقيت القاهرة)
+                  <input type="datetime-local" value={historyFrom} onChange={(e) => { setHistoryFrom(e.target.value); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                </label>
+                <label className="text-xs text-on-surface-variant">
+                  إلى وقت (بتوقيت القاهرة)
+                  <input type="datetime-local" value={historyTo} onChange={(e) => { setHistoryTo(e.target.value); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                </label>
+              </div>
+              {(historyDay || historyFrom || historyTo) && (
+                <button type="button" className="mb-3 text-sm text-primary hover:underline" onClick={() => { setHistoryDay(''); setHistoryFrom(''); setHistoryTo('') }}>عرض كل السجل</button>
+              )}
+              {invalidHistoryRange && <p role="alert" className="mb-3 text-sm text-error">وقت النهاية يجب أن يكون بعد وقت البداية</p>}
+              {filteredHistory.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">لا توجد إجراءات في الفترة المحددة</p>
               ) : (
                 <ol className="space-y-3">
-                  {history.map((event) => (
+                  {filteredHistory.map((event) => (
                     <li key={event.id} className="rounded-lg border border-outline-variant bg-surface-container-low/50 p-3">
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
                         <span>{event.user || '—'}</span>
-                        <time dateTime={event.date ?? undefined}>{formatDatetime12hDisplay(event.date)}</time>
+                        <time dateTime={event.date ?? undefined}>{formatDatetime12hDisplay(cairoDateTime(event.date))}</time>
                       </div>
                       <p className="text-sm font-medium">{event.title}</p>
                       <p className="mt-1 text-xs text-on-surface-variant">{event.installment}</p>
