@@ -1,3 +1,5 @@
+import { CheckoutPaymentSection } from '../components/pos/CheckoutPaymentSection'
+import { useCheckoutPayment } from '../hooks/useCheckoutPayment'
 import { Application, Calendar, Exchange, Fingerprint, SettingTwo, Tool, Toolkit, PeoplePlus } from '@icon-park/react'
 import { useMemo, useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -275,6 +277,12 @@ export function ServiceCombinerPage() {
   const [lastInvoice, setLastInvoice] = useState<SalesInvoice | null>(null)
   const [uninstallInvoice, setUninstallInvoice] = useState<SalesInvoice | null>(null)
   const [lastInstallmentSale, setLastInstallmentSale] = useState(false)
+  const checkoutPayment = useCheckoutPayment(serviceDraft)
+  const {
+    checkoutPaymentMethod, setCheckoutPaymentMethod,
+    checkoutAccountId, setCheckoutAccountId,
+    checkoutSenderNumber, setCheckoutSenderNumber,
+  } = checkoutPayment
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
     () => serviceDraft?.distributorBalanceAmount ?? 0,
   )
@@ -314,6 +322,9 @@ export function ServiceCombinerPage() {
       feeLines,
       accessoryLines,
       distributorBalanceAmount,
+      checkoutPaymentMethod,
+      checkoutAccountId,
+      checkoutSenderNumber,
       collectionScope,
       contractPayment,
       feeTechnician,
@@ -342,6 +353,9 @@ export function ServiceCombinerPage() {
       feeLines,
       accessoryLines,
       distributorBalanceAmount,
+      checkoutPaymentMethod,
+      checkoutAccountId,
+      checkoutSenderNumber,
       collectionScope,
       contractPayment,
       feeTechnician,
@@ -386,6 +400,9 @@ export function ServiceCombinerPage() {
     setUninstallInvoice(null)
     setLastInstallmentSale(false)
     setDistributorBalanceAmount(0)
+    setCheckoutPaymentMethod('cash')
+    setCheckoutAccountId('')
+    setCheckoutSenderNumber('')
     setCollectionScope('contract')
     setContractPayment(createDefaultServicePayment(0, minDownPercent))
     setFeeTechnician(null)
@@ -415,6 +432,9 @@ export function ServiceCombinerPage() {
   const handleCustomerChange = (customer: Customer | null) => {
     setSelectedCustomer(customer)
     setDistributorBalanceAmount(0)
+    setCheckoutPaymentMethod('cash')
+    setCheckoutAccountId('')
+    setCheckoutSenderNumber('')
     resetContractDevice()
 
     if (!customer) {
@@ -1135,6 +1155,9 @@ export function ServiceCombinerPage() {
         ),
     )
 
+  const needsCheckoutPayment = paidNow - distributorBalanceAmount > 0.009
+  const checkoutPaymentError = checkoutPayment.paymentError(needsCheckoutPayment)
+
   const canSubmit =
     Boolean(selectedCustomer) &&
     sourceReady &&
@@ -1148,12 +1171,14 @@ export function ServiceCombinerPage() {
     accessoriesValid &&
     !accessoriesNeedWarehouse &&
     contractPaymentValid &&
+    !checkoutPaymentError &&
     !missingFeeService &&
     (!hasFeeServices || Boolean(feeTechnician))
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCustomer) throw new Error('العميل مطلوب')
+      if (checkoutPaymentError) throw new Error(checkoutPaymentError)
 
       const lines: CheckoutPayload['lines'] = []
       if (selectedChips.has('annual_renewal') && renewalLine) {
@@ -1263,6 +1288,7 @@ export function ServiceCombinerPage() {
         invoice_date: contractDate,
         notes: notes.trim() || undefined,
         collection_scope: collectionScope,
+        ...checkoutPayment.paymentPayload(needsCheckoutPayment),
         lines,
       }
 
@@ -1770,7 +1796,17 @@ export function ServiceCombinerPage() {
             />
           ) : null}
 
-          <PosSectionCard number={5} title="ملاحظات">
+          {needsCheckoutPayment && (
+            <CheckoutPaymentSection
+              number={5}
+              subtitle="مقدم التعاقد والمبالغ المستحقة الآن للخدمات وتجديد الاشتراك"
+              payment={checkoutPayment}
+              showErrors={submitAttempted}
+              error={checkoutPaymentError}
+            />
+          )}
+
+          <PosSectionCard number={needsCheckoutPayment ? 6 : 5} title="ملاحظات">
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

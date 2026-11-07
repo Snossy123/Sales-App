@@ -1,3 +1,4 @@
+import type { CheckoutPaymentDraft } from '../hooks/useCheckoutPayment'
 import type {
   Branch,
   ContractKind,
@@ -15,10 +16,7 @@ import type { ServicePaymentState } from '../components/services/ServicePaymentS
 import type { CombinerAccessoryLine, CombinerChipId, FeeLineInstance } from '../lib/serviceCombiner'
 import { PROCEDURE_DRAFT_IDS, readProcedureDraft } from './procedureDraftStore'
 
-export interface DeviceContractDraft {
-  checkoutPaymentMethod?: string
-  checkoutAccountId?: number | ''
-  checkoutSenderNumber?: string
+export interface DeviceContractDraft extends CheckoutPaymentDraft {
   userEdited?: boolean
   warehouseId?: number | null
   contextBranchId?: number | null
@@ -67,7 +65,7 @@ export interface DeviceContractDraft {
   distributorBalanceAmount: number
 }
 
-export interface ServiceContractDraft {
+export interface ServiceContractDraft extends CheckoutPaymentDraft {
   selectedChips: CombinerChipId[]
   transactionSource: TransactionSource
   branchSearch: string
