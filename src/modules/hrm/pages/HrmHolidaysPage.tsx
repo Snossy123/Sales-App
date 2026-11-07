@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -185,21 +186,17 @@ export function HrmHolidaysPage() {
             required
             className={`${inputClass} sm:col-span-2`}
           />
-          <input
-            type="date"
+          <AppDatePicker
             value={form.start_date}
-            onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            onChange={(e) => setForm({ ...form, start_date: e })}
             required
             className={inputClass}
-            dir="ltr"
           />
-          <input
-            type="date"
+          <AppDatePicker
             value={form.end_date}
-            onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+            onChange={(e) => setForm({ ...form, end_date: e })}
             required
             className={inputClass}
-            dir="ltr"
           />
           <select
             value={form.branch_id}

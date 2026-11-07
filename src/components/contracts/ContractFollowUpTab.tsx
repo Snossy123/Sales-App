@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../AppDateTimePicker'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -126,11 +127,10 @@ function FollowUpForm({ invoice }: { invoice: SalesInvoice }) {
         </label>
         <label className="block text-xs text-on-surface-variant">
           التذكير
-          <input
-            type="datetime-local"
+          <AppDateTimePicker
             className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm text-on-surface"
             value={collectionReminderAt}
-            onChange={(event) => setCollectionReminderAt(event.target.value)}
+            onChange={(event) => setCollectionReminderAt(event)}
           />
         </label>
         <label className="block text-xs text-on-surface-variant sm:col-span-2">

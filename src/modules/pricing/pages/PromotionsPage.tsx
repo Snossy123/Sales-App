@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -224,8 +225,8 @@ export function PromotionsPage() {
             required
             className={inputClass}
           />
-          <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className={inputClass} />
-          <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} />
+          <AppDatePicker value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e })} required className={inputClass} />
+          <AppDatePicker value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e })} required className={inputClass} />
           <label className="flex items-center gap-sm text-sm sm:col-span-2">
             <input
               type="checkbox"

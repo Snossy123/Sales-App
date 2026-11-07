@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { parseLocalizedNumber } from '../../lib/normalizeDigits'
 import {
   cashScheduleItemsTotal,
@@ -67,10 +68,9 @@ export function CashInstallmentScheduleEditor({
             </div>
             <div>
               <label className={posLabelClass}>تاريخ التحصيل {index + 1}</label>
-              <input
-                type="date"
+              <AppDatePicker
                 value={item.dueDate}
-                onChange={(e) => patchItem(index, { dueDate: e.target.value })}
+                onChange={(e) => patchItem(index, { dueDate: e })}
                 className={posInputClass}
               />
             </div>

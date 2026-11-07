@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../AppDateTimePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
@@ -177,11 +178,10 @@ export function PaymentVerificationPanel({ invoice, ledger }: PaymentVerificatio
             </label>
             <label className="block text-xs text-on-surface-variant">
               التاريخ
-              <input
-                type="datetime-local"
+              <AppDateTimePicker
                 className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-sm text-sm"
                 value={paidAt}
-                onChange={(event) => setPaidAt(event.target.value)}
+                onChange={(event) => setPaidAt(event)}
               />
             </label>
             <p className="text-xs text-on-surface-variant sm:col-span-2">

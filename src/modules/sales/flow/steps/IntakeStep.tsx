@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../../api/client'
@@ -476,10 +477,9 @@ function SourceColumn({
           <label className="min-w-40 flex-1 text-sm font-bold text-on-surface-variant">
             تاريخ التعاقد
             <div className="relative mt-1">
-              <input
-                type="date"
+              <AppDatePicker
                 value={draft.contractDate}
-                onChange={(e) => onPatch({ contractDate: e.target.value })}
+                onChange={(e) => onPatch({ contractDate: e })}
                 className={`${posInputClass} pe-9`}
               />
               <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-on-surface-variant">

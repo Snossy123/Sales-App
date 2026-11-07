@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../../../components/AppDateTimePicker'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -124,12 +125,10 @@ function StatementFormFields({
       </div>
       <div>
         <label className="mb-1 block text-xs text-on-surface-variant">موعد المتابعة (تاريخ ووقت)</label>
-        <input
-          type="datetime-local"
+        <AppDateTimePicker
           value={value.follow_up_date ? isoToDatetimeLocal(value.follow_up_date) : ''}
-          onChange={(e) => onChange({ ...value, follow_up_date: e.target.value || null })}
+          onChange={(e) => onChange({ ...value, follow_up_date: e || null })}
           className={inputClass}
-          dir="ltr"
         />
       </div>
       <div>
@@ -772,12 +771,10 @@ export function CrmCallLogsPage() {
             <ContactPickerSection {...contactPickerProps} />
             <div>
               <label className="mb-1 block text-sm font-medium">وقت المكالمة</label>
-              <input
-                type="datetime-local"
+              <AppDateTimePicker
                 value={form.start_time}
-                onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                onChange={(e) => setForm({ ...form, start_time: e })}
                 className={inputClass}
-                dir="ltr"
               />
             </div>
             <NumericInput

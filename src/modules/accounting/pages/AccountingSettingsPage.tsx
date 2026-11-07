@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -398,12 +399,10 @@ export function AccountingSettingsPage() {
               الأصول والمصروفات مدين · الإيرادات وحقوق الملكية والخصوم دائن
             </p>
             <div className="mb-md flex flex-wrap gap-sm">
-              <input
-                type="date"
+              <AppDatePicker
                 value={obDate}
-                onChange={(e) => setObDate(e.target.value)}
+                onChange={(e) => setObDate(e)}
                 className="rounded-lg border border-outline-variant px-sm py-2 text-sm"
-                dir="ltr"
               />
               <input
                 type="text"

@@ -1,3 +1,4 @@
+import { AppDatePicker } from './AppDatePicker'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 
@@ -109,28 +110,22 @@ export function FilterBar({
 
         {onDateFromChange !== undefined && (
           <FilterField label={dateFromLabel} htmlFor="filter-date-from">
-            <input
+            <AppDatePicker
               id="filter-date-from"
-              type="date"
               value={dateFrom ?? ''}
-              onChange={(e) => onDateFromChange(e.target.value)}
+              onChange={(e) => onDateFromChange(e)}
               className={inputClass}
-              dir="ltr"
-              lang="ar"
             />
           </FilterField>
         )}
 
         {onDateToChange !== undefined && (
           <FilterField label={dateToLabel} htmlFor="filter-date-to">
-            <input
+            <AppDatePicker
               id="filter-date-to"
-              type="date"
               value={dateTo ?? ''}
-              onChange={(e) => onDateToChange(e.target.value)}
+              onChange={(e) => onDateToChange(e)}
               className={inputClass}
-              dir="ltr"
-              lang="ar"
             />
           </FilterField>
         )}

@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -145,12 +146,10 @@ export function CrmActivitiesPage() {
               <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
                 من
               </span>
-              <input
-                type="date"
+              <AppDatePicker
                 value={draft.from}
-                onChange={(e) => setDraft((prev) => ({ ...prev, from: e.target.value }))}
+                onChange={(e) => setDraft((prev) => ({ ...prev, from: e }))}
                 className="border-none bg-transparent text-[12.5px] font-medium outline-none"
-                dir="ltr"
               />
             </label>
             <label
@@ -164,12 +163,10 @@ export function CrmActivitiesPage() {
               <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
                 إلى
               </span>
-              <input
-                type="date"
+              <AppDatePicker
                 value={draft.to}
-                onChange={(e) => setDraft((prev) => ({ ...prev, to: e.target.value }))}
+                onChange={(e) => setDraft((prev) => ({ ...prev, to: e }))}
                 className="border-none bg-transparent text-[12.5px] font-medium outline-none"
-                dir="ltr"
               />
             </label>
             <select

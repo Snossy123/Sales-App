@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../../api/client'
@@ -225,30 +226,24 @@ export function ReportsPage() {
           tab === 'general-ledger' ||
           tab === 'cash-statement') && (
           <>
-            <input
-              type="date"
+            <AppDatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => setStartDate(e)}
               className="rounded border border-outline-variant px-sm py-2 text-sm"
-              dir="ltr"
             />
-            <input
-              type="date"
+            <AppDatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => setEndDate(e)}
               className="rounded border border-outline-variant px-sm py-2 text-sm"
-              dir="ltr"
             />
           </>
         )}
 
         {(tab === 'balance-sheet' || tab === 'ar-reconciliation') && (
-          <input
-            type="date"
+          <AppDatePicker
             value={asOfDate}
-            onChange={(e) => setAsOfDate(e.target.value)}
+            onChange={(e) => setAsOfDate(e)}
             className="rounded border border-outline-variant px-sm py-2 text-sm"
-            dir="ltr"
           />
         )}
 

@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -665,10 +666,9 @@ export function HrmReportsPage() {
           {activeTab === 'daily' && (
             <div className="flex flex-col gap-1 text-right">
               <span className="text-xs text-on-surface-variant font-medium">التاريخ اليومي</span>
-              <input
-                type="date"
+              <AppDatePicker
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => setSelectedDate(e)}
                 className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm bg-surface-container-lowest focus:outline-none text-right"
               />
             </div>
@@ -679,19 +679,17 @@ export function HrmReportsPage() {
             <>
               <div className="flex flex-col gap-1 text-right">
                 <span className="text-xs text-on-surface-variant font-medium">من تاريخ</span>
-                <input
-                  type="date"
+                <AppDatePicker
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => setStartDate(e)}
                   className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm bg-surface-container-lowest focus:outline-none text-right"
                 />
               </div>
               <div className="flex flex-col gap-1 text-right">
                 <span className="text-xs text-on-surface-variant font-medium">إلى تاريخ</span>
-                <input
-                  type="date"
+                <AppDatePicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => setEndDate(e)}
                   className="rounded-lg border border-outline-variant px-3 py-1.5 text-sm bg-surface-container-lowest focus:outline-none text-right"
                 />
               </div>

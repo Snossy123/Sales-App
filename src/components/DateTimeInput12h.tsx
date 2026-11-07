@@ -1,3 +1,4 @@
+import { AppDatePicker } from './AppDatePicker'
 import { useState } from 'react'
 import { Icon } from './Icon'
 import {
@@ -35,14 +36,12 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
 
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
-      <input
-        type="date"
+      <AppDatePicker
         aria-label="تاريخ التذكير"
         value={parts.date}
         disabled={disabled}
-        onChange={(e) => emit({ ...parts, date: e.target.value })}
+        onChange={(e) => emit({ ...parts, date: e })}
         className={`${inputClass} w-full`}
-        dir="ltr"
       />
       {!parts.date && <p className="text-xs text-on-surface-variant">لم يتم اختيار تاريخ التذكير بعد.</p>}
       {parts.date && <p className="text-xs text-on-surface-variant" aria-live="polite">

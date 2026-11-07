@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -99,17 +100,15 @@ export function SalesTargetFormModal({
             ))}
           </select>
         )}
-        <input
-          type="date"
+        <AppDatePicker
           value={form.target_start}
-          onChange={(e) => setForm({ ...form, target_start: e.target.value })}
+          onChange={(e) => setForm({ ...form, target_start: e })}
           required
           className={inputClass}
         />
-        <input
-          type="date"
+        <AppDatePicker
           value={form.target_end}
-          onChange={(e) => setForm({ ...form, target_end: e.target.value })}
+          onChange={(e) => setForm({ ...form, target_end: e })}
           required
           className={inputClass}
         />

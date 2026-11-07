@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -233,8 +234,8 @@ export function HrmLeavesPage() {
             <option value="">نوع الإجازة</option>
             {(leaveTypesQuery.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.leave_type}</option>)}
           </select>
-          <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required className={inputClass} dir="ltr" />
-          <input type="date" min={form.start_date || undefined} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required className={inputClass} dir="ltr" />
+          <AppDatePicker value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e })} required className={inputClass} />
+          <AppDatePicker min={form.start_date || undefined} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e })} required className={inputClass} />
 
           {overlappingLeaves.length > 0 && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-sm text-xs text-amber-800 dark:text-amber-200">

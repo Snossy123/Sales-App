@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { useMemo } from 'react'
 import {
   computeInstallmentCount,
@@ -176,10 +177,9 @@ export function ServicePaymentSection({
             </div>
             <div>
               <label className={posLabelClass}>أول استحقاق</label>
-              <input
-                type="date"
+              <AppDatePicker
                 value={payment.firstDueDate}
-                onChange={(e) => onChange({ firstDueDate: e.target.value })}
+                onChange={(e) => onChange({ firstDueDate: e })}
                 className={posInputClass}
               />
             </div>

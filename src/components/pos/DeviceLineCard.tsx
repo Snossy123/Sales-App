@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { useState } from 'react'
 import type { ContractKind, Employee, GpsProduct } from '../../api/types'
 import type { DiscountMode } from '../../lib/discount'
@@ -602,10 +603,9 @@ export function DeviceLineCard({
                   </div>
                   <div>
                     <label className={posLabelClass}>أول استحقاق</label>
-                    <input
-                      type="date"
+                    <AppDatePicker
                       value={line.firstDueDate}
-                      onChange={(e) => patch({ firstDueDate: e.target.value })}
+                      onChange={(e) => patch({ firstDueDate: e })}
                       className={posInputClass}
                     />
                   </div>

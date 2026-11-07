@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { useMemo } from 'react'
 import {
   computeInstallmentCount,
@@ -342,10 +343,9 @@ export function ServiceLineCard({
                 </div>
                 <div>
                   <label className={posLabelClass}>أول استحقاق</label>
-                  <input
-                    type="date"
+                  <AppDatePicker
                     value={line.firstDueDate}
-                    onChange={(e) => patch({ firstDueDate: e.target.value })}
+                    onChange={(e) => patch({ firstDueDate: e })}
                     className={posInputClass}
                   />
                 </div>

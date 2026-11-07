@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../../../components/AppDateTimePicker'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -406,22 +407,18 @@ export function HrmAttendancePage() {
           )}
           <label className="text-sm">
             <span className="mb-xs block text-on-surface-variant">وقت الدخول</span>
-            <input
-              type="datetime-local"
+            <AppDateTimePicker
               value={editForm.clock_in_time}
-              onChange={(e) => setEditForm({ ...editForm, clock_in_time: e.target.value })}
+              onChange={(e) => setEditForm({ ...editForm, clock_in_time: e })}
               className={inputClass}
-              dir="ltr"
             />
           </label>
           <label className="text-sm">
             <span className="mb-xs block text-on-surface-variant">وقت الخروج</span>
-            <input
-              type="datetime-local"
+            <AppDateTimePicker
               value={editForm.clock_out_time}
-              onChange={(e) => setEditForm({ ...editForm, clock_out_time: e.target.value })}
+              onChange={(e) => setEditForm({ ...editForm, clock_out_time: e })}
               className={inputClass}
-              dir="ltr"
             />
           </label>
           <p className="text-xs text-on-surface-variant">

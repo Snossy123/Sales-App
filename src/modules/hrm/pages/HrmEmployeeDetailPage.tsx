@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -763,11 +764,10 @@ export function HrmEmployeeDetailPage() {
             className={inputClass}
             dir="ltr"
           />
-          <input
-            type="date"
+          <AppDatePicker
             placeholder="تاريخ التعيين"
             value={form.hire_date}
-            onChange={(e) => setForm({ ...form, hire_date: e.target.value })}
+            onChange={(e) => setForm({ ...form, hire_date: e })}
             className={inputClass}
           />
           <select

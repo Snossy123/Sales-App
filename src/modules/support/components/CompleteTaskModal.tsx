@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useEffect, useState } from 'react'
 import { Modal } from '../../../components/Modal'
 
@@ -76,12 +77,11 @@ export function CompleteTaskModal({
           <label htmlFor="executed-at" className="mb-1 block text-sm font-medium text-on-surface">
             تاريخ التنفيذ
           </label>
-          <input
+          <AppDatePicker
             id="executed-at"
-            type="date"
             value={executedAt}
             max={new Date().toISOString().split('T')[0]}
-            onChange={(e) => setExecutedAt(e.target.value)}
+            onChange={(e) => setExecutedAt(e)}
             required
             className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
           />

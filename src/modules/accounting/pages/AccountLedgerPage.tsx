@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
@@ -73,19 +74,15 @@ export function AccountLedgerPage() {
       />
 
       <div className="mb-md flex flex-wrap gap-sm">
-        <input
-          type="date"
+        <AppDatePicker
           value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
+          onChange={(e) => setStartDate(e)}
           className="rounded border border-outline-variant px-sm py-2 text-sm"
-          dir="ltr"
         />
-        <input
-          type="date"
+        <AppDatePicker
           value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
+          onChange={(e) => setEndDate(e)}
           className="rounded border border-outline-variant px-sm py-2 text-sm"
-          dir="ltr"
         />
       </div>
 

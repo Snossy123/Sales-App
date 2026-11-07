@@ -522,6 +522,7 @@ export interface AccessoryCheckoutPayload {
 export type DeviceOrigin = 'company_stock' | 'legacy' | 'external'
 
 export interface ProductUnit {
+  inventory_reviewed?: boolean
   id: number
   product_model_id: number
   warehouse_id?: number | null

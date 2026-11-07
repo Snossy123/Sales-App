@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { GpsUsernameInput } from '../pos/GpsUsernameInput'
 import { Icon } from '../Icon'
 import { TextInput } from '../ui/TextInput'
@@ -184,11 +185,10 @@ export function CustomerLegacyDevicesFields({
                 {device.renewal_type === 'annual' && (
                   <label className="block text-sm">
                     <span className="mb-xs block text-on-surface-variant">تاريخ التجديد *</span>
-                    <input
-                      type="date"
+                    <AppDatePicker
                       value={device.subscription_renewal_date}
                       onChange={(e) =>
-                        patchDevice(device.key, { subscription_renewal_date: e.target.value })
+                        patchDevice(device.key, { subscription_renewal_date: e })
                       }
                       className={`${inputClass}${errors.subscription_renewal_date ? ' border-error' : ''}`}
                     />
@@ -264,10 +264,9 @@ export function CustomerLegacyDevicesFields({
                     </label>
                     <label className="block text-sm">
                       <span className="mb-xs block text-on-surface-variant">تاريخ أول قسط *</span>
-                      <input
-                        type="date"
+                      <AppDatePicker
                         value={device.first_due_date}
-                        onChange={(e) => patchDevice(device.key, { first_due_date: e.target.value })}
+                        onChange={(e) => patchDevice(device.key, { first_due_date: e })}
                         className={`${inputClass}${errors.first_due_date ? ' border-error' : ''}`}
                       />
                       {errors.first_due_date && (

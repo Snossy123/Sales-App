@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -739,10 +740,9 @@ export function InstallmentCollectionPanel({
                 {suspendMode === 'vehicle_impounded' && (
                   <>
                     <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية الترحيل</label>
-                    <input
-                      type="date"
+                    <AppDatePicker
                       value={suspendResumeFromDate}
-                      onChange={(e) => setSuspendResumeFromDate(e.target.value)}
+                      onChange={(e) => setSuspendResumeFromDate(e)}
                       className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
                     />
                     <p className="mb-sm text-xs text-on-surface-variant">
@@ -812,10 +812,9 @@ export function InstallmentCollectionPanel({
                 summary="إعادة جدولة المتأخرين"
               >
                 <label className="mb-xs block text-xs text-on-surface-variant">تاريخ بداية جديد</label>
-                <input
-                  type="date"
+                <AppDatePicker
                   value={deferDate}
-                  onChange={(e) => onDeferDateChange(e.target.value)}
+                  onChange={(e) => onDeferDateChange(e)}
                   className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
                 />
                 <button
@@ -838,11 +837,10 @@ export function InstallmentCollectionPanel({
               {Object.entries(dueDateEdits).map(([id, date]) => (
                 <div key={id} className="mb-sm flex items-center gap-2 text-sm">
                   <span className="w-16 text-on-surface-variant">#{id}</span>
-                  <input
-                    type="date"
+                  <AppDatePicker
                     value={date}
                     onChange={(e) =>
-                      onDueDateEditsChange({ ...dueDateEdits, [Number(id)]: e.target.value })
+                      onDueDateEditsChange({ ...dueDateEdits, [Number(id)]: e })
                     }
                     className="flex-1 rounded border border-outline-variant px-sm py-1 text-sm"
                   />

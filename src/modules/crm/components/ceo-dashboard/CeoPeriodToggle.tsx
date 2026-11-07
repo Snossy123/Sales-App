@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../../components/AppDatePicker'
 import type { DashboardPeriod } from '../../../../components/DashboardPeriodFilter'
 import { CrmChip } from '../ui/CrmChip'
 
@@ -48,15 +49,13 @@ function DateField({
       }}
     >
       {label}
-      <input
-        type="date"
+      <AppDatePicker
         value={value}
         min={min}
         max={max}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e)}
         className="border-none bg-transparent text-[12.5px] font-medium outline-none"
         style={{ color: 'var(--crm-text)' }}
-        dir="ltr"
       />
     </label>
   )

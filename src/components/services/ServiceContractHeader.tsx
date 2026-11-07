@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import type { Branch, Customer, Distributor, SalesRep } from '../../api/types'
 import { distributorLabel } from '../../lib/sales'
 import { Icon } from '../Icon'
@@ -201,10 +202,9 @@ export function ServiceContractHeader({
           <div>
             <label className={posLabelClass}>تاريخ التعاقد</label>
             <div className="relative">
-              <input
-                type="date"
+              <AppDatePicker
                 value={contractDate}
-                onChange={(e) => onContractDateChange(e.target.value)}
+                onChange={(e) => onContractDateChange(e)}
                 className={`${posInputClass} pe-9`}
               />
               <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-on-surface-variant">

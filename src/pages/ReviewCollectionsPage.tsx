@@ -29,10 +29,6 @@ interface CollectionReviewRow {
 const COLLECTION_CATEGORIES = [
   { key: 'postponed', label: 'تأجيلات' },
   { key: 'paid', label: 'تم الدفع اليوم' },
-  { key: 'follow_up_today', label: 'متابعة اليوم' },
-  { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد' },
-  { key: 'no_answer', label: 'لم يتم الرد' },
-  { key: 'none', label: 'لم يتم التواصل' },
 ] as const
 
 type CollectionCategory = typeof COLLECTION_CATEGORIES[number]['key']
@@ -166,7 +162,7 @@ export function ReviewCollectionsPage() {
         />
       }
     >
-      <div className="mb-md grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-md grid grid-cols-2 gap-sm">
         {COLLECTION_CATEGORIES.map((item) => (
           <button
             key={item.key}

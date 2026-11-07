@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -179,19 +180,15 @@ export function TransfersPage() {
       {toast && <ToastBanner message={toast} onDismiss={() => setToast('')} />}
 
       <div className="mb-md flex flex-wrap gap-sm">
-        <input
-          type="date"
+        <AppDatePicker
           value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
+          onChange={(e) => setStartDate(e)}
           className="rounded border border-outline-variant px-sm py-2 text-sm"
-          dir="ltr"
         />
-        <input
-          type="date"
+        <AppDatePicker
           value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
+          onChange={(e) => setEndDate(e)}
           className="rounded border border-outline-variant px-sm py-2 text-sm"
-          dir="ltr"
         />
       </div>
 
@@ -310,12 +307,10 @@ export function TransfersPage() {
             className={inputClass}
             dir="ltr"
           />
-          <input
-            type="date"
+          <AppDatePicker
             value={operationDate}
-            onChange={(e) => setOperationDate(e.target.value)}
+            onChange={(e) => setOperationDate(e)}
             className={inputClass}
-            dir="ltr"
             required
           />
           <input

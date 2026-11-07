@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -235,20 +236,16 @@ export function CrmOwnerDetailPage() {
                 نطاق التاريخ
               </span>
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
+                <AppDatePicker
                   value={draftFrom}
-                  onChange={(e) => setDraftFrom(e.target.value)}
+                  onChange={(e) => setDraftFrom(e)}
                   className={`${OWNER_REPORT_INPUT_CLASS} w-full`}
-                  dir="ltr"
                 />
                 <span style={{ color: 'var(--crm-text-faint)' }}>—</span>
-                <input
-                  type="date"
+                <AppDatePicker
                   value={draftTo}
-                  onChange={(e) => setDraftTo(e.target.value)}
+                  onChange={(e) => setDraftTo(e)}
                   className={`${OWNER_REPORT_INPUT_CLASS} w-full`}
-                  dir="ltr"
                 />
               </div>
             </label>

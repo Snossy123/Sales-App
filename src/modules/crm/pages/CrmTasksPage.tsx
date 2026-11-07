@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import axios from 'axios'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -539,10 +540,9 @@ export function CrmTasksPage() {
                 </option>
               ))}
             </select>
-            <input
-              type="date"
+            <AppDatePicker
               value={form.deadline}
-              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+              onChange={(e) => setForm({ ...form, deadline: e })}
               className={inputClass}
             />
             <select

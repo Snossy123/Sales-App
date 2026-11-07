@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -468,12 +469,10 @@ export function HrmAllowancesPage() {
 
           <label className="block text-sm">
             <span className="mb-xs block text-on-surface-variant font-medium">تاريخ البدء (اختياري)</span>
-            <input
-              type="date"
+            <AppDatePicker
               value={form.applicable_date}
-              onChange={(e) => setForm({ ...form, applicable_date: e.target.value })}
+              onChange={(e) => setForm({ ...form, applicable_date: e })}
               className={inputClass}
-              dir="ltr"
             />
           </label>
 

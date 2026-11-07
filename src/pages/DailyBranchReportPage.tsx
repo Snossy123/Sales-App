@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../components/AppDatePicker'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -213,11 +214,10 @@ function DailyBranchReportForm({ branchId, reportDate, onReportDateChange, rende
           {renderBranchSelector(saveMutation.isPending)}
           <label className="text-sm">
             <span className="mb-xs block text-on-surface-variant">تاريخ البيان</span>
-            <input
-              type="date"
+            <AppDatePicker
               value={form.report_date}
               disabled={saveMutation.isPending}
-              onChange={(e) => { if (e.target.value) onReportDateChange(e.target.value) }}
+              onChange={(e) => { if (e) onReportDateChange(e) }}
               className={inputClass}
             />
           </label>

@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../AppDateTimePicker'
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
@@ -685,10 +686,9 @@ export function ContractProblemWizard({
             </div>
             <div>
               <label className="mb-xs block text-sm text-on-surface-variant">موعد الزيارة (اختياري)</label>
-              <input
-                type="datetime-local"
+              <AppDateTimePicker
                 value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
+                onChange={(e) => setScheduledAt(e)}
                 className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
               />
             </div>

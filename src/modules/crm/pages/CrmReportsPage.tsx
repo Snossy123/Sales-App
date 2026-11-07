@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -132,13 +133,11 @@ export function CrmReportsPage() {
                 }}
               >
                 من
-                <input
-                  type="date"
+                <AppDatePicker
                   value={dateRange.from}
-                  onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
+                  onChange={(e) => setDateRange((prev) => ({ ...prev, from: e }))}
                   className="border-none bg-transparent text-[12.5px] font-medium outline-none"
                   style={{ color: 'var(--crm-text)' }}
-                  dir="ltr"
                 />
               </label>
               <label
@@ -151,13 +150,11 @@ export function CrmReportsPage() {
                 }}
               >
                 إلى
-                <input
-                  type="date"
+                <AppDatePicker
                   value={dateRange.to}
-                  onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
+                  onChange={(e) => setDateRange((prev) => ({ ...prev, to: e }))}
                   className="border-none bg-transparent text-[12.5px] font-medium outline-none"
                   style={{ color: 'var(--crm-text)' }}
-                  dir="ltr"
                 />
               </label>
             </div>

@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -221,17 +222,15 @@ export function AdminActivityLogPage() {
               </option>
             ))}
           </select>
-          <input
-            type="date"
+          <AppDatePicker
             value={draft.from}
-            onChange={(e) => setDraft((f) => ({ ...f, from: e.target.value }))}
+            onChange={(e) => setDraft((f) => ({ ...f, from: e }))}
             className={inputClass}
             title="من تاريخ"
           />
-          <input
-            type="date"
+          <AppDatePicker
             value={draft.to}
-            onChange={(e) => setDraft((f) => ({ ...f, to: e.target.value }))}
+            onChange={(e) => setDraft((f) => ({ ...f, to: e }))}
             className={inputClass}
             title="إلى تاريخ"
           />

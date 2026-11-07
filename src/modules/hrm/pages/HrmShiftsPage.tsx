@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
@@ -271,7 +272,7 @@ export function HrmShiftsPage() {
 
       <Modal open={panel === 'assign'} onClose={closePanel} title="تعيين موظفين للوردية">
         <form onSubmit={(e) => { e.preventDefault(); assignMutation.mutate() }} className="space-y-sm">
-          <input type="date" value={assignForm.start_date} onChange={(e) => setAssignForm({ ...assignForm, start_date: e.target.value })} required className={inputClass} dir="ltr" />
+          <AppDatePicker value={assignForm.start_date} onChange={(e) => setAssignForm({ ...assignForm, start_date: e })} required className={inputClass} />
           <div className="max-h-48 overflow-y-auto rounded border border-outline-variant p-sm">
             {(employeesQuery.data ?? []).map((emp) => (
               <label key={emp.id} className="flex cursor-pointer items-center gap-xs py-0.5 text-sm">

@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../../../components/AppDatePicker'
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -179,20 +180,16 @@ export function CrmLeaderboardPage() {
           </div>
 
           <div className="ms-auto flex flex-wrap items-center gap-2">
-            <input
-              type="date"
+            <AppDatePicker
               value={draftFrom}
-              onChange={(e) => setDraftFrom(e.target.value)}
+              onChange={(e) => setDraftFrom(e)}
               className={OWNER_REPORT_INPUT_CLASS}
-              dir="ltr"
             />
             <span style={{ color: 'var(--crm-text-faint)' }}>←</span>
-            <input
-              type="date"
+            <AppDatePicker
               value={draftTo}
-              onChange={(e) => setDraftTo(e.target.value)}
+              onChange={(e) => setDraftTo(e)}
               className={OWNER_REPORT_INPUT_CLASS}
-              dir="ltr"
             />
             <button type="button" onClick={applyDates} className={CRM_PRIMARY_BTN}>
               <Icon name="search" size={18} />

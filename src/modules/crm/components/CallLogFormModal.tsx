@@ -1,3 +1,4 @@
+import { AppDateTimePicker } from '../../../components/AppDateTimePicker'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
@@ -356,13 +357,11 @@ export function CallLogFormModal({
         ) : null}
         <div>
           <label className="mb-1 block text-sm font-medium text-on-surface">وقت المكالمة</label>
-          <input
-            type="datetime-local"
+          <AppDateTimePicker
             value={form.start_time}
-            onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+            onChange={(e) => setForm({ ...form, start_time: e })}
             required
             className={inputClass}
-            dir="ltr"
           />
         </div>
         {problemMode ? (
@@ -561,12 +560,10 @@ function StatementFields({
         </select>
       </Field>
       <Field label="موعد المتابعة">
-        <input
-          type="datetime-local"
+        <AppDateTimePicker
           value={value.follow_up_date ? isoToDatetimeLocal(value.follow_up_date) : ''}
-          onChange={(e) => onChange({ ...value, follow_up_date: e.target.value || null })}
+          onChange={(e) => onChange({ ...value, follow_up_date: e || null })}
           className={inputClass}
-          dir="ltr"
         />
       </Field>
       <Field label="الأولوية">

@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../components/AppDatePicker'
 import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { Link } from 'react-router-dom'
 import { normalizeDigits } from '../lib/normalizeDigits'
@@ -130,6 +131,12 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
   const [bucketFilter, setBucketFilter] = useState('')
   const [employeeFilter, setEmployeeFilter] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
+  const [reviewFilter, setReviewFilter] = useState('')
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, reviewed }: { id: number; reviewed: boolean }) =>
+      api.patch(`/review/branch-inventory/units/${id}/review`, { inventory_reviewed: reviewed }),
+    onSuccess: refreshInventory,
+  })
 
   const [logSearch, setLogSearch] = useState('')
   const [logTypeFilter, setLogTypeFilter] = useState('')
@@ -251,6 +258,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase()
     return units.filter((unit) => {
+      if (reviewMode && reviewFilter && Boolean(unit.inventory_reviewed) !== (reviewFilter === 'reviewed')) return false
       if (bucketFilter && unit.inventory_bucket !== bucketFilter) return false
       if (employeeFilter && String(unit.custody_employee_id ?? unit.custody_employee?.id ?? '') !== employeeFilter) {
         return false
@@ -276,7 +284,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
         model.includes(q)
       )
     })
-  }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter])
+  }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter, reviewFilter, reviewMode])
 
   const maintenanceMode = bucketFilter === 'custody_maintenance'
   const selectedMaintenanceIds = useMemo(
@@ -350,7 +358,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
     })
   }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo])
 
-  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter || customerFilter)
+  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter || customerFilter || (reviewMode && reviewFilter))
   const hasLogFilters = Boolean(logSearch || logTypeFilter || dateFrom || dateTo)
 
   return (
@@ -435,6 +443,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
             onSearchChange={setUnitSearch}
             searchPlaceholder="اسم العميل أو رقمه أو السريال أو اليوزر أو الشريحة أو الموظف"
             selects={[
+              ...(reviewMode ? [{ id: 'review-status', label: 'حالة المراجعة', value: reviewFilter, options: [{ value: '', label: 'الكل' }, { value: 'reviewed', label: 'تم المراجعة' }, { value: 'pending', label: 'لم يتم المراجعة' }], onChange: setReviewFilter }] : []),
               {
                 id: 'bucket',
                 label: 'التصنيف',
@@ -469,6 +478,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
               updateBucketFilter('')
               setEmployeeFilter('')
               setCustomerFilter('')
+              setReviewFilter('')
             }}
           />
           {maintenanceMode && canMarkVisit && selectedMaintenanceIds.length > 0 && (
@@ -490,16 +500,33 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
               </button>
             </div>
           )}
+          {reviewMode && reviewMutation.isError && <p role="alert" className="mb-sm text-error">{getErrorMessage(reviewMutation.error)}</p>}
           <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
               <DataTable<ProductUnit>
                 data={filteredUnits}
                 keyExtractor={(row) => row.id}
                 pageSize={PAGE_SIZE}
-                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}`}
+                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}|${reviewFilter}`}
                 striped={false}
                 onVisibleRowsChange={maintenanceMode ? onVisibleRowsChange : undefined}
                 emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
                 columns={[
+                  ...(reviewMode ? [{
+                    key: 'inventory_reviewed', header: 'حالة المراجعة',
+                    render: (row: ProductUnit) => (
+                      <select
+                        aria-label={`حالة مراجعة ${productUnitDisplayCode(row)}`}
+                        value={row.inventory_reviewed ? 'reviewed' : 'pending'}
+                        disabled={reviewMutation.isPending}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => reviewMutation.mutate({ id: row.id, reviewed: event.target.value === 'reviewed' })}
+                        className="rounded-lg border border-outline-variant bg-surface px-2 py-1 text-sm"
+                      >
+                        <option value="pending">لم يتم المراجعة</option>
+                        <option value="reviewed">تم المراجعة</option>
+                      </select>
+                    ),
+                  }] : []),
                   ...(reviewMode ? [{ key: 'branch', header: 'الفرع', render: (row: ProductUnit) => row.warehouse?.branch?.name_ar ?? row.warehouse?.branch?.name ?? '—' }] : []),
                   ...(maintenanceMode && canMarkVisit
                     ? [
@@ -777,11 +804,10 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
         >
           <label className="block text-sm">
             <span className="text-on-surface-variant">{visitAction === 'exit' ? 'تاريخ الخروج' : 'تاريخ الدخول'}</span>
-            <input
-              type="date"
+            <AppDatePicker
               required
               value={visitDate}
-              onChange={(event) => setVisitDate(event.target.value)}
+              onChange={(event) => setVisitDate(event)}
               className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2"
             />
           </label>

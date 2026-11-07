@@ -1,3 +1,4 @@
+import { AppDatePicker } from '../AppDatePicker'
 import { useMemo } from 'react'
 import { Icon } from '../Icon'
 import { PosSectionCard } from './PosSectionCard'
@@ -255,10 +256,9 @@ export function PosOwnershipTransferFeesSection({
 
                 <div>
                   <label className={`${posLabelClass} mb-xs`}>تاريخ أول قسط</label>
-                  <input
-                    type="date"
+                  <AppDatePicker
                     value={firstDueDate}
-                    onChange={(e) => onFirstDueDateChange(e.target.value)}
+                    onChange={(e) => onFirstDueDateChange(e)}
                     className={posInputClass}
                   />
                 </div>

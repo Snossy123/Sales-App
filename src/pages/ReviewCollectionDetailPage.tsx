@@ -1,3 +1,5 @@
+import { AppDateTimePicker } from '../components/AppDateTimePicker'
+import { AppDatePicker } from '../components/AppDatePicker'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -246,15 +248,15 @@ export function ReviewCollectionDetailPage() {
               <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <label className="text-xs text-on-surface-variant">
                   اليوم
-                  <input type="date" value={historyDay} onChange={(e) => { setHistoryDay(e.target.value); setHistoryFrom(''); setHistoryTo('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                  <AppDatePicker value={historyDay} onChange={(e) => { setHistoryDay(e); setHistoryFrom(''); setHistoryTo('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
                 </label>
                 <label className="text-xs text-on-surface-variant">
                   من وقت (بتوقيت القاهرة)
-                  <input type="datetime-local" value={historyFrom} onChange={(e) => { setHistoryFrom(e.target.value); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                  <AppDateTimePicker  value={historyFrom} onChange={(e) => { setHistoryFrom(e); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
                 </label>
                 <label className="text-xs text-on-surface-variant">
                   إلى وقت (بتوقيت القاهرة)
-                  <input type="datetime-local" value={historyTo} onChange={(e) => { setHistoryTo(e.target.value); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
+                  <AppDateTimePicker  value={historyTo} onChange={(e) => { setHistoryTo(e); setHistoryDay('') }} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" />
                 </label>
               </div>
               {(historyDay || historyFrom || historyTo) && (
