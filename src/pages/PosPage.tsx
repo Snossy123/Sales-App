@@ -5,7 +5,7 @@ import { posContextFailure } from '../lib/posContextFailure'
 import { inspectPosDraftRestoration } from '../lib/posDraftRestoration'
 import { Modal } from '../components/Modal'
 import { useSuspendedPosStore, readActivePosDraft } from '../stores/suspendedPosStore'
-import { canAccessBranch } from '../lib/access'
+import { canAccessBranch, userHasPermission } from '../lib/access'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -265,6 +265,8 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   const [transactionSource, setTransactionSource] = useState<TransactionSource>(
     () => deviceDraft?.transactionSource ?? 'branch',
   )
+  const [actionBranchId, setActionBranchId] = useState<number | ''>('')
+  const canChangeActionBranch = userHasPermission(user, 'sales.invoices.change_action_branch')
   const [branchSearch, setBranchSearch] = useState(() => deviceDraft?.branchSearch ?? '')
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(
     () => deviceDraft?.selectedBranch ?? null,
@@ -388,6 +390,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (!invoice || !editInvoiceId) return
     if (hydratedEditRef.current === editInvoiceId) return
     hydratedEditRef.current = editInvoiceId
+    setActionBranchId(invoice.action_branch_id ?? '')
 
     const date = invoice.invoice_date?.slice(0, 10) || new Date().toISOString().split('T')[0]
     setContractDate(date)
@@ -1765,6 +1768,10 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       ...checkoutPayment.paymentPayload(needsCheckoutPayment),
     }
 
+    if (isEditMode && canChangeActionBranch && actionBranchId) {
+      payload.action_branch_id = actionBranchId
+    }
+
     if (warehouseId) {
       payload.warehouse_id = warehouseId
     } else if (isEditMode && editInvoiceQuery.data?.warehouse_id) {
@@ -2083,6 +2090,25 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 onSourceDeviceChange={setSourceTransferDevice}
                 submitAttempted={submitAttempted}
               />
+            )}
+            {isEditMode && canChangeActionBranch && (
+              <label className="flex flex-col gap-2">
+                <span>فرع تنفيذ البيع</span>
+                <select
+                  className="input"
+                  value={actionBranchId}
+                  onChange={(event) => setActionBranchId(event.target.value ? Number(event.target.value) : '')}
+                  disabled={branchesQuery.isLoading}
+                >
+                  <option value="">الإبقاء على الفرع الحالي</option>
+                  {actionBranchId && !(branchesQuery.data ?? []).some((branch) => branch.id === actionBranchId && canAccessBranch(user, branch)) && (
+                    <option value={actionBranchId}>{editInvoiceQuery.data?.action_branch?.name_ar || editInvoiceQuery.data?.action_branch?.name || `الفرع الحالي (${actionBranchId})`}</option>
+                  )}
+                  {(branchesQuery.data ?? []).filter((branch) => canAccessBranch(user, branch)).map((branch) => (
+                    <option key={branch.id} value={branch.id}>{branch.name_ar || branch.name}</option>
+                  ))}
+                </select>
+              </label>
             )}
             <PosContractHeader
                 transactionSource={transactionSource}

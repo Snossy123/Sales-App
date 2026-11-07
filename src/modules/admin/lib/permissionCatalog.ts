@@ -298,6 +298,7 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'sales.pos.accessories', module: 'sales', category: 'add', label: 'بيع إكسسوارات', description: 'بيع الإكسسوارات من قسم التعاقدات' },
   { key: 'sales.pos.catalog', module: 'sales', category: 'view', label: 'دليل الأسعار', description: 'استعراض دليل أسعار التعاقدات' },
   { key: 'sales.invoices.view', module: 'sales', category: 'view', label: 'عرض الفواتير', description: 'استعراض فواتير المبيعات وتفاصيلها' },
+  { key: 'sales.invoices.change_action_branch', module: 'sales', category: 'edit', label: 'تغيير فرع تنفيذ البيع', description: 'تغيير فرع تنفيذ البيع عند تعديل العقد ضمن الفروع المسموح بها' },
   { key: 'sales.invoices.edit_before_review', module: 'sales', category: 'edit', label: 'تعديل العقد قبل المراجعة', description: 'تعديل بيانات التعاقد والأجهزة والأقساط قبل اعتماد المراجعة' },
   { key: 'sales.daily_mission', module: 'sales', category: 'view', label: 'مهمة اليوم', description: 'عرض بطاقات مهمة اليوم لموظف المبيعات' },
   { key: 'review.view_subscription_renewals', module: 'sales', category: 'view', label: 'تجديد الاشتراكات', description: 'استعراض العملاء الذين يحتاجون تجديد اشتراكهم السنوي' },

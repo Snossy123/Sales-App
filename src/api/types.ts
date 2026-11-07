@@ -1236,6 +1236,7 @@ export interface SalesRep {
 }
 
 export interface CheckoutPayload {
+  action_branch_id?: number
   payment_method?: string
   collection_payment_account_id?: number
   sender_transfer_number?: string
