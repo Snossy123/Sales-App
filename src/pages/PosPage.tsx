@@ -10,6 +10,7 @@ import { api, getErrorMessage } from '../api/client'
 import type {
   Branch,
   CheckoutPayload,
+  CollectionPaymentAccount,
   ContractKind,
   Customer,
   CustomerContractDevice,
@@ -303,6 +304,20 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   const [selectedPromotionId, setSelectedPromotionId] = useState<number | ''>(
     () => deviceDraft?.selectedPromotionId ?? '',
   )
+  const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState(deviceDraft?.checkoutPaymentMethod ?? 'cash')
+  const [checkoutAccountId, setCheckoutAccountId] = useState<number | ''>(deviceDraft?.checkoutAccountId ?? '')
+  const [checkoutSenderNumber, setCheckoutSenderNumber] = useState(deviceDraft?.checkoutSenderNumber ?? '')
+  const isCheckoutTransfer = checkoutPaymentMethod !== 'cash'
+  const checkoutAccountsQuery = useQuery({
+    queryKey: ['collection-accounts', 'active', checkoutPaymentMethod],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CollectionPaymentAccount[] }>('/collection-accounts/active', {
+        params: { payment_method: checkoutPaymentMethod },
+      })
+      return data.data
+    },
+    enabled: isCheckoutTransfer,
+  })
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
     () => deviceDraft?.distributorBalanceAmount ?? 0,
   )
@@ -352,6 +367,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setContractDate(new Date().toISOString().split('T')[0])
     setSelectedPromotionId('')
     setDistributorBalanceAmount(0)
+    setCheckoutPaymentMethod('cash')
+    setCheckoutAccountId('')
+    setCheckoutSenderNumber('')
     setSubmitAttempted(false)
     hasAutoSelectedPromotion.current = false
     useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.posDevice, draftUserId)
@@ -379,6 +397,15 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
 
     const date = invoice.invoice_date?.slice(0, 10) || new Date().toISOString().split('T')[0]
     setContractDate(date)
+    const checkoutPayment = invoice.payment_transactions?.find((payment) =>
+      payment.status === 'active' && !payment.installment_item_id &&
+      ['down_payment', 'pos_cash', 'transportation_fee'].includes(payment.payment_source ?? ''),
+    )
+    if (checkoutPayment) {
+      setCheckoutPaymentMethod(checkoutPayment.payment_method ?? 'cash')
+      setCheckoutAccountId(checkoutPayment.collection_payment_account_id ?? '')
+      setCheckoutSenderNumber(checkoutPayment.sender_transfer_number ?? '')
+    }
     setContractKind((invoice.contract_kind as ContractKind) || 'new_contract')
     if (invoice.customer) {
       setSelectedCustomer(invoice.customer)
@@ -512,6 +539,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     }
     setSelectedCustomer(customer)
     setDistributorBalanceAmount(0)
+    setCheckoutPaymentMethod('cash')
+    setCheckoutAccountId('')
+    setCheckoutSenderNumber('')
   }
 
   const handleTransactionSourceChange = (source: TransactionSource) => {
@@ -1167,6 +1197,13 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     selectedCustomer?.distributor_profile ?? customerDistributorQuery.data ?? null
   const distributorBalanceAvailable = Number(customerDistributorProfile?.commission_balance ?? 0)
 
+  const needsCheckoutPayment = paidAtCheckout - distributorBalanceAmount > 0.009
+  const checkoutPaymentError = needsCheckoutPayment && isCheckoutTransfer
+    ? !checkoutAccountId || !(checkoutAccountsQuery.data ?? []).some((account) => account.id === checkoutAccountId)
+      ? 'اختر حساب التحصيل المفعل'
+      : !checkoutSenderNumber.trim() ? 'أدخل رقم التحويل من العميل' : ''
+    : ''
+
   const hasTransferSource = Boolean(sourceTransferInvoice || sourceTransferDevice)
   const deviceLineValidationOptions = {
     requireTechnician: contractKind !== 'subscription_renewal' && !isOwnershipTransfer,
@@ -1228,6 +1265,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       contractDate,
       selectedPromotionId,
       distributorBalanceAmount,
+      checkoutPaymentMethod,
+      checkoutAccountId,
+      checkoutSenderNumber,
     }),
     [
       transferServicePrices,
@@ -1273,6 +1313,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       contractDate,
       selectedPromotionId,
       distributorBalanceAmount,
+      checkoutPaymentMethod,
+      checkoutAccountId,
+      checkoutSenderNumber,
     ],
   )
 
@@ -1476,7 +1519,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (!customerId || !sourceReady || deviceLines.length === 0) return
     if (!manualDeviceEntry && !warehouseId && !isEditMode) return
     if (!manualDeviceEntry && !allowNegativeInventory && !isEditMode && quantity > available) return
-    if (!allLinesValid) return
+    if (!allLinesValid || checkoutPaymentError) return
     if (isOwnershipTransfer && !hasTransferSource) return
     if (
       isRenewal &&
@@ -1708,6 +1751,13 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       invoice_date: contractDate,
       payment_term: contractKind === 'ownership_transfer' ? transferPaymentTerm : undefined,
       lines,
+      ...(needsCheckoutPayment ? {
+        payment_method: checkoutPaymentMethod,
+        ...(isCheckoutTransfer ? {
+          collection_payment_account_id: Number(checkoutAccountId),
+          sender_transfer_number: checkoutSenderNumber.trim(),
+        } : {}),
+      } : {}),
     }
 
     if (warehouseId) {
@@ -1756,6 +1806,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (!submitAttempted) return []
 
     const messages: string[] = []
+    if (checkoutPaymentError) messages.push(checkoutPaymentError)
     if (!selectedCustomer) messages.push('يجب اختيار العميل')
     if (isOwnershipTransfer && !hasTransferSource) {
       messages.push('يجب اختيار التعاقد الأصلي أو الجهاز لنقل الملكية')
@@ -1813,6 +1864,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     return messages
   }, [
     submitAttempted,
+    checkoutPaymentError,
     selectedCustomer,
     sourceReady,
     transactionSource,
@@ -1877,7 +1929,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     (contractKind === 'subscription_renewal' && !renewalReady) ||
     (!manualDeviceEntry && !warehouseId && !isEditMode) ||
     (!manualDeviceEntry && !allowNegativeInventory && !isEditMode && quantity > available) ||
-    !allLinesValid
+    !allLinesValid || Boolean(checkoutPaymentError)
 
   const submitInvalid = submitDisabled && !checkoutMutation.isPending
 
@@ -2192,6 +2244,39 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 </p>
               )}
             </PosSectionCard>
+            {needsCheckoutPayment && (
+              <PosSectionCard number={isOwnershipTransfer || contractKind === 'subscription_renewal' ? 4 : 3} title="طريقة تحصيل المبلغ عند التعاقد" subtitle="رسوم التركيب ومقدم الجهاز والمبالغ المستحقة الآن" contentClassName="space-y-sm p-sm sm:p-md">
+                <label className="block text-sm">
+                  طريقة التحصيل
+                  <select className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-2" value={checkoutPaymentMethod} onChange={(event) => {
+                    setCheckoutPaymentMethod(event.target.value)
+                    setCheckoutAccountId('')
+                    setCheckoutSenderNumber('')
+                  }}>
+                    <option value="cash">نقدي</option>
+                    <option value="wallet">محفظة</option>
+                    <option value="instapay">انستا</option>
+                    <option value="bank_transfer">تحويل بنكي</option>
+                  </select>
+                </label>
+                {isCheckoutTransfer && <>
+                  <label className="block text-sm">
+                    {checkoutPaymentMethod === 'bank_transfer' ? 'حساب البنك المفعل' : 'رقم المحفظة / انستا المفعل'}
+                    <select className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-2" value={checkoutAccountId} onChange={(event) => setCheckoutAccountId(event.target.value ? Number(event.target.value) : '')}>
+                      <option value="">اختر الحساب</option>
+                      {(checkoutAccountsQuery.data ?? []).map((account) => <option key={account.id} value={account.id}>{account.beneficiary_name} — {account.account_number || account.phone}{account.bank_name ? ` (${account.bank_name})` : ''}</option>)}
+                    </select>
+                  </label>
+                  {checkoutAccountsQuery.isLoading && <p className="text-sm text-on-surface-variant">جاري تحميل الحسابات…</p>}
+                  {checkoutAccountsQuery.isError && <p role="alert" className="text-sm text-error">تعذر تحميل حسابات التحصيل. <button type="button" className="underline" onClick={() => void checkoutAccountsQuery.refetch()}>إعادة المحاولة</button></p>}
+                  <label className="block text-sm">
+                    رقم التحويل من العميل
+                    <input className="mt-xs w-full rounded-lg border border-outline-variant bg-surface px-sm py-2" dir="ltr" maxLength={50} value={checkoutSenderNumber} onChange={(event) => setCheckoutSenderNumber(event.target.value)} placeholder="01xxxxxxxxx" />
+                  </label>
+                </>}
+                {submitAttempted && checkoutPaymentError && <p role="alert" className="text-sm text-error">{checkoutPaymentError}</p>}
+              </PosSectionCard>
+            )}
           </div>
 
           <PosContractSummary

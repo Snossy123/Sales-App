@@ -988,6 +988,7 @@ export interface ConvertToInstallmentPreview {
 }
 
 export interface PaymentTransaction {
+  collection_payment_account_id?: number | null
   id: number
   transaction_number?: string
   installment_item_id?: number | null
@@ -1232,6 +1233,9 @@ export interface SalesRep {
 }
 
 export interface CheckoutPayload {
+  payment_method?: string
+  collection_payment_account_id?: number
+  sender_transfer_number?: string
   customer_id: number
   distributor_id?: number
   sales_user_id?: number

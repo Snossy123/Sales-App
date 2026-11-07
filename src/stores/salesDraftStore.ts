@@ -16,6 +16,9 @@ import type { CombinerAccessoryLine, CombinerChipId, FeeLineInstance } from '../
 import { PROCEDURE_DRAFT_IDS, readProcedureDraft } from './procedureDraftStore'
 
 export interface DeviceContractDraft {
+  checkoutPaymentMethod?: string
+  checkoutAccountId?: number | ''
+  checkoutSenderNumber?: string
   userEdited?: boolean
   warehouseId?: number | null
   contextBranchId?: number | null
