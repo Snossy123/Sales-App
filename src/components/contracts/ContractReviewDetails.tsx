@@ -5,6 +5,7 @@ import {
   fmtContractMoney,
   invoiceContractSummary,
   resolveInstallmentMethodLabel,
+  resolveLinePlan,
   resolveProductModelName,
   resolveRenewalTypeLabel,
   resolveSerial,
@@ -251,6 +252,11 @@ function DeviceDetailCard({
   }
 
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(paymentTerm) })
+
+  const plan = resolveLinePlan(line, invoice)
+  if (plan || paymentTerm === 'installment') {
+    cells.push({ label: 'المقدم', value: fmtContractMoney(plan?.down_payment ?? 0) })
+  }
 
   const installmentMethod = resolveInstallmentMethodLabel(line, invoice)
   if (installmentMethod && installmentMethod !== '—') {
