@@ -1,3 +1,4 @@
+import { repriceDeviceLine } from '../lib/deviceLinePricing'
 import { CheckoutPaymentSection } from '../components/pos/CheckoutPaymentSection'
 import { useCheckoutPayment } from '../hooks/useCheckoutPayment'
 import { PosContextUnavailableError, posContextFailure } from '../lib/posContextFailure'
@@ -893,10 +894,12 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 ? 0
                 : installmentPrice
         if (existing && restoredLineKeys.current.has(existing.key)) {
-          next.push(existing)
+          next.push(productQuery.data && contractKind !== 'ownership_transfer'
+            ? repriceDeviceLine(existing, priceForTerm, minDownPercent, maxInstallmentCount)
+            : existing)
         } else if (existing) {
           next.push({
-            ...existing,
+            ...repriceDeviceLine(existing, priceForTerm, minDownPercent, maxInstallmentCount),
             productUnitId: manualDeviceEntry ? undefined : unit?.id ?? existing.productUnitId,
             imei: manualDeviceEntry ? undefined : unit?.imei ?? existing.imei,
             unitPrice: priceForTerm,
@@ -927,6 +930,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     contractKind,
     manualDeviceEntry,
     productQuery.data,
+    maxInstallmentCount,
     isEditMode,
   ])
 
@@ -1210,6 +1214,13 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   }, [defaultInstallationFee, isEditMode, servicesQuery.isSuccess, deviceDraft])
 
   const transferServicePrices = useMemo(() => ({ ownershipFeeAmount, uninstallFeeAmount, installationFeeAmount, subscriptionUpgradeAmount }), [ownershipFeeAmount, uninstallFeeAmount, installationFeeAmount, subscriptionUpgradeAmount])
+  const pricedDeviceLines = useMemo(() => {
+    if (!productQuery.data || isEditMode || contractKind === 'ownership_transfer') return deviceLines
+    return deviceLines.map((line) => repriceDeviceLine(line, resolveGpsUnitPrice(productQuery.data, {
+      contractKind, paymentTerm: line.paymentTerm, renewalType: line.renewalType,
+    }), minDownPercent, maxInstallmentCount))
+  }, [deviceLines, productQuery.data, isEditMode, contractKind, minDownPercent, maxInstallmentCount])
+
   const deviceDraftSnapshot = useMemo<DeviceContractDraft>(
     () => ({
       transferServicePrices,
@@ -1244,7 +1255,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       customerSearch,
       selectedCustomer,
       quantity,
-      deviceLines,
+      deviceLines: pricedDeviceLines,
       applyInstallationFee,
       installationFee,
       applyTransportationFee,
@@ -1292,7 +1303,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       customerSearch,
       selectedCustomer,
       quantity,
-      deviceLines,
+      pricedDeviceLines,
       applyInstallationFee,
       installationFee,
       applyTransportationFee,
@@ -1308,6 +1319,15 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     ],
   )
 
+  const restoredPriceUpdates = deviceDraft && !isEditMode && deviceDraft.contractKind === contractKind && productQuery.isSuccess
+    ? pricedDeviceLines.flatMap((line, index) => {
+        const saved = deviceDraft.deviceLines.find((item) => item.key === line.key)
+        return saved && Math.abs(saved.unitPrice - line.unitPrice) > 0.009
+          ? [`تم تحديث سعر الجهاز رقم ${index + 1} من ${saved.unitPrice} إلى ${line.unitPrice} ج.م وفق السعر الحالي، وإعادة حساب المقدم وجدول السداد.`]
+          : []
+      })
+    : []
+
   const draftMeaningful = isDeviceContractDraftMeaningful(deviceDraftSnapshot) && Boolean(
     userEdited || selectedCustomer || customerSearch.trim() || selectedDistributor || selectedSalesRep ||
     sourceTransferInvoice || sourceTransferDevice || sourceRenewalCandidate ||
@@ -1315,7 +1335,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   )
   useEffect(() => { snapshotRef.current = deviceDraftSnapshot }, [deviceDraftSnapshot])
   useEffect(() => {
-    if (isEditMode || draftUserId == null || !draftMeaningful || !contextRestored) return
+    if (isEditMode || draftUserId == null || !draftMeaningful || !contextRestored || !productQuery.isSuccess) return
     const timer = window.setTimeout(() => {
       if (draftCompleted.current) return
       try {
@@ -1327,7 +1347,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       } catch { setDraftError('تعذر حفظ المسودة على المتصفح. تحقق من مساحة التخزين قبل تعليق التعاقد أو مغادرة الصفحة.') }
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [deviceDraftSnapshot, draftMeaningful, draftUserId, draftIdentity, isEditMode, contextRestored])
+  }, [deviceDraftSnapshot, draftMeaningful, draftUserId, draftIdentity, isEditMode, contextRestored, productQuery.isSuccess])
   useEffect(() => {
     const flush = () => {
       if (isEditMode || draftUserId == null || draftCompleted.current || !snapshotRef.current) return
@@ -1464,9 +1484,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     enabled: Boolean(deviceDraft && !isEditMode && restoredSourceInvoiceId),
   })
   const restoration = deviceDraft && !isEditMode ? inspectPosDraftRestoration(deviceDraftSnapshot, {
-    branches: (branchesQuery.data ?? []).filter((branch) => canAccessBranch(user, branch)),
-    warehouses: restoreWarehouseQuery.data ? [restoreWarehouseQuery.data] : [],
-    units: unitsQuery.data ?? [], product: productQuery.data,
+    branches: branchesQuery.isSuccess ? branchesQuery.data.filter((branch) => canAccessBranch(user, branch)) : undefined,
+    warehouses: restoreWarehouseQuery.isSuccess ? [restoreWarehouseQuery.data] : undefined,
+    units: unitsQuery.isSuccess ? unitsQuery.data : undefined, product: productQuery.data,
   }) : { issues: [], priceWarnings: [] }
   if (deviceDraft && !isEditMode && servicesQuery.isSuccess) {
     if (contractKind === 'new_contract' && applyInstallationFee && Math.abs(installationFee - defaultInstallationFee) > 0.009) restoration.priceWarnings.push(`رسوم التركيب المحفوظة ${installationFee} ج.م؛ الرسوم الحالية ${defaultInstallationFee} ج.م.`)
@@ -1484,9 +1504,17 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (selectedPromotionId && activePromotionsQuery.isSuccess && !activePromotionsQuery.data.some((promotion) => promotion.id === Number(selectedPromotionId))) restoration.issues.push('العرض المحفوظ لم يعد متاحًا؛ اختر عرضًا آخر أو أزل العرض الحالي.')
     if (employeesQuery.isSuccess && deviceLines.some((line) => line.technician && !employeesQuery.data.some((employee) => employee.id === line.technician!.id))) restoration.issues.push('أحد الفنيين المختارين لم يعد ضمن الفنيين المتاحين لهذا المصدر. أعد اختياره.')
   }
-  const restoreChecking = Boolean(deviceDraft && !isEditMode && ((!contextRestored && !restoreContextError) || (restoredSourceInvoiceId && restoreSourceQuery.isFetching) || branchesQuery.isFetching || branchesQuery.isPending || servicesQuery.isFetching || servicesQuery.isPending || (warehouseId && restoreWarehouseQuery.isFetching) || productQuery.isFetching || productQuery.isPending || (warehouseId && (unitsQuery.isPending || unitsQuery.isFetching || stockQuery.isFetching)) || (selectedCustomer && restoreCustomerQuery.isFetching)))
+  const restoreChecking = Boolean(deviceDraft && !isEditMode && (
+    (!contextRestored && !restoreContextError) ||
+    (restoredSourceInvoiceId && restoreSourceQuery.isPending) ||
+    branchesQuery.isPending || servicesQuery.isPending || productQuery.isPending ||
+    (warehouseId && contextRestored && restoreWarehouseQuery.isPending) ||
+    (warehouseId && (unitsQuery.isPending || stockQuery.isPending)) ||
+    (selectedCustomer && restoreCustomerQuery.isPending)
+  ))
   const restoreUnavailable = Boolean(deviceDraft && !isEditMode && (restoreContextError || restoreSourceQuery.isError || restoreWarehouseQuery.isError || servicesQuery.isError || branchesQuery.isError || productQuery.isError || unitsQuery.isError || restoreCustomerQuery.isError || restoreCustomerQuery.data?.status === 'blocked'))
-  const restoreBlocked = restoreChecking || restoreUnavailable || restoration.issues.length > 0 || (restoration.priceWarnings.length > 0 && !pricesAcknowledged)
+  const devicePricesPending = pricedDeviceLines.some((line, index) => line !== deviceLines[index])
+  const restoreBlocked = devicePricesPending || restoreChecking || restoreUnavailable || restoration.issues.length > 0 || (restoration.priceWarnings.length > 0 && !pricesAcknowledged)
 
   const updateDeviceLine = (index: number, line: DeviceLineDraft) => {
     setDeviceLines((prev) => prev.map((item, i) => (i === index ? line : item)))
@@ -1957,6 +1985,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
         </>
       }
     >
+      {restoredPriceUpdates.length > 0 && (
+        <div role="status" className="mb-3 space-y-1 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+          {restoredPriceUpdates.map((message) => <p key={message}>{message}</p>)}
+        </div>
+      )}
       {draftError && <p role="alert" className="mb-3 rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">{draftError}</p>}
       {deviceDraft && !isEditMode && (restoreChecking || restoreUnavailable || restoration.issues.length > 0 || restoration.priceWarnings.length > 0) && (
         <div className="mb-3 space-y-2 rounded-lg border border-tertiary/30 bg-tertiary/10 p-3 text-sm">

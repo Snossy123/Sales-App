@@ -24,6 +24,10 @@ describe('restored POS validation', () => {
     expect(result.priceWarnings).toHaveLength(1)
     expect(snapshot.deviceLines[0].unitPrice).toBe(1000)
   })
+  it('does not report missing branches, warehouses, or units before their requests complete', () => {
+    expect(inspectPosDraftRestoration(snapshot, {})).toEqual({ issues: [], priceWarnings: [] })
+    expect(inspectPosDraftRestoration(snapshot, { branches: [], warehouses: [], units: [] }).issues).toHaveLength(3)
+  })
   it('does not require sellable stock for an existing renewal device', () => {
     expect(inspectPosDraftRestoration({ ...snapshot, contractKind: 'subscription_renewal' }, { ...current, units: [], product: undefined }).issues).toEqual([])
   })
