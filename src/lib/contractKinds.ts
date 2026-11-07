@@ -54,7 +54,7 @@ export function reviewApproveLabel(kind?: string | null): string {
   if (kind === 'mixed') {
     return 'اعتماد خدمات مجمّعة'
   }
-  return 'تأكيد وإرسال الأقساط'
+  return 'تآكيد اعتماد العقد'
 }
 
 export function subscriptionRenewalUnitPrice(cashPrice: number): number {
