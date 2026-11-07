@@ -19,10 +19,22 @@ const EXPENSE_TYPES = [
   { value: 'employee_payout', label: 'صرف عمولة الموظف / نسبة تركيب خارجي' },
 ];
 
+export interface EditableExpenseRequest {
+  id: number
+  branch_id: number
+  expense_type: string
+  amount: string | number
+  notes?: string | null
+  distributor_id?: number | null
+  employee_id?: number | null
+  contract_ids?: number[]
+}
+
 interface ExpenseRequestFormProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
+  expense?: EditableExpenseRequest
 }
 
 type ExpenseContract = {
@@ -46,12 +58,16 @@ function distributorLabel(distributor: Distributor) {
   return distributor.customer?.name || distributor.name_ar || distributor.name
 }
 
-export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
+export function ExpenseRequestForm({ open, onClose, onSuccess, expense }: ExpenseRequestFormProps) {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const activeBranchId = useAuthStore((s) => s.branchId)
   const userId = user?.id ?? null
-  const saved = readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
+  const saved: ExpenseDraft | null = expense ? {
+    expenseType: expense.expense_type, amount: String(expense.amount), notes: expense.notes ?? '',
+    branchId: expense.branch_id, distributorId: expense.distributor_id ?? '', employeeId: expense.employee_id ?? '',
+    contractIds: expense.contract_ids ?? [],
+  } : readProcedureDraft<ExpenseDraft>(PROCEDURE_DRAFT_IDS.expense, userId)
   const [expenseType, setExpenseType] = useState(() =>
     saved?.expenseType === 'operating' ? 'distributor_payout'
       : saved?.expenseType === 'employee_debt' ? 'employee_payout'
@@ -92,7 +108,19 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
         contractIds.length > 0 ||
         expenseType !== 'petty_cash',
     ),
-    enabled: open,
+    enabled: open && !expense,
+  })
+
+  const editOptionsQuery = useQuery({
+    queryKey: ['expense-edit-options', expense?.id, branchId, expenseType],
+    queryFn: async () => {
+      const { data } = await api.get<{
+        branches: Branch[]; distributors: Distributor[]; employees: Employee[];
+        contracts: ExpenseContract[]; blocked_contract_ids: number[];
+      }>(`/review/expenses/${expense!.id}/edit-options`, { params: { branch_id: branchId || expense?.branch_id, expense_type: expenseType } })
+      return data
+    },
+    enabled: open && Boolean(expense),
   })
 
   const branchesQuery = useQuery({
@@ -101,7 +129,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       const { data } = await api.get<PaginatedResponse<Branch>>('/branches', { params: { per_page: 100 } })
       return data.data ?? []
     },
-    enabled: open,
+    enabled: open && !expense,
   })
 
   const distributorsQuery = useQuery({
@@ -112,7 +140,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data.data ?? []
     },
-    enabled: open && expenseType === 'distributor_payout' && Boolean(branchId),
+    enabled: open && !expense && expenseType === 'distributor_payout' && Boolean(branchId),
   })
 
   const employeesQuery = useQuery({
@@ -123,7 +151,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data.data ?? []
     },
-    enabled: open && expenseType === 'employee_payout' && Boolean(branchId),
+    enabled: open && !expense && expenseType === 'employee_payout' && Boolean(branchId),
   })
 
   const contractsQuery = useQuery({
@@ -142,7 +170,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       } while (page <= lastPage)
       return contracts
     },
-    enabled: open && Boolean(branchId),
+    enabled: open && !expense && Boolean(branchId),
   })
 
   const commissionType = expenseType === 'distributor_payout' || expenseType === 'employee_payout'
@@ -154,25 +182,32 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
       })
       return data.blocked_contract_ids
     },
-    enabled: open && Boolean(branchId) && commissionType,
+    enabled: open && !expense && Boolean(branchId) && commissionType,
   })
-  const blockedContractIds = new Set(commissionType ? commissionAvailability.data ?? [] : [])
+  const availabilityReady = expense ? editOptionsQuery.isSuccess : commissionAvailability.isSuccess
+  const contractRows = expense ? editOptionsQuery.data?.contracts : contractsQuery.data
+  const contractLoading = expense ? editOptionsQuery.isPending : contractsQuery.isPending
+  const contractError = expense ? editOptionsQuery.error : contractsQuery.error
+  const blockedContractIds = new Set(commissionType ? (expense ? editOptionsQuery.data?.blocked_contract_ids : commissionAvailability.data) ?? [] : [])
   const hasBlockedSelection = contractIds.some((id) => blockedContractIds.has(id))
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post('/expense-requests', {
+      const payload = {
         branch_id: branchId,
         expense_type: expenseType,
         amount: Number(amount),
-        notes: notes || undefined,
-        distributor_id: distributorId || undefined,
-        employee_id: employeeId || undefined,
+        notes: notes || null,
+        distributor_id: expenseType === 'distributor_payout' ? distributorId || null : null,
+        employee_id: expenseType === 'employee_payout' ? employeeId || null : null,
         contract_ids: contractIds,
-      })
+      }
+      const { data } = expense
+        ? await api.put(`/review/expenses/${expense.id}`, payload)
+        : await api.post('/expense-requests', payload)
       return data
     },
-    onError: () => { if (commissionType) void commissionAvailability.refetch() },
+    onError: () => { if (expense) void editOptionsQuery.refetch(); else if (commissionType) void commissionAvailability.refetch() },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['expense-contract-commissions'] })
       void queryClient.invalidateQueries({ queryKey: ['review-expenses'] })
@@ -182,7 +217,11 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
         void queryClient.invalidateQueries({ queryKey: ['distributors'] })
         void queryClient.invalidateQueries({ queryKey: ['distributor'] })
       }
-      useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
+      void queryClient.invalidateQueries({ queryKey: ['expense-edit-options'] })
+      void queryClient.invalidateQueries({ queryKey: ['my-expense-requests-today'] })
+      void queryClient.invalidateQueries({ queryKey: ['daily-branch-reports'] })
+      if (expense) void queryClient.invalidateQueries({ queryKey: ['review-expense', String(expense.id)] })
+      if (!expense) useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
       setExpenseType('petty_cash')
       setAmount('')
       setNotes('')
@@ -200,13 +239,16 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     (!needsDistributor || Boolean(distributorId)) &&
     (!needsEmployee || Boolean(employeeId)) &&
     !hasBlockedSelection &&
-    (!commissionType || commissionAvailability.isSuccess) &&
+    (!expense || editOptionsQuery.isSuccess) &&
+    (!commissionType || availabilityReady) &&
     !submitMutation.isPending
 
   return (
-    <Modal open={open} onClose={onClose} title="تسجيل مصروف">
+    <Modal open={open} onClose={onClose} title={expense ? 'تعديل المصروف' : 'تسجيل مصروف'}>
       <div className="flex max-h-[calc(100dvh-10rem)] flex-col">
         <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain pe-1">
+          {expense && editOptionsQuery.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(editOptionsQuery.error)} <button type="button" className="underline" onClick={() => void editOptionsQuery.refetch()}>إعادة المحاولة</button></p>}
+          {expense && <p className="text-sm text-on-surface-variant">حفظ التعديلات يعيد المصروف للمراجعة.</p>}
           <div>
             <label className="mb-1 block text-sm">نوع المصروف</label>
             <select
@@ -239,7 +281,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
               }}
             >
               <option value="">اختر الفرع</option>
-              {(branchesQuery.data ?? []).map((b) => (
+              {(expense ? editOptionsQuery.data?.branches ?? [] : branchesQuery.data ?? []).map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name_ar ?? b.name}
                 </option>
@@ -255,7 +297,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
                 onChange={(e) => setDistributorId(e.target.value ? Number(e.target.value) : '')}
               >
                 <option value="">اختر الموزع</option>
-                {(distributorsQuery.data ?? []).map((d) => (
+                {(expense ? editOptionsQuery.data?.distributors ?? [] : distributorsQuery.data ?? []).map((d) => (
                   <option key={d.id} value={d.id}>
                     {distributorLabel(d)}
                   </option>
@@ -272,7 +314,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
                 onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : '')}
               >
                 <option value="">اختر الموظف</option>
-                {(employeesQuery.data ?? []).map((emp) => (
+                {(expense ? editOptionsQuery.data?.employees ?? [] : employeesQuery.data ?? []).map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name}
                   </option>
@@ -300,23 +342,23 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
                 العقود المرتبطة بالمصروف ({contractIds.length})
               </summary>
               <div className="max-h-60 space-y-2 overflow-y-auto px-3 pb-3">
-                {contractsQuery.isPending && branchId && <p className="text-sm">جارٍ تحميل العقود...</p>}
-                {contractsQuery.isError && (
-                  <p role="alert" className="text-sm text-error">{getErrorMessage(contractsQuery.error)}</p>
+                {contractLoading && branchId && <p className="text-sm">جارٍ تحميل العقود...</p>}
+                {contractError && (
+                  <p role="alert" className="text-sm text-error">{getErrorMessage(contractError)}</p>
                 )}
                 {!branchId && <p className="text-sm">اختر الفرع أولاً</p>}
-                {contractsQuery.isSuccess && contractsQuery.data.length === 0 && (
+                {contractRows && contractRows.length === 0 && (
                   <p className="text-sm">لا توجد عقود لهذا الفرع</p>
                 )}
-                {commissionType && commissionAvailability.isFetching && <p className="text-sm">جارٍ التحقق من العمولات السابقة...</p>}
-                {commissionType && commissionAvailability.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(commissionAvailability.error)}</p>}
+                {commissionType && (expense ? editOptionsQuery.isFetching : commissionAvailability.isFetching) && <p className="text-sm">جارٍ التحقق من العمولات السابقة...</p>}
+                {commissionType && (expense ? editOptionsQuery.isError : commissionAvailability.isError) && <p role="alert" className="text-sm text-error">{getErrorMessage(expense ? editOptionsQuery.error : commissionAvailability.error)}</p>}
                 {hasBlockedSelection && <p role="alert" className="text-sm text-error">يوجد عقد مختار تم صرف عمولته. أزل اختياره قبل الحفظ.</p>}
-                {(contractsQuery.data ?? []).map((contract) => (
+                {(contractRows ?? []).map((contract) => (
                   <label key={contract.id} className={`flex items-center gap-2 text-sm ${blockedContractIds.has(contract.id) ? 'text-on-surface-variant' : ''}`}>
                     <input
                       type="checkbox"
                       checked={contractIds.includes(contract.id)}
-                      disabled={!contractIds.includes(contract.id) && commissionType && (!commissionAvailability.isSuccess || blockedContractIds.has(contract.id))}
+                      disabled={!contractIds.includes(contract.id) && commissionType && (!availabilityReady || blockedContractIds.has(contract.id))}
                       onChange={(event) => setContractIds((ids) => event.target.checked
                         ? [...ids, contract.id]
                         : ids.filter((id) => id !== contract.id))}
@@ -351,7 +393,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
             disabled={!canSubmit}
             onClick={() => submitMutation.mutate()}
           >
-            تسجيل المصروف
+            {expense ? 'حفظ التعديلات' : 'تسجيل المصروف'}
           </button>
         </div>
       </div>

@@ -302,6 +302,8 @@ const PERMISSIONS: PermissionDefinition[] = [
   { key: 'sales.daily_mission', module: 'sales', category: 'view', label: 'مهمة اليوم', description: 'عرض بطاقات مهمة اليوم لموظف المبيعات' },
   { key: 'review.view_subscription_renewals', module: 'sales', category: 'view', label: 'تجديد الاشتراكات', description: 'استعراض العملاء الذين يحتاجون تجديد اشتراكهم السنوي' },
   { key: 'expenses.submit', module: 'sales', category: 'add', label: 'طلب مصروف', description: 'إنشاء طلبات مصروفات تشغيل أو نثرية أو مديونية موظف' },
+  { key: 'expenses.edit', module: 'sales', category: 'edit', label: 'تعديل المصروف', description: 'تعديل طلبات المصروفات وإعادتها للمراجعة ضمن نطاق الفروع المسموح' },
+  { key: 'expenses.delete', module: 'sales', category: 'delete', label: 'حذف المصروف', description: 'حذف طلبات المصروفات ضمن نطاق الفروع المسموح' },
   { key: 'review.view_queue', module: 'review', category: 'view', label: 'عرض قائمة المراجعة', description: 'استعراض التعاقدات بانتظار المراجعة' },
   { key: 'review.view_contracts', module: 'review', category: 'view', label: 'عرض كل التعاقدات', description: 'استعراض جميع التعاقدات وحالاتها' },
   { key: 'review.view_detail', module: 'review', category: 'view', label: 'عرض تفاصيل المراجعة', description: 'فتح تفاصيل التعاقد لمراجعته' },

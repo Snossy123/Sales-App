@@ -76,3 +76,27 @@ describe('user manual access', () => {
     expect(navLabels(sales)).not.toContain('دليل الاستخدام')
   })
 })
+
+
+describe('expense request detail access', () => {
+  it('lets an expense submitter open the request and its details without review permissions', () => {
+    const submitter = user({ permissions: ['expenses.submit'], demo_role: 'sales' })
+    expect(canAccessRoute('/expenses/new', submitter)).toBe(true)
+    expect(canAccessRoute('/review/expenses/123', submitter)).toBe(true)
+    expect(canAccessRoute('/review/expenses/123/', submitter)).toBe(true)
+    expect(canAccessRoute('/review/expenses', submitter)).toBe(false)
+  })
+
+  it('does not grant expense detail access to an unrelated employee', () => {
+    expect(canAccessRoute('/review/expenses/123', user({ permissions: ['dashboard.view'], demo_role: 'sales' }))).toBe(false)
+  })
+})
+
+
+describe('expense edit and delete permissions', () => {
+  it('opens expense details for users granted either independent management permission', () => {
+    for (const permission of ['expenses.edit', 'expenses.delete']) {
+      expect(canAccessRoute('/review/expenses/123', user({ permissions: [permission], demo_role: 'sales' }))).toBe(true)
+    }
+  })
+})

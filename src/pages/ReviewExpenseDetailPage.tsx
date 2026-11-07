@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { ExpenseRequestForm, type EditableExpenseRequest } from '../components/expenses/ExpenseRequestForm'
+import { Modal } from '../components/Modal'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -5,10 +8,11 @@ import { AsyncState } from '../components/AsyncState'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { userHasPermission } from '../lib/access'
+import { getDefaultRoute } from '../lib/permissions'
 import { formatMoney } from '../lib/theme'
 import { useAuthStore } from '../stores/authStore'
 
-interface ExpenseDetail {
+interface ExpenseDetail extends EditableExpenseRequest {
   id: number
   reference_number?: string
   expense_type: string
@@ -47,6 +51,13 @@ export function ReviewExpenseDetailPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const canApprove = userHasPermission(user, 'review.approve_expenses')
+  const canEdit = userHasPermission(user, 'expenses.edit')
+  const canDelete = userHasPermission(user, 'expenses.delete')
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const canViewList = userHasPermission(user, 'review.view_expenses')
+  const returnPath = canViewList ? '/review/expenses'
+    : userHasPermission(user, 'expenses.submit') ? '/expenses/new' : getDefaultRoute(user)
 
   const query = useQuery({
     queryKey: ['review-expense', id],
@@ -64,7 +75,8 @@ export function ReviewExpenseDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['review-expenses'] })
-      navigate('/review/expenses')
+      queryClient.invalidateQueries({ queryKey: ['review-expense', id] })
+      if (canViewList) navigate('/review/expenses')
     },
   })
 
@@ -75,9 +87,22 @@ export function ReviewExpenseDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['review-expenses'] })
-      navigate('/review/expenses')
+      queryClient.invalidateQueries({ queryKey: ['review-expense', id] })
+      if (canViewList) navigate('/review/expenses')
     },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => { await api.delete(`/review/expenses/${id}`) },
+    onSuccess: () => {
+      for (const key of ['review-expenses', 'my-expense-requests-today', 'expense-contract-commissions', 'expense-edit-options', 'daily-branch-reports']) {
+        void queryClient.invalidateQueries({ queryKey: [key] })
+      }
+      setDeleteOpen(false)
+      navigate(returnPath)
+    },
+  })
+  const actionPending = approveMutation.isPending || rejectMutation.isPending || deleteMutation.isPending
 
   const expense = query.data
   const pending = expense?.status === 'pending'
@@ -87,7 +112,7 @@ export function ReviewExpenseDetailPage() {
     <SalesPageShell
       title="تفاصيل طلب المصروف"
       actions={
-        <Link to="/review/expenses" className="text-sm text-primary hover:underline">
+        <Link to={returnPath} className="text-sm text-primary hover:underline">
           العودة للقائمة
         </Link>
       }
@@ -102,6 +127,12 @@ export function ReviewExpenseDetailPage() {
               />
               <span className="text-sm">{TYPE_LABELS[expense.expense_type] ?? expense.expense_type}</span>
             </div>
+            {(canEdit || canDelete) && (
+              <div className="flex flex-wrap gap-2">
+                {canEdit && <button type="button" disabled={actionPending} onClick={() => setEditOpen(true)} className="rounded-lg border border-primary px-4 py-2 text-sm text-primary disabled:opacity-50">تعديل المصروف</button>}
+                {canDelete && <button type="button" disabled={actionPending} onClick={() => { deleteMutation.reset(); setDeleteOpen(true) }} className="rounded-lg border border-error px-4 py-2 text-sm text-error disabled:opacity-50">حذف المصروف</button>}
+              </div>
+            )}
             <dl className="grid gap-3 sm:grid-cols-2">
               <div>
                 <dt className="text-xs text-on-surface-variant">المبلغ</dt>
@@ -164,7 +195,7 @@ export function ReviewExpenseDetailPage() {
                 <button
                   type="button"
                   className="rounded-lg bg-primary px-4 py-2 text-sm text-on-primary disabled:opacity-50"
-                  disabled={approveMutation.isPending}
+                  disabled={actionPending}
                   onClick={() => approveMutation.mutate()}
                 >
                   موافقة
@@ -172,7 +203,7 @@ export function ReviewExpenseDetailPage() {
                 <button
                   type="button"
                   className="rounded-lg border border-error px-4 py-2 text-sm text-error disabled:opacity-50"
-                  disabled={rejectMutation.isPending}
+                  disabled={actionPending}
                   onClick={() => rejectMutation.mutate()}
                 >
                   رفض
@@ -183,6 +214,21 @@ export function ReviewExpenseDetailPage() {
           </div>
         )}
       </AsyncState>
+      {editOpen && expense && canEdit && (
+        <ExpenseRequestForm open expense={expense} onClose={() => setEditOpen(false)} onSuccess={() => setEditOpen(false)} />
+      )}
+      {canDelete && (
+        <Modal open={deleteOpen} onClose={() => { if (!deleteMutation.isPending) setDeleteOpen(false) }} title="حذف المصروف">
+          <div className="space-y-4">
+            <p>هل تريد حذف المصروف {expense?.reference_number || `#${id}`}؟ سيُستبعد من القوائم والتقارير.</p>
+            {deleteMutation.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={deleteMutation.isPending} onClick={() => setDeleteOpen(false)} className="rounded-lg border px-4 py-2 text-sm">إلغاء</button>
+              <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()} className="rounded-lg bg-error px-4 py-2 text-sm text-on-error disabled:opacity-50">{deleteMutation.isPending ? 'جاري الحذف…' : 'حذف المصروف'}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </SalesPageShell>
   )
 }

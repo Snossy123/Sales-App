@@ -150,7 +150,7 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.match(/^\/departments\/\d+$/)) return ['branches.manage']
   if (normalized.match(/^\/branches\/\d+$/)) return ['branches.manage']
   if (normalized.match(/^\/review\/expenses\/\d+$/)) {
-    return ['review.view_expenses', 'review.approve_expenses']
+    return ['expenses.submit', 'review.view_expenses', 'review.approve_expenses', 'expenses.edit', 'expenses.delete']
   }
   if (normalized.match(/^\/review\/collections\/\d+$/)) {
     return ['review.view_collections', 'review.confirm_collections']
