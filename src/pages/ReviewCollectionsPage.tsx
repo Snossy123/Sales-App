@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { DataTable } from '../components/DataTable'
+import { Pagination } from '../components/Pagination'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { FilterBar } from '../components/FilterBar'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
@@ -24,9 +26,27 @@ interface CollectionReviewRow {
   payment_term?: string
 }
 
+const COLLECTION_CATEGORIES = [
+  { key: 'postponed', label: 'تأجيلات' },
+  { key: 'paid', label: 'تم الدفع اليوم' },
+  { key: 'follow_up_today', label: 'متابعة اليوم' },
+  { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد' },
+  { key: 'no_answer', label: 'لم يتم الرد' },
+  { key: 'none', label: 'لم يتم التواصل' },
+] as const
+
+type CollectionCategory = typeof COLLECTION_CATEGORIES[number]['key']
+interface CollectionReviewResponse {
+  data: CollectionReviewRow[]
+  current_page: number
+  last_page: number
+  total: number
+  collection_stats: Record<CollectionCategory, number>
+}
+
 const STATUS_OPTIONS = [
-  { value: '', label: 'بانتظار المراجعة' },
-  { value: 'pending', label: 'معلق' },
+  { value: 'all', label: 'كل حالات المراجعة' },
+  { value: 'pending', label: 'بانتظار المراجعة' },
   { value: 'reviewed', label: 'تمت المراجعة' },
 ]
 
@@ -36,33 +56,33 @@ export function ReviewCollectionsPage() {
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getListScopeQueryKey(user)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [category, setCategory] = useState<CollectionCategory | ''>('')
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebouncedValue(search, 300)
+  const filterKey = JSON.stringify([listScopeKey, statusFilter, branchFilter, category, debouncedSearch])
+  const [previousFilterKey, setPreviousFilterKey] = useState(filterKey)
+  if (previousFilterKey !== filterKey) {
+    setPreviousFilterKey(filterKey)
+    setPage(1)
+  }
 
   const query = useQuery({
-    queryKey: ['review-collections', listScopeKey, statusFilter, branchFilter],
+    queryKey: ['review-collections', listScopeKey, statusFilter, branchFilter, category, debouncedSearch, page],
     queryFn: async () => {
       const params = mergeScopedListParams(user, {
-        per_page: 50,
+        per_page: 10,
+        page,
+        search: debouncedSearch.trim() || undefined,
+        collection_category: category || undefined,
         ...(branchFilter ? { action_branch_id: branchFilter } : {}),
         ...(statusFilter ? { collection_review_status: statusFilter } : {}),
       })
-      const { data } = await api.get<{ data: CollectionReviewRow[] }>('/review/collections', { params })
-      return data.data ?? []
+      const { data } = await api.get<CollectionReviewResponse>('/review/collections', { params })
+      return data
     },
     enabled: Boolean(user),
   })
-
-  const filteredRows = useMemo(() => {
-    const rows = query.data ?? []
-    if (!search.trim()) return rows
-    const q = search.trim().toLowerCase()
-    return rows.filter((row) => {
-      const name = row.customer?.name?.toLowerCase() ?? ''
-      const phone = row.customer?.phone ?? ''
-      const invoice = row.invoice_number?.toLowerCase() ?? ''
-      return name.includes(q) || phone.includes(q) || invoice.includes(q)
-    })
-  }, [query.data, search])
 
   const columns = useMemo(
     () => [
@@ -108,7 +128,7 @@ export function ReviewCollectionsPage() {
   return (
     <SalesPageShell
       title="مراجعة التحصيلات"
-      subtitle="عقود تم تحصيل مدفوعات عليها — تأكيد صحة التحصيل دون صلاحية التحصيل"
+      subtitle="متابعة إجراءات قسم الأقساط ومراجعة صحة التحصيل"
       filters={
         <FilterBar
           search={search}
@@ -124,24 +144,43 @@ export function ReviewCollectionsPage() {
               onChange: setStatusFilter,
             },
           ]}
-          showClear={Boolean(search || statusFilter || branchFilter)}
+          showClear={Boolean(search || statusFilter !== 'all' || branchFilter || category)}
           onClear={() => {
             setSearch('')
-            setStatusFilter('')
+            setStatusFilter('all')
+            setCategory('')
             setBranchFilter('')
           }}
         />
       }
     >
+      <div className="mb-md grid grid-cols-2 gap-sm sm:grid-cols-3 xl:grid-cols-6">
+        {COLLECTION_CATEGORIES.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            aria-pressed={category === item.key}
+            onClick={() => setCategory(category === item.key ? '' : item.key)}
+            className={`rounded-xl border p-4 text-start ${category === item.key
+              ? 'border-transparent bg-primary text-on-primary'
+              : 'border-outline-variant bg-surface-container-low text-on-surface hover:border-primary/40'}`}
+          >
+            <p className="text-sm">{item.label}</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{query.data?.collection_stats[item.key] ?? '—'}</p>
+          </button>
+        ))}
+      </div>
       <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
         <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
           <DataTable<CollectionReviewRow & Record<string, unknown>>
-            data={filteredRows as (CollectionReviewRow & Record<string, unknown>)[]}
+            data={(query.data?.data ?? []) as (CollectionReviewRow & Record<string, unknown>)[]}
             keyExtractor={(row) => row.id}
-            pageSize={10}
-            emptyMessage="لا توجد تحصيلات بانتظار المراجعة"
+            emptyMessage="لا توجد عقود مطابقة للفلاتر المحددة"
             columns={columns}
           />
+          {query.data && (
+            <Pagination currentPage={query.data.current_page} lastPage={query.data.last_page} total={query.data.total} onPageChange={setPage} />
+          )}
         </AsyncState>
       </div>
     </SalesPageShell>
