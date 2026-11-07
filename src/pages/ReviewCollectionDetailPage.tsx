@@ -92,8 +92,8 @@ export function ReviewCollectionDetailPage() {
             <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge
-                  status={isPending ? 'warning' : 'success'}
-                  label={isPending ? 'بانتظار المراجعة' : 'تمت المراجعة'}
+                  status={invoice.collection_review_status === 'reviewed' ? 'success' : 'warning'}
+                  label={invoice.collection_review_status === 'reviewed' ? 'تمت المراجعة' : isPending ? 'بانتظار المراجعة' : 'لم تتم المراجعة'}
                 />
                 <span className="text-sm text-on-surface-variant">
                   العميل: {invoice.customer?.name ?? '—'} · الفرع: {invoice.branch?.name ?? '—'}
@@ -229,7 +229,7 @@ export function ReviewCollectionDetailPage() {
               </section>
             )}
 
-            {!isPending && (
+            {invoice.collection_review_status === 'reviewed' && (
               <section className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
                 <h2 className="mb-3 text-base font-semibold">نتيجة المراجعة</h2>
                 <dl className="space-y-2 text-sm">

@@ -20,7 +20,7 @@ interface CollectionReviewRow {
   customer?: { name?: string; phone?: string }
   branch?: { name?: string }
   action_branch?: { name?: string; name_ar?: string } | null
-  collection_review_status: string
+  collection_review_status: string | null
   collection_reviewed_at?: string | null
   total_collected: number
   payment_term?: string
@@ -117,7 +117,7 @@ export function ReviewCollectionsPage() {
         render: (row: CollectionReviewRow) => (
           <StatusBadge
             status={row.collection_review_status === 'reviewed' ? 'success' : 'warning'}
-            label={row.collection_review_status === 'reviewed' ? 'تمت المراجعة' : 'بانتظار المراجعة'}
+            label={row.collection_review_status === 'reviewed' ? 'تمت المراجعة' : row.collection_review_status === 'pending' ? 'بانتظار المراجعة' : 'لم تتم المراجعة'}
           />
         ),
       },
