@@ -2139,7 +2139,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 customerLabel={contractKind === 'ownership_transfer' ? 'المالك الجديد' : 'العميل'}
                 sectionNumber={contractKind === 'ownership_transfer' ? 2 : 1}
                 submitAttempted={submitAttempted}
-                customerLocked={isEditMode || renewalCustomerLocked}
+                customerLocked={renewalCustomerLocked}
               />
 
             {contractKind === 'ownership_transfer' && (
