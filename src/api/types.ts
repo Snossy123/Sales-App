@@ -900,6 +900,9 @@ export type ContractKind =
   | 'mixed'
 
 export interface SalesInvoice {
+  action_branch_id?: number | null
+  action_branch?: Branch | null
+  user?: { id: number; name: string } | null
   id: number
   invoice_number?: string
   invoice_date: string

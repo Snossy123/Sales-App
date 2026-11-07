@@ -1,3 +1,4 @@
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -16,6 +17,7 @@ interface CollectionReviewRow {
   invoice_number: string
   customer?: { name?: string; phone?: string }
   branch?: { name?: string }
+  action_branch?: { name?: string; name_ar?: string } | null
   collection_review_status: string
   collection_reviewed_at?: string | null
   total_collected: number
@@ -29,16 +31,19 @@ const STATUS_OPTIONS = [
 ]
 
 export function ReviewCollectionsPage() {
+  const branchOptions = useBranchFilterOptions()
+  const [branchFilter, setBranchFilter] = useState('')
   const user = useAuthStore((s) => s.user)
   const listScopeKey = getListScopeQueryKey(user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const query = useQuery({
-    queryKey: ['review-collections', listScopeKey, statusFilter],
+    queryKey: ['review-collections', listScopeKey, statusFilter, branchFilter],
     queryFn: async () => {
       const params = mergeScopedListParams(user, {
         per_page: 50,
+        ...(branchFilter ? { action_branch_id: branchFilter } : {}),
         ...(statusFilter ? { collection_review_status: statusFilter } : {}),
       })
       const { data } = await api.get<{ data: CollectionReviewRow[] }>('/review/collections', { params })
@@ -80,7 +85,7 @@ export function ReviewCollectionsPage() {
           </div>
         ),
       },
-      { key: 'branch', header: 'الفرع', render: (row: CollectionReviewRow) => row.branch?.name ?? '—' },
+      { key: 'action_branch', header: 'فرع تنفيذ البيع', render: (row: CollectionReviewRow) => row.action_branch?.name_ar || row.action_branch?.name || 'غير مسجل' },
       {
         key: 'total_collected',
         header: 'إجمالي المحصّل',
@@ -110,6 +115,7 @@ export function ReviewCollectionsPage() {
           onSearchChange={setSearch}
           searchPlaceholder="بحث برقم العقد أو اسم العميل..."
           selects={[
+            { id: 'action-branch', label: 'فرع تنفيذ البيع', value: branchFilter, options: branchOptions, onChange: setBranchFilter },
             {
               id: 'status',
               label: 'حالة المراجعة',
@@ -118,10 +124,11 @@ export function ReviewCollectionsPage() {
               onChange: setStatusFilter,
             },
           ]}
-          showClear={Boolean(search || statusFilter)}
+          showClear={Boolean(search || statusFilter || branchFilter)}
           onClear={() => {
             setSearch('')
             setStatusFilter('')
+            setBranchFilter('')
           }}
         />
       }

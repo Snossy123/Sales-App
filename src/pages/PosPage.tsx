@@ -1,7 +1,7 @@
 import { repriceDeviceLine } from '../lib/deviceLinePricing'
 import { CheckoutPaymentSection } from '../components/pos/CheckoutPaymentSection'
 import { useCheckoutPayment } from '../hooks/useCheckoutPayment'
-import { PosContextUnavailableError, posContextFailure } from '../lib/posContextFailure'
+import { posContextFailure } from '../lib/posContextFailure'
 import { inspectPosDraftRestoration } from '../lib/posDraftRestoration'
 import { Modal } from '../components/Modal'
 import { useSuspendedPosStore, readActivePosDraft } from '../stores/suspendedPosStore'
@@ -1365,23 +1365,17 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     let cancelled = false
     const restore = async () => {
       try {
-        const savedBranchId = deviceDraft.contextBranchId ?? deviceDraft.selectedBranch?.id
         const savedWarehouseId = deviceDraft.warehouseId
-        const [branchResult, warehouseResult] = await Promise.all([
-          savedBranchId ? api.get<Branch>(`/branches/${savedBranchId}`) : Promise.resolve(null),
-          savedWarehouseId ? api.get<Warehouse>(`/warehouses/${savedWarehouseId}`) : Promise.resolve(null),
-        ])
-        if (cancelled) return
-        const branch = branchResult?.data
-        const warehouse = warehouseResult?.data
-        if (branch && (!canAccessBranch(user, branch) || branch.is_active === false)) throw new PosContextUnavailableError('الفرع المحفوظ غير متاح لك حاليًا.')
-        if (warehouse && (warehouse.is_active === false || (savedBranchId && warehouse.branch_id !== savedBranchId))) throw new PosContextUnavailableError('المخزن المحفوظ غير متاح لهذا الفرع.')
         const context = useAuthStore.getState()
-        useAuthStore.setState({
-          departmentId: branch?.administration_id ?? branch?.department_id ?? deviceDraft.contextDepartmentId ?? context.departmentId,
-          branchId: savedBranchId ?? context.branchId,
-          warehouseId: savedWarehouseId === undefined ? context.warehouseId : savedWarehouseId,
-        })
+        if (!context.warehouseId && savedWarehouseId) {
+          const { data: warehouse } = await api.get<Warehouse>(`/warehouses/${savedWarehouseId}`)
+          if (cancelled) return
+          const currentContext = useAuthStore.getState()
+          if (!currentContext.warehouseId && warehouse.is_active !== false && warehouse.branch_id === currentContext.branchId) {
+            useAuthStore.getState().setWarehouseId(savedWarehouseId)
+          }
+        }
+        if (cancelled) return
         setContextRestored(true)
       } catch (error) {
         if (!cancelled) {
@@ -2003,7 +1997,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
             setDeviceLines((lines) => lines.map((line, index) => ({ ...line, productUnitId: units[index]?.id, imei: units[index]?.imei, serialNumber: units[index]?.serial_number || '' })))
             setUserEdited(true)
           }}>إعادة اختيار وحدات المخزون الحالية (سيتم تحديث السريالات)</button>}
-          {restoreContextUnavailable && <button type="button" className="text-primary underline" onClick={() => { setRestoreContextError(''); setContextRestored(true); setSelectedBranch(null); setSelectedDistributor(null); setSelectedSalesRep(null); setTransactionSource('branch'); setUserEdited(true) }}>استخدام الفرع والمخزن الحاليين وإعادة اختيار المصدر</button>}
+          {restoreContextUnavailable && <button type="button" className="text-primary underline" onClick={() => { setRestoreContextError(''); setContextRestored(true); setUserEdited(true) }}>استخدام فرع الجلسة والمخزن الحاليين</button>}
           <button type="button" className="ms-3 text-primary underline" onClick={() => { setRestoreContextError(''); setRestoreContextUnavailable(false); setRestoreAttempt((attempt) => attempt + 1); void branchesQuery.refetch(); void stockQuery.refetch(); void unitsQuery.refetch(); void productQuery.refetch(); void servicesQuery.refetch(); if (restoredSourceInvoiceId) void restoreSourceQuery.refetch(); if (warehouseId) void restoreWarehouseQuery.refetch(); if (selectedCustomer) void restoreCustomerQuery.refetch() }}>إعادة التحقق</button>
         </div>
       )}

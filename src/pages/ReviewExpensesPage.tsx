@@ -1,3 +1,4 @@
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -67,6 +68,8 @@ function formatCreatedAt(value?: string) {
 }
 
 export function ReviewExpensesPage() {
+  const branchOptions = useBranchFilterOptions()
+  const [branchFilter, setBranchFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('pending')
   const [period, setPeriod] = useState<ExpensePeriod>('day')
@@ -78,10 +81,11 @@ export function ReviewExpensesPage() {
   const customReady = period !== 'custom' || Boolean(dateFrom || dateTo)
 
   const query = useQuery({
-    queryKey: ['review-expenses', typeFilter, statusFilter, period, dateFrom, dateTo, search, page],
+    queryKey: ['review-expenses', branchFilter, typeFilter, statusFilter, period, dateFrom, dateTo, search, page],
     enabled: customReady,
     queryFn: async () => {
       const params: Record<string, string | number> = { per_page: 15, page }
+      if (branchFilter) params['filter[branch_id]'] = branchFilter
       if (typeFilter) params['filter[expense_type]'] = typeFilter
       if (statusFilter) params['filter[status]'] = statusFilter
       if (search.trim()) params.search = search.trim()
@@ -100,6 +104,7 @@ export function ReviewExpensesPage() {
   const hasFilters =
     Boolean(search.trim()) ||
     Boolean(typeFilter) ||
+    Boolean(branchFilter) ||
     statusFilter !== 'pending' ||
     period !== 'day' ||
     Boolean(dateFrom || dateTo)
@@ -189,6 +194,10 @@ export function ReviewExpensesPage() {
         }
         selects={[
           {
+            id: 'branch', label: 'الفرع', value: branchFilter, options: branchOptions,
+            onChange: (value) => { setBranchFilter(value); setPage(1) },
+          },
+          {
             id: 'type',
             label: 'النوع',
             value: typeFilter,
@@ -217,6 +226,7 @@ export function ReviewExpensesPage() {
         ]}
         showClear={hasFilters}
         onClear={() => {
+          setBranchFilter('')
           setTypeFilter('')
           setStatusFilter('pending')
           setPeriod('day')

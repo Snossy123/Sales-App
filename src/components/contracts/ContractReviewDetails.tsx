@@ -481,6 +481,12 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
           .join(' · ')}
         contentClassName="space-y-md p-sm sm:p-md"
       >
+        <div className="grid grid-cols-1 gap-sm sm:grid-cols-3">
+          <CustomerField label="مصدر التعاقد" value={invoice.distributor?.name_ar || invoice.distributor?.name || invoice.sales_user?.name || invoice.branch?.name_ar || invoice.branch?.name || '—'} />
+          <CustomerField label="فرع تنفيذ البيع" value={invoice.action_branch?.name_ar || invoice.action_branch?.name || 'غير مسجل'} />
+          <CustomerField label="منفذ البيع" value={invoice.user?.name || 'غير مسجل'} />
+        </div>
+
         <div className="flex flex-wrap gap-xs">
           <StatusBadge
             status="active"

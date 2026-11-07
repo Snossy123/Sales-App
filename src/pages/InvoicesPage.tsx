@@ -1,3 +1,4 @@
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,6 +33,8 @@ import { useAuthStore } from '../stores/authStore'
 
 export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   usePageTour('invoices')
+  const branchOptions = useBranchFilterOptions()
+  const [branchFilter, setBranchFilter] = useState('')
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
@@ -52,6 +55,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       listScopeKey,
       statusFilter,
       paymentStatusFilter,
+      branchFilter,
       dateFrom,
       dateTo,
       page,
@@ -63,6 +67,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         include: 'customer,distributor,branch,lines',
         ...contractDateFilterParams(dateFrom, dateTo),
       })
+      if (branchFilter) params['filter[action_branch_id]'] = branchFilter
       if (mine) params['filter[mine]'] = '1'
       if (statusFilter) params['filter[review_status]'] = statusFilter
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
@@ -80,10 +85,11 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     [rows, contractSearch],
   )
   const hasFilters = Boolean(
-    statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo,
+    statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo || branchFilter,
   )
 
   const clearFilters = () => {
+    setBranchFilter('')
     setStatusFilter('')
     setPaymentStatusFilter('')
     setContractSearch('')
@@ -94,6 +100,13 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
 
   const filterSelects = useMemo(
     () => [
+      {
+        id: 'action-branch',
+        label: 'فرع تنفيذ البيع',
+        value: branchFilter,
+        options: branchOptions,
+        onChange: (value: string) => { setBranchFilter(value); setPage(1) },
+      },
       {
         id: 'status',
         label: 'حالة المراجعة',
@@ -115,7 +128,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         options: paymentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
     ],
-    [statusFilter, paymentStatusFilter],
+    [statusFilter, paymentStatusFilter, branchFilter, branchOptions],
   )
 
   const columns = useMemo(

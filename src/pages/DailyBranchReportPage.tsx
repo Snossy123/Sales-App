@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -22,19 +22,62 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { NumericInput } from '../components/ui/NumericInput'
 import { userCanPerform } from '../lib/access'
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 
 
 type Tab = 'transactions' | 'summary'
 
 export function DailyBranchReportPage() {
+  const contextBranchId = useAuthStore((state) => state.branchId)
+  const userId = useAuthStore((state) => state.user?.id)
+  const branchOptions = useBranchFilterOptions()
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
+  const [reportDate, setReportDate] = useState(() => createEmptyDailyReportForm().report_date)
+  const branchId = selectedBranch === null ? contextBranchId : Number(selectedBranch) || null
+
+  const renderBranchSelector = (disabled: boolean) => (
+    <label className="text-sm">
+      <span className="mb-xs block text-on-surface-variant">الفرع</span>
+      <select
+        aria-label="فرع البيان اليومي"
+        value={branchId ?? ''}
+        onChange={(event) => setSelectedBranch(event.target.value)}
+        disabled={disabled}
+        className="w-full min-w-48 rounded border border-outline-variant bg-surface-container-lowest px-sm py-1.5 text-sm disabled:opacity-50"
+      >
+        <option value="">{branchOptions[0]?.label === 'كل الفروع' ? 'اختر الفرع' : branchOptions[0]?.label}</option>
+        {branchOptions.filter((option) => option.value).map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  )
+
+  return (
+    <DailyBranchReportForm
+      key={`${userId}:${branchId}:${reportDate}`}
+      branchId={branchId}
+      reportDate={reportDate}
+      onReportDateChange={setReportDate}
+      renderBranchSelector={renderBranchSelector}
+    />
+  )
+}
+
+function DailyBranchReportForm({ branchId, reportDate, onReportDateChange, renderBranchSelector }: {
+  branchId: number | null
+  reportDate: string
+  onReportDateChange: (value: string) => void
+  renderBranchSelector: (disabled: boolean) => ReactNode
+}) {
   const queryClient = useQueryClient()
-  const branchId = useAuthStore((s) => s.branchId)
   const user = useAuthStore((s) => s.user)
   const canManage = userCanPerform(user, 'daily_reports.manage')
   const [tab, setTab] = useState<Tab>('transactions')
   const [reportId, setReportId] = useState<number | null>(null)
-  const [form, setForm] = useState<DailyBranchReportFormState>(() => createEmptyDailyReportForm())
+  const [form, setForm] = useState<DailyBranchReportFormState>(() => createEmptyDailyReportForm(reportDate))
   const [successMsg, setSuccessMsg] = useState('')
+  const [initialized, setInitialized] = useState(false)
 
   const branchQuery = useQuery({
     queryKey: ['branches', branchId],
@@ -90,6 +133,7 @@ export function DailyBranchReportPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReportId(existingQuery.data?.id ?? null)
     setForm(mergeDailyReportInference(base, inferenceQuery.data.inferred))
+    setInitialized(true)
   }, [
     existingQuery.data,
     existingQuery.isFetching,
@@ -99,6 +143,9 @@ export function DailyBranchReportPage() {
     inferenceQuery.isSuccess,
     form.report_date,
   ])
+
+  const reportReady = initialized && existingQuery.isSuccess && inferenceQuery.isSuccess &&
+    !existingQuery.isFetching && !inferenceQuery.isFetching
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -128,7 +175,7 @@ export function DailyBranchReportPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!canManage) return
+    if (!canManage || !reportReady || saveMutation.isPending) return
     saveMutation.mutate()
   }
 
@@ -136,8 +183,9 @@ export function DailyBranchReportPage() {
 
   if (!branchId) {
     return (
-      <SalesPageShell title="البيان اليومي" subtitle="يرجى اختيار فرع من الشريط العلوي">
-        <p className="text-on-surface-variant">اختر فرعاً لبدء إدخال البيان اليومي.</p>
+      <SalesPageShell title="البيان اليومي" subtitle="اختر الفرع لعرض يوميته">
+        <div className="mb-md max-w-sm">{renderBranchSelector(false)}</div>
+        <p className="text-on-surface-variant">اختر فرعاً لعرض البيان اليومي.</p>
       </SalesPageShell>
     )
   }
@@ -162,12 +210,14 @@ export function DailyBranchReportPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-md">
         <div className="flex flex-wrap items-end gap-sm rounded-lg border border-outline-variant bg-surface-container-low p-sm">
+          {renderBranchSelector(saveMutation.isPending)}
           <label className="text-sm">
             <span className="mb-xs block text-on-surface-variant">تاريخ البيان</span>
             <input
               type="date"
               value={form.report_date}
-              onChange={(e) => updateForm({ report_date: e.target.value })}
+              disabled={saveMutation.isPending}
+              onChange={(e) => { if (e.target.value) onReportDateChange(e.target.value) }}
               className={inputClass}
             />
           </label>
@@ -578,7 +628,7 @@ export function DailyBranchReportPage() {
           {canManage && (
             <button
               type="submit"
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !reportReady}
               className="rounded-lg bg-secondary px-xl py-3 font-bold text-on-secondary disabled:opacity-50"
             >
               {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ البيان اليومي'}

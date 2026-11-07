@@ -1,3 +1,4 @@
+import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -22,6 +23,8 @@ import { CONTRACT_KINDS, REVIEW_CONTRACT_KIND_OPTIONS } from '../lib/contractKin
 import { useAuthStore } from '../stores/authStore'
 
 export function InvoiceReviewPage() {
+  const branchOptions = useBranchFilterOptions()
+  const [branchFilter, setBranchFilter] = useState('')
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
@@ -35,7 +38,7 @@ export function InvoiceReviewPage() {
   const [contractKindFilter, setContractKindFilter] = useState('')
 
   const query = useQuery({
-    queryKey: ['sales-invoices', 'review', listScopeKey, dateFrom, dateTo, contractKindFilter],
+    queryKey: ['sales-invoices', 'review', listScopeKey, dateFrom, dateTo, contractKindFilter, branchFilter],
     queryFn: async () => {
       const params = mergeScopedListParams(user, {
         per_page: 50,
@@ -43,6 +46,7 @@ export function InvoiceReviewPage() {
         'filter[review_status]': 'pending',
         ...contractDateFilterParams(dateFrom, dateTo),
       })
+      if (branchFilter) params['filter[action_branch_id]'] = branchFilter
       if (contractKindFilter) {
         params['filter[contract_kind]'] = contractKindFilter
       }
@@ -57,13 +61,14 @@ export function InvoiceReviewPage() {
     [query.data, invoiceSearch],
   )
 
-  const hasFilters = Boolean(invoiceSearch || dateFrom || dateTo || contractKindFilter)
+  const hasFilters = Boolean(invoiceSearch || dateFrom || dateTo || contractKindFilter || branchFilter)
 
   const clearFilters = () => {
     setInvoiceSearch('')
     setDateFrom('')
     setDateTo('')
     setContractKindFilter('')
+    setBranchFilter('')
   }
 
   const columns = useMemo(
@@ -99,6 +104,7 @@ export function InvoiceReviewPage() {
           dateFromLabel="من تاريخ التعاقد"
           dateToLabel="إلى تاريخ التعاقد"
           selects={[
+            { id: 'action-branch', label: 'فرع تنفيذ البيع', value: branchFilter, options: branchOptions, onChange: setBranchFilter },
             {
               id: 'contract-kind',
               label: 'نوع الخدمة',
