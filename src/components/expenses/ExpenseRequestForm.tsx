@@ -5,7 +5,7 @@ import {
   readProcedureDraft,
   useProcedureDraftStore,
 } from '../../stores/procedureDraftStore'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Branch, Distributor, Employee, PaginatedResponse } from '../../api/types'
 import { Modal } from '../Modal'
@@ -47,6 +47,7 @@ function distributorLabel(distributor: Distributor) {
 }
 
 export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestFormProps) {
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const activeBranchId = useAuthStore((s) => s.branchId)
   const userId = user?.id ?? null
@@ -173,6 +174,14 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
     },
     onError: () => { if (commissionType) void commissionAvailability.refetch() },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['expense-contract-commissions'] })
+      void queryClient.invalidateQueries({ queryKey: ['review-expenses'] })
+      if (expenseType === 'distributor_payout') {
+        void queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+        void queryClient.invalidateQueries({ queryKey: ['sales-invoice'] })
+        void queryClient.invalidateQueries({ queryKey: ['distributors'] })
+        void queryClient.invalidateQueries({ queryKey: ['distributor'] })
+      }
       useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.expense, userId)
       setExpenseType('petty_cash')
       setAmount('')
@@ -196,136 +205,143 @@ export function ExpenseRequestForm({ open, onClose, onSuccess }: ExpenseRequestF
 
   return (
     <Modal open={open} onClose={onClose} title="تسجيل مصروف">
-      <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-sm">نوع المصروف</label>
-          <select
-            className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-            value={expenseType}
-            onChange={(e) => {
-              setExpenseType(e.target.value)
-              setContractIds([])
-              setDistributorId('')
-              setEmployeeId('')
-            }}
-          >
-            {EXPENSE_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm">الفرع</label>
-          <select
-            className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-            value={branchId}
-            onChange={(e) => {
-              setBranchId(e.target.value ? Number(e.target.value) : '')
-              setContractIds([])
-              setDistributorId('')
-              setEmployeeId('')
-            }}
-          >
-            <option value="">اختر الفرع</option>
-            {(branchesQuery.data ?? []).map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name_ar ?? b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {needsDistributor && (
+      <div className="flex max-h-[calc(100dvh-10rem)] flex-col">
+        <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain pe-1">
           <div>
-            <label className="mb-1 block text-sm">الموزع</label>
+            <label className="mb-1 block text-sm">نوع المصروف</label>
             <select
               className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              value={distributorId}
-              onChange={(e) => setDistributorId(e.target.value ? Number(e.target.value) : '')}
+              value={expenseType}
+              onChange={(e) => {
+                setExpenseType(e.target.value)
+                setContractIds([])
+                setDistributorId('')
+                setEmployeeId('')
+              }}
             >
-              <option value="">اختر الموزع</option>
-              {(distributorsQuery.data ?? []).map((d) => (
-                <option key={d.id} value={d.id}>
-                  {distributorLabel(d)}
+              {EXPENSE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>
           </div>
-        )}
-        {needsEmployee && (
           <div>
-            <label className="mb-1 block text-sm">الموظف</label>
+            <label className="mb-1 block text-sm">الفرع</label>
             <select
               className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : '')}
+              value={branchId}
+              onChange={(e) => {
+                setBranchId(e.target.value ? Number(e.target.value) : '')
+                setContractIds([])
+                setDistributorId('')
+                setEmployeeId('')
+              }}
             >
-              <option value="">اختر الموظف</option>
-              {(employeesQuery.data ?? []).map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
+              <option value="">اختر الفرع</option>
+              {(branchesQuery.data ?? []).map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name_ar ?? b.name}
                 </option>
               ))}
             </select>
           </div>
-        )}
-        <div>
-          <label className="mb-1 block text-sm">المبلغ</label>
-          <NumericInput
-            min={0}
-            className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        <div>
-          <details className="rounded-lg border border-outline-variant">
-            <summary className="cursor-pointer px-3 py-2 text-sm">
-              العقود المرتبطة بالمصروف ({contractIds.length})
-            </summary>
-            <div className="max-h-60 space-y-2 overflow-y-auto px-3 pb-3">
-              {contractsQuery.isPending && branchId && <p className="text-sm">جارٍ تحميل العقود...</p>}
-              {contractsQuery.isError && (
-                <p role="alert" className="text-sm text-error">{getErrorMessage(contractsQuery.error)}</p>
-              )}
-              {!branchId && <p className="text-sm">اختر الفرع أولاً</p>}
-              {contractsQuery.isSuccess && contractsQuery.data.length === 0 && (
-                <p className="text-sm">لا توجد عقود لهذا الفرع</p>
-              )}
-              {commissionType && commissionAvailability.isFetching && <p className="text-sm">جارٍ التحقق من العمولات السابقة...</p>}
-              {commissionType && commissionAvailability.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(commissionAvailability.error)}</p>}
-              {hasBlockedSelection && <p role="alert" className="text-sm text-error">يوجد عقد مختار تم صرف عمولته. أزل اختياره قبل الحفظ.</p>}
-              {(contractsQuery.data ?? []).map((contract) => (
-                <label key={contract.id} className={`flex items-center gap-2 text-sm ${blockedContractIds.has(contract.id) ? 'text-on-surface-variant' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={contractIds.includes(contract.id)}
-                    disabled={!contractIds.includes(contract.id) && commissionType && (!commissionAvailability.isSuccess || blockedContractIds.has(contract.id))}
-                    onChange={(event) => setContractIds((ids) => event.target.checked
-                      ? [...ids, contract.id]
-                      : ids.filter((id) => id !== contract.id))}
-                  />
-                  <span>{contract.invoice_number} - {contract.customer?.name ?? 'بدون عميل'} - {contract.invoice_date?.slice(0, 10)}{blockedContractIds.has(contract.id) ? ' — سبق تسجيل عمولة من نفس النوع' : ''}</span>
-                </label>
-              ))}
+          {needsDistributor && (
+            <div>
+              <label className="mb-1 block text-sm">الموزع</label>
+              <select
+                className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                value={distributorId}
+                onChange={(e) => setDistributorId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">اختر الموزع</option>
+                {(distributorsQuery.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {distributorLabel(d)}
+                  </option>
+                ))}
+              </select>
             </div>
-          </details>
+          )}
+          {needsEmployee && (
+            <div>
+              <label className="mb-1 block text-sm">الموظف</label>
+              <select
+                className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">اختر الموظف</option>
+                {(employeesQuery.data ?? []).map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-sm">المبلغ</label>
+            <NumericInput
+              min={0}
+              className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          {needsDistributor && (
+            <p className="text-sm text-on-surface-variant">
+              اختر العقود المستحق عنها العمولة. سيتم تسجيل مصدرها باسم الموزع المختار وتسجيل الصرف كمصروف دون تغيير رصيده.
+            </p>
+          )}
+          <div>
+            <details className="rounded-lg border border-outline-variant">
+              <summary className="cursor-pointer px-3 py-2 text-sm">
+                العقود المرتبطة بالمصروف ({contractIds.length})
+              </summary>
+              <div className="max-h-60 space-y-2 overflow-y-auto px-3 pb-3">
+                {contractsQuery.isPending && branchId && <p className="text-sm">جارٍ تحميل العقود...</p>}
+                {contractsQuery.isError && (
+                  <p role="alert" className="text-sm text-error">{getErrorMessage(contractsQuery.error)}</p>
+                )}
+                {!branchId && <p className="text-sm">اختر الفرع أولاً</p>}
+                {contractsQuery.isSuccess && contractsQuery.data.length === 0 && (
+                  <p className="text-sm">لا توجد عقود لهذا الفرع</p>
+                )}
+                {commissionType && commissionAvailability.isFetching && <p className="text-sm">جارٍ التحقق من العمولات السابقة...</p>}
+                {commissionType && commissionAvailability.isError && <p role="alert" className="text-sm text-error">{getErrorMessage(commissionAvailability.error)}</p>}
+                {hasBlockedSelection && <p role="alert" className="text-sm text-error">يوجد عقد مختار تم صرف عمولته. أزل اختياره قبل الحفظ.</p>}
+                {(contractsQuery.data ?? []).map((contract) => (
+                  <label key={contract.id} className={`flex items-center gap-2 text-sm ${blockedContractIds.has(contract.id) ? 'text-on-surface-variant' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={contractIds.includes(contract.id)}
+                      disabled={!contractIds.includes(contract.id) && commissionType && (!commissionAvailability.isSuccess || blockedContractIds.has(contract.id))}
+                      onChange={(event) => setContractIds((ids) => event.target.checked
+                        ? [...ids, contract.id]
+                        : ids.filter((id) => id !== contract.id))}
+                    />
+                    <span>{contract.invoice_number} - {contract.customer?.name ?? 'بدون عميل'} - {contract.invoice_date?.slice(0, 10)}{blockedContractIds.has(contract.id) ? ' — سبق تسجيل عمولة من نفس النوع' : ''}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm">ملاحظات / السبب</label>
+            <TextArea
+              mode="arabic"
+              className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          {submitMutation.isError && (
+            <p className="text-sm text-error">{getErrorMessage(submitMutation.error)}</p>
+          )}
         </div>
-        <div>
-          <label className="mb-1 block text-sm">ملاحظات / السبب</label>
-          <TextArea
-            mode="arabic"
-            className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-        {submitMutation.isError && (
-          <p className="text-sm text-error">{getErrorMessage(submitMutation.error)}</p>
-        )}
-        <div className="flex justify-end gap-2">
+        <div className="mt-3 flex shrink-0 justify-end gap-2 border-t border-outline-variant pt-3">
           <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={onClose}>
             إلغاء
           </button>
