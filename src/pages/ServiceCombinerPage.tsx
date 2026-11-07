@@ -29,6 +29,8 @@ import {
   serviceContractPrintPath,
 } from '../lib/sales'
 import { resolveCustomerTransactionSource } from '../lib/posCustomerSource'
+import { normalizeScannedDigits, normalizeScannedInput } from '../lib/scanner'
+import { isGpsUsernameComplete } from '../lib/gpsUsername'
 import { cashLineCheckoutFields, linePaidNow } from '../lib/cashSchedule'
 import { catalogTermPrice, resolveGpsUnitPrice } from '../lib/gpsProductPricing'
 import {
@@ -259,6 +261,8 @@ export function ServiceCombinerPage() {
   const [contractSerial, setContractSerial] = useState(() => serviceDraft?.contractSerial ?? '')
   const [contractSim, setContractSim] = useState(() => serviceDraft?.contractSim ?? '')
   const [contractUsername, setContractUsername] = useState(() => serviceDraft?.contractUsername ?? '')
+  const [newServiceUsername, setNewServiceUsername] = useState(() => serviceDraft?.newServiceUsername ?? '')
+  const [newSoftwareSerial, setNewSoftwareSerial] = useState(() => serviceDraft?.newSoftwareSerial ?? '')
   const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(
     () => serviceDraft?.renewalLine ?? null,
   )
@@ -317,6 +321,8 @@ export function ServiceCombinerPage() {
       contractSerial,
       contractSim,
       contractUsername,
+      newServiceUsername,
+      newSoftwareSerial,
       renewalLine,
       externalLine,
       feeLines,
@@ -348,6 +354,8 @@ export function ServiceCombinerPage() {
       contractSerial,
       contractSim,
       contractUsername,
+      newServiceUsername,
+      newSoftwareSerial,
       renewalLine,
       externalLine,
       feeLines,
@@ -390,6 +398,8 @@ export function ServiceCombinerPage() {
     setContractSerial('')
     setContractSim('')
     setContractUsername('')
+    setNewServiceUsername('')
+    setNewSoftwareSerial('')
     setRenewalLine(null)
     setExternalLine(null)
     setFeeLines([])
@@ -427,6 +437,8 @@ export function ServiceCombinerPage() {
     setContractSerial('')
     setContractSim('')
     setContractUsername('')
+    setNewServiceUsername('')
+    setNewSoftwareSerial('')
   }
 
   const handleCustomerChange = (customer: Customer | null) => {
@@ -643,7 +655,6 @@ export function ServiceCombinerPage() {
   const catalogServices = servicesQuery.data?.data ?? []
   const pickerServices = catalogServices.filter((service) => !isOwnershipTransferCatalogService(service))
   const product = productQuery.data
-  const hasFeeServices = feeLines.length > 0
   const filteredTechnicians = useMemo(() => {
     const employees = employeesQuery.data ?? []
     const q = technicianSearch.trim().toLowerCase()
@@ -848,6 +859,8 @@ export function ServiceCombinerPage() {
   const handleSelectCustomerDevice = (device: CustomerContractDevice) => {
     const identity = identityFromCustomerDevice(device)
     setSelectedCustomerDevice(device)
+    setNewServiceUsername('')
+    setNewSoftwareSerial('')
     setManualDeviceEntry(false)
     setContractSerial(identity.serialNumber)
     setContractSim(identity.simNumber)
@@ -858,6 +871,8 @@ export function ServiceCombinerPage() {
   const handleManualDevice = () => {
     setSelectedCustomerDevice(null)
     setManualDeviceEntry(true)
+    setNewServiceUsername('')
+    setNewSoftwareSerial('')
     applyIdentityToDeviceLines({
       productUnitId: undefined,
       serialNumber: contractSerial,
@@ -1101,8 +1116,16 @@ export function ServiceCombinerPage() {
     )?.category ??
     item.chipId
   const userTransferSelected = feeLines.some((item) => feeLineCategory(item) === 'user_transfer')
-  const userTransferValid = !userTransferSelected || (listedDeviceSelected && Boolean(contractUsername.trim()) && contractUsername.trim() !== (selectedCustomerDevice?.username?.trim() || identityFromCustomerDevice(selectedCustomerDevice!).username))
+  const userTransferValid = !userTransferSelected || (
+    listedDeviceSelected && isGpsUsernameComplete(newServiceUsername) &&
+    newServiceUsername.trim() !== identityFromCustomerDevice(selectedCustomerDevice!).username
+  )
   const softwareSelected = feeLines.some((item) => feeLineCategory(item) === 'software')
+  const softwareValid = !softwareSelected || (
+    listedDeviceSelected && Boolean(newSoftwareSerial.trim()) &&
+    newSoftwareSerial.trim() !== identityFromCustomerDevice(selectedCustomerDevice!).serialNumber
+  )
+  const needsFeeTechnician = feeLines.some((item) => ['uninstall', 'installation'].includes(feeLineCategory(item) ?? ''))
   const hasSelectedServices = selectedChips.size > 0 || feeLines.length > 0
 
   const renewalValid =
@@ -1165,6 +1188,7 @@ export function ServiceCombinerPage() {
     total > 0 &&
     contractDeviceReady &&
     userTransferValid &&
+    softwareValid &&
     renewalValid &&
     externalValid &&
     feesValid &&
@@ -1173,7 +1197,7 @@ export function ServiceCombinerPage() {
     contractPaymentValid &&
     !checkoutPaymentError &&
     !missingFeeService &&
-    (!hasFeeServices || Boolean(feeTechnician))
+    (!needsFeeTechnician || Boolean(feeTechnician))
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
@@ -1207,18 +1231,18 @@ export function ServiceCombinerPage() {
         const line = item.line
         const identity = currentDeviceIdentity()
         const serialNumber =
-          feeLineCategory(item) === 'software' ? contractSerial : identity.serialNumber
+          feeLineCategory(item) === 'software' ? newSoftwareSerial : identity.serialNumber
         const base = {
           line_type: 'service' as const,
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
-          technician_id: feeTechnician?.id,
+          technician_id: ['uninstall', 'installation'].includes(feeLineCategory(item) ?? '') ? feeTechnician?.id : undefined,
           product_unit_id: identity.productUnitId,
           serial_number: serialNumber.trim() || undefined,
           physical_serial: identity.physicalSerial?.trim() || undefined,
           sim_number: identity.simNumber.trim() || undefined,
-          username: identity.username.trim() || undefined,
+          username: (feeLineCategory(item) === 'user_transfer' ? newServiceUsername : identity.username).trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
         }
         if (collectionScope === 'contract') {
@@ -1414,7 +1438,7 @@ export function ServiceCombinerPage() {
               number={2}
               title="جهاز العميل"
               subtitle={userTransferSelected ? 'اختر جهاز العميل وأدخل اسم المستخدم الجديد لنقل اليوزر' : 'اختياري — الجهاز المختار يُطبّق على كل خدمات العقد'}
-              highlighted={submitAttempted && ((hasContractDevice && !contractDeviceReady) || !userTransferValid)}
+              highlighted={submitAttempted && ((hasContractDevice && !contractDeviceReady) || !userTransferValid || !softwareValid)}
             >
               {userTransferSelected && <p className="mb-2 text-sm text-on-surface-variant">{selectedCustomerDevice ? `اليوزر الحالي: ${selectedCustomerDevice.username || '—'} — أدخل يوزرًا جديدًا مختلفًا.` : 'يجب اختيار جهاز مسجل للعميل لتنفيذ نقل اليوزر.'}</p>}
               {submitAttempted && !userTransferValid && <p role="alert" className="mb-2 text-sm text-error">اختر جهاز العميل وأدخل يوزرًا جديدًا مختلفًا عن الحالي.</p>}
@@ -1431,14 +1455,14 @@ export function ServiceCombinerPage() {
                 onClear={() => {
                   setSelectedCustomerDevice(null)
                   setManualDeviceEntry(false)
+                  setNewServiceUsername('')
+                  setNewSoftwareSerial('')
                 }}
                 onSerialChange={handleContractSerialChange}
                 onSimChange={handleContractSimChange}
                 onUsernameChange={handleContractUsernameChange}
                 showIdentityFields={showDeviceIdentityFields}
                 identityLocked={listedDeviceSelected}
-                allowSerialEdit={softwareSelected}
-                allowUsernameEdit={userTransferSelected}
                 showErrors={submitAttempted && hasContractDevice}
                 registerOrigin={registerOrigin}
                 onRegisterOriginChange={setRegisterOrigin}
@@ -1450,6 +1474,44 @@ export function ServiceCombinerPage() {
                     : null
                 }
               />
+              {userTransferSelected && (
+                <label className="mt-md block text-sm font-medium">
+                  اسم المستخدم الجديد
+                  <input
+                    value={newServiceUsername}
+                    onChange={(event) => setNewServiceUsername(normalizeScannedInput(event.target.value))}
+                    disabled={!listedDeviceSelected}
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={100}
+                    placeholder="أدخل اسم المستخدم الجديد بالكامل"
+                    className="mt-xs w-full rounded-lg border border-outline-variant px-sm py-2 disabled:opacity-50"
+                  />
+                </label>
+              )}
+              {softwareSelected && (
+                <div className="mt-md space-y-xs">
+                  <p className="text-sm text-on-surface-variant">السيريال الحالي: {selectedCustomerDevice?.serial_number || '—'}</p>
+                  <label className="block text-sm font-medium">
+                    السيريال الجديد للسوفت وير
+                    <input
+                      value={newSoftwareSerial}
+                      onChange={(event) => setNewSoftwareSerial(normalizeScannedDigits(event.target.value))}
+                      disabled={!listedDeviceSelected}
+                      dir="ltr"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={100}
+                      placeholder="امسح أو أدخل السيريال الجديد"
+                      className="mt-xs w-full rounded-lg border border-outline-variant px-sm py-2 disabled:opacity-50"
+                    />
+                  </label>
+                  <p className="text-xs text-on-surface-variant">يُحفظ السيريال الفعلي (Physical Serial) كما هو.</p>
+                  {submitAttempted && !softwareValid && <p role="alert" className="text-sm text-error">اختر جهاز العميل وأدخل سيريالًا جديدًا مختلفًا عن الحالي.</p>}
+                </div>
+              )}
             </PosSectionCard>
           )}
 
@@ -1600,7 +1662,7 @@ export function ServiceCombinerPage() {
             />
           )}
 
-          {hasFeeServices ? (
+          {needsFeeTechnician ? (
             <div
               className={`rounded-xl border bg-surface-container-lowest p-md shadow-sm ${
                 submitAttempted && !feeTechnician ? 'border-error/40' : 'border-outline-variant'
@@ -1628,7 +1690,7 @@ export function ServiceCombinerPage() {
                   </p>
                 ) : (
                   <p className="mt-xs text-xs text-on-surface-variant">
-                    يُسند نفس الفني لكل خدمات هذا العقد
+                    يُسند نفس الفني لخدمات الفك والتركيب فقط
                   </p>
                 )}
               </div>

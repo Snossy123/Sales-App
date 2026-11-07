@@ -83,6 +83,8 @@ export interface ServiceContractDraft extends CheckoutPaymentDraft {
   contractSerial: string
   contractSim: string
   contractUsername: string
+  newServiceUsername?: string
+  newSoftwareSerial?: string
   renewalLine: DeviceLineDraft | null
   externalLine: DeviceLineDraft | null
   feeLines: FeeLineInstance[]
