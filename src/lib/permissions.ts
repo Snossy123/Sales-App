@@ -137,6 +137,7 @@ export const navEntries: NavEntry[] = [
       items: [
         { to: '/invoices/review', icon: 'fact_check', label: 'مراجعة التعاقدات', end: true, roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/collections', icon: 'payments', label: 'مراجعة التحصيلات', roles: ['super_admin', 'admin', 'reviewer'] },
+        { to: '/payments', icon: 'receipt', label: 'سجل المدفوعات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/branch-inventory', icon: 'inventory_2', label: 'مراجعة مخزون الفرع', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/review/expenses', icon: 'receipt', label: 'مراجعة المصروفات', roles: ['super_admin', 'admin', 'reviewer'] },
         { to: '/invoices', icon: 'receipt_long', label: 'كل التعاقدات', roles: ['super_admin', 'admin', 'reviewer', 'sales'] },
@@ -309,7 +310,7 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/review/evaluation-questions': ['super_admin', 'admin', 'reviewer'],
   '/installments': ['super_admin', 'admin', 'collector'],
   '/installments/assignments': ['super_admin', 'admin'],
-  '/payments': ['super_admin', 'admin', 'collector'],
+  '/payments': ['super_admin', 'admin', 'collector', 'reviewer'],
   '/help/manual': ['super_admin', 'admin'],
   '/help/faq': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],
   '/feedback': ['super_admin', 'admin', 'sales', 'reviewer', 'collector', 'call_center', 'crm', 'accountant', 'hr_manager'],

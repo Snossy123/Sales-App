@@ -97,6 +97,7 @@ function PageSelectCheckbox({
 export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boolean }) {
   const branchOptions = useBranchFilterOptions()
   const [branchFilter, setBranchFilter] = useState('')
+  const [reviewDay, setReviewDay] = useState('')
   const user = useAuthStore((s) => s.user)
   const canAdd = !reviewMode && userCanPerform(user, 'inventory.branch.add')
   const canEdit = !reviewMode && userCanPerform(user, 'inventory.branch.edit')
@@ -258,6 +259,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase()
     return units.filter((unit) => {
+      if (reviewMode && reviewDay && ![unit.custody_received_at, unit.custody_issued_at].some((date) => voucherDateKey(date) === reviewDay)) return false
       if (reviewMode && reviewFilter && Boolean(unit.inventory_reviewed) !== (reviewFilter === 'reviewed')) return false
       if (bucketFilter && unit.inventory_bucket !== bucketFilter) return false
       if (employeeFilter && String(unit.custody_employee_id ?? unit.custody_employee?.id ?? '') !== employeeFilter) {
@@ -284,7 +286,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
         model.includes(q)
       )
     })
-  }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter, reviewFilter, reviewMode])
+  }, [units, unitSearch, bucketFilter, employeeFilter, customerFilter, reviewFilter, reviewMode, reviewDay])
 
   const maintenanceMode = bucketFilter === 'custody_maintenance'
   const selectedMaintenanceIds = useMemo(
@@ -344,6 +346,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
     return vouchers.filter((voucher) => {
       if (logTypeFilter && voucher.type !== logTypeFilter) return false
       const dateKey = voucherDateKey(voucher.created_at)
+      if (reviewMode && reviewDay && dateKey !== reviewDay) return false
       if (dateFrom && dateKey && dateKey < dateFrom) return false
       if (dateTo && dateKey && dateKey > dateTo) return false
       if (!q) return true
@@ -356,10 +359,10 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
       const compactQuery = compactSearch(q)
       return values.some((value) => compactSearch(value).includes(compactQuery))
     })
-  }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo])
+  }, [vouchers, logSearch, logTypeFilter, dateFrom, dateTo, reviewMode, reviewDay])
 
-  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter || customerFilter || (reviewMode && reviewFilter))
-  const hasLogFilters = Boolean(logSearch || logTypeFilter || dateFrom || dateTo)
+  const hasCustodyFilters = Boolean(unitSearch || bucketFilter || employeeFilter || customerFilter || (reviewMode && (reviewFilter || reviewDay)))
+  const hasLogFilters = Boolean(logSearch || logTypeFilter || dateFrom || dateTo || (reviewMode && reviewDay))
 
   return (
     <SalesPageShell
@@ -398,6 +401,16 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
       }
     >
       {reviewMode && <FilterBar selects={[{ id: 'review-branch', label: 'الفرع', value: branchFilter, options: branchOptions, onChange: (value) => { setBranchFilter(value); setSelectedUnit(null); setSelectedVoucher(null) } }]} />}
+      {reviewMode && (
+        <div className="mb-md flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span>يوم الاستلام أو الصرف</span>
+            <AppDatePicker value={reviewDay} onChange={setReviewDay} className="h-10 rounded-lg border border-outline-variant bg-surface px-3" />
+          </label>
+          <button type="button" className="h-10 rounded-lg border border-outline-variant px-3 text-sm" onClick={() => setReviewDay(todayIsoDate())}>اليوم</button>
+          {reviewDay && <button type="button" className="h-10 rounded-lg px-3 text-sm text-primary" onClick={() => setReviewDay('')}>كل الأيام</button>}
+        </div>
+      )}
       <div className="mb-4 flex gap-2 border-b border-outline-variant">
         {(
           [
@@ -479,6 +492,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
               setEmployeeFilter('')
               setCustomerFilter('')
               setReviewFilter('')
+              setReviewDay('')
             }}
           />
           {maintenanceMode && canMarkVisit && selectedMaintenanceIds.length > 0 && (
@@ -506,7 +520,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
                 data={filteredUnits}
                 keyExtractor={(row) => row.id}
                 pageSize={PAGE_SIZE}
-                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}|${reviewFilter}`}
+                pageKey={`${unitSearch}|${bucketFilter}|${employeeFilter}|${customerFilter}|${reviewFilter}|${reviewDay}`}
                 striped={false}
                 onVisibleRowsChange={maintenanceMode ? onVisibleRowsChange : undefined}
                 emptyMessage={hasCustodyFilters ? 'لا توجد أجهزة مطابقة' : 'لا توجد وحدات مصنّفة في مخزون الفرع بعد.'}
@@ -659,6 +673,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
               setLogTypeFilter('')
               setDateFrom('')
               setDateTo('')
+              setReviewDay('')
             }}
           />
           <AsyncState
@@ -670,7 +685,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
                 data={filteredVouchers}
                 keyExtractor={(row) => row.id}
                 pageSize={PAGE_SIZE}
-                pageKey={`${logSearch}|${logTypeFilter}|${dateFrom}|${dateTo}`}
+                pageKey={`${logSearch}|${logTypeFilter}|${dateFrom}|${dateTo}|${reviewDay}`}
                 striped={false}
                 emptyMessage={hasLogFilters ? 'لا توجد أذون مطابقة' : 'لا توجد أذون استلام أو صرف بعد.'}
                 columns={[
