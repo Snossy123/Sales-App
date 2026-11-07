@@ -141,7 +141,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   }, [routeParams.id, searchParams])
   const isEditMode = Boolean(editInvoiceId)
   const hydratedEditRef = useRef<number | null>(null)
-  const warehouseId = useAuthStore((s) => s.warehouseId)
+  const sessionWarehouseId = useAuthStore((s) => s.warehouseId)
   const user = useAuthStore((s) => s.user)
   const draftUserId = user?.id ?? null
   const [deviceDraft] = useState(() => {
@@ -384,6 +384,33 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     },
     enabled: isEditMode,
   })
+
+  const executionBranchChanged = Boolean(isEditMode && actionBranchId && actionBranchId !== editInvoiceQuery.data?.action_branch_id)
+  const executionWarehousesQuery = useQuery({
+    queryKey: ['warehouses', 'pos-execution', actionBranchId, deviceLines.length],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<Warehouse>>('/warehouses', {
+        params: { 'filter[branch_id]': actionBranchId, 'filter[is_active]': 1, per_page: 100 },
+      })
+      const stocks = await Promise.all(data.data.filter((warehouse) => warehouse.is_active !== false).map(async (warehouse) => ({
+        warehouse,
+        available: (await api.get<GpsStock>('/gps-stock', {
+          params: { 'filter[warehouse_id]': warehouse.id },
+        })).data.available,
+      })))
+      return stocks.sort((a, b) => Number((b.available ?? 0) >= deviceLines.length) - Number((a.available ?? 0) >= deviceLines.length) || a.warehouse.id - b.warehouse.id)
+        .map(({ warehouse }) => warehouse)
+    },
+    enabled: executionBranchChanged,
+  })
+  const [executionWarehouseId, setExecutionWarehouseId] = useState<number | ''>('')
+  const executionWarehouses = executionWarehousesQuery.data ?? []
+  const warehouseId = isEditMode
+    ? executionBranchChanged
+      ? executionWarehouses.find((warehouse) => warehouse.id === executionWarehouseId)?.id
+        ?? executionWarehouses[0]?.id
+      : editInvoiceQuery.data?.warehouse_id ?? undefined
+    : sessionWarehouseId
 
   useEffect(() => {
     const invoice = editInvoiceQuery.data
@@ -777,6 +804,24 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
 
 
   const manualDeviceEntry = allowsManualDeviceEntry(contractKind)
+  useEffect(() => {
+    if (!executionBranchChanged || manualDeviceEntry || !warehouseId || !unitsQuery.isSuccess || unitsQuery.isFetching) return
+    const units = [...unitsQuery.data].sort((a, b) => a.id - b.id)
+    setDeviceLines((previous) => {
+      const used = new Set<number>()
+      let changed = false
+      const next = previous.map((line) => {
+        const unit = units.find((candidate) => candidate.id === line.productUnitId && !used.has(candidate.id))
+          ?? units.find((candidate) => !used.has(candidate.id))
+        if (unit) used.add(unit.id)
+        if (line.productUnitId === unit?.id && line.imei === unit?.imei) return line
+        changed = true
+        return { ...line, productUnitId: unit?.id, imei: unit?.imei }
+      })
+      return changed ? next : previous
+    })
+  }, [executionBranchChanged, manualDeviceEntry, warehouseId, unitsQuery.data, unitsQuery.isSuccess, unitsQuery.isFetching])
+
   const cashAnnual = Number(
     productQuery.data?.cash_annual_price ??
       productQuery.data?.cash_price ??
@@ -1205,6 +1250,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     requireTechnician: contractKind !== 'subscription_renewal' && !isOwnershipTransfer,
     skipPayment: isOwnershipTransfer,
   }
+  const replacementIncomplete = executionBranchChanged && !manualDeviceEntry && (
+    !warehouseId || unitsQuery.isFetching || unitsQuery.isError ||
+    deviceLines.some((line) => !unitsQuery.data?.some((unit) => unit.id === line.productUnitId)) ||
+    new Set(deviceLines.map((line) => line.productUnitId)).size !== deviceLines.length
+  )
   const allLinesValid = deviceLines.every(
     (line) =>
       validateDeviceLine(line, minDownPercent, maxInstallmentCount, deviceLineValidationOptions)
@@ -1533,7 +1583,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (!customerId || !sourceReady || deviceLines.length === 0) return
     if (!manualDeviceEntry && !warehouseId && !isEditMode) return
     if (!manualDeviceEntry && !allowNegativeInventory && !isEditMode && quantity > available) return
-    if (!allLinesValid || checkoutPaymentError) return
+    if (!allLinesValid || checkoutPaymentError || replacementIncomplete) return
     if (isOwnershipTransfer && !hasTransferSource) return
     if (
       isRenewal &&
@@ -1932,7 +1982,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       : undefined) ||
     undefined
 
-  const submitDisabled =
+  const submitDisabled = replacementIncomplete ||
     checkoutMutation.isPending || restoreBlocked ||
     !selectedCustomer ||
     !sourceReady ||
@@ -2097,7 +2147,19 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 <select
                   className="input"
                   value={actionBranchId}
-                  onChange={(event) => setActionBranchId(event.target.value ? Number(event.target.value) : '')}
+                  onChange={(event) => {
+                    const nextBranch = event.target.value ? Number(event.target.value) : ''
+                    setActionBranchId(nextBranch)
+                    setExecutionWarehouseId('')
+                    if (!nextBranch || nextBranch === editInvoiceQuery.data?.action_branch_id) {
+                      const originalLines = (editInvoiceQuery.data?.lines ?? []).filter((line) => line.product_unit_id && !isServiceInvoiceLine(line))
+                      setDeviceLines((previous) => previous.map((line, index) => ({
+                        ...line,
+                        productUnitId: originalLines[index]?.product_unit_id ?? undefined,
+                        imei: originalLines[index]?.product_unit?.imei,
+                      })))
+                    }
+                  }}
                   disabled={branchesQuery.isLoading}
                 >
                   <option value="">الإبقاء على الفرع الحالي</option>
@@ -2109,6 +2171,33 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                   ))}
                 </select>
               </label>
+            )}
+            {executionBranchChanged && !manualDeviceEntry && (
+              <div className="flex flex-col gap-3 rounded-lg border p-3">
+                <p>يتم اختيار المخزن والأجهزة البديلة تلقائيًا من المتاح، ويمكنك مراجعة الاختيار أو تغييره. عند الحفظ يرجع الجهاز القديم لمخزنه، وتظل بيانات الدفع والعربية والشريحة واسم المستخدم كما هي.</p>
+                <select className="input" value={warehouseId ?? ''} onChange={(event) => setExecutionWarehouseId(Number(event.target.value) || '')}>
+                  <option value="">اختر المخزن</option>
+                  {executionWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name_ar || warehouse.name}</option>)}
+                </select>
+                {executionWarehousesQuery.isError && <p role="alert">تعذر تحميل مخازن الفرع.</p>}
+                {unitsQuery.isError && <p role="alert">تعذر تحميل أجهزة المخزن.</p>}
+                {deviceLines.map((line, index) => (
+                  <label key={line.key}>الجهاز البديل {index + 1}
+                    <select className="input" value={unitsQuery.data?.some((unit) => unit.id === line.productUnitId) ? line.productUnitId : ''}
+                      disabled={!warehouseId || unitsQuery.isFetching}
+                      onChange={(event) => {
+                        const unit = unitsQuery.data?.find((candidate) => candidate.id === Number(event.target.value))
+                        updateDeviceLine(index, { ...line, productUnitId: unit?.id, imei: unit?.imei })
+                      }}>
+                      <option value="">اختر جهازًا من المخزن الجديد</option>
+                      {(unitsQuery.data ?? []).filter((unit) => !deviceLines.some((other, otherIndex) => otherIndex !== index && other.productUnitId === unit.id)).map((unit) => (
+                        <option key={unit.id} value={unit.id}>{unit.imei} — {unit.serial_number}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+                {replacementIncomplete && <p role="alert">لا يمكن الحفظ قبل توفر جهاز بديل لكل جهاز. تحقق من مخزون الفرع الجديد.</p>}
+              </div>
             )}
             <PosContractHeader
                 transactionSource={transactionSource}

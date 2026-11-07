@@ -2,12 +2,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
-import type { InstallmentItem, PaymentTransaction, SalesInvoice } from '../api/types'
+import type { CollectionFollowUpLog, InstallmentItem, PaymentTransaction, SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { userHasPermission } from '../lib/access'
+import { collectionStatusLabels } from '../lib/collectionHelpers'
+import { formatDatetime12hDisplay } from '../lib/datetime12h'
 import { formatMoney } from '../lib/theme'
 import { useAuthStore } from '../stores/authStore'
 
@@ -22,7 +24,7 @@ export function ReviewCollectionDetailPage() {
   const query = useQuery({
     queryKey: ['review-collection', id],
     queryFn: async () => {
-      const { data } = await api.get<SalesInvoice>(`/review/collections/${id}`)
+      const { data } = await api.get<SalesInvoice & { collection_follow_ups: CollectionFollowUpLog[] }>(`/review/collections/${id}`)
       return data
     },
     enabled: Boolean(id),
@@ -42,6 +44,35 @@ export function ReviewCollectionDetailPage() {
   const invoice = query.data
   const payments = (invoice?.payment_transactions ?? []) as PaymentTransaction[]
   const installments = (invoice?.installment_items ?? []) as InstallmentItem[]
+  const history = [
+    ...payments.map((payment) => ({
+      id: `payment-${payment.id}`,
+      date: payment.paid_at,
+      user: payment.user?.name,
+      title: `${Number(payment.amount) < 0 ? 'استرداد دفعة' : 'تسجيل تحصيل'} — ${formatMoney(Number(payment.amount ?? 0))}`,
+      installment: payment.installment_item?.sequence != null ? `القسط #${payment.installment_item.sequence}` : 'على مستوى العقد',
+      notes: payment.notes,
+      reminder: null,
+    })),
+    ...(invoice?.collection_follow_ups ?? []).map((log) => ({
+      id: `follow-up-${log.id}`,
+      date: log.created_at,
+      user: log.user_name,
+      title: `متابعة التحصيل — ${log.collection_status_label || (log.collection_status ? collectionStatusLabels[log.collection_status] ?? log.collection_status : 'تحديث المتابعة')}`,
+      installment: log.installment_sequence != null ? `القسط #${log.installment_sequence}` : log.installment_item_id != null ? 'متابعة قسط' : 'على مستوى العقد',
+      notes: log.collection_notes,
+      reminder: log.collection_reminder_at,
+    })),
+    ...(invoice?.collection_reviewed_at ? [{
+      id: 'review',
+      date: invoice.collection_reviewed_at,
+      user: invoice.collection_reviewer?.name,
+      title: 'تأكيد مراجعة التحصيل',
+      installment: 'على مستوى العقد',
+      notes: invoice.collection_review_notes,
+      reminder: null,
+    }] : []),
+  ].sort((a, b) => (Date.parse(b.date ?? '') || 0) - (Date.parse(a.date ?? '') || 0))
   const isPending = invoice?.collection_review_status === 'pending'
 
   return (
@@ -145,6 +176,33 @@ export function ReviewCollectionDetailPage() {
                   </tbody>
                 </table>
               </div>
+            </section>
+
+            <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
+                <Icon name="history" />
+                سجل إجراءات التحصيل
+              </h2>
+              {history.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">لا توجد إجراءات مسجلة حتى الآن</p>
+              ) : (
+                <ol className="space-y-3">
+                  {history.map((event) => (
+                    <li key={event.id} className="rounded-lg border border-outline-variant bg-surface-container-low/50 p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
+                        <span>{event.user || '—'}</span>
+                        <time dateTime={event.date ?? undefined}>{formatDatetime12hDisplay(event.date)}</time>
+                      </div>
+                      <p className="text-sm font-medium">{event.title}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">{event.installment}</p>
+                      {event.reminder && (
+                        <p className="mt-1 text-xs text-on-surface-variant">التذكير: {formatDatetime12hDisplay(event.reminder)}</p>
+                      )}
+                      {event.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{event.notes}</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </section>
 
             {isPending && canConfirm && (
