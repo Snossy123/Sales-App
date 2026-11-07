@@ -50,6 +50,12 @@ const STATUS_OPTIONS = [
   { value: 'reviewed', label: 'تمت المراجعة' },
 ]
 
+function todayDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
 export function ReviewCollectionsPage() {
   const branchOptions = useBranchFilterOptions()
   const [branchFilter, setBranchFilter] = useState('')
@@ -58,9 +64,10 @@ export function ReviewCollectionsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [category, setCategory] = useState<CollectionCategory | ''>('')
+  const [date, setDate] = useState(todayDate)
   const [page, setPage] = useState(1)
   const debouncedSearch = useDebouncedValue(search, 300)
-  const filterKey = JSON.stringify([listScopeKey, statusFilter, branchFilter, category, debouncedSearch])
+  const filterKey = JSON.stringify([listScopeKey, statusFilter, branchFilter, category, debouncedSearch, date])
   const [previousFilterKey, setPreviousFilterKey] = useState(filterKey)
   if (previousFilterKey !== filterKey) {
     setPreviousFilterKey(filterKey)
@@ -68,9 +75,10 @@ export function ReviewCollectionsPage() {
   }
 
   const query = useQuery({
-    queryKey: ['review-collections', listScopeKey, statusFilter, branchFilter, category, debouncedSearch, page],
+    queryKey: ['review-collections', listScopeKey, statusFilter, branchFilter, category, debouncedSearch, date, page],
     queryFn: async () => {
       const params = mergeScopedListParams(user, {
+        date: date || undefined,
         per_page: 10,
         page,
         search: debouncedSearch.trim() || undefined,
@@ -131,6 +139,9 @@ export function ReviewCollectionsPage() {
       subtitle="متابعة إجراءات قسم الأقساط ومراجعة صحة التحصيل"
       filters={
         <FilterBar
+          dateFrom={date}
+          onDateFromChange={setDate}
+          dateFromLabel="يوم إجراءات التحصيل"
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="بحث برقم العقد أو اسم العميل..."
@@ -144,8 +155,9 @@ export function ReviewCollectionsPage() {
               onChange: setStatusFilter,
             },
           ]}
-          showClear={Boolean(search || statusFilter !== 'all' || branchFilter || category)}
+          showClear={Boolean(search || statusFilter !== 'all' || branchFilter || category || date !== todayDate())}
           onClear={() => {
+            setDate(todayDate())
             setSearch('')
             setStatusFilter('all')
             setCategory('')
@@ -165,7 +177,7 @@ export function ReviewCollectionsPage() {
               ? 'border-transparent bg-primary text-on-primary'
               : 'border-outline-variant bg-surface-container-low text-on-surface hover:border-primary/40'}`}
           >
-            <p className="text-sm">{item.label}</p>
+            <p className="text-sm">{date && date !== todayDate() ? item.label.replace('اليوم', 'في اليوم المحدد') : item.label}</p>
             <p className="mt-2 text-2xl font-bold tabular-nums">{query.data?.collection_stats[item.key] ?? '—'}</p>
           </button>
         ))}
