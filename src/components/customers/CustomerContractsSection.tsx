@@ -6,7 +6,6 @@ import {
   canExchangeContract,
   canRejectContract,
   canReturnContract,
-  canTransferContractToProblems,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
 import { canConvertCashToInstallment } from '../../lib/contractEdit'
@@ -225,19 +224,17 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                         استرجاع
                       </button>
                     )}
-                    {canTransferContractToProblems(user, invoice) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProblemInvoice(invoice)
-                          setProblemCaseType(null)
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
-                      >
-                        <Icon name="report_problem" size={18} />
-                        تحويل للمشاكل
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProblemInvoice(invoice)
+                        setProblemCaseType(null)
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-error px-md py-sm text-sm font-medium text-on-error hover:bg-error/90"
+                    >
+                      <Icon name="report_problem" size={18} />
+                      تحويل للمشاكل
+                    </button>
                   </div>
 
                   {invoice.payment_term === 'installment' && installmentItems.length > 0 && (

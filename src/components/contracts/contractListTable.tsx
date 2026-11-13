@@ -18,7 +18,6 @@ import {
   canExchangeContract,
   canRejectContract,
   canReturnContract,
-  canTransferContractToProblems,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
 import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../../lib/contractEdit'

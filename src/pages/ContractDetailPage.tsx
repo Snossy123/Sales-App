@@ -23,7 +23,6 @@ import {
   canExchangeContract,
   canRejectContract,
   canReturnContract,
-  canTransferContractToProblems,
   type ContractProblemCaseType,
 } from '../lib/contractCases'
 import { canConvertCashToInstallment, canEditContract, contractEditPath } from '../lib/contractEdit'
@@ -104,7 +103,6 @@ export function ContractDetailPage() {
   })
 
   const invoice = query.data
-  const canTransferToProblems = canTransferContractToProblems(user, invoice)
   const canReject = canRejectContract(user, invoice)
   const canExchange = canExchangeContract(user, invoice)
   const canReturn = canReturnContract(user, invoice)
@@ -201,7 +199,7 @@ export function ContractDetailPage() {
               استرجاع
             </button>
           )}
-          {canTransferToProblems && invoice && (
+          {invoice && (
             <button
               type="button"
               onClick={() => openWizard()}

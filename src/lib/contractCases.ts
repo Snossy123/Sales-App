@@ -19,13 +19,6 @@ function canManageContractProblems(user: AuthUser | null): boolean {
   return userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
 }
 
-export function canTransferContractToProblems(
-  user: AuthUser | null,
-  invoice?: SalesInvoice | null,
-): boolean {
-  return canManageContractProblems(user) && isContractEligibleForProblems(invoice)
-}
-
 export function canRejectContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
   if (!invoice || invoice.review_status !== 'pending') return false
   if (userHasPermission(user, 'review.reject')) return true
