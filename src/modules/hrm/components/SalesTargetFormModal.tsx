@@ -6,6 +6,7 @@ import type { Employee, HrmUserSalesTarget, PaginatedResponse } from '../../../a
 import { Modal } from '../../../components/Modal'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { NumericInput } from '../../../components/ui/NumericInput'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 
 
 const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
@@ -26,6 +27,7 @@ export function SalesTargetFormModal({
   onSaved,
 }: SalesTargetFormModalProps) {
   const [toast, setToast] = useState('')
+  const [employeeSearch, setEmployeeSearch] = useState('')
   const [form, setForm] = useState({
     employee_id: employeeId ?? ('' as number | ''),
     target_start: target?.target_start ?? '',
@@ -84,21 +86,25 @@ export function SalesTargetFormModal({
         className="grid gap-sm sm:grid-cols-2"
       >
         {!employeeId && (
-          <select
-            value={form.employee_id}
-            onChange={(e) =>
-              setForm({ ...form, employee_id: e.target.value ? Number(e.target.value) : '' })
-            }
-            required
-            className={`${inputClass} sm:col-span-2`}
-          >
-            <option value="">اختر الموظف</option>
-            {(employeesQuery.data ?? []).map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name}
-              </option>
-            ))}
-          </select>
+          <div className="sm:col-span-2">
+            <SearchableSelect
+              options={(employeesQuery.data ?? []).filter((emp) =>
+                emp.name.toLocaleLowerCase().includes(employeeSearch.trim().toLocaleLowerCase()),
+              )}
+              value={employeesQuery.data?.find((emp) => emp.id === form.employee_id) ?? null}
+              onChange={(employee) => {
+                setForm({ ...form, employee_id: employee?.id ?? '' })
+                if (employee) setEmployeeSearch('')
+              }}
+              onSearchChange={setEmployeeSearch}
+              getOptionValue={(employee) => employee.id}
+              getOptionLabel={(employee) => employee.name}
+              placeholder="اختر الموظف"
+              aria-label="الموظف"
+              loading={employeesQuery.isFetching}
+              required
+            />
+          </div>
         )}
         <AppDatePicker
           value={form.target_start}
