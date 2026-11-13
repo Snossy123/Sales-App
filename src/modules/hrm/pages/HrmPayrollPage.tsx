@@ -8,6 +8,7 @@ import { FilterBar } from '../../../components/FilterBar'
 import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { PageHeader } from '../../../components/PageHeader'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { getListScopeQueryKey, mergeScopedListParams } from '../../../lib/dataScope'
@@ -35,6 +36,7 @@ export function HrmPayrollPage() {
   const [panel, setPanel] = useState<Panel>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [form, setForm] = useState(emptyForm)
+  const [employeeSearch, setEmployeeSearch] = useState('')
   const [successToast, setSuccessToast] = useState('')
 
   const payrollQuery = useQuery({
@@ -64,6 +66,7 @@ export function HrmPayrollPage() {
   const closePanel = () => {
     setPanel(null)
     setForm(emptyForm)
+    setEmployeeSearch('')
   }
 
   const createMutation = useMutation({
@@ -190,27 +193,30 @@ export function HrmPayrollPage() {
           }}
           className="grid gap-sm sm:grid-cols-2"
         >
-          <select
-            value={form.employee_id}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              const emp = employeesQuery.data?.find((item) => item.id === id)
-              setForm({
-                ...form,
-                employee_id: id,
-                rate: emp?.salary != null ? String(emp.salary) : form.rate,
-              })
-            }}
-            required
-            className={`${inputClass} sm:col-span-2`}
-          >
-            <option value="">اختر الموظف</option>
-            {employeesQuery.data?.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name} ({emp.employee_code})
-              </option>
-            ))}
-          </select>
+          <div className="sm:col-span-2">
+            <SearchableSelect
+              aria-label="الموظف"
+              options={(employeesQuery.data ?? []).filter((emp) =>
+                `${emp.name} ${emp.employee_code ?? ''}`.toLocaleLowerCase()
+                  .includes(employeeSearch.trim().toLocaleLowerCase()),
+              )}
+              value={employeesQuery.data?.find((emp) => emp.id === form.employee_id) ?? null}
+              onChange={(emp) => {
+                setForm((current) => ({
+                  ...current,
+                  employee_id: emp?.id ?? '',
+                  rate: emp?.salary != null ? String(emp.salary) : current.rate,
+                }))
+                if (emp) setEmployeeSearch('')
+              }}
+              onSearchChange={setEmployeeSearch}
+              getOptionValue={(emp) => emp.id}
+              getOptionLabel={(emp) => `${emp.name} (${emp.employee_code})`}
+              placeholder="ابحث باسم الموظف أو الكود..."
+              loading={employeesQuery.isFetching}
+              required
+            />
+          </div>
           <NumericInput
             type="number"
             min="0"
