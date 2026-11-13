@@ -28,6 +28,7 @@ export function CollectionFollowUpSidebar({
 }: CollectionFollowUpSidebarProps) {
   const query = useInstallmentPages(
     {
+      paginate_by: 'contract',
       'filter[branch_id]': branchId ?? undefined,
       'filter[search]': search || undefined,
       'filter[parked_follow_up]': 1,

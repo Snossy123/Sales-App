@@ -4098,6 +4098,13 @@ export function handleMockRequest(
       }
     }
 
+    if (params.paginate_by === 'contract') {
+      const invoiceIds = [...new Set(rows.map((row) => row.sales_invoice_id))]
+      const page = paginate(invoiceIds, { ...params, per_page: 10 })
+      const pageIds = new Set(page.data)
+      return { ...page, data: rows.filter((row) => pageIds.has(row.sales_invoice_id)) }
+    }
+
     return paginate(rows, params)
   }
 

@@ -49,6 +49,7 @@ export function ExternalCollectionPage() {
 
   const installmentsQuery = useInstallmentPages(
     {
+      paginate_by: 'contract',
       'filter[search]': debouncedSearch,
       'filter[contract_tier]':
         contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
@@ -69,7 +70,10 @@ export function ExternalCollectionPage() {
   )
 
   const contractInstallmentsQuery = useInstallmentPages(
-    { 'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined },
+    {
+      paginate_by: 'contract',
+      'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined,
+    },
     Boolean(selected?.sales_invoice_id),
   )
 
