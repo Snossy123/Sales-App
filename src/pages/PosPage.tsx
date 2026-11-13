@@ -568,7 +568,38 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setCheckoutSenderNumber('')
   }
 
+  useEffect(() => {
+    if (!selectedCustomer?.sales_user_id) return
+
+    let cancelled = false
+    const applySalesRep = (customer: Customer) => {
+      if (cancelled || !customer.sales_user) return
+      setTransactionSource('sales')
+      setSelectedSalesRep(customer.sales_user)
+      setSalesRepSearch(customer.sales_user.name)
+      setSelectedBranch(null)
+      setSelectedDistributor(null)
+      setBranchSearch('')
+      setDistributorSearch('')
+    }
+
+    if (selectedCustomer.sales_user) {
+      applySalesRep(selectedCustomer)
+    } else {
+      void api.get<Customer>(`/customers/${selectedCustomer.id}`, {
+        params: { include: 'salesUser,branch,distributor' },
+      }).then(({ data }) => {
+        if (!cancelled) setSelectedCustomer(data)
+      }).catch(() => {
+        // Keep the source editable if customer details cannot be loaded.
+      })
+    }
+
+    return () => { cancelled = true }
+  }, [selectedCustomer])
+
   const handleTransactionSourceChange = (source: TransactionSource) => {
+    if (source === transactionSource) return
     setTransactionSource(source)
     setSelectedBranch(null)
     setSelectedDistributor(null)
