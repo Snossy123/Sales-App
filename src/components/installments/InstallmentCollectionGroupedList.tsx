@@ -637,17 +637,42 @@ export function InstallmentCollectionGroupedList({
 
   useEffect(() => {
     const node = sentinelRef.current
-    if (!node || !hasNextPage || !onLoadMore) return
-    const scrollRoot = node.closest('[class*="overflow-y-auto"]')
-    const observer = new IntersectionObserver(
+    if (!node || !hasNextPage || !onLoadMore || isFetchingNextPage) return
+    let scrollRoot = node.parentElement
+    while (scrollRoot) {
+      const { overflowY } = window.getComputedStyle(scrollRoot)
+      if (/^(auto|scroll)$/.test(overflowY) && scrollRoot.scrollHeight > scrollRoot.clientHeight) break
+      scrollRoot = scrollRoot.parentElement
+    }
+    let requested = false
+    const loadNextPage = () => {
+      if (requested) return
+      requested = true
+      onLoadMore()
+    }
+    const checkScrollPosition = () => {
+      const bounds = node.getBoundingClientRect()
+      const rootBounds = scrollRoot?.getBoundingClientRect()
+      const bottom = Math.min(rootBounds?.bottom ?? window.innerHeight, window.innerHeight)
+      const top = Math.max(rootBounds?.top ?? 0, 0)
+      if (bounds.top <= bottom + 160 && bounds.bottom >= top) loadNextPage()
+    }
+    const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) onLoadMore()
+        if (entries.some((entry) => entry.isIntersecting)) loadNextPage()
       },
-      { root: scrollRoot instanceof Element ? scrollRoot : null, rootMargin: '80px' },
+      { root: scrollRoot, rootMargin: '160px' },
     )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasNextPage, onLoadMore])
+    observer?.observe(node)
+    window.addEventListener('scroll', checkScrollPosition, { capture: true, passive: true })
+    window.addEventListener('resize', checkScrollPosition)
+    checkScrollPosition()
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('scroll', checkScrollPosition, true)
+      window.removeEventListener('resize', checkScrollPosition)
+    }
+  }, [hasNextPage, isFetchingNextPage, onLoadMore])
 
   const toggleView = (key: string, view: ContractExpandView) => {
     setExpandedViews((prev) => {
@@ -966,8 +991,15 @@ export function InstallmentCollectionGroupedList({
         </div>
       ))}
       {hasNextPage ? (
-        <div ref={sentinelRef} className="h-8 text-center text-xs text-on-surface-variant">
-          {isFetchingNextPage ? 'جاري التحميل…' : ''}
+        <div ref={sentinelRef} className="py-sm text-center">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={isFetchingNextPage || !onLoadMore}
+            className="rounded-lg border border-primary/30 px-md py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'جاري التحميل…' : 'عرض المزيد من العقود'}
+          </button>
         </div>
       ) : null}
     </div>
