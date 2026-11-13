@@ -12,6 +12,8 @@ import {
 import type { CollectionPaymentAccount, Employee, PaginatedResponse, ProductUnit, SalesInvoice } from '../../api/types'
 import { userCanPerform } from '../../lib/access'
 import { Icon } from '../Icon'
+import { SearchableSelect } from '../SearchableSelect'
+import { BranchInventoryUnitForm } from '../inventory/BranchInventoryUnitForm'
 import { NumericInput } from '../ui/NumericInput'
 
 
@@ -165,6 +167,9 @@ export function ContractProblemWizard({
   const [customerReceivedRefund, setCustomerReceivedRefund] = useState(false)
   const [refundVia, setRefundVia] = useState<'cash' | 'account'>('cash')
   const [refundAccountId, setRefundAccountId] = useState<number | ''>('')
+  const [unitSearch, setUnitSearch] = useState('')
+  const [createdUnit, setCreatedUnit] = useState<ProductUnit | null>(null)
+  const [addingUnit, setAddingUnit] = useState(false)
 
   const deviceLine = invoice.lines?.find((l) => l.product_unit_id)
   const warehouseId = invoice.warehouse_id
@@ -286,6 +291,7 @@ export function ContractProblemWizard({
 
   const user = useAuthStore((s) => s.user)
   const canDisburse = userCanPerform(user, 'contract_cases.disburse')
+  const canAddInventoryUnit = userCanPerform(user, 'inventory.branch.add')
 
   const visibleTypeOptions = useMemo(
     () =>
@@ -319,7 +325,7 @@ export function ContractProblemWizard({
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<ProductUnit>>('/product-units', {
         params: {
-          per_page: 100,
+          per_page: 200,
           'filter[warehouse_id]': warehouseId,
           'filter[state]': 'available',
         },
@@ -328,6 +334,26 @@ export function ContractProblemWizard({
     },
     enabled: open && step === 2 && caseType === 'exchange' && Boolean(warehouseId),
   })
+
+  const availableUnits = useMemo(() => {
+    const units = [...(unitsQuery.data ?? [])]
+    if (createdUnit && !units.some((unit) => unit.id === createdUnit.id)) units.unshift(createdUnit)
+    const query = unitSearch.trim().toLocaleLowerCase('ar')
+    if (!query) return units
+
+    return units.filter((unit) =>
+      [unit.serial_number, unit.imei, unit.physical_serial, unit.username, unit.sim_number]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase('ar').includes(query)),
+    )
+  }, [createdUnit, unitSearch, unitsQuery.data])
+
+  const selectedUnit = useMemo(
+    () =>
+      availableUnits.find((unit) => unit.id === newUnitId) ??
+      (createdUnit?.id === newUnitId ? createdUnit : null),
+    [availableUnits, createdUnit, newUnitId],
+  )
 
   const employeesQuery = useQuery({
     queryKey: ['employees', 'support-case'],
@@ -441,6 +467,7 @@ export function ContractProblemWizard({
     completeCancelMutation.error
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-md">
       <div
         role="dialog"
@@ -633,22 +660,37 @@ export function ContractProblemWizard({
               </div>
             </div>
             <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">الجهاز الجديد من المخزون</label>
-              <select
-                value={newUnitId}
-                onChange={(e) => setNewUnitId(e.target.value ? Number(e.target.value) : '')}
-                className="w-full rounded-lg border border-outline-variant px-sm py-2 text-sm"
-              >
-                <option value="">اختر جهازاً</option>
-                {(unitsQuery.data ?? []).map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.serial_number ?? u.imei ?? `#${u.id}`}
-                  </option>
-                ))}
-              </select>
-              {(unitsQuery.data ?? []).length === 0 && !unitsQuery.isLoading && (
-                <p className="mt-xs text-xs text-on-surface-variant">لا توجد أجهزة متاحة في مخزون الفرع</p>
-              )}
+              <SearchableSelect
+                label="الجهاز الجديد من المخزون"
+                options={availableUnits}
+                value={selectedUnit}
+                onChange={(unit) => setNewUnitId(unit?.id ?? '')}
+                onSearchChange={setUnitSearch}
+                getOptionValue={(unit) => unit.id}
+                getOptionLabel={(unit) =>
+                  [
+                    unit.serial_number || unit.imei || `#${unit.id}`,
+                    unit.physical_serial ? `فعلي: ${unit.physical_serial}` : null,
+                    unit.username ? `يوزر: ${unit.username}` : null,
+                    unit.sim_number ? `شريحة: ${unit.sim_number}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' — ')
+                }
+                placeholder="ابحث بالسريال أو اليوزر أو الشريحة..."
+                loading={unitsQuery.isLoading || unitsQuery.isFetching}
+                emptyMessage={unitSearch.trim() ? 'لا يوجد جهاز مطابق' : 'لا توجد أجهزة متاحة في مخزون الفرع'}
+              />
+              {canAddInventoryUnit && warehouseId ? (
+                <button
+                  type="button"
+                  onClick={() => setAddingUnit(true)}
+                  className="mt-xs inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  <Icon name="add" size={18} />
+                  إضافة جهاز جديد للمخزون
+                </button>
+              ) : null}
             </div>
             {error && <p className="text-sm text-error">{getErrorMessage(error)}</p>}
             <div className="flex justify-between gap-sm">
@@ -817,5 +859,24 @@ export function ContractProblemWizard({
         )}
       </div>
     </div>
+    {addingUnit ? (
+      <BranchInventoryUnitForm
+        unit={null}
+        branchId={invoice.branch_id}
+        initialWarehouseId={warehouseId}
+        initialInventoryBucket="new"
+        onClose={() => setAddingUnit(false)}
+        onSuccess={(unit) => {
+          if (unit) {
+            setCreatedUnit(unit)
+            setNewUnitId(unit.id)
+            setUnitSearch('')
+          }
+          setAddingUnit(false)
+          void unitsQuery.refetch()
+        }}
+      />
+    ) : null}
+    </>
   )
 }

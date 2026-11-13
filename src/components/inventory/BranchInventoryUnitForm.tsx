@@ -7,13 +7,25 @@ import { CUSTODY_BUCKET_OPTIONS } from '../../lib/inventoryBuckets'
 import { SearchableSelect } from '../SearchableSelect'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
-export function BranchInventoryUnitForm({ unit, branchId, onClose, onSuccess }: {
-  unit: ProductUnit | null; branchId?: number | null; onClose: () => void; onSuccess: () => void
+export function BranchInventoryUnitForm({
+  unit,
+  branchId,
+  initialWarehouseId,
+  initialInventoryBucket = 'custody_customer',
+  onClose,
+  onSuccess,
+}: {
+  unit: ProductUnit | null
+  branchId?: number | null
+  initialWarehouseId?: number | null
+  initialInventoryBucket?: string
+  onClose: () => void
+  onSuccess: (unit?: ProductUnit) => void
 }) {
   const [form, setForm] = useState({
-    warehouse_id: String(unit?.warehouse_id ?? ''), serial_number: unit?.serial_number || unit?.imei || '',
+    warehouse_id: String(unit?.warehouse_id ?? initialWarehouseId ?? ''), serial_number: unit?.serial_number || unit?.imei || '',
     physical_serial: unit?.physical_serial || '', username: unit?.username || '', sim_number: unit?.sim_number || '',
-    inventory_bucket: unit?.inventory_bucket || 'custody_customer', custody_employee_id: String(unit?.custody_employee_id ?? ''),
+    inventory_bucket: unit?.inventory_bucket || initialInventoryBucket, custody_employee_id: String(unit?.custody_employee_id ?? ''),
     custody_customer_id: String(unit?.custody_customer_id ?? ''), notes: unit?.notes || '',
   })
   const [customerSearch, setCustomerSearch] = useState('')
@@ -34,8 +46,12 @@ export function BranchInventoryUnitForm({ unit, branchId, onClose, onSuccess }: 
   }, enabled: search.trim().length >= 2 })
   const mutation = useMutation({ mutationFn: async () => {
     const payload = { ...form, warehouse_id: Number(form.warehouse_id), custody_employee_id: Number(form.custody_employee_id) || null, custody_customer_id: Number(form.custody_customer_id) || null }
-    if (unit) await api.put(`/inventory/branch/units/${unit.id}`, payload)
-    else await api.post('/inventory/branch/units', payload)
+    if (unit) {
+      const { data } = await api.put<ProductUnit>(`/inventory/branch/units/${unit.id}`, payload)
+      return data
+    }
+    const { data } = await api.post<ProductUnit>('/inventory/branch/units', payload)
+    return data
   }, onSuccess })
   const inputClass = 'w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm'
   return <Modal open onClose={onClose} title={unit ? 'تعديل بيانات الجهاز' : 'إضافة جهاز لمخزون الفرع'}>
