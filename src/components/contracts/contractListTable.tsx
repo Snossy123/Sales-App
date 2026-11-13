@@ -232,7 +232,7 @@ export function defaultContractListActions(
           استرجاع
         </button>
       )}
-      {onOpenProblems && canTransferContractToProblems(user ?? null, row) && (
+      {onOpenProblems && (
         <button
           type="button"
           onClick={() => onOpenProblems(row)}
