@@ -13,6 +13,8 @@ export interface SearchableSelectProps<T> {
   getOptionLabel: (option: T) => string
   placeholder?: string
   loading?: boolean
+  required?: boolean
+  'aria-label'?: string
   disabled?: boolean
   emptyMessage?: string
   label?: string
@@ -30,6 +32,8 @@ export function SearchableSelect<T>({
   placeholder = 'ابحث...',
   loading = false,
   disabled = false,
+  required = false,
+  'aria-label': ariaLabel,
   emptyMessage = 'لا توجد نتائج',
   label,
   hasError = false,
@@ -92,7 +96,12 @@ export function SearchableSelect<T>({
       ) : null}
       <div className="relative">
         <input
+          ref={(input) => {
+            input?.setCustomValidity(required && !value ? 'يرجى اختيار عنصر من القائمة' : '')
+          }}
           type="text"
+          required={required}
+          aria-label={ariaLabel}
           role="combobox"
           aria-expanded={showDropdown}
           aria-controls={listId}

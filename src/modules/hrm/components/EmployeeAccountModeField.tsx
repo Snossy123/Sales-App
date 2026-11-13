@@ -1,8 +1,8 @@
+import { useState } from 'react'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import type { AdminUser } from '../../../api/types'
 
 export type EmployeeAccountMode = 'none' | 'auto' | 'link'
-
-const inputClass = 'w-full rounded-lg border border-outline-variant px-sm py-2 text-sm'
 
 const modeOptions: { value: EmployeeAccountMode; label: string }[] = [
   { value: 'none', label: 'بدون حساب' },
@@ -31,6 +31,12 @@ export function EmployeeAccountModeField({
   users,
   isLoading,
 }: EmployeeAccountModeFieldProps) {
+  const [userSearch, setUserSearch] = useState('')
+  const search = userSearch.trim().toLocaleLowerCase()
+  const filteredUsers = users.filter((user) =>
+    `${user.name} ${user.email}`.toLocaleLowerCase().includes(search),
+  )
+
   return (
     <div className="sm:col-span-2 space-y-sm">
       <p className="text-xs text-on-surface-variant">حساب المستخدم</p>
@@ -52,25 +58,22 @@ export function EmployeeAccountModeField({
       </div>
 
       {mode === 'link' && (
-        <select
-          value={linkedUserId}
-          onChange={(e) => {
-            const userId = e.target.value ? Number(e.target.value) : ''
-            const user = typeof userId === 'number' ? users.find((row) => row.id === userId) : undefined
-            onLinkedUserChange(userId, user)
+        <SearchableSelect
+          options={filteredUsers}
+          value={users.find((user) => user.id === linkedUserId) ?? null}
+          onChange={(user) => {
+            onLinkedUserChange(user?.id ?? '', user ?? undefined)
+            setUserSearch('')
           }}
+          onSearchChange={setUserSearch}
+          getOptionValue={(user) => user.id}
+          getOptionLabel={(user) => user.email}
+          placeholder={isLoading ? 'جاري التحميل...' : 'ابحث بالاسم أو البريد الإلكتروني'}
+          loading={isLoading}
           disabled={isLoading}
           required
           aria-label="المستخدم المرتبط"
-          className={inputClass}
-        >
-          <option value="">{isLoading ? 'جاري التحميل...' : 'اختر مستخدماً'}</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.email}
-            </option>
-          ))}
-        </select>
+        />
       )}
 
       {mode === 'auto' && (
