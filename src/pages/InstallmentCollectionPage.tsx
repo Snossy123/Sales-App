@@ -435,6 +435,7 @@ export function InstallmentCollectionPage() {
 
   const paidInstallmentsQuery = useInstallmentPages(
     {
+      paginate_by: 'contract',
       'filter[branch_id]': selectedBranchId ?? undefined,
       'filter[ids]': paidInstallmentKey || undefined,
       'filter[collector_user_id]': collectorFilter || undefined,
@@ -461,6 +462,7 @@ export function InstallmentCollectionPage() {
 
   const installmentsQuery = useInstallmentPages(
     {
+      paginate_by: 'contract',
       'filter[branch_id]': selectedBranchId ?? undefined,
       ...(completedContracts ? {
         'filter[status]': 'paid',
@@ -644,7 +646,10 @@ export function InstallmentCollectionPage() {
   const listQuery = paidToday ? paidInstallmentsQuery : installmentsQuery
 
   const contractInstallmentsQuery = useInstallmentPages(
-    { 'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined },
+    {
+      paginate_by: 'contract',
+      'filter[sales_invoice_id]': selected?.sales_invoice_id as number | undefined,
+    },
     Boolean(selected?.sales_invoice_id),
   )
 
