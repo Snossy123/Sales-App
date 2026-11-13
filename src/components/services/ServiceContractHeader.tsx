@@ -72,9 +72,10 @@ export function ServiceContractHeader({
 }: ServiceContractHeaderProps) {
   const customerLinkedToSalesRep = Boolean(selectedCustomer?.sales_user_id)
   const sourceToggleOptions = customerLinkedToSalesRep
-    ? []
+    ? [{ id: 'sales' as const, label: 'موظف' }]
     : [
         { id: 'branch' as const, label: 'فرع' },
+        { id: 'sales' as const, label: 'موظف' },
         { id: 'distributor' as const, label: 'موزع' },
       ]
 
@@ -144,7 +145,9 @@ export function ServiceContractHeader({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => onTransactionSourceChange(item.id)}
+                    onClick={() => {
+                      if (transactionSource !== item.id) onTransactionSourceChange(item.id)
+                    }}
                     className={posSourceToggle(transactionSource === item.id)}
                   >
                     {item.label}
