@@ -61,6 +61,7 @@ export type InstallmentCollectionRow = {
   payment_method?: string | null
   status: string
   display_tier?: string
+  collection_grace_days?: number
   remaining?: number
   total_due?: number
   customer_id?: number
@@ -165,15 +166,20 @@ function localTodayDate(): string {
 
 /** Calendar status of the next collectible installment (not the API display_tier). */
 export function firstDueStatus(
-  row: Pick<InstallmentCollectionRow, 'due_date' | 'display_tier' | 'status'>,
+  row: Pick<InstallmentCollectionRow, 'due_date' | 'display_tier' | 'status' | 'collection_grace_days'>,
   today?: string,
 ): FirstDueStatus {
   const todayStr = dateOnly(today ?? localTodayDate())
   const due = dateOnly(row.due_date)
   const tier = row.display_tier ?? row.status
+  const graceStart = new Date(`${todayStr}T00:00:00Z`)
+  const graceDays = Math.max(1, row.collection_grace_days ?? 3)
+  graceStart.setUTCDate(graceStart.getUTCDate() - (graceDays - 1))
+  const overdueBefore = graceStart.toISOString().slice(0, 10)
 
-  if (tier === 'overdue') return 'overdue'
+  if (due && due < overdueBefore) return 'overdue'
   if (due && due > todayStr) return 'upcoming'
+  if (!due && tier === 'overdue') return 'overdue'
   return 'due'
 }
 
@@ -181,6 +187,8 @@ export function getCurrentInstallment(rows: InstallmentCollectionRow[]): Install
   return [...rows]
     .filter((r) => r.status !== 'paid' && !r.is_suspended && !r.suspended_at)
     .sort((a, b) => {
+      const dueOrder = dateOnly(a.due_date).localeCompare(dateOnly(b.due_date))
+      if (dueOrder !== 0) return dueOrder
       const seqA = a.sequence ?? a.installment_number ?? 0
       const seqB = b.sequence ?? b.installment_number ?? 0
       if (seqA !== seqB) return seqA - seqB
@@ -201,10 +209,10 @@ export function contractFilterTier(
   if (!current) return 'upcoming'
 
   const dueStatus = firstDueStatus(current, today)
-  if (dueStatus === 'overdue' || current.display_tier === 'overdue' || current.status === 'overdue') {
+  if (dueStatus === 'overdue') {
     return 'overdue'
   }
-  if (dueStatus === 'due' || current.display_tier === 'grace') {
+  if (dueStatus === 'due') {
     return 'due_soon'
   }
   return 'upcoming'

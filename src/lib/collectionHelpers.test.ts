@@ -65,7 +65,7 @@ describe('collectionHelpers', () => {
     ])
   })
 
-  it('picks the current unpaid installment by sequence and skips paid or suspended', () => {
+  it('picks the earliest unpaid due date and skips paid or suspended installments', () => {
     const current = getCurrentInstallment([
       makeRow({ id: 1, sequence: 2, status: 'pending', due_date: '2026-08-01' }),
       makeRow({ id: 2, sequence: 1, status: 'paid' }),
@@ -74,6 +74,15 @@ describe('collectionHelpers', () => {
     ])
 
     expect(current?.id).toBe(4)
+  })
+
+  it('does not hide an overdue installment behind a rescheduled lower sequence', () => {
+    const rows = [
+      makeRow({ id: 1, sequence: 1, status: 'pending', due_date: '2026-12-01' }),
+      makeRow({ id: 2, sequence: 2, status: 'pending', display_tier: 'grace', due_date: '2026-11-10' }),
+    ]
+    expect(getCurrentInstallment(rows)?.id).toBe(2)
+    expect(contractFilterTier(rows, '2026-11-13')).toBe('overdue')
   })
 
   it('classifies contract filter tiers', () => {
@@ -323,9 +332,19 @@ describe('collectionHelpers', () => {
     )
     expect(firstDueStatus(makeRow({ id: 2, due_date: '2026-09-19', display_tier: 'upcoming' }), today)).toBe('due')
     expect(firstDueStatus(makeRow({ id: 3, due_date: '2026-09-18', display_tier: 'grace' }), today)).toBe('due')
+    expect(firstDueStatus(makeRow({ id: 5, due_date: '2026-09-17', display_tier: 'overdue' }), today)).toBe('due')
+    expect(firstDueStatus(makeRow({ id: 6, due_date: '2026-09-16', display_tier: 'grace' }), today)).toBe('overdue')
     expect(firstDueStatus(makeRow({ id: 4, due_date: '2026-09-01', display_tier: 'overdue' }), today)).toBe(
       'overdue',
     )
+  })
+
+  it('uses the grace window supplied by the API settings', () => {
+    const row = makeRow({ id: 1, due_date: '2026-11-11', collection_grace_days: 3 })
+    expect(firstDueStatus(row, '2026-11-13')).toBe('due')
+    expect(firstDueStatus({ ...row, collection_grace_days: 1 }, '2026-11-13')).toBe('overdue')
+    expect(firstDueStatus({ ...row, collection_grace_days: 5 }, '2026-11-15')).toBe('due')
+    expect(firstDueStatus({ ...row, collection_grace_days: 5 }, '2026-11-16')).toBe('overdue')
   })
 
   it('orders display tiers for sorting', () => {
