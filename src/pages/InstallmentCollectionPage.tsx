@@ -471,7 +471,7 @@ export function InstallmentCollectionPage() {
         'filter[search]': debouncedCustomerSearch || undefined,
       } : {
         'filter[status]': statusFilter || undefined,
-        'filter[collection_status]': collectionStatusFilter || (followUpToday ? undefined : 'none'),
+        'filter[collection_status]': collectionStatusFilter || undefined,
         'filter[collector_user_id]': collectorFilter || undefined,
         'filter[search]': debouncedCustomerSearch || undefined,
         'filter[contract_tier]':
@@ -479,8 +479,6 @@ export function InstallmentCollectionPage() {
             ? contractTierFilter
             : undefined,
         'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
-        'filter[unhandled_today]': !collectionStatusFilter && !followUpToday ? 1 : undefined,
-        'filter[parked_follow_up]': followUpToday || collectionStatusFilter ? undefined : 0,
         'filter[follow_up_today]': followUpToday ? 1 : undefined,
         sort: sortByReminder ? 'reminder' : undefined,
       }),
@@ -952,6 +950,11 @@ export function InstallmentCollectionPage() {
   const applyBranchStatFilter = (branchId: number, tier: ContractTierFilter) => {
     setSelectedBranchId(branchId)
     setContractTierFilter(tier)
+    setCollectionStatusFilter('')
+    setStatusFilter('')
+    setFollowUpToday(false)
+    setPaidToday(false)
+    setCompletedContracts(false)
     setSelected(null)
     setCustomerSearch('')
   }
