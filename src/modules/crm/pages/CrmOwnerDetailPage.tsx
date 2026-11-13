@@ -1,4 +1,5 @@
 import { AppDatePicker } from '../../../components/AppDatePicker'
+import { SearchableSelect } from '../../../components/SearchableSelect'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -118,6 +119,7 @@ export function CrmOwnerDetailPage() {
   const [draftFrom, setDraftFrom] = useState(searchParams.get('from') || initialRange.from)
   const [draftTo, setDraftTo] = useState(searchParams.get('to') || initialRange.to)
   const [draftOwnerId, setDraftOwnerId] = useState(initialUserId)
+  const [ownerSearch, setOwnerSearch] = useState('')
   const [applied, setApplied] = useState({
     from: searchParams.get('from') || initialRange.from,
     to: searchParams.get('to') || initialRange.to,
@@ -250,23 +252,27 @@ export function CrmOwnerDetailPage() {
               </div>
             </label>
 
-            <label className="flex min-w-[180px] flex-col gap-1.5">
+            <div className="flex min-w-[180px] flex-col gap-1.5">
               <span className="text-[11.5px] font-semibold" style={{ color: 'var(--crm-text-faint)' }}>
                 الموظف
               </span>
-              <select
-                value={draftOwnerId}
-                onChange={(e) => setDraftOwnerId(e.target.value)}
-                className={OWNER_REPORT_INPUT_CLASS}
-              >
-                <option value="">اختر موظفاً</option>
-                {(employeesQuery.data ?? []).map((emp) => (
-                  <option key={emp.id} value={String(emp.user_id)}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <SearchableSelect
+                aria-label="الموظف"
+                options={(employeesQuery.data ?? []).filter((emp) =>
+                  emp.name.toLocaleLowerCase().includes(ownerSearch.trim().toLocaleLowerCase()),
+                )}
+                value={employeesQuery.data?.find((emp) => String(emp.user_id) === draftOwnerId) ?? null}
+                onChange={(employee) => {
+                  setDraftOwnerId(employee ? String(employee.user_id) : '')
+                  if (employee) setOwnerSearch('')
+                }}
+                onSearchChange={setOwnerSearch}
+                getOptionValue={(emp) => String(emp.user_id)}
+                getOptionLabel={(emp) => emp.name}
+                placeholder="ابحث عن موظف..."
+                loading={employeesQuery.isFetching}
+              />
+            </div>
 
             <button
               type="button"
