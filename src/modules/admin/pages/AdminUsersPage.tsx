@@ -24,6 +24,7 @@ const emptyForm = {
   name: '',
   email: '',
   password: '',
+  create_employee: false,
   administration_id: '' as number | '',
   branch_id: '' as number | '',
   branch_ids: [] as number[],
@@ -143,7 +144,7 @@ export function AdminUsersPage() {
         const { data } = await api.put<AdminUser>(`/admin/users/${editId}`, payload)
         return data
       }
-      const { data } = await api.post<AdminUser>('/admin/users', { ...payload, password: form.password })
+      const { data } = await api.post<AdminUser>('/admin/users', { ...payload, password: form.password, create_employee: form.create_employee })
       return data
     },
     onSuccess: () => {
@@ -164,6 +165,7 @@ export function AdminUsersPage() {
       name: user.name,
       email: user.email,
       password: '',
+      create_employee: false,
       administration_id: user.administration_id ?? user.department_id ?? '',
       branch_id: user.branch_id ?? '',
       branch_ids: user.branches?.map((branch) => branch.id) ?? user.allowed_branch_ids ?? [],
@@ -259,6 +261,7 @@ export function AdminUsersPage() {
       </select>
       <select
         value={form.branch_id}
+        required={!editId && form.create_employee}
         onChange={(e) => setForm({
           ...form,
           branch_id: e.target.value ? Number(e.target.value) : '',
@@ -304,6 +307,16 @@ export function AdminUsersPage() {
           <option key={s.id} value={s.id}>{s.name_ar ?? s.name}</option>
         ))}
       </select>
+      {!editId && (
+        <label className="flex cursor-pointer items-center gap-xs text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={form.create_employee}
+            onChange={(e) => setForm({ ...form, create_employee: e.target.checked })}
+          />
+          إنشاء موظف مرتبط بالمستخدم (يتطلب اختيار الفرع الأساسي)
+        </label>
+      )}
       <div className="sm:col-span-2">
         <p className="mb-xs text-xs text-on-surface-variant">الأدوار</p>
         <div className="flex flex-wrap gap-xs">
