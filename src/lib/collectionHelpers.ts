@@ -36,6 +36,7 @@ export const collectionStatusOptions = [
 
 export const collectionStatusFilterOptions = [
   ...collectionStatusOptions,
+  { value: 'postponed_today', label: 'تأجيلات اليوم' },
   { value: 'scheduled_no_answer', label: collectionStatusLabels.scheduled_no_answer },
   { value: 'none', label: collectionStatusLabels.no_contact },
 ]

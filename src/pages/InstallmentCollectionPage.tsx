@@ -85,7 +85,7 @@ function CollectionDailyStatCards({
   onTogglePaid: () => void
 }) {
   const cards = [
-    { key: 'postponed', label: collectionStatusLabels.postponed, value: stats?.postponed ?? '—', filter: 'postponed' },
+    { key: 'postponed', label: 'تأجيلات اليوم', value: stats?.postponed ?? '—', filter: 'postponed_today' },
     { key: 'paid', label: 'تم الدفع اليوم', value: stats?.paid ?? '—', filter: 'paid' },
     { key: 'follow_up', label: 'متابعة اليوم', value: stats?.follow_up ?? '—', filter: 'follow_up' },
     { key: 'scheduled_no_answer', label: 'مواعيد لم يتم الرد', value: stats?.scheduled_no_answer ?? (stats ? 0 : '—'), filter: 'scheduled_no_answer' },
