@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { ReferralLead, ReferralReferrerOption } from '../../../api/types'
 import { Icon } from '../../../components/Icon'
 import { SearchableSelect } from '../../../components/SearchableSelect'
+import { CustomerCreateModal } from '../../../components/customers/CustomerCreateModal'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import {
   CRM_PRIMARY_BTN,
@@ -16,7 +17,15 @@ import {
   type ReferralEntry,
 } from '../components/ReferralPersonCard'
 
-type ReferrerOption = ReferralReferrerOption & { optionKey: string }
+type ReferrerOption =
+  | (ReferralReferrerOption & { optionKey: string })
+  | { kind: 'unknown'; optionKey: string; label: string }
+
+const unknownReferrer: ReferrerOption = {
+  kind: 'unknown',
+  optionKey: 'unknown',
+  label: 'غير محدد المصدر',
+}
 
 function createEmptyEntry(): ReferralEntry {
   return {
@@ -30,6 +39,8 @@ function createEmptyEntry(): ReferralEntry {
 
 export function CrmReferralAddPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
   const [referrerSearch, setReferrerSearch] = useState('')
   const [selectedReferrer, setSelectedReferrer] = useState<ReferrerOption | null>(null)
   const [entries, setEntries] = useState<ReferralEntry[]>(() => [createEmptyEntry()])
@@ -93,7 +104,9 @@ export function CrmReferralAddPage() {
     const referrerPayload =
       selectedReferrer.kind === 'customer'
         ? { referred_by_customer_id: selectedReferrer.customer.id }
-        : { referred_by_referral_lead_id: selectedReferrer.referral_lead.id }
+        : selectedReferrer.kind === 'referral_lead'
+          ? { referred_by_referral_lead_id: selectedReferrer.referral_lead.id }
+          : { referred_by_customer_id: null, referred_by_referral_lead_id: null }
 
     for (const entry of validEntries) {
       await api.post<ReferralLead>('/crm/referral-leads', {
@@ -151,7 +164,7 @@ export function CrmReferralAddPage() {
       >
         <SearchableSelect
           label="مصدر الترشيح *"
-          options={referrersQuery.data ?? []}
+          options={[unknownReferrer, ...(referrersQuery.data ?? [])]}
           value={selectedReferrer}
           onChange={setSelectedReferrer}
           onSearchChange={setReferrerSearch}
@@ -161,7 +174,32 @@ export function CrmReferralAddPage() {
           loading={referrersQuery.isLoading}
           emptyMessage="لا يوجد عميل أو ترشيح مطابق"
         />
+        <button
+          type="button"
+          onClick={() => setAddCustomerOpen(true)}
+          disabled={pending}
+          className={`${CRM_SECONDARY_BTN} mt-3 disabled:opacity-60`}
+        >
+          <Icon name="add" size={18} />
+          إضافة عميل كمصدر للترشيح
+        </button>
       </section>
+
+      <CustomerCreateModal
+        open={addCustomerOpen}
+        onClose={() => setAddCustomerOpen(false)}
+        onCreated={(customer) => {
+          setSelectedReferrer({
+            kind: 'customer',
+            id: customer.id,
+            customer,
+            optionKey: `customer-${customer.id}`,
+            label: `${customer.name} - ${customer.phone}`,
+          })
+          setReferrerSearch('')
+          void queryClient.invalidateQueries({ queryKey: ['referral-leads', 'referrer-search'] })
+        }}
+      />
 
       <section className="flex flex-col gap-2.5">
         <h3
