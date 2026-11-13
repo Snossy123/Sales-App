@@ -14,9 +14,10 @@ import {
   rowAllowsReconciliation,
   rowRemaining,
 } from '../../lib/collectionHelpers'
-import { formatDatetime12hDisplay } from '../../lib/datetime12h'
+import { formatDatetime12hDisplay, isReminderDueToday } from '../../lib/datetime12h'
 import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/customerForm'
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
+import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { Icon } from '../Icon'
 import { StatusBadge } from '../StatusBadge'
@@ -621,6 +622,8 @@ export function InstallmentCollectionGroupedList({
   onLoadMore,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
+  const timeZone = useOrgSettingsStore((state) => state.general?.timezone || 'Africa/Cairo')
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
   const [actionsOpenByContract, setActionsOpenByContract] = useState<Record<string, boolean>>({})
   const [contractOpenByKey, setContractOpenByKey] = useState<Record<string, boolean>>({})
@@ -629,6 +632,11 @@ export function InstallmentCollectionGroupedList({
   const focusIndex = focusCustomerId
     ? groups.findIndex((group) => group.customerId === focusCustomerId)
     : -1
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (focusIndex < 0) return
@@ -754,6 +762,11 @@ export function InstallmentCollectionGroupedList({
               const contractOpen =
                 contractOpenByKey[contractKey] ?? (!multipleContracts || contractIndex === 0)
               const contractTier = contractFilterTier(contract.rows)
+              const reminderDueToday = isReminderDueToday(
+                contract.collectionReminderAt,
+                timeZone,
+                new Date(currentTime),
+              )
               const deviceRow =
                 contract.rows.find((row) => {
                   const serial = String(row.serial_number ?? '').trim()
@@ -790,7 +803,11 @@ export function InstallmentCollectionGroupedList({
               return (
                 <div
                   key={contractKey}
-                  className={`rounded-lg border border-outline-variant/70 bg-surface-container-lowest ${
+                  className={`rounded-lg border ${
+                    reminderDueToday
+                      ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-300/70 dark:border-amber-600 dark:bg-amber-950/40 dark:ring-amber-700/60'
+                      : 'border-outline-variant/70 bg-surface-container-lowest'
+                  } ${
                     multipleContracts && !contractOpen ? 'px-sm py-1' : 'p-sm'
                   }`}
                 >
@@ -906,7 +923,10 @@ export function InstallmentCollectionGroupedList({
                         >
                           <Icon name="schedule" size={16} />
                           <span className="sr-only">موعد التذكير: </span>
-                          <span className="tabular-nums">{formatDatetime12hDisplay(contract.collectionReminderAt)}</span>
+                          <span className="tabular-nums">
+                            {reminderDueToday ? 'حان موعد المتابعة · ' : ''}
+                            {formatDatetime12hDisplay(contract.collectionReminderAt)}
+                          </span>
                         </span>
                       ) : null}
                     </div>

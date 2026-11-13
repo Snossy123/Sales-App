@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatDatetime12hDisplay,
   formatDatetimeLocal,
+  isReminderDueToday,
   parseDatetimeLocal,
   to12HourParts,
   to24Hour,
@@ -26,6 +27,15 @@ describe('datetime12h', () => {
       minute: 30,
       period: 'pm',
     })
+  })
+
+  it('marks only a reached reminder from the organization current day as due', () => {
+    const now = new Date('2026-11-13T18:00:00Z') // 20:00 Cairo
+
+    expect(isReminderDueToday('2026-11-13T17:00:00Z', 'Africa/Cairo', now)).toBe(true)
+    expect(isReminderDueToday('2026-11-13T19:00:00Z', 'Africa/Cairo', now)).toBe(false)
+    expect(isReminderDueToday('2026-11-12T20:00:00Z', 'Africa/Cairo', now)).toBe(false)
+    expect(isReminderDueToday(null, 'Africa/Cairo', now)).toBe(false)
   })
 
   it('formats 12-hour parts back to datetime-local', () => {

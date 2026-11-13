@@ -71,6 +71,32 @@ export function formatDatetime12hDisplay(value: string | null | undefined): stri
   })
 }
 
+function dateKeyInTimeZone(value: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? ''
+
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+/** Whether today's follow-up appointment has reached its scheduled time. */
+export function isReminderDueToday(
+  value: string | null | undefined,
+  timeZone = 'Africa/Cairo',
+  now = new Date(),
+): boolean {
+  if (!value) return false
+  const reminder = new Date(value)
+  if (Number.isNaN(reminder.getTime()) || reminder.getTime() > now.getTime()) return false
+
+  return dateKeyInTimeZone(reminder, timeZone) === dateKeyInTimeZone(now, timeZone)
+}
+
 export const emptyDateTime12hParts: DateTime12hParts = {
   date: '',
   hour: 12,
