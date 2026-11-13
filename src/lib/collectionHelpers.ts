@@ -28,7 +28,6 @@ export const collectionStatusLabels: Record<string, string> = {
 
 export const collectionStatusOptions = [
   { value: '', label: 'كل حالات التحصيل' },
-  { value: 'responded', label: collectionStatusLabels.responded },
   { value: 'postponed', label: collectionStatusLabels.postponed },
   { value: 'new_payment_date', label: collectionStatusLabels.new_payment_date },
   { value: 'no_answer', label: collectionStatusLabels.no_answer },
