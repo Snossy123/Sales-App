@@ -1075,9 +1075,9 @@ export function InstallmentCollectionPage() {
       }
     >
       <AsyncState
-        isLoading={branchesQuery.isLoading || branchCountsQuery.isLoading || listQuery.isLoading}
-        isError={branchesQuery.isError || branchCountsQuery.isError || listQuery.isError}
-        error={branchesQuery.error ?? branchCountsQuery.error ?? listQuery.error}
+        isLoading={branchesQuery.isLoading || branchCountsQuery.isLoading}
+        isError={branchesQuery.isError || branchCountsQuery.isError}
+        error={branchesQuery.error ?? branchCountsQuery.error}
       >
         {showChrome && (branchStats.length === 0 ? (
           <p className="rounded-lg border border-outline-variant bg-surface-container-lowest p-md text-center text-on-surface-variant">
@@ -1207,6 +1207,11 @@ export function InstallmentCollectionPage() {
             ) : null}
             <div className={`grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:min-h-0 lg:overflow-hidden ${showChrome ? 'lg:max-h-[calc(100dvh-8.5rem)]' : 'lg:max-h-[calc(100dvh-13rem)]'}`}>
               <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
+                <AsyncState
+                  isLoading={listQuery.isLoading}
+                  isError={listQuery.isError}
+                  error={listQuery.error}
+                >
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
                   sortMode={sortByReminder ? 'reminder' : 'priority'}
@@ -1263,6 +1268,7 @@ export function InstallmentCollectionPage() {
                       : null
                   }
                 />
+                </AsyncState>
               </div>
 
               <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
