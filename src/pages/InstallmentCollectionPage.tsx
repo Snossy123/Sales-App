@@ -479,7 +479,7 @@ export function InstallmentCollectionPage() {
             ? contractTierFilter
             : undefined,
         'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
-        'filter[scheduled_follow_up]': followUpToday || collectionStatusFilter === 'new_payment_date'
+        'filter[scheduled_follow_up]': debouncedCustomerSearch || followUpToday || collectionStatusFilter === 'new_payment_date'
           || collectionStatusFilter === 'scheduled_no_answer' ? undefined : 0,
         'filter[follow_up_today]': followUpToday ? 1 : undefined,
         sort: sortByReminder ? 'reminder' : undefined,
