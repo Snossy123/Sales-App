@@ -2222,7 +2222,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                       }}>
                       <option value="">اختر جهازًا من المخزن الجديد</option>
                       {(unitsQuery.data ?? []).filter((unit) => !deviceLines.some((other, otherIndex) => otherIndex !== index && other.productUnitId === unit.id)).map((unit) => (
-                        <option key={unit.id} value={unit.id}>{unit.imei} — {unit.serial_number}</option>
+                        <option key={unit.id} value={unit.id}>
+                          جهاز مخزون #{unit.id} — {unit.serial_number?.trim() ? `السيريال: ${unit.serial_number}` : 'بدون سيريال'}
+                        </option>
                       ))}
                     </select>
                   </label>
