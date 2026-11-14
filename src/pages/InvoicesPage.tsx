@@ -42,6 +42,8 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
   const [convertInvoice, setConvertInvoice] = useState<SalesInvoice | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<SalesInvoice | null>(null)
+  const [selection, setSelection] = useState<{ scope: string; ids: number[] }>({ scope: '', ids: [] })
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[] | null>(null)
   const canDelete = Boolean(user?.roles?.some((role) => ['Admin', 'SuperAdmin'].includes(role.name)))
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/sales-invoices/${id}`),
@@ -51,6 +53,15 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     },
   })
   const resetDeleteMutation = deleteMutation.reset
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: number[]) => api.post('/sales-invoices/bulk-delete', { ids }),
+    onSuccess: async () => {
+      setBulkDeleteIds(null)
+      setSelection({ scope: '', ids: [] })
+      setPage(1)
+      await queryClient.invalidateQueries()
+    },
+  })
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -97,6 +108,21 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const hasFilters = Boolean(
     statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo || branchFilter,
   )
+  const selectionScope = JSON.stringify([user?.id, mine, listScopeKey, statusFilter, paymentStatusFilter, branchFilter, dateFrom, dateTo, page, contractSearch])
+  const selectedIds = selection.scope === selectionScope
+    ? displayRows.filter((row) => selection.ids.includes(row.id)).map((row) => row.id)
+    : []
+  const allSelected = displayRows.length > 0 && selectedIds.length === displayRows.length
+  const selectionColumns = canDelete ? [{
+    key: 'selection',
+    header: <input type="checkbox" aria-label="تحديد كل تعاقدات الصفحة" checked={allSelected}
+      ref={(input) => { if (input) input.indeterminate = selectedIds.length > 0 && !allSelected }}
+      disabled={!displayRows.length || bulkDeleteMutation.isPending}
+      onChange={(event) => setSelection({ scope: selectionScope, ids: event.target.checked ? displayRows.map((row) => row.id) : [] })} />,
+    render: (row: SalesInvoice) => <input type="checkbox" aria-label={`تحديد التعاقد ${row.invoice_number || row.id}`}
+      checked={selectedIds.includes(row.id)} disabled={bulkDeleteMutation.isPending}
+      onChange={(event) => setSelection({ scope: selectionScope, ids: event.target.checked ? [...selectedIds, row.id] : selectedIds.filter((id) => id !== row.id) })} />,
+  }] : []
 
   const clearFilters = () => {
     setBranchFilter('')
@@ -138,7 +164,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         options: paymentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
     ],
-    [statusFilter, paymentStatusFilter, branchFilter, branchOptions],
+    [statusFilter, paymentStatusFilter, branchFilter, branchOptions, setPage, setStatusFilter, setPaymentStatusFilter, setBranchFilter],
   )
 
   const columns = useMemo(
@@ -205,6 +231,14 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       }
     >
       <div data-tour="invoices-results">
+        {canDelete && <div className="mb-md flex flex-wrap items-center gap-sm">
+          <button type="button" className="rounded-lg border border-outline-variant px-md py-sm text-sm" disabled={!displayRows.length || bulkDeleteMutation.isPending}
+            onClick={() => setSelection({ scope: selectionScope, ids: allSelected ? [] : displayRows.map((row) => row.id) })}>{allSelected ? 'إلغاء تحديد الكل' : 'تحديد كل تعاقدات الصفحة'}</button>
+          <span className="text-sm">المحدد: {selectedIds.length}</span>
+          <button type="button" disabled={!selectedIds.length || bulkDeleteMutation.isPending}
+            className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error disabled:opacity-50"
+            onClick={() => { bulkDeleteMutation.reset(); setBulkDeleteIds([...selectedIds]) }}>مسح التعاقدات المحددة</button>
+        </div>}
         <AsyncState
           isLoading={query.isLoading}
           isError={query.isError}
@@ -224,7 +258,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
                     ? 'لا توجد تعاقدات أنشأتها بعد'
                     : 'لا توجد تعاقدات'
               }
-              columns={columns}
+              columns={[...selectionColumns, ...columns]}
             />
           </div>
           {meta && (
@@ -260,6 +294,14 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         onClose={() => setConvertInvoice(null)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })}
       />
+      <Modal open={Boolean(bulkDeleteIds)} onClose={() => { if (!bulkDeleteMutation.isPending) setBulkDeleteIds(null) }} title="مسح التعاقدات المحددة" size="sm">
+        <p className="mb-md text-sm">سيتم حذف {bulkDeleteIds?.length ?? 0} تعاقد وإلغاء معاملاتها وإرجاع مخزونها. لا يمكن استعادة معاملاتها من سلة المهملات. إذا تعذّر إلغاء أي تعاقد، لن يتم حذف أي تعاقد من المجموعة.</p>
+        {bulkDeleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(bulkDeleteMutation.error)}</p>}
+        <div className="flex justify-end gap-sm">
+          <button type="button" disabled={bulkDeleteMutation.isPending} onClick={() => setBulkDeleteIds(null)}>إلغاء</button>
+          <button type="button" className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error" disabled={bulkDeleteMutation.isPending} onClick={() => { if (bulkDeleteIds?.length) bulkDeleteMutation.mutate(bulkDeleteIds) }}>{bulkDeleteMutation.isPending ? 'جارٍ المسح...' : 'مسح وإلغاء المعاملات'}</button>
+        </div>
+      </Modal>
       <Modal open={Boolean(deleteInvoice)} onClose={() => { if (!deleteMutation.isPending) setDeleteInvoice(null) }} title="حذف التعاقد وإلغاء معاملاته" size="sm">
         <p className="mb-md text-sm">سيتم حذف التعاقد {deleteInvoice?.invoice_number || `#${deleteInvoice?.id}`} وإلغاء مدفوعاته وأقساطه وقيوده وعمولاته ومهام الدعم، وإرجاع مخزونه. لا يمكن استعادة معاملاته من سلة المهملات.</p>
         {deleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
