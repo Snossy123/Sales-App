@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { ContentLoader } from '../../../components/ContentLoader'
 import { Icon } from '../../../components/Icon'
 import { NavIcon } from '../../../components/NavIcon'
 import { portalApi } from '../../../api/portalClient'
@@ -72,8 +73,9 @@ export function PortalLayout() {
         </div>
       </aside>
 
-      <main className="mr-56 flex-1 p-margin">
+      <main className="relative mr-56 flex-1 p-margin">
         <Outlet />
+        <ContentLoader />
       </main>
     </div>
   )

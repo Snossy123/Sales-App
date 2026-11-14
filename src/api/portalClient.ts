@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { usePortalAuthStore } from '../stores/portalAuthStore'
 import { isDemoMode } from './client'
+import { attachLoadingInterceptors } from './loadingInterceptors'
 import { createMockPortalApi } from './mock/portal'
 
 const baseURL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
@@ -12,6 +13,8 @@ const axiosPortal = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+attachLoadingInterceptors(axiosPortal)
 
 axiosPortal.interceptors.request.use((config) => {
   const token = usePortalAuthStore.getState().token

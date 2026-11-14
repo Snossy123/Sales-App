@@ -10,6 +10,7 @@ export function ChatWidget() {
     queryFn: async () => {
       const { data } = await api.get<{ data: ChatConversationSummary[]; unread_count: number }>(
         '/chat/conversations',
+        { skipGlobalLoader: true },
       )
       return data
     },

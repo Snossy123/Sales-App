@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
+import { attachLoadingInterceptors } from './loadingInterceptors'
 import { createMockApi } from './mock'
 
 export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
@@ -13,6 +14,8 @@ const axiosApi = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+attachLoadingInterceptors(axiosApi)
 
 axiosApi.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token

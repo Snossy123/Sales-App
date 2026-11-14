@@ -20,6 +20,7 @@ import { resolvePublicStorageUrl } from '../lib/storageUrl'
 import { ChatWidget } from '../modules/chat/components/ChatWidget'
 import { ChatbotWidget } from '../components/help/ChatbotWidget'
 import { BranchStockTickerBar } from '../components/BranchStockTickerBar'
+import { ContentLoader } from '../components/ContentLoader'
 import { IncompleteProceduresBanner } from '../components/IncompleteProceduresBanner'
 import {
   PROCEDURE_DRAFT_IDS,
@@ -89,6 +90,7 @@ export function AppShell() {
     queryFn: async () => {
       const { data } = await api.get<{ data: AppNotification[]; unread_count: number }>(
         '/notifications',
+        { skipGlobalLoader: true },
       )
       return data
     },
@@ -335,8 +337,9 @@ export function AppShell() {
         {showStockTicker ? <BranchStockTickerBar /> : null}
         </div>
 
-        <div className={`flex-grow p-margin pb-36 md:pb-24 print:p-0 ${printLayout ? 'p-0' : ''}`}>
+        <div className={`relative flex-grow p-margin pb-36 md:pb-24 print:p-0 ${printLayout ? 'p-0' : ''}`}>
           <Outlet />
+          <ContentLoader />
         </div>
         <div className={printLayout ? 'hidden' : 'print:hidden'}>
           <ChatbotWidget />
