@@ -296,7 +296,7 @@ export function InstallmentCollectionPage() {
   const restoredRef = useRef(false)
   const [collectionFocus] = useState(() => readInstallmentCollectionFocus())
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(
-    () => savedDraft?.selectedBranchId ?? null,
+    () => savedDraft?.selectedBranchId ?? collectionFocus?.selectedBranchId ?? null,
   )
   const [selected, setSelected] = useState<InstallmentRow | null>(null)
   const [amount, setAmount] = useState(() => savedDraft?.amount ?? 0)
@@ -311,9 +311,9 @@ export function InstallmentCollectionPage() {
     () => collectionFocus?.collectionStatusFilter ?? '',
   )
   const [collectionActionPrompt, setCollectionActionPrompt] = useState<{ applyExcessToFollowing?: boolean; actions?: string[] } | null>(null)
-  const [followUpToday, setFollowUpToday] = useState(false)
-  const [completedContracts, setCompletedContracts] = useState(false)
-  const [paidToday, setPaidToday] = useState(false)
+  const [followUpToday, setFollowUpToday] = useState(() => collectionFocus?.followUpToday ?? false)
+  const [completedContracts, setCompletedContracts] = useState(() => collectionFocus?.completedContracts ?? false)
+  const [paidToday, setPaidToday] = useState(() => collectionFocus?.paidToday ?? false)
   const [collectorFilter, setCollectorFilter] = useState(() => collectionFocus?.collectorFilter ?? '')
   const [sortByReminder, setSortByReminder] = useState(() => collectionFocus?.sortByReminder ?? false)
   const [customerSearch, setCustomerSearch] = useState(() => collectionFocus?.customerSearch ?? '')
@@ -1261,12 +1261,16 @@ export function InstallmentCollectionPage() {
                   onOpenProfile={(customerId) =>
                     saveInstallmentCollectionFocus({
                       customerId,
+                      selectedBranchId,
                       customerSearch,
                       statusFilter,
                       contractTierFilter,
                       collectionStatusFilter,
                       collectorFilter,
                       sortByReminder,
+                      followUpToday,
+                      paidToday,
+                      completedContracts,
                     })
                   }
                   pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}`}

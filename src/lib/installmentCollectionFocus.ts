@@ -12,12 +12,16 @@ const contractTiers = new Set<ContractTierFilter>([
 
 export interface InstallmentCollectionFocus {
   customerId: number
+  selectedBranchId?: number | null
   customerSearch: string
   statusFilter: string
   contractTierFilter: ContractTierFilter
   collectionStatusFilter: string
   collectorFilter: string
   sortByReminder: boolean
+  followUpToday?: boolean
+  paidToday?: boolean
+  completedContracts?: boolean
 }
 
 function isFocus(value: unknown): value is InstallmentCollectionFocus {
@@ -25,12 +29,16 @@ function isFocus(value: unknown): value is InstallmentCollectionFocus {
   const focus = value as InstallmentCollectionFocus
   return (
     typeof focus.customerId === 'number' &&
+    (focus.selectedBranchId === undefined || focus.selectedBranchId === null || typeof focus.selectedBranchId === 'number') &&
     typeof focus.customerSearch === 'string' &&
     typeof focus.statusFilter === 'string' &&
     contractTiers.has(focus.contractTierFilter) &&
     typeof focus.collectionStatusFilter === 'string' &&
     typeof focus.collectorFilter === 'string' &&
-    typeof focus.sortByReminder === 'boolean'
+    typeof focus.sortByReminder === 'boolean' &&
+    (focus.followUpToday === undefined || typeof focus.followUpToday === 'boolean') &&
+    (focus.paidToday === undefined || typeof focus.paidToday === 'boolean') &&
+    (focus.completedContracts === undefined || typeof focus.completedContracts === 'boolean')
   )
 }
 
