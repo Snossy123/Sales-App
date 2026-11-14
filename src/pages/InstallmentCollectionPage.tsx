@@ -747,8 +747,12 @@ export function InstallmentCollectionPage() {
     },
     onSuccess: async () => {
       setCollectionActionPrompt(null)
-      await queryClient.invalidateQueries({ queryKey: ['collection-actions-summary'] })
-      await refreshCollectionLists()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['collection-actions-summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['payment-transactions'] }),
+        queryClient.invalidateQueries({ queryKey: ['customer'] }),
+        refreshCollectionLists(),
+      ])
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       resetInstallmentProcedure()
