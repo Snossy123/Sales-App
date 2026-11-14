@@ -812,6 +812,7 @@ export interface InstallmentItem {
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
+  no_answer_count?: number
   collector_user_id?: number | null
   collector_name?: string | null
 }

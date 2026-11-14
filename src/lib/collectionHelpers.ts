@@ -15,7 +15,7 @@ export const firstDueStatusOptions = [
   { value: 'overdue', label: firstDueStatusLabels.overdue },
 ] as const
 
-export type CollectionSortMode = 'priority' | 'reminder'
+export type CollectionSortMode = 'priority' | 'reminder' | 'no_answer_count'
 
 export const collectionStatusLabels: Record<string, string> = {
   responded: 'تم الرد',
@@ -79,6 +79,7 @@ export type InstallmentCollectionRow = {
   collection_status?: string | null
   collection_reminder_at?: string | null
   collection_notes?: string | null
+  no_answer_count?: number
   collector_user_id?: number | null
   collector_name?: string | null
   has_open_reconciliation?: boolean
@@ -486,6 +487,15 @@ export function contractCollectionSortKey(
     const reminderKey = reminderAt ? new Date(reminderAt).getTime() : Number.MAX_SAFE_INTEGER
 
     return [reminderKey, tierOrder, dueDate, totalDue]
+  }
+
+  if (mode === 'no_answer_count') {
+    const noAnswerCount = rows.reduce(
+      (max, row) => Math.max(max, Number(row.no_answer_count ?? 0)),
+      0,
+    )
+
+    return [noAnswerCount, tierOrder, dueDate, totalDue]
   }
 
   return [tierOrder, dueDate, totalDue]

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCollectionFollowUpPayload,
+  compareContractCollection,
   computeContractStats,
   contractFilterTier,
   filterInstallmentCollectionRows,
@@ -353,5 +354,14 @@ describe('collectionHelpers', () => {
     expect(tierSortOrder('upcoming')).toBe(2)
     expect(tierSortOrder('suspended')).toBe(4)
     expect(tierSortOrder('other')).toBe(3)
+  })
+
+  it('sorts contracts by no_answer_count from least to most', () => {
+    const one = [makeRow({ id: 1, sales_invoice_id: 10, no_answer_count: 1, display_tier: 'upcoming' })]
+    const three = [makeRow({ id: 2, sales_invoice_id: 20, no_answer_count: 3, display_tier: 'overdue' })]
+    const zero = [makeRow({ id: 3, sales_invoice_id: 30, no_answer_count: 0, display_tier: 'grace' })]
+
+    const sorted = [three, one, zero].sort((a, b) => compareContractCollection(a, b, 'no_answer_count'))
+    expect(sorted.map((rows) => rows[0].sales_invoice_id)).toEqual([30, 10, 20])
   })
 })

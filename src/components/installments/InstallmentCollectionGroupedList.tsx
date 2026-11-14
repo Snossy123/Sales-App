@@ -37,6 +37,7 @@ interface ContractGroup {
   current?: InstallmentCollectionRow
   collectionStatus?: string | null
   collectionReminderAt?: string | null
+  noAnswerCount: number
   collectorUserId?: number | null
   collectorName?: string | null
 }
@@ -125,12 +126,17 @@ export function groupInstallmentsByCustomerAndContract(
         rows: [],
         collectionStatus: row.collection_status,
         collectionReminderAt: row.collection_reminder_at,
+        noAnswerCount: Number(row.no_answer_count ?? 0),
         collectorUserId: row.collector_user_id ?? null,
         collectorName: row.collector_name ?? null,
       }
       customerGroup.contracts.push(contractGroup)
     }
 
+    contractGroup.noAnswerCount = Math.max(
+      contractGroup.noAnswerCount,
+      Number(row.no_answer_count ?? 0),
+    )
     contractGroup.rows.push(row)
     const remaining = rowRemaining(row)
     contractGroup.totalRemaining += remaining
@@ -433,7 +439,7 @@ function CurrentInstallmentCard({
                 تصالح
               </button>
             )}
-            {onQuickCollectionStatus && !row.is_suspended && row.collection_status !== 'no_answer' && (
+            {onQuickCollectionStatus && !row.is_suspended && (
               <button
                 type="button"
                 disabled={quickStatusPending}
@@ -913,6 +919,11 @@ export function InstallmentCollectionGroupedList({
                       {contract.collectionStatus ? (
                         <ContractMetaCell label="حالة التحصيل">
                           {collectionStatusLabels[contract.collectionStatus] ?? contract.collectionStatus}
+                        </ContractMetaCell>
+                      ) : null}
+                      {(contract.noAnswerCount > 0 || contract.collectionStatus === 'no_answer') ? (
+                        <ContractMetaCell label="مرات عدم الرد">
+                          <span className="tabular-nums">{contract.noAnswerCount}</span>
                         </ContractMetaCell>
                       ) : null}
                       <ContractMetaCell label="المحصل">

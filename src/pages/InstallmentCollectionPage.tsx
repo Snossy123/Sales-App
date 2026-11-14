@@ -1327,7 +1327,13 @@ export function InstallmentCollectionPage() {
                 >
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
-                  sortMode={sortByReminder ? 'reminder' : 'priority'}
+                  sortMode={
+                    sortByReminder
+                      ? 'reminder'
+                      : collectionStatusFilter === 'no_answer'
+                        ? 'no_answer_count'
+                        : 'priority'
+                  }
                   focusCustomerId={collectionFocus?.customerId ?? null}
                   onOpenProfile={saveCollectionFocus}
                   pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}-${sortByReminder ? 'reminder' : 'priority'}`}
