@@ -9,11 +9,11 @@ export function ContractActionsMenu({ children, contractNumber }: { children: Re
 
   useEffect(() => {
     if (!position) return
-    panel.current?.querySelector<HTMLElement>('a, button')?.focus()
+    panel.current?.querySelector<HTMLElement>('a, button')?.focus({ preventScroll: true })
     const close = () => setPosition(null)
-    const scroll = (event: Event) => { if (!panel.current?.contains(event.target as Node)) close() }
-    const outside = (event: PointerEvent) => {
-      if (!panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) close()
+    const scroll = (event: Event) => { if (!(event.target instanceof Node) || !panel.current?.contains(event.target)) close() }
+    const outside = (event: Event) => {
+      if (!(event.target instanceof Node) || (!panel.current?.contains(event.target) && !trigger.current?.contains(event.target))) close()
     }
     const keyboard = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -22,11 +22,13 @@ export function ContractActionsMenu({ children, contractNumber }: { children: Re
       }
     }
     document.addEventListener('pointerdown', outside)
+    document.addEventListener('focusin', outside)
     document.addEventListener('keydown', keyboard)
     window.addEventListener('resize', close)
     window.addEventListener('scroll', scroll, true)
     return () => {
       document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('focusin', outside)
       document.removeEventListener('keydown', keyboard)
       window.removeEventListener('resize', close)
       window.removeEventListener('scroll', scroll, true)
@@ -44,7 +46,6 @@ export function ContractActionsMenu({ children, contractNumber }: { children: Re
       }}>⋮</button>
     {position && createPortal(
       <div ref={panel} id={id} aria-label="إجراءات التعاقد" dir="rtl" style={position}
-        onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setPosition(null) }}
         onClick={(event) => { if ((event.target as HTMLElement).closest('a, button')) setPosition(null) }}
         className="fixed z-50 flex max-h-[min(350px,80vh)] w-[280px] flex-col gap-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-2 shadow-xl [&_a]:flex [&_a]:w-full [&_a]:rounded-lg [&_a]:px-3 [&_a]:py-2 [&_button]:w-full [&_button]:rounded-lg [&_button]:px-3 [&_button]:py-2 [&_button]:text-start [&_a:hover]:bg-surface-container-low [&_button:hover]:bg-surface-container-low">
         {children}
