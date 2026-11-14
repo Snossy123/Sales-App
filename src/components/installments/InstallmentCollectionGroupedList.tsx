@@ -805,7 +805,7 @@ export function InstallmentCollectionGroupedList({
                   key={contractKey}
                   className={`rounded-lg border ${
                     reminderDueToday
-                      ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-300/70 dark:border-amber-600 dark:bg-amber-950/40 dark:ring-amber-700/60'
+                      ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/15 shadow-sm'
                       : 'border-outline-variant/70 bg-surface-container-lowest'
                   } ${
                     multipleContracts && !contractOpen ? 'px-sm py-1' : 'p-sm'
@@ -918,7 +918,11 @@ export function InstallmentCollectionGroupedList({
                       </ContractMetaCell>
                       {contract.collectionReminderAt ? (
                         <span
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                            reminderDueToday
+                              ? 'border-primary bg-primary text-on-primary shadow-sm'
+                              : 'border-primary/25 bg-primary/5 text-primary'
+                          }`}
                           title={`موعد التذكير: ${formatDatetime12hDisplay(contract.collectionReminderAt)}`}
                         >
                           <Icon name="schedule" size={16} />

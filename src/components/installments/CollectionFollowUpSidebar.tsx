@@ -29,7 +29,7 @@ export function CollectionFollowUpSidebar({
   const query = useInstallmentPages(
     {
       paginate_by: 'contract',
-      'filter[branch_id]': branchId ?? undefined,
+      'filter[action_branch_id]': branchId ?? undefined,
       'filter[search]': search || undefined,
       'filter[parked_follow_up]': 1,
       sort: 'reminder',

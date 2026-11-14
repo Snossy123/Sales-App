@@ -975,7 +975,7 @@ export function handleMockRequest(
     }
 
     const branchInvoices = state.invoices.filter((i) => {
-      if (branchFilter) return i.branch_id === branchFilter
+      if (branchFilter) return i.action_branch_id === branchFilter
       if (scopedBranchIds) return i.branch_id != null && scopedBranchIds.includes(i.branch_id)
       return true
     })
@@ -1181,7 +1181,7 @@ export function handleMockRequest(
           if (!p.sales_invoice_id) return true
           const inv = state.invoices.find((x) => x.id === p.sales_invoice_id)
           if (!inv) return false
-          if (branchFilter) return inv.branch_id === branchFilter
+          if (branchFilter) return inv.action_branch_id === branchFilter
           if (scopedBranchIds) return inv.branch_id != null && scopedBranchIds.includes(inv.branch_id)
           return true
         })
@@ -2935,8 +2935,8 @@ export function handleMockRequest(
     if (scopedBranchIds != null) {
       items = items.filter((i) => i.branch_id != null && scopedBranchIds.includes(i.branch_id))
     }
-    const branchFilter = params['filter[branch_id]']
-    if (branchFilter) items = items.filter((i) => i.branch_id === Number(branchFilter))
+    const branchFilter = (params['filter[action_branch_id]'] ?? params['filter[branch_id]'])
+    if (branchFilter) items = items.filter((i) => i.action_branch_id === Number(branchFilter))
     const statusFilter = params['filter[status]']
     if (statusFilter) items = items.filter((i) => i.status === statusFilter)
     const reviewStatusFilter = params['filter[review_status]']
@@ -3949,8 +3949,8 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && (path === 'installments' || path === 'installments/overdue')) {
-    const branchFilter = params['filter[branch_id]']
-      ? Number(params['filter[branch_id]'])
+    const branchFilter = (params['filter[action_branch_id]'] ?? params['filter[branch_id]'])
+      ? Number((params['filter[action_branch_id]'] ?? params['filter[branch_id]']))
       : undefined
     const invoiceFilter = params['filter[sales_invoice_id]']
       ? Number(params['filter[sales_invoice_id]'])
@@ -3970,7 +3970,7 @@ export function handleMockRequest(
 
     for (const inv of state.invoices) {
       if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') continue
-      if (branchFilter && inv.branch_id !== branchFilter) continue
+      if (branchFilter && inv.action_branch_id !== branchFilter) continue
       if (invoiceFilter && inv.id !== invoiceFilter) continue
       if (collectorFilter === 'unassigned' && inv.collector_user_id) continue
       if (collectorFilter && collectorFilter !== 'unassigned' && Number(inv.collector_user_id) !== Number(collectorFilter)) {
@@ -4197,8 +4197,8 @@ export function handleMockRequest(
   }
 
   if (m === 'GET' && path === 'collection-daily-stats') {
-    const branchFilter = params['filter[branch_id]']
-      ? Number(params['filter[branch_id]'])
+    const branchFilter = (params['filter[action_branch_id]'] ?? params['filter[branch_id]'])
+      ? Number((params['filter[action_branch_id]'] ?? params['filter[branch_id]']))
       : undefined
     const isCollector = ctx.user?.demo_role === 'collector'
     const collectorFilter = String(params['filter[collector_user_id]'] ?? '').trim()
@@ -4207,7 +4207,7 @@ export function handleMockRequest(
       state.invoices
         .filter((inv) => {
           if (inv.status !== 'confirmed' || inv.payment_term !== 'installment') return false
-          if (branchFilter && inv.branch_id !== branchFilter) return false
+          if (branchFilter && inv.action_branch_id !== branchFilter) return false
           if (collectorId != null && Number(inv.collector_user_id) !== Number(collectorId)) return false
           if (collectorFilter === 'unassigned' && inv.collector_user_id) return false
           if (

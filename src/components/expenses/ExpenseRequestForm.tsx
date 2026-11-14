@@ -162,7 +162,7 @@ export function ExpenseRequestForm({ open, onClose, onSuccess, expense }: Expens
       let lastPage: number
       do {
         const { data } = await api.get<PaginatedResponse<ExpenseContract>>('/sales-invoices', {
-          params: { per_page: 100, page, 'filter[branch_id]': branchId },
+          params: { per_page: 100, page, 'filter[action_branch_id]': branchId },
         })
         contracts.push(...data.data)
         lastPage = data.last_page

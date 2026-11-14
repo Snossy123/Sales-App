@@ -215,7 +215,7 @@ export function CollectionAssignmentsPage() {
   const installmentsQuery = useInstallmentPages({
     paginate_by: 'contract',
     'filter[collector_user_id]': collectorFilter || undefined,
-    'filter[branch_id]': selectedBranchId ?? undefined,
+    'filter[action_branch_id]': selectedBranchId ?? undefined,
     'filter[search]': debouncedSearch || undefined,
     'filter[contract_tier]': tierFilter || undefined,
     'filter[due_from]': dateFrom || undefined,

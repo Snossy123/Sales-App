@@ -421,7 +421,7 @@ export function InstallmentCollectionPage() {
     queryKey: ['collection-daily-stats', selectedBranchId, collectorFilter, userId],
     queryFn: async () => {
       const params: Record<string, string | number> = {}
-      if (selectedBranchId) params['filter[branch_id]'] = selectedBranchId
+      if (selectedBranchId) params['filter[action_branch_id]'] = selectedBranchId
       if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
       const { data } = await api.get<CollectionDailyStats>('/collection-daily-stats', { params })
       return data
@@ -436,7 +436,7 @@ export function InstallmentCollectionPage() {
   const paidInstallmentsQuery = useInstallmentPages(
     {
       paginate_by: 'contract',
-      'filter[branch_id]': selectedBranchId ?? undefined,
+      'filter[action_branch_id]': selectedBranchId ?? undefined,
       'filter[ids]': paidInstallmentKey || undefined,
       'filter[collector_user_id]': collectorFilter || undefined,
       'filter[search]': debouncedCustomerSearch || undefined,
@@ -463,7 +463,7 @@ export function InstallmentCollectionPage() {
   const installmentsQuery = useInstallmentPages(
     {
       paginate_by: 'contract',
-      'filter[branch_id]': selectedBranchId ?? undefined,
+      'filter[action_branch_id]': selectedBranchId ?? undefined,
       ...(completedContracts ? {
         'filter[status]': 'paid',
         'filter[fully_paid_contract]': 1,

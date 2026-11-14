@@ -472,7 +472,9 @@ export function ContractProblemWizard({
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-lg shadow-lg"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-lg shadow-xl ${
+          step === 2 && caseType === 'exchange' ? 'max-w-2xl' : 'max-w-lg'
+        }`}
       >
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-lg font-semibold">تحويل العقد للمشاكل</h2>
@@ -635,33 +637,88 @@ export function ContractProblemWizard({
         )}
 
         {step === 2 && caseType === 'exchange' && (
-          <div className="space-y-md">
-            <div>
-              <label className="mb-xs block text-sm text-on-surface-variant">حالة الجهاز المستبدَل</label>
-              <div className="flex gap-sm">
-                <label className="flex items-center gap-1 text-sm">
+          <div className="space-y-lg">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-md py-sm">
+              <div className="flex items-start gap-sm">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Icon name="swap_horiz" size={22} />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-on-surface">استبدال جهاز العقد</h3>
+                  <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+                    حدد مصير الجهاز الحالي، ثم اختر الجهاز البديل من مخزون الفرع.
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-primary" dir="ltr">
+                    الجهاز الحالي: {deviceLine?.product_unit?.serial_number || deviceLine?.serial_number || `#${deviceLine?.product_unit_id ?? '—'}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <fieldset>
+              <legend className="mb-sm text-sm font-semibold text-on-surface">حالة الجهاز المستبدَل</legend>
+              <div className="grid gap-sm sm:grid-cols-2">
+                <label
+                  className={`flex cursor-pointer items-start gap-sm rounded-xl border p-md transition-colors ${
+                    disposition === 'good'
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                      : 'border-outline-variant bg-surface-container-low hover:border-primary/50'
+                  }`}
+                >
                   <input
                     type="radio"
                     name="disposition"
                     checked={disposition === 'good'}
                     onChange={() => setDisposition('good')}
+                    className="mt-1 accent-primary"
                   />
-                  سليم → مخزون جديد
+                  <span>
+                    <span className="block text-sm font-semibold text-on-surface">الجهاز سليم</span>
+                    <span className="mt-1 block text-xs text-on-surface-variant">يعود إلى المخزون كجهاز متاح</span>
+                  </span>
                 </label>
-                <label className="flex items-center gap-1 text-sm">
+                <label
+                  className={`flex cursor-pointer items-start gap-sm rounded-xl border p-md transition-colors ${
+                    disposition === 'faulty'
+                      ? 'border-error bg-error/10 ring-1 ring-error/20'
+                      : 'border-outline-variant bg-surface-container-low hover:border-error/50'
+                  }`}
+                >
                   <input
                     type="radio"
                     name="disposition"
                     checked={disposition === 'faulty'}
                     onChange={() => setDisposition('faulty')}
+                    className="mt-1 accent-error"
                   />
-                  عطل → صيانة
+                  <span>
+                    <span className="block text-sm font-semibold text-on-surface">الجهاز به عطل</span>
+                    <span className="mt-1 block text-xs text-on-surface-variant">يُنقل إلى عهدة الصيانة</span>
+                  </span>
                 </label>
               </div>
-            </div>
-            <div>
+            </fieldset>
+
+            <div className="rounded-xl border border-outline-variant bg-surface-container-low p-md">
+              <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+                <div>
+                  <h3 className="text-sm font-semibold text-on-surface">الجهاز البديل</h3>
+                  <p className="mt-0.5 text-xs text-on-surface-variant">
+                    {(unitsQuery.data ?? []).length.toLocaleString('ar-EG', { numberingSystem: 'latn' })} جهاز متاح في المخزن
+                  </p>
+                </div>
+                {canAddInventoryUnit && warehouseId ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddingUnit(true)}
+                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-primary/30 bg-surface-container-lowest px-sm text-sm font-medium text-primary hover:bg-primary/10"
+                  >
+                    <Icon name="add" size={18} />
+                    إضافة جهاز جديد
+                  </button>
+                ) : null}
+              </div>
               <SearchableSelect
-                label="الجهاز الجديد من المخزون"
                 options={availableUnits}
                 value={selectedUnit}
                 onChange={(unit) => setNewUnitId(unit?.id ?? '')}
@@ -681,28 +738,43 @@ export function ContractProblemWizard({
                 loading={unitsQuery.isLoading || unitsQuery.isFetching}
                 emptyMessage={unitSearch.trim() ? 'لا يوجد جهاز مطابق' : 'لا توجد أجهزة متاحة في مخزون الفرع'}
               />
-              {canAddInventoryUnit && warehouseId ? (
-                <button
-                  type="button"
-                  onClick={() => setAddingUnit(true)}
-                  className="mt-xs inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                >
-                  <Icon name="add" size={18} />
-                  إضافة جهاز جديد للمخزون
-                </button>
+              {selectedUnit ? (
+                <div className="mt-sm grid gap-xs rounded-lg border border-primary/30 bg-primary/5 p-sm text-xs sm:grid-cols-2">
+                  <p className="font-semibold text-primary sm:col-span-2">
+                    <Icon name="check_circle" size={16} className="me-1 inline-block align-text-bottom" />
+                    تم اختيار الجهاز
+                  </p>
+                  <p className="text-on-surface-variant">
+                    السريال: <span className="font-semibold text-on-surface" dir="ltr">{selectedUnit.serial_number || selectedUnit.imei}</span>
+                  </p>
+                  <p className="text-on-surface-variant">
+                    السريال الفعلي: <span className="font-semibold text-on-surface" dir="ltr">{selectedUnit.physical_serial || '—'}</span>
+                  </p>
+                  <p className="text-on-surface-variant">
+                    اليوزر: <span className="font-semibold text-on-surface" dir="ltr">{selectedUnit.username || '—'}</span>
+                  </p>
+                  <p className="text-on-surface-variant">
+                    الشريحة: <span className="font-semibold text-on-surface" dir="ltr">{selectedUnit.sim_number || '—'}</span>
+                  </p>
+                </div>
               ) : null}
             </div>
-            {error && <p className="text-sm text-error">{getErrorMessage(error)}</p>}
-            <div className="flex justify-between gap-sm">
-              <button type="button" onClick={onClose} className="rounded-lg border border-outline-variant px-md py-sm text-sm">
+            {error && (
+              <p className="rounded-lg border border-error/30 bg-error/10 px-sm py-2 text-sm text-error" role="alert">
+                {getErrorMessage(error)}
+              </p>
+            )}
+            <div className="flex flex-col-reverse gap-sm border-t border-outline-variant pt-md sm:flex-row sm:justify-between">
+              <button type="button" onClick={onClose} className="h-10 rounded-lg border border-outline-variant px-md text-sm hover:bg-surface-container-low">
                 إلغاء
               </button>
               <button
                 type="button"
                 disabled={!newUnitId || pending}
                 onClick={() => completeExchangeMutation.mutate()}
-                className="rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-xs rounded-lg bg-primary px-lg text-sm font-semibold text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
+                <Icon name="swap_horiz" size={18} />
                 {pending ? 'جاري الاستبدال…' : 'إكمال الاستبدال'}
               </button>
             </div>
