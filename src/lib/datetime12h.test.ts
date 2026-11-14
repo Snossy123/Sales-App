@@ -33,9 +33,9 @@ describe('datetime12h', () => {
   it('marks only a reached reminder from the organization current day as due', () => {
     const now = new Date('2026-11-13T18:00:00Z') // 20:00 Cairo
 
-    expect(isReminderDueToday('2026-11-13T17:00:00Z', 'Africa/Cairo', now)).toBe(true)
-    expect(isReminderDueToday('2026-11-13T19:00:00Z', 'Africa/Cairo', now)).toBe(false)
-    expect(isReminderDueToday('2026-11-12T20:00:00Z', 'Africa/Cairo', now)).toBe(false)
+    expect(isReminderDueToday('2026-11-13T19:00:00+00:00', 'Africa/Cairo', now)).toBe(true)
+    expect(isReminderDueToday('2026-11-13T21:00:00+00:00', 'Africa/Cairo', now)).toBe(false)
+    expect(isReminderDueToday('2026-11-12T20:00:00+00:00', 'Africa/Cairo', now)).toBe(false)
     expect(isReminderDueToday(null, 'Africa/Cairo', now)).toBe(false)
   })
 
