@@ -456,8 +456,8 @@ export function InstallmentCollectionPage() {
     {
       paginate_by: 'contract',
       'filter[action_branch_id]': selectedBranchId ?? undefined,
-      'filter[invoice_ids]': paidInvoiceKey || undefined,
-      'filter[ids]': !paidInvoiceKey && paidInstallmentKey ? paidInstallmentKey : undefined,
+      'filter[ids]': paidInstallmentKey || undefined,
+      'filter[invoice_ids]': !paidInstallmentKey && paidInvoiceKey ? paidInvoiceKey : undefined,
       'filter[collector_user_id]': collectorFilter || undefined,
       'filter[search]': debouncedCustomerSearch || undefined,
     },
@@ -1449,10 +1449,14 @@ export function InstallmentCollectionPage() {
         search={debouncedCustomerSearch}
         pageKey={`${selectedBranchId}-${debouncedCustomerSearch}`}
         selectedId={selected?.id as number | undefined}
-        onSelect={selectRow}
+        onSelect={(row) => {
+          selectRow(row)
+          setShowFollowUps(false)
+        }}
         onReconcile={(row) => {
           selectRow(row, { keepReconcile: true })
           setShowReconcile(true)
+          setShowFollowUps(false)
         }}
       />
     </SalesPageShell>
