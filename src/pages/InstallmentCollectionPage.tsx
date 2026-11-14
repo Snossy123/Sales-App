@@ -941,13 +941,26 @@ export function InstallmentCollectionPage() {
     setDistributorBalanceAmount(0)
   }
 
+  const clearFilters = () => {
+    setCompletedContracts(false)
+    setCustomerSearch('')
+    setStatusFilter('')
+    setCollectionStatusFilter('')
+    setFollowUpToday(false)
+    setPaidToday(false)
+    setCollectorFilter('')
+    setContractTierFilter('all')
+    setSortByReminder(false)
+  }
+
   const selectBranch = (branchId: number) => {
     if (selectedBranchId !== branchId) {
-      setContractTierFilter('all')
+      clearFilters()
+    } else {
+      setCustomerSearch('')
     }
     setSelectedBranchId(branchId)
     setSelected(null)
-    setCustomerSearch('')
   }
 
   const applyBranchStatFilter = (branchId: number, tier: ContractTierFilter) => {
@@ -969,6 +982,9 @@ export function InstallmentCollectionPage() {
     collectionStatusFilter,
     collectorFilter,
     contractTierFilter !== 'all',
+    followUpToday,
+    paidToday,
+    completedContracts,
     sortByReminder,
   ].filter(Boolean).length
 
@@ -984,17 +1000,6 @@ export function InstallmentCollectionPage() {
   const exitSpecialListModes = () => {
     setPaidToday(false)
     setCompletedContracts(false)
-  }
-  const clearFilters = () => {
-    setCompletedContracts(false)
-    setCustomerSearch('')
-    setStatusFilter('')
-    setCollectionStatusFilter('')
-    setFollowUpToday(false)
-    setPaidToday(false)
-    setCollectorFilter('')
-    setContractTierFilter('all')
-    setSortByReminder(false)
   }
 
   return (
