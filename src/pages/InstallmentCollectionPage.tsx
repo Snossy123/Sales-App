@@ -417,12 +417,30 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
+
   const dailyStatsQuery = useQuery({
-    queryKey: ['collection-daily-stats', selectedBranchId, collectorFilter, userId],
+    queryKey: [
+      'collection-daily-stats',
+      selectedBranchId,
+      collectorFilter,
+      contractTierFilter,
+      statusFilter,
+      debouncedCustomerSearch,
+      userId,
+    ],
     queryFn: async () => {
       const params: Record<string, string | number> = {}
       if (selectedBranchId) params['filter[action_branch_id]'] = selectedBranchId
       if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
+      if (contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation') {
+        params['filter[contract_tier]'] = contractTierFilter
+      }
+      if (contractTierFilter === 'open_reconciliation') {
+        params['filter[has_open_reconciliation]'] = 1
+      }
+      if (statusFilter) params['filter[status]'] = statusFilter
+      if (debouncedCustomerSearch) params['filter[search]'] = debouncedCustomerSearch
       const { data } = await api.get<CollectionDailyStats>('/collection-daily-stats', { params })
       return data
     },
@@ -433,7 +451,6 @@ export function InstallmentCollectionPage() {
   const paidInstallmentIds = dailyStatsQuery.data?.paid_installment_ids ?? []
   const paidInvoiceKey = paidInvoiceIds.join(',')
   const paidInstallmentKey = paidInstallmentIds.join(',')
-  const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
 
   const paidInstallmentsQuery = useInstallmentPages(
     {
@@ -1239,7 +1256,7 @@ export function InstallmentCollectionPage() {
                   type="search"
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="بحث بالاسم أو الهاتف أو اسم المستخدم أو السريال..."
+                  placeholder="بحث بالاسم أو الهاتف أو اسم المستخدم أو السريال أو رقم العقد..."
                   aria-label="بحث"
                   className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low ps-8 pe-sm text-sm text-on-surface"
                 />
