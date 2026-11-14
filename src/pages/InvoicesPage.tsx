@@ -14,7 +14,6 @@ import {
   contractDateFilterParams,
   contractReviewRowClass,
   defaultContractListActions,
-  filterContractListRows,
 } from '../components/contracts/contractListTable'
 import { DataTable } from '../components/DataTable'
 import { FilterBar } from '../components/FilterBar'
@@ -86,6 +85,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       branchFilter,
       dateFrom,
       dateTo,
+      contractSearch.trim(),
       page,
     ],
     queryFn: async () => {
@@ -101,6 +101,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
       if (contractKindFilter) params['filter[contract_kind]'] = contractKindFilter
       if (installationFilter) params['filter[installation_executed]'] = installationFilter
+      if (contractSearch.trim()) params['filter[search]'] = contractSearch.trim()
 
       const { data } = await api.get<ApiPaginated<SalesInvoice>>('/sales-invoices', { params })
       return data
@@ -109,10 +110,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   })
 
   const meta = query.data ? paginatedMeta(query.data) : null
-  const displayRows = useMemo(
-    () => filterContractListRows(query.data?.data ?? [], contractSearch),
-    [query.data, contractSearch],
-  )
+  const displayRows = query.data?.data ?? []
   const hasFilters = Boolean(
     statusFilter || paymentStatusFilter || contractKindFilter || installationFilter || contractSearch || dateFrom || dateTo || branchFilter,
   )
@@ -245,7 +243,10 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         <FilterBar
           dataTour="invoices-filters"
           search={contractSearch}
-          onSearchChange={setContractSearch}
+          onSearchChange={(value) => {
+            setContractSearch(value)
+            setPage(1)
+          }}
           searchPlaceholder="بحث برقم التعاقد أو العميل أو الهاتف أو الموزع أو فرع التنفيذ..."
           dateFrom={dateFrom}
           dateTo={dateTo}
