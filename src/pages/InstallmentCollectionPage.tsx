@@ -336,6 +336,7 @@ export function InstallmentCollectionPage() {
     () => savedDraft?.adjustNextDueDate ?? false,
   )
   const [dueDateShiftDays, setDueDateShiftDays] = useState(() => savedDraft?.dueDateShiftDays ?? 0)
+  const [postponeReminderAt, setPostponeReminderAt] = useState('')
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
     () => savedDraft?.distributorBalanceAmount ?? 0,
   )
@@ -652,6 +653,7 @@ export function InstallmentCollectionPage() {
     setReconcileNotes('')
     setAdjustNextDueDate(false)
     setDueDateShiftDays(0)
+    setPostponeReminderAt('')
     setDistributorBalanceAmount(0)
     useProcedureDraftStore.getState().clearDraft(PROCEDURE_DRAFT_IDS.installments, userId)
   }
@@ -750,6 +752,9 @@ export function InstallmentCollectionPage() {
       }
       if (distributorBalanceAmount > 0) {
         payload.distributor_balance_amount = distributorBalanceAmount
+      }
+      if (postponeReminderAt) {
+        payload.collection_reminder_at = postponeReminderAt
       }
       if (vars?.clearCollectionAction) payload.clear_collection_action = true
       if (vars?.applyExcessToFollowing) {
@@ -987,6 +992,7 @@ export function InstallmentCollectionPage() {
       ? Math.max(1, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
       : 1
     setDueDateShiftDays(daysLate)
+    setPostponeReminderAt('')
     setDistributorBalanceAmount(0)
   }
 
@@ -1388,6 +1394,8 @@ export function InstallmentCollectionPage() {
                 onAdjustNextDueDateChange={setAdjustNextDueDate}
                 dueDateShiftDays={dueDateShiftDays}
                 onDueDateShiftDaysChange={setDueDateShiftDays}
+                postponeReminderAt={postponeReminderAt}
+                onPostponeReminderAtChange={setPostponeReminderAt}
                 collectionStatus={collectionStatus}
                 onCollectionStatusChange={setCollectionStatus}
                 collectionReminderAt={collectionReminderAt}

@@ -75,6 +75,8 @@ export interface InstallmentCollectionPanelProps {
   onAdjustNextDueDateChange: (value: boolean) => void
   dueDateShiftDays: number
   onDueDateShiftDaysChange: (value: number) => void
+  postponeReminderAt?: string
+  onPostponeReminderAtChange?: (value: string) => void
   collectionStatus: string
   onCollectionStatusChange: (value: string) => void
   collectionReminderAt: string
@@ -160,6 +162,8 @@ export function InstallmentCollectionPanel({
   onAdjustNextDueDateChange,
   dueDateShiftDays,
   onDueDateShiftDaysChange,
+  postponeReminderAt = '',
+  onPostponeReminderAtChange,
   collectionStatus,
   onCollectionStatusChange,
   collectionReminderAt,
@@ -245,12 +249,31 @@ export function InstallmentCollectionPanel({
   const isPartialPayment = amount > 0 && amount < totalDue - 0.009
   const isOverpayment = amount > totalDue + 0.009
   const overpayAllocations = isOverpayment ? previewExcessAllocation(selected, amount, contractRows) : []
+  const orgTz = useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'
+  const todayKey = todayDateKey(orgTz)
+  const tomorrowKey = tomorrowReminderDatetime(orgTz).slice(0, 10)
+  const otherOverdueRows = contractRows.filter(
+    (r) =>
+      r.id !== selected.id &&
+      r.status !== 'paid' &&
+      !r.is_suspended &&
+      (r.status === 'overdue' || String(r.due_date).slice(0, 10) < todayKey),
+  )
+  const hasOtherOverdue = otherOverdueRows.length > 0 && Boolean(onPostponeReminderAtChange)
+  const postponeDate = postponeReminderAt ? postponeReminderAt.slice(0, 10) : ''
+  const postponeReminderError =
+    hasOtherOverdue && postponeReminderAt && postponeDate <= todayKey
+      ? 'ميعاد تأجيل باقي الأقساط المتأخرة يجب أن يكون بعد اليوم (غدًا أو لاحقًا).'
+      : null
   const canCollect =
     canCollectPayment &&
     !collectMutation.isPending &&
+    selected.status !== 'paid' &&
+    totalDue > 0.009 &&
     amount > 0 &&
     !selected.is_suspended &&
     !selected.has_open_reconciliation &&
+    !postponeReminderError &&
     (!transferMethods.includes(paymentMethod) || (accountId && senderNumber.trim()))
 
   return (
@@ -528,6 +551,22 @@ export function InstallmentCollectionPanel({
                     className="w-full rounded border border-outline-variant px-sm py-2 text-sm tabular-nums"
                   />
                 </div>
+              )}
+            </div>
+          )}
+
+          {hasOtherOverdue && onPostponeReminderAtChange && (
+            <div className="space-y-xs rounded-lg border border-outline-variant bg-surface-container-high p-sm">
+              <label className="block text-xs font-medium text-on-surface">
+                ميعاد تأجيل باقي الأقساط المتأخرة ({otherOverdueRows.length} قسط)
+              </label>
+              <DateTimeInput12h
+                value={postponeReminderAt}
+                onChange={onPostponeReminderAtChange}
+                minDate={tomorrowKey}
+              />
+              {postponeReminderError && (
+                <p role="alert" className="text-xs text-error">{postponeReminderError}</p>
               )}
             </div>
           )}
