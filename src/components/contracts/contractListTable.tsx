@@ -21,7 +21,7 @@ import {
   canReturnContract,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
-import { canConvertCashToInstallment, canEditContract, contractEditPath, isExecutionBranchOnlyContract } from '../../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
   if (reviewStatus === 'pending') return 'bg-error/20'
@@ -200,12 +200,12 @@ export function defaultContractListActions(
           تحويل من كاش لقسط
         </button>
       )}
-      {canEditContract(user ?? null, row) && (!isExecutionBranchOnlyContract(row) || userHasPermission(user ?? null, 'sales.invoices.change_action_branch')) && (
+      {canEditContract(user ?? null, row) && (isClosedContract(row) || !isExecutionBranchOnlyContract(row) || userHasPermission(user ?? null, 'sales.invoices.change_action_branch')) && (
         <Link
           to={contractEditPath(row.id)}
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
-          {isExecutionBranchOnlyContract(row) ? 'تغيير فرع التنفيذ' : 'تعديل'}
+          {isClosedContract(row) ? 'تصحيح البيانات' : isExecutionBranchOnlyContract(row) ? 'تغيير فرع التنفيذ' : 'تعديل'}
         </Link>
       )}
       {row.review_status === 'pending' &&
@@ -278,12 +278,12 @@ export function reviewOnlyContractListActions(
           تحويل من كاش لقسط
         </button>
       )}
-      {canEditContract(user ?? null, row) && (!isExecutionBranchOnlyContract(row) || userHasPermission(user ?? null, 'sales.invoices.change_action_branch')) && (
+      {canEditContract(user ?? null, row) && (isClosedContract(row) || !isExecutionBranchOnlyContract(row) || userHasPermission(user ?? null, 'sales.invoices.change_action_branch')) && (
         <Link
           to={contractEditPath(row.id)}
           className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
         >
-          {isExecutionBranchOnlyContract(row) ? 'تغيير فرع التنفيذ' : 'تعديل'}
+          {isClosedContract(row) ? 'تصحيح البيانات' : isExecutionBranchOnlyContract(row) ? 'تغيير فرع التنفيذ' : 'تعديل'}
         </Link>
       )}
       <Link

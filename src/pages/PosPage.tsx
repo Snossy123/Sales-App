@@ -97,7 +97,8 @@ import {
   isRenewalSourceReady,
   matchCustomerDevice,
 } from '../lib/posRenewalSource'
-import { canEditContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { canEditContract, isClosedContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { ClosedContractCorrectionEditor } from '../components/contracts/ClosedContractCorrectionEditor'
 import { ContractExecutionBranchEditor } from '../components/contracts/ContractExecutionBranchEditor'
 import { deviceDraftsFromInvoice } from '../lib/hydratePosFromInvoice'
 
@@ -2026,6 +2027,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     !allLinesValid || Boolean(checkoutPaymentError)
 
   const submitInvalid = submitDisabled && !checkoutMutation.isPending
+
+  if (isEditMode && editInvoiceQuery.data && isClosedContract(editInvoiceQuery.data)) {
+    return <ClosedContractCorrectionEditor key={editInvoiceQuery.data.id} invoice={editInvoiceQuery.data}
+      branches={branchesQuery.data ?? []} employees={employeesQuery.data ?? []} loading={branchesQuery.isLoading} />
+  }
 
   if (isEditMode && editInvoiceQuery.data && isExecutionBranchOnlyContract(editInvoiceQuery.data)) {
     return <ContractExecutionBranchEditor key={editInvoiceQuery.data.id} invoice={editInvoiceQuery.data}

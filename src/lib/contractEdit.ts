@@ -4,6 +4,10 @@ import { getUserRole, userHasPermission } from './access'
 export const EDIT_BEFORE_REVIEW_PERMISSION = 'sales.invoices.edit_before_review'
 export const EDIT_AFTER_REVIEW_PERMISSION = 'review.edit_after_review'
 
+export function isClosedContract(invoice?: SalesInvoice | null): boolean {
+  return invoice?.contract_status === 'cancelled' || invoice?.contract_status === 'returned'
+}
+
 export function isExecutionBranchOnlyContract(invoice: SalesInvoice): boolean {
   return ['mixed', 'subscription_renewal', 'ownership_transfer', 'external_device'].includes(invoice.contract_kind ?? '')
 }
