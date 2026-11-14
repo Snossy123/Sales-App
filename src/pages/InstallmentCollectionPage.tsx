@@ -1156,8 +1156,11 @@ export function InstallmentCollectionPage() {
                 setCompletedContracts(false)
                 setFollowUpToday(next)
                 setPaidToday(false)
-                setCollectionStatusFilter('')
-                if (next && statusFilter === 'paid') setStatusFilter('')
+                if (next) {
+                  resetIncompatibleBarFilters()
+                } else {
+                  setCollectionStatusFilter('')
+                }
                 setSelected(null)
               }}
               onTogglePaid={() => {
