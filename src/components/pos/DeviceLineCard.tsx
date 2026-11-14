@@ -13,6 +13,7 @@ import {
 import { renewalTypeLabels } from '../../lib/contractFields'
 import {
   cashRemainder,
+  linePaidNow,
   isCustomCashSchedule,
   validateCashScheduleItems,
   type CashSchedule,
@@ -641,6 +642,18 @@ export function DeviceLineCard({
               </div>
             ) : (
               <div className={embedded ? 'space-y-md' : 'space-y-sm'}>
+                <div className={totalsBox} aria-label="تفاصيل مبالغ الكاش">
+                  {[
+                    ['سعر الجهاز', line.unitPrice],
+                    ['الخصم', line.discountAmount],
+                    ['الصافي بعد الخصم', net],
+                    ['المطلوب الآن', linePaidNow('cash', line.cashSchedule, net, line.downPayment)],
+                    ['المتبقي بعد المطلوب الآن', Math.max(0, net - linePaidNow('cash', line.cashSchedule, net, line.downPayment))],
+                  ].map(([label, amount]) => <div key={String(label)} className="tabular-nums">
+                    <span className="text-on-surface-variant">{label}: </span>
+                    <strong className="text-on-surface">{Number(amount).toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م</strong>
+                  </div>)}
+                </div>
                 <CashScheduleSelector
                   schedule={line.cashSchedule}
                   contractDate={contractDate}
@@ -658,7 +671,7 @@ export function DeviceLineCard({
                   />
                 ) : null}
                 <div>
-                  <label className={posLabelClass}>مقدم (اختياري)</label>
+                  <label className={posLabelClass}>{line.cashSchedule === 'immediate' ? 'المبلغ المطلوب الآن' : 'مقدم (اختياري)'}</label>
                   <PosMoneyInput
                     min={0}
                     max={net}

@@ -913,6 +913,7 @@ export interface SalesInvoice {
   warehouse_id?: number
   total: string | number
   subtotal?: string | number
+  tax_amount?: string | number
   discount_amount?: string | number
   paid_amount?: string | number
   balance_due: string | number

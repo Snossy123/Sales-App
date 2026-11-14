@@ -28,7 +28,21 @@ export function deviceDraftsFromInvoice(
   const lines = (invoice.lines ?? []).filter((line) => !isServiceInvoiceLine(line))
 
   return lines.map((line) => {
-    const unitPrice = Number(line.unit_price ?? 0)
+    let unitPrice = Number(line.unit_price ?? 0)
+    const discountAmount = Number(line.discount ?? 0)
+    if (!(unitPrice > 0) && Number(line.line_total) > 0) {
+      unitPrice = Number(line.line_total) + discountAmount
+    }
+    // Older single-device contracts can have the amount only on the invoice.
+    // Never substitute today's catalog price or guess a multi-device allocation.
+    if (!(unitPrice > 0) && invoice.lines?.length === 1 && Number(line.quantity ?? 1) === 1
+      && (!invoice.contract_kind || invoice.contract_kind === 'new_contract')) {
+      const savedNet = Number(invoice.subtotal) > 0
+        ? Number(invoice.subtotal)
+        : Number(invoice.total) - Number(invoice.installation_fee ?? 0) - Number(invoice.transportation_fee ?? 0) - Number(invoice.tax_amount ?? 0)
+      if (Number.isFinite(savedNet) && savedNet > 0) unitPrice = savedNet + discountAmount
+    }
+    if (!Number.isFinite(unitPrice)) unitPrice = 0
     const draft = createDeviceLine(
       unitPrice,
       line.product_unit_id
@@ -41,7 +55,8 @@ export function deviceDraftsFromInvoice(
       { contractDate },
     )
     const plan = line.installment_plan
-    const paymentTerm = line.payment_term === 'installment' ? 'installment' : 'cash'
+    const paymentTerm = (line.payment_term ?? invoice.payment_term) === 'installment' ? 'installment' : 'cash'
+    const cashSchedule = (line.cash_schedule as CashSchedule) || 'immediate'
 
     return {
       ...draft,
@@ -49,12 +64,15 @@ export function deviceDraftsFromInvoice(
       serialNumber: line.serial_number ?? '',
       simNumber: line.sim_number ?? '',
       username: line.username ?? '',
-      discountAmount: Number(line.discount ?? 0),
+      discountAmount,
+      discountPercent: unitPrice > 0 ? discountAmount / unitPrice * 100 : 0,
       paymentTerm,
-      cashSchedule: (line.cash_schedule as CashSchedule) || 'immediate',
+      cashSchedule,
       cashScheduleItems: fromPlanCashScheduleItems(plan),
       installmentAmount: Number(plan?.installment_amount ?? draft.installmentAmount),
-      downPayment: Number(plan?.down_payment ?? draft.downPayment),
+      downPayment: paymentTerm === 'cash'
+        ? cashSchedule === 'immediate' ? Math.max(0, unitPrice - discountAmount) : Number(plan?.down_payment ?? 0)
+        : Number(plan?.down_payment ?? draft.downPayment),
       intervalType: (plan?.interval_type as IntervalType) || 'monthly',
       firstDueDate: plan?.first_due_date?.slice(0, 10) || draft.firstDueDate,
       technician: technicianFromLine(line),
