@@ -32,6 +32,7 @@ import {
 import { getListScopeQueryKey, mergeScopedListParams } from '../lib/dataScope'
 import type { ContractProblemCaseType } from '../lib/contractCases'
 import { useAuthStore } from '../stores/authStore'
+import { REVIEW_CONTRACT_KIND_OPTIONS } from '../lib/contractKinds'
 
 export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   usePageTour('invoices')
@@ -66,6 +67,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
+  const [contractKindFilter, setContractKindFilter] = useState('')
   const [contractSearch, setContractSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -78,6 +80,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       listScopeKey,
       statusFilter,
       paymentStatusFilter,
+      contractKindFilter,
       branchFilter,
       dateFrom,
       dateTo,
@@ -94,6 +97,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       if (mine) params['filter[mine]'] = '1'
       if (statusFilter) params['filter[review_status]'] = statusFilter
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
+      if (contractKindFilter) params['filter[contract_kind]'] = contractKindFilter
 
       const { data } = await api.get<ApiPaginated<SalesInvoice>>('/sales-invoices', { params })
       return data
@@ -107,9 +111,9 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     [query.data, contractSearch],
   )
   const hasFilters = Boolean(
-    statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo || branchFilter,
+    statusFilter || paymentStatusFilter || contractKindFilter || contractSearch || dateFrom || dateTo || branchFilter,
   )
-  const selectionScope = JSON.stringify([user?.id, mine, listScopeKey, statusFilter, paymentStatusFilter, branchFilter, dateFrom, dateTo, page, contractSearch])
+  const selectionScope = JSON.stringify([user?.id, mine, listScopeKey, statusFilter, paymentStatusFilter, contractKindFilter, branchFilter, dateFrom, dateTo, page, contractSearch])
   const selectedIds = selection.scope === selectionScope
     ? displayRows.filter((row) => selection.ids.includes(row.id)).map((row) => row.id)
     : []
@@ -129,6 +133,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     setBranchFilter('')
     setStatusFilter('')
     setPaymentStatusFilter('')
+    setContractKindFilter('')
     setContractSearch('')
     setDateFrom('')
     setDateTo('')
@@ -137,6 +142,16 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
 
   const filterSelects = useMemo(
     () => [
+      {
+        id: 'contract_kind',
+        label: 'نوع الخدمة',
+        value: contractKindFilter,
+        options: REVIEW_CONTRACT_KIND_OPTIONS,
+        onChange: (value: string) => {
+          setContractKindFilter(value)
+          setPage(1)
+        },
+      },
       {
         id: 'action-branch',
         label: 'فرع تنفيذ البيع',
@@ -165,7 +180,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         options: paymentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
     ],
-    [statusFilter, paymentStatusFilter, branchFilter, branchOptions, setPage, setStatusFilter, setPaymentStatusFilter, setBranchFilter],
+    [statusFilter, paymentStatusFilter, contractKindFilter, branchFilter, branchOptions, setPage, setStatusFilter, setPaymentStatusFilter, setBranchFilter],
   )
 
   const columns = useMemo(
