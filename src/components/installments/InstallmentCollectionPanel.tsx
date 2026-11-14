@@ -5,7 +5,9 @@ import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
 import type { AdminUser, CollectionPaymentAccount, Distributor, Employee } from '../../api/types'
 import { CollapsibleSection } from '../CollapsibleSection'
-import { todayReminderDatetime } from '../../lib/datetime12h'
+import { nowReminderDatetime } from '../../lib/datetime12h'
+
+const REQUIRES_REMINDER_STATUSES = new Set(['new_payment_date', 'postponed', 'no_answer'])
 import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
 import { DateTimeInput12h } from '../DateTimeInput12h'
 import { Icon } from '../Icon'
@@ -614,8 +616,8 @@ export function InstallmentCollectionPanel({
             onChange={(e) => {
               const status = e.target.value
               onCollectionStatusChange(status)
-              if (status === 'new_payment_date' && !collectionReminderAt) {
-                onCollectionReminderAtChange(todayReminderDatetime(useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'))
+              if (REQUIRES_REMINDER_STATUSES.has(status) && !collectionReminderAt) {
+                onCollectionReminderAtChange(nowReminderDatetime(useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'))
               }
             }}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
@@ -641,14 +643,16 @@ export function InstallmentCollectionPanel({
             rows={2}
             className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
           />
-          {collectionStatus === 'new_payment_date' && !collectionReminderAt && <p role="alert" className="mb-sm text-sm text-error">حدد تاريخ التذكير لحفظ الموعد الجديد.</p>}
+          {REQUIRES_REMINDER_STATUSES.has(collectionStatus) && !collectionReminderAt && (
+            <p role="alert" className="mb-sm text-sm text-error">حدد تاريخ ووقت التذكير لحفظ حالة المتابعة.</p>
+          )}
           {metadataMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(metadataMutation.error)}</p>}
           <button
             type="button"
             onClick={() => metadataMutation.mutate()}
             disabled={
               metadataMutation.isPending ||
-              (collectionStatus === 'new_payment_date' && !collectionReminderAt) ||
+              (REQUIRES_REMINDER_STATUSES.has(collectionStatus) && !collectionReminderAt) ||
               !canCollectPayment ||
               !hasCollectionFollowUpDraft({
                 collectionStatus,

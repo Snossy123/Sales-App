@@ -112,3 +112,19 @@ export function todayReminderDatetime(timeZone = 'Africa/Cairo', now = new Date(
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)!.value
   return `${part('year')}-${part('month')}-${part('day')}T00:00`
 }
+
+/** A real datetime-local value for the current date and time in the organization's timezone. */
+export function nowReminderDatetime(timeZone = 'Africa/Cairo', now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)!.value
+  const hour = part('hour') === '24' ? '00' : part('hour')
+  return `${part('year')}-${part('month')}-${part('day')}T${hour}:${part('minute')}`
+}

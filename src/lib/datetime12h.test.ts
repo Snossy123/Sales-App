@@ -3,6 +3,7 @@ import {
   formatDatetime12hDisplay,
   formatDatetimeLocal,
   isReminderDueToday,
+  nowReminderDatetime,
   parseDatetimeLocal,
   to12HourParts,
   to24Hour,
@@ -51,6 +52,12 @@ describe('datetime12h', () => {
     expect(todayReminderDatetime('Africa/Cairo', new Date('2026-11-06T21:59:59Z'))).toBe('2026-11-06T00:00')
     expect(todayReminderDatetime('Africa/Cairo', new Date('2026-11-06T22:00:00Z'))).toBe('2026-11-07T00:00')
     expect(todayReminderDatetime('UTC', new Date('2026-11-06T22:00:00Z'))).toBe('2026-11-06T00:00')
+  })
+
+  it('fills the current date and time in the organization timezone', () => {
+    expect(nowReminderDatetime('Africa/Cairo', new Date('2026-11-06T21:59:59Z'))).toBe('2026-11-06T23:59')
+    expect(nowReminderDatetime('Africa/Cairo', new Date('2026-11-06T22:05:00Z'))).toBe('2026-11-07T00:05')
+    expect(nowReminderDatetime('UTC', new Date('2026-11-06T22:05:00Z'))).toBe('2026-11-06T22:05')
   })
 
   it('displays empty values as an em dash', () => {
