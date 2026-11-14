@@ -2,11 +2,12 @@ import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, getErrorMessage } from '../api/client'
+import { api } from '../api/client'
 import { Modal } from '../components/Modal'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
+import { ContractDeletionError } from '../components/contracts/ContractDeletionError'
 import { ConvertCashToInstallmentModal } from '../components/contracts/ConvertCashToInstallmentModal'
 import {
   buildContractListColumns,
@@ -296,7 +297,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       />
       <Modal open={Boolean(bulkDeleteIds)} onClose={() => { if (!bulkDeleteMutation.isPending) setBulkDeleteIds(null) }} title="مسح التعاقدات المحددة" size="sm">
         <p className="mb-md text-sm">سيتم حذف {bulkDeleteIds?.length ?? 0} تعاقد وإلغاء معاملاتها. أجهزة البيع الجديد ترجع للمخزون، وأجهزة الخدمات والتجديد تظل لدى العميل، ونقل الملكية يرجع للمالك السابق. لا يمكن استعادة المعاملات من سلة المهملات. إذا تعذّر إلغاء أي تعاقد، لن يتم حذف أي تعاقد من المجموعة.</p>
-        {bulkDeleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(bulkDeleteMutation.error)}</p>}
+        {bulkDeleteMutation.isError && <ContractDeletionError error={bulkDeleteMutation.error} onOpenContract={() => setBulkDeleteIds(null)} />}
         <div className="flex justify-end gap-sm">
           <button type="button" disabled={bulkDeleteMutation.isPending} onClick={() => setBulkDeleteIds(null)}>إلغاء</button>
           <button type="button" className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error" disabled={bulkDeleteMutation.isPending} onClick={() => { if (bulkDeleteIds?.length) bulkDeleteMutation.mutate(bulkDeleteIds) }}>{bulkDeleteMutation.isPending ? 'جارٍ المسح...' : 'مسح وإلغاء المعاملات'}</button>
@@ -304,7 +305,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       </Modal>
       <Modal open={Boolean(deleteInvoice)} onClose={() => { if (!deleteMutation.isPending) setDeleteInvoice(null) }} title="حذف التعاقد وإلغاء معاملاته" size="sm">
         <p className="mb-md text-sm">سيتم حذف التعاقد {deleteInvoice?.invoice_number || `#${deleteInvoice?.id}`} وإلغاء مدفوعاته وأقساطه وقيوده وعمولاته ومهام الدعم. {deleteInvoice?.contract_kind === 'ownership_transfer' ? 'تعود الملكية للمالك السابق، ويظل الجهاز مباعًا وتظل أقساط التعاقد الأصلي.' : ['mixed', 'subscription_renewal', 'external_device'].includes(deleteInvoice?.contract_kind ?? '') ? 'يظل جهاز العميل وبياناته كما هي.' : 'ترجع أجهزة التعاقد إلى المخزون.'} لا يمكن استعادة المعاملات من سلة المهملات.</p>
-        {deleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
+        {deleteMutation.isError && <ContractDeletionError error={deleteMutation.error} onOpenContract={() => setDeleteInvoice(null)} />}
         <div className="flex justify-end gap-sm">
           <button type="button" className="btn" disabled={deleteMutation.isPending} onClick={() => setDeleteInvoice(null)}>إلغاء</button>
           <button type="button" className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error" disabled={deleteMutation.isPending} onClick={() => { if (deleteInvoice) deleteMutation.mutate(deleteInvoice.id) }}>{deleteMutation.isPending ? 'جارٍ الحذف...' : 'حذف وإلغاء المعاملات'}</button>
