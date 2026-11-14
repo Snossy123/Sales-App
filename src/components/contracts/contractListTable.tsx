@@ -30,6 +30,7 @@ export function contractReviewRowClass(reviewStatus?: string | null): string {
 }
 
 interface ContractListColumnOptions {
+  showInstallationStatus?: boolean
   renderActions?: (row: SalesInvoice) => ReactNode
 }
 
@@ -163,6 +164,19 @@ export function buildContractListColumns(
       ),
     },
   ]
+
+  if (options.showInstallationStatus) {
+    columns.splice(6, 0, {
+      key: 'installation_executed',
+      header: 'حالة التركيب',
+      render: (row) => row.installation_executed == null ? '—' : (
+        <StatusBadge
+          status={row.installation_executed ? 'completed' : 'pending'}
+          label={row.installation_executed ? 'تم تنفيذ التركيب' : 'لم يتم تنفيذ التركيب'}
+        />
+      ),
+    })
+  }
 
   if (options.renderActions) {
     columns.push({

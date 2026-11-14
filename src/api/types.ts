@@ -903,6 +903,7 @@ export type ContractKind =
   | 'mixed'
 
 export interface SalesInvoice {
+  installation_executed?: boolean
   action_branch_id?: number | null
   action_branch?: Branch | null
   user?: { id: number; name: string } | null

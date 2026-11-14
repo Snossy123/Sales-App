@@ -68,6 +68,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
   const [contractKindFilter, setContractKindFilter] = useState('')
+  const [installationFilter, setInstallationFilter] = useState('')
   const [contractSearch, setContractSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -81,6 +82,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       statusFilter,
       paymentStatusFilter,
       contractKindFilter,
+      installationFilter,
       branchFilter,
       dateFrom,
       dateTo,
@@ -98,6 +100,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       if (statusFilter) params['filter[review_status]'] = statusFilter
       if (paymentStatusFilter) params['filter[payment_status]'] = paymentStatusFilter
       if (contractKindFilter) params['filter[contract_kind]'] = contractKindFilter
+      if (installationFilter) params['filter[installation_executed]'] = installationFilter
 
       const { data } = await api.get<ApiPaginated<SalesInvoice>>('/sales-invoices', { params })
       return data
@@ -111,9 +114,9 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     [query.data, contractSearch],
   )
   const hasFilters = Boolean(
-    statusFilter || paymentStatusFilter || contractKindFilter || contractSearch || dateFrom || dateTo || branchFilter,
+    statusFilter || paymentStatusFilter || contractKindFilter || installationFilter || contractSearch || dateFrom || dateTo || branchFilter,
   )
-  const selectionScope = JSON.stringify([user?.id, mine, listScopeKey, statusFilter, paymentStatusFilter, contractKindFilter, branchFilter, dateFrom, dateTo, page, contractSearch])
+  const selectionScope = JSON.stringify([user?.id, mine, listScopeKey, statusFilter, paymentStatusFilter, contractKindFilter, installationFilter, branchFilter, dateFrom, dateTo, page, contractSearch])
   const selectedIds = selection.scope === selectionScope
     ? displayRows.filter((row) => selection.ids.includes(row.id)).map((row) => row.id)
     : []
@@ -134,6 +137,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
     setStatusFilter('')
     setPaymentStatusFilter('')
     setContractKindFilter('')
+    setInstallationFilter('')
     setContractSearch('')
     setDateFrom('')
     setDateTo('')
@@ -142,6 +146,20 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
 
   const filterSelects = useMemo(
     () => [
+      {
+        id: 'installation_executed',
+        label: 'حالة التركيب',
+        value: installationFilter,
+        options: [
+          { value: '', label: 'كل حالات التركيب' },
+          { value: 'true', label: 'تم تنفيذ التركيب' },
+          { value: 'false', label: 'لم يتم تنفيذ التركيب' },
+        ],
+        onChange: (value: string) => {
+          setInstallationFilter(value)
+          setPage(1)
+        },
+      },
       {
         id: 'contract_kind',
         label: 'نوع الخدمة',
@@ -180,12 +198,13 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         options: paymentStatusOptions.map((o) => ({ value: o.value, label: o.label })),
       },
     ],
-    [statusFilter, paymentStatusFilter, contractKindFilter, branchFilter, branchOptions, setPage, setStatusFilter, setPaymentStatusFilter, setBranchFilter],
+    [statusFilter, paymentStatusFilter, contractKindFilter, installationFilter, branchFilter, branchOptions, setPage, setStatusFilter, setPaymentStatusFilter, setBranchFilter],
   )
 
   const columns = useMemo(
     () =>
       buildContractListColumns({
+        showInstallationStatus: true,
         renderActions: (row) =>
           defaultContractListActions(
             row,
