@@ -97,7 +97,8 @@ import {
   isRenewalSourceReady,
   matchCustomerDevice,
 } from '../lib/posRenewalSource'
-import { canEditContract } from '../lib/contractEdit'
+import { canEditContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { ContractExecutionBranchEditor } from '../components/contracts/ContractExecutionBranchEditor'
 import { deviceDraftsFromInvoice } from '../lib/hydratePosFromInvoice'
 
 function addDays(dateStr: string, days: number): string {
@@ -2025,6 +2026,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     !allLinesValid || Boolean(checkoutPaymentError)
 
   const submitInvalid = submitDisabled && !checkoutMutation.isPending
+
+  if (isEditMode && editInvoiceQuery.data && isExecutionBranchOnlyContract(editInvoiceQuery.data)) {
+    return <ContractExecutionBranchEditor key={editInvoiceQuery.data.id} invoice={editInvoiceQuery.data}
+      branches={branchesQuery.data ?? []} loading={branchesQuery.isLoading} error={branchesQuery.isError} />
+  }
 
   return (
     <SalesPageShell
