@@ -479,7 +479,8 @@ export function InstallmentCollectionPage() {
             ? contractTierFilter
             : undefined,
         'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
-        'filter[scheduled_follow_up]': debouncedCustomerSearch || followUpToday || collectionStatusFilter === 'new_payment_date'
+        'filter[scheduled_follow_up]': debouncedCustomerSearch || followUpToday || statusFilter === 'paid'
+          || collectionStatusFilter === 'new_payment_date'
           || collectionStatusFilter === 'scheduled_no_answer' ? undefined : 0,
         'filter[follow_up_today]': followUpToday ? 1 : undefined,
         sort: sortByReminder ? 'reminder' : undefined,
@@ -1019,6 +1020,7 @@ export function InstallmentCollectionPage() {
               value: contractTierFilter,
               onChange: (v) => {
                 exitSpecialListModes()
+                if (v !== 'all') setStatusFilter('')
                 setContractTierFilter(v as ContractTierFilter)
                 setSelected(null)
               },
@@ -1037,6 +1039,7 @@ export function InstallmentCollectionPage() {
               onChange: (v) => {
                 exitSpecialListModes()
                 setFollowUpToday(false)
+                if (v && statusFilter === 'paid') setStatusFilter('')
                 setCollectionStatusFilter(v)
                 setSelected(null)
               },
@@ -1065,6 +1068,11 @@ export function InstallmentCollectionPage() {
               value: statusFilter,
               onChange: (value) => {
                 exitSpecialListModes()
+                if (value !== '') setContractTierFilter('all')
+                if (value === 'paid') {
+                  setFollowUpToday(false)
+                  setCollectionStatusFilter('')
+                }
                 setStatusFilter(value)
                 setSelected(null)
               },
@@ -1134,14 +1142,17 @@ export function InstallmentCollectionPage() {
                 setCompletedContracts(false)
                 setFollowUpToday(false)
                 setPaidToday(false)
+                if (status && statusFilter === 'paid') setStatusFilter('')
                 setCollectionStatusFilter(status)
                 setSelected(null)
               }}
               onToggleFollowUp={() => {
+                const next = !followUpToday
                 setCompletedContracts(false)
-                setFollowUpToday((active) => !active)
+                setFollowUpToday(next)
                 setPaidToday(false)
                 setCollectionStatusFilter('')
+                if (next && statusFilter === 'paid') setStatusFilter('')
                 setSelected(null)
               }}
               onTogglePaid={() => {
