@@ -61,6 +61,7 @@ interface CollectionDailyStats {
   paid_invoice_ids?: number[]
   paid_installment_ids?: number[]
   follow_up: number
+  follow_up_due?: number
   follow_up_invoice_ids?: number[]
   scheduled_no_answer?: number
   no_answer: number
@@ -124,9 +125,23 @@ function CollectionDailyStatCards({
                 : 'border-outline-variant bg-surface-container-low text-on-surface hover:border-primary/40'
             }`}
           >
-            <p className={`text-[11px] font-medium ${active ? 'text-on-primary' : 'text-on-surface-variant'}`}>
-              {card.label}
-            </p>
+            <div className="flex items-center justify-between gap-1">
+              <p className={`text-[11px] font-medium ${active ? 'text-on-primary' : 'text-on-surface-variant'}`}>
+                {card.label}
+              </p>
+              {card.key === 'follow_up' && (stats?.follow_up_due ?? 0) > 0 && (
+                <span
+                  title="مواعيد متابعة قبل الوقت الحالي تحتاج متابعة"
+                  aria-label={`${stats?.follow_up_due} مواعيد متابعة قبل الوقت الحالي تحتاج متابعة`}
+                  className={`inline-flex items-center gap-0.5 rounded-full bg-error px-1.5 py-0.5 text-[10px] font-bold leading-none text-on-error tabular-nums ${
+                    active ? 'ring-1 ring-on-primary/80' : ''
+                  }`}
+                >
+                  <Icon name="notifications_active" size={12} />
+                  {stats?.follow_up_due}
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-xl font-bold tabular-nums">{card.value}</p>
           </button>
         )
@@ -446,6 +461,7 @@ export function InstallmentCollectionPage() {
       return data
     },
     enabled: Boolean(selectedBranchId),
+    refetchInterval: 60_000,
   })
 
   const paidInvoiceIds = dailyStatsQuery.data?.paid_invoice_ids ?? []
@@ -1330,7 +1346,7 @@ export function InstallmentCollectionPage() {
                   sortMode={
                     sortByReminder
                       ? 'reminder'
-                      : collectionStatusFilter === 'no_answer'
+                      : collectionStatusFilter === 'no_answer' || collectionStatusFilter === 'scheduled_no_answer'
                         ? 'no_answer_count'
                         : 'priority'
                   }

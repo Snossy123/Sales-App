@@ -261,10 +261,13 @@ export function InstallmentCollectionPanel({
   )
   const hasOtherOverdue = otherOverdueRows.length > 0 && Boolean(onPostponeReminderAtChange)
   const postponeDate = postponeReminderAt ? postponeReminderAt.slice(0, 10) : ''
-  const postponeReminderError =
-    hasOtherOverdue && postponeReminderAt && postponeDate <= todayKey
-      ? 'ميعاد تأجيل باقي الأقساط المتأخرة يجب أن يكون بعد اليوم (غدًا أو لاحقًا).'
-      : null
+  const postponeReminderError = !hasOtherOverdue
+    ? null
+    : !postponeReminderAt
+      ? 'حدد ميعاد تأجيل لباقي الأقساط المتأخرة.'
+      : postponeDate <= todayKey
+        ? 'ميعاد تأجيل باقي الأقساط المتأخرة يجب أن يكون بعد اليوم (غدًا أو لاحقًا).'
+        : null
   const canCollect =
     canCollectPayment &&
     !collectMutation.isPending &&
