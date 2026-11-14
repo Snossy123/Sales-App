@@ -19,9 +19,11 @@ interface DateTimeInput12hProps {
   onChange: (value: string) => void
   className?: string
   disabled?: boolean
+  minDate?: string
+  maxDate?: string
 }
 
-export function DateTimeInput12h({ value, onChange, className = '', disabled }: DateTimeInput12hProps) {
+export function DateTimeInput12h({ value, onChange, className = '', disabled, minDate, maxDate }: DateTimeInput12hProps) {
   const [pendingParts, setPendingParts] = useState<DateTime12hParts>(emptyDateTime12hParts)
   const parts = parseDatetimeLocal(value) ?? { ...pendingParts, date: '' }
 
@@ -39,6 +41,8 @@ export function DateTimeInput12h({ value, onChange, className = '', disabled }: 
       <AppDatePicker
         aria-label="تاريخ التذكير"
         value={parts.date}
+        minDate={minDate}
+        maxDate={maxDate}
         disabled={disabled}
         onChange={(e) => emit({ ...parts, date: e })}
         className={`${inputClass} w-full`}

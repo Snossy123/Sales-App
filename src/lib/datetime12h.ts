@@ -92,6 +92,28 @@ export const emptyDateTime12hParts: DateTime12hParts = {
   period: 'am',
 }
 
+/** Current local date key (YYYY-MM-DD) in the organization's timezone. */
+export function todayDateKey(timeZone = 'Africa/Cairo', now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)!.value
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+/** A real datetime-local value for tomorrow with the current time in the organization's timezone. */
+export function tomorrowReminderDatetime(timeZone = 'Africa/Cairo', now = new Date()): string {
+  const current = nowReminderDatetime(timeZone, now)
+  const [datePart, timePart] = current.split('T')
+  const [y, m, d] = datePart.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
+  const nextDate = `${next.getUTCFullYear()}-${pad2(next.getUTCMonth() + 1)}-${pad2(next.getUTCDate())}`
+  return `${nextDate}T${timePart}`
+}
+
 /** A real datetime-local value for today's reminder in the organization's timezone. */
 export function todayReminderDatetime(timeZone = 'Africa/Cairo', now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {

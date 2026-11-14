@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
 import type { AdminUser, CollectionPaymentAccount, Distributor, Employee } from '../../api/types'
 import { CollapsibleSection } from '../CollapsibleSection'
-import { nowReminderDatetime } from '../../lib/datetime12h'
+import { nowReminderDatetime, todayDateKey, tomorrowReminderDatetime } from '../../lib/datetime12h'
 
 const REQUIRES_REMINDER_STATUSES = new Set(['new_payment_date', 'postponed', 'no_answer'])
 import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
@@ -610,60 +610,91 @@ export function InstallmentCollectionPanel({
           className="mb-sm"
           summary="إضافة موعد أو ملاحظة جديدة — السجل على العقد"
         >
-          <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
-          <select
-            value={collectionStatus}
-            onChange={(e) => {
-              const status = e.target.value
-              onCollectionStatusChange(status)
-              if (REQUIRES_REMINDER_STATUSES.has(status) && !collectionReminderAt) {
-                onCollectionReminderAtChange(nowReminderDatetime(useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'))
-              }
-            }}
-            className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-          >
-            <option value="">—</option>
-            {collectionStatusOptions.filter((o) => o.value).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
-          <DateTimeInput12h
-            value={collectionReminderAt}
-            onChange={onCollectionReminderAtChange}
-            className="mb-sm"
-          />
-          <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
-          <TextArea
-            mode="arabic"
-            value={collectionNotes}
-            onChange={(e) => onCollectionNotesChange(e.target.value)}
-            rows={2}
-            className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
-          />
-          {REQUIRES_REMINDER_STATUSES.has(collectionStatus) && !collectionReminderAt && (
-            <p role="alert" className="mb-sm text-sm text-error">حدد تاريخ ووقت التذكير لحفظ حالة المتابعة.</p>
-          )}
-          {metadataMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(metadataMutation.error)}</p>}
-          <button
-            type="button"
-            onClick={() => metadataMutation.mutate()}
-            disabled={
-              metadataMutation.isPending ||
-              (REQUIRES_REMINDER_STATUSES.has(collectionStatus) && !collectionReminderAt) ||
-              !canCollectPayment ||
-              !hasCollectionFollowUpDraft({
-                collectionStatus,
-                collectionReminderAt,
-                collectionNotes,
-              })
-            }
-            className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
-          >
-            {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
-          </button>
+          {(() => {
+            const tz = useOrgSettingsStore.getState().general?.timezone || 'Africa/Cairo'
+            const todayDate = todayDateKey(tz)
+            const tomorrowDate = tomorrowReminderDatetime(tz).slice(0, 10)
+            const reminderDate = collectionReminderAt ? collectionReminderAt.slice(0, 10) : ''
+            const reminderError =
+              REQUIRES_REMINDER_STATUSES.has(collectionStatus) && !collectionReminderAt
+                ? 'حدد تاريخ ووقت التذكير لحفظ حالة المتابعة.'
+                : collectionStatus === 'new_payment_date' && reminderDate !== todayDate
+                  ? 'ميعاد الدفع الجديد يجب أن يكون خلال اليوم الحالي فقط.'
+                  : collectionStatus === 'postponed' && reminderDate <= todayDate
+                    ? 'ميعاد التأجيل يجب أن يكون بعد اليوم (غدًا أو لاحقًا).'
+                    : null
+
+            return (
+              <>
+                <label className="mb-xs block text-xs text-on-surface-variant">حالة التحصيل</label>
+                <select
+                  value={collectionStatus}
+                  onChange={(e) => {
+                    const status = e.target.value
+                    onCollectionStatusChange(status)
+                    if (status === 'new_payment_date' && reminderDate !== todayDate) {
+                      onCollectionReminderAtChange(nowReminderDatetime(tz))
+                    } else if (status === 'postponed' && (!reminderDate || reminderDate <= todayDate)) {
+                      onCollectionReminderAtChange(tomorrowReminderDatetime(tz))
+                    } else if (status === 'no_answer' && (!reminderDate || reminderDate < todayDate)) {
+                      onCollectionReminderAtChange(nowReminderDatetime(tz))
+                    }
+                  }}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                >
+                  <option value="">—</option>
+                  {collectionStatusOptions.filter((o) => o.value).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <label className="mb-xs block text-xs text-on-surface-variant">ميعاد التذكير</label>
+                <DateTimeInput12h
+                  value={collectionReminderAt}
+                  onChange={onCollectionReminderAtChange}
+                  minDate={
+                    collectionStatus === 'postponed'
+                      ? tomorrowDate
+                      : collectionStatus === 'new_payment_date' || collectionStatus === 'no_answer'
+                        ? todayDate
+                        : undefined
+                  }
+                  maxDate={collectionStatus === 'new_payment_date' ? todayDate : undefined}
+                  className="mb-sm"
+                />
+                <label className="mb-xs block text-xs text-on-surface-variant">ملاحظات</label>
+                <TextArea
+                  mode="arabic"
+                  value={collectionNotes}
+                  onChange={(e) => onCollectionNotesChange(e.target.value)}
+                  rows={2}
+                  className="mb-sm w-full rounded border border-outline-variant px-sm py-2 text-sm"
+                />
+                {reminderError && (
+                  <p role="alert" className="mb-sm text-sm text-error">{reminderError}</p>
+                )}
+                {metadataMutation.isError && <p role="alert" className="mb-sm text-sm text-error">{getErrorMessage(metadataMutation.error)}</p>}
+                <button
+                  type="button"
+                  onClick={() => metadataMutation.mutate()}
+                  disabled={
+                    metadataMutation.isPending ||
+                    Boolean(reminderError) ||
+                    !canCollectPayment ||
+                    !hasCollectionFollowUpDraft({
+                      collectionStatus,
+                      collectionReminderAt,
+                      collectionNotes,
+                    })
+                  }
+                  className="w-full rounded-lg border border-primary py-2 text-sm font-medium text-primary"
+                >
+                  {metadataMutation.isPending ? 'جاري الحفظ…' : 'حفظ متابعة التحصيل'}
+                </button>
+              </>
+            )
+          })()}
         </CollapsibleSection>
 
         <CollectionFollowUpHistoryModal

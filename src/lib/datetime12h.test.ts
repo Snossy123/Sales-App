@@ -7,7 +7,9 @@ import {
   parseDatetimeLocal,
   to12HourParts,
   to24Hour,
+  todayDateKey,
   todayReminderDatetime,
+  tomorrowReminderDatetime,
 } from './datetime12h'
 
 describe('datetime12h', () => {
@@ -58,6 +60,9 @@ describe('datetime12h', () => {
     expect(nowReminderDatetime('Africa/Cairo', new Date('2026-11-06T21:59:59Z'))).toBe('2026-11-06T23:59')
     expect(nowReminderDatetime('Africa/Cairo', new Date('2026-11-06T22:05:00Z'))).toBe('2026-11-07T00:05')
     expect(nowReminderDatetime('UTC', new Date('2026-11-06T22:05:00Z'))).toBe('2026-11-06T22:05')
+    expect(todayDateKey('Africa/Cairo', new Date('2026-11-06T22:05:00Z'))).toBe('2026-11-07')
+    expect(tomorrowReminderDatetime('Africa/Cairo', new Date('2026-11-06T21:59:59Z'))).toBe('2026-11-07T23:59')
+    expect(tomorrowReminderDatetime('Africa/Cairo', new Date('2026-11-30T10:15:00Z'))).toBe('2026-12-01T12:15')
   })
 
   it('displays empty values as an em dash', () => {

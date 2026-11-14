@@ -500,6 +500,7 @@ export function InstallmentCollectionPage() {
             : undefined,
         'filter[has_open_reconciliation]': contractTierFilter === 'open_reconciliation' ? 1 : undefined,
         'filter[scheduled_follow_up]': debouncedCustomerSearch || followUpToday || statusFilter === 'paid'
+          || collectionStatusFilter === 'none'
           || collectionStatusFilter === 'new_payment_date'
           || collectionStatusFilter === 'scheduled_no_answer' ? undefined : 0,
         'filter[follow_up_today]': followUpToday ? 1 : undefined,
