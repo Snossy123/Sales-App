@@ -5,7 +5,7 @@ export const EDIT_BEFORE_REVIEW_PERMISSION = 'sales.invoices.edit_before_review'
 export const EDIT_AFTER_REVIEW_PERMISSION = 'review.edit_after_review'
 
 export function isExecutionBranchOnlyContract(invoice: SalesInvoice): boolean {
-  return ['mixed', 'subscription_renewal', 'ownership_transfer'].includes(invoice.contract_kind ?? '')
+  return ['mixed', 'subscription_renewal', 'ownership_transfer', 'external_device'].includes(invoice.contract_kind ?? '')
 }
 
 export function contractEditPath(invoiceId: number): string {

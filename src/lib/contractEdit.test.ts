@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthUser, SalesInvoice } from '../api/types'
-import { canConvertCashToInstallment, canEditContract, contractEditPath } from './contractEdit'
+import { canConvertCashToInstallment, canEditContract, contractEditPath, isExecutionBranchOnlyContract } from './contractEdit'
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -18,6 +18,10 @@ function invoice(review_status: string, overrides: Partial<SalesInvoice> = {}): 
 }
 
 describe('contractEdit', () => {
+  it('changes only the execution branch for legacy external devices while keeping new sales on stock replacement', () => {
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'external_device' }))).toBe(true)
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'new_contract' }))).toBe(false)
+  })
   it('builds the invoice edit path', () => {
     expect(contractEditPath(12)).toBe('/invoices/12/edit')
   })

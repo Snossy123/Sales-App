@@ -32,6 +32,7 @@ const KIND_LABELS: Record<string, string> = {
     {} as Record<string, string>,
   ),
   mixed: 'خدمات مجمّعة',
+  external_device: 'جهاز خارجي (تعاقد قديم)',
 }
 
 export function contractKindLabel(kind?: string | null): string {

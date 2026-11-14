@@ -303,7 +303,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         </div>
       </Modal>
       <Modal open={Boolean(deleteInvoice)} onClose={() => { if (!deleteMutation.isPending) setDeleteInvoice(null) }} title="حذف التعاقد وإلغاء معاملاته" size="sm">
-        <p className="mb-md text-sm">سيتم حذف التعاقد {deleteInvoice?.invoice_number || `#${deleteInvoice?.id}`} وإلغاء مدفوعاته وأقساطه وقيوده وعمولاته ومهام الدعم. {deleteInvoice?.contract_kind === 'ownership_transfer' ? 'تعود الملكية للمالك السابق، ويظل الجهاز مباعًا وتظل أقساط التعاقد الأصلي.' : ['mixed', 'subscription_renewal'].includes(deleteInvoice?.contract_kind ?? '') ? 'يظل جهاز العميل وبياناته كما هي.' : 'ترجع أجهزة التعاقد إلى المخزون.'} لا يمكن استعادة المعاملات من سلة المهملات.</p>
+        <p className="mb-md text-sm">سيتم حذف التعاقد {deleteInvoice?.invoice_number || `#${deleteInvoice?.id}`} وإلغاء مدفوعاته وأقساطه وقيوده وعمولاته ومهام الدعم. {deleteInvoice?.contract_kind === 'ownership_transfer' ? 'تعود الملكية للمالك السابق، ويظل الجهاز مباعًا وتظل أقساط التعاقد الأصلي.' : ['mixed', 'subscription_renewal', 'external_device'].includes(deleteInvoice?.contract_kind ?? '') ? 'يظل جهاز العميل وبياناته كما هي.' : 'ترجع أجهزة التعاقد إلى المخزون.'} لا يمكن استعادة المعاملات من سلة المهملات.</p>
         {deleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
         <div className="flex justify-end gap-sm">
           <button type="button" className="btn" disabled={deleteMutation.isPending} onClick={() => setDeleteInvoice(null)}>إلغاء</button>
