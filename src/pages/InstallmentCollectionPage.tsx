@@ -974,6 +974,16 @@ export function InstallmentCollectionPage() {
   useEffect(() => {
     localStorage.setItem(COLLECTION_CHROME_STORAGE_KEY, String(showChrome))
   }, [showChrome])
+  const resetIncompatibleBarFilters = () => {
+    setContractTierFilter('all')
+    setCollectionStatusFilter('')
+    setStatusFilter('')
+    setSortByReminder(false)
+  }
+  const exitSpecialListModes = () => {
+    setPaidToday(false)
+    setCompletedContracts(false)
+  }
   const clearFilters = () => {
     setCompletedContracts(false)
     setCustomerSearch('')
@@ -1008,6 +1018,7 @@ export function InstallmentCollectionPage() {
               label: 'فلتر العقود',
               value: contractTierFilter,
               onChange: (v) => {
+                exitSpecialListModes()
                 setContractTierFilter(v as ContractTierFilter)
                 setSelected(null)
               },
@@ -1024,6 +1035,7 @@ export function InstallmentCollectionPage() {
               label: 'حالة التحصيل',
               value: collectionStatusFilter,
               onChange: (v) => {
+                exitSpecialListModes()
                 setFollowUpToday(false)
                 setCollectionStatusFilter(v)
                 setSelected(null)
@@ -1052,6 +1064,7 @@ export function InstallmentCollectionPage() {
               label: 'حالة القسط',
               value: statusFilter,
               onChange: (value) => {
+                exitSpecialListModes()
                 setStatusFilter(value)
                 setSelected(null)
               },
@@ -1061,7 +1074,10 @@ export function InstallmentCollectionPage() {
               id: 'sort',
               label: 'الترتيب',
               value: sortByReminder ? 'reminder' : 'default',
-              onChange: (v) => setSortByReminder(v === 'reminder'),
+              onChange: (v) => {
+                exitSpecialListModes()
+                setSortByReminder(v === 'reminder')
+              },
               options: [
                 { value: 'default', label: 'حسب الأولوية' },
                 { value: 'reminder', label: 'ميعاد التذكير' },
@@ -1129,10 +1145,15 @@ export function InstallmentCollectionPage() {
                 setSelected(null)
               }}
               onTogglePaid={() => {
+                const next = !paidToday
                 setCompletedContracts(false)
-                setPaidToday((active) => !active)
+                setPaidToday(next)
                 setFollowUpToday(false)
-                setCollectionStatusFilter('')
+                if (next) {
+                  resetIncompatibleBarFilters()
+                } else {
+                  setCollectionStatusFilter('')
+                }
                 setSelected(null)
               }}
             />
@@ -1164,9 +1185,11 @@ export function InstallmentCollectionPage() {
                   aria-label="عرض العقود المسددة بالكامل"
                   aria-pressed={completedContracts}
                   onClick={() => {
-                    setCompletedContracts((active) => !active)
+                    const next = !completedContracts
+                    setCompletedContracts(next)
                     setPaidToday(false)
                     setFollowUpToday(false)
+                    if (next) resetIncompatibleBarFilters()
                     setSelected(null)
                   }}
                   className={`inline-flex h-9 items-center gap-1 rounded-lg border px-2 text-sm ${completedContracts ? 'border-primary bg-primary text-on-primary' : 'border-primary/30 bg-primary/10 text-primary'}`}
