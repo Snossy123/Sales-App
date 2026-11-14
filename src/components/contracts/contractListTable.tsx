@@ -13,6 +13,7 @@ import {
 import { contractKindLabel } from '../../lib/contractKinds'
 import { distributorLabel, reviewStatusForBadge, reviewStatusLabel } from '../../lib/sales'
 import { ContractPrintActions } from './ContractPrintActions'
+import { ContractActionsMenu } from './ContractActionsMenu'
 import { userHasPermission } from '../../lib/access'
 import {
   canExchangeContract,
@@ -37,6 +38,11 @@ export function buildContractListColumns(
 ): Column<SalesInvoice & Record<string, unknown>>[] {
   const columns: Column<SalesInvoice & Record<string, unknown>>[] = [
     {
+      key: 'invoice_number',
+      header: 'رقم التعاقد',
+      render: (row) => <Link className="whitespace-nowrap font-medium text-primary" to={`/contracts/${row.id}`}>{row.invoice_number || `#${row.id}`}</Link>,
+    },
+    {
       key: 'customer',
       header: 'العميل',
       render: (row) => (
@@ -59,6 +65,11 @@ export function buildContractListColumns(
       key: 'source',
       header: 'المصدر',
       render: (row) => contractSourceLabel(row),
+    },
+    {
+      key: 'action_branch',
+      header: 'فرع التنفيذ',
+      render: (row) => row.action_branch?.name_ar || row.action_branch?.name || '—',
     },
     {
       key: 'invoice_date',
@@ -156,7 +167,7 @@ export function buildContractListColumns(
   if (options.renderActions) {
     columns.push({
       key: 'actions',
-      header: '',
+      header: 'الإجراءات',
       headerDataTour: 'invoices-actions',
       render: (row) => options.renderActions!(row),
     })
@@ -170,9 +181,10 @@ export function defaultContractListActions(
   user?: AuthUser | null,
   onOpenProblems?: (invoice: SalesInvoice, caseType?: ContractProblemCaseType) => void,
   onConvertCash?: (invoice: SalesInvoice) => void,
+  onDelete?: (invoice: SalesInvoice) => void,
 ): ReactNode {
   return (
-    <div className="flex flex-wrap items-center gap-sm">
+    <ContractActionsMenu contractNumber={row.invoice_number || `#${row.id}`}>
       <Link
         to={`/contracts/${row.id}`}
         className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
@@ -244,7 +256,8 @@ export function defaultContractListActions(
         invoice={row}
         className="inline-flex items-center gap-1 text-sm text-primary hover:underline whitespace-nowrap"
       />
-    </div>
+      {onDelete && <button type="button" className="text-sm font-medium text-error" onClick={() => onDelete(row)}>حذف التعاقد وإلغاء معاملاته</button>}
+    </ContractActionsMenu>
   )
 }
 
@@ -315,6 +328,8 @@ export function filterContractListRows(rows: SalesInvoice[], search: string): Sa
       phone2.includes(q) ||
       source.includes(q) ||
       distributor.includes(q)
+      || String(row.invoice_number ?? row.id).toLowerCase().includes(q)
+      || String(row.action_branch?.name_ar || row.action_branch?.name || '').toLowerCase().includes(q)
     )
   })
 }

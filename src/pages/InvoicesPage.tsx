@@ -1,8 +1,9 @@
 import { useBranchFilterOptions } from '../hooks/useBranchFilterOptions'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, getErrorMessage } from '../api/client'
+import { Modal } from '../components/Modal'
 import type { SalesInvoice } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ContractProblemWizard } from '../components/contracts/ContractProblemWizard'
@@ -40,6 +41,16 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   const [problemInvoice, setProblemInvoice] = useState<SalesInvoice | null>(null)
   const [problemCaseType, setProblemCaseType] = useState<ContractProblemCaseType | null>(null)
   const [convertInvoice, setConvertInvoice] = useState<SalesInvoice | null>(null)
+  const [deleteInvoice, setDeleteInvoice] = useState<SalesInvoice | null>(null)
+  const canDelete = Boolean(user?.roles?.some((role) => ['Admin', 'SuperAdmin'].includes(role.name)))
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/sales-invoices/${id}`),
+    onSuccess: async () => {
+      setDeleteInvoice(null)
+      await queryClient.invalidateQueries()
+    },
+  })
+  const resetDeleteMutation = deleteMutation.reset
   const listScopeKey = getListScopeQueryKey(user)
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -64,7 +75,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
       const params = mergeScopedListParams(user, {
         per_page: 25,
         page,
-        include: 'customer,distributor,branch,lines',
+        include: 'customer,distributor,branch,actionBranch,lines',
         ...contractDateFilterParams(dateFrom, dateTo),
       })
       if (branchFilter) params['filter[action_branch_id]'] = branchFilter
@@ -79,10 +90,9 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
   })
 
   const meta = query.data ? paginatedMeta(query.data) : null
-  const rows = query.data?.data ?? []
   const displayRows = useMemo(
-    () => filterContractListRows(rows, contractSearch),
-    [rows, contractSearch],
+    () => filterContractListRows(query.data?.data ?? [], contractSearch),
+    [query.data, contractSearch],
   )
   const hasFilters = Boolean(
     statusFilter || paymentStatusFilter || contractSearch || dateFrom || dateTo || branchFilter,
@@ -143,9 +153,10 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
               setProblemCaseType(caseType ?? null)
             },
             setConvertInvoice,
+            canDelete ? (invoice) => { resetDeleteMutation(); setDeleteInvoice(invoice) } : undefined,
           ),
       }),
-    [user],
+    [user, canDelete, resetDeleteMutation],
   )
 
   return (
@@ -174,7 +185,7 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
           dataTour="invoices-filters"
           search={contractSearch}
           onSearchChange={setContractSearch}
-          searchPlaceholder="بحث باسم العميل أو رقم الهاتف أو الموزع..."
+          searchPlaceholder="بحث برقم التعاقد أو العميل أو الهاتف أو الموزع أو فرع التنفيذ..."
           dateFrom={dateFrom}
           dateTo={dateTo}
           onDateFromChange={(value) => {
@@ -249,6 +260,14 @@ export function InvoicesPage({ mine = false }: { mine?: boolean } = {}) {
         onClose={() => setConvertInvoice(null)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })}
       />
+      <Modal open={Boolean(deleteInvoice)} onClose={() => { if (!deleteMutation.isPending) setDeleteInvoice(null) }} title="حذف التعاقد وإلغاء معاملاته" size="sm">
+        <p className="mb-md text-sm">سيتم حذف التعاقد {deleteInvoice?.invoice_number || `#${deleteInvoice?.id}`} وإلغاء مدفوعاته وأقساطه وقيوده وعمولاته ومهام الدعم، وإرجاع مخزونه. لا يمكن استعادة معاملاته من سلة المهملات.</p>
+        {deleteMutation.isError && <p role="alert" className="mb-md text-sm text-error">{getErrorMessage(deleteMutation.error)}</p>}
+        <div className="flex justify-end gap-sm">
+          <button type="button" className="btn" disabled={deleteMutation.isPending} onClick={() => setDeleteInvoice(null)}>إلغاء</button>
+          <button type="button" className="rounded-lg bg-error px-md py-sm text-sm font-bold text-on-error" disabled={deleteMutation.isPending} onClick={() => { if (deleteInvoice) deleteMutation.mutate(deleteInvoice.id) }}>{deleteMutation.isPending ? 'جارٍ الحذف...' : 'حذف وإلغاء المعاملات'}</button>
+        </div>
+      </Modal>
     </SalesPageShell>
   )
 }
