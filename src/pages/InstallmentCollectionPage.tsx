@@ -429,7 +429,9 @@ export function InstallmentCollectionPage() {
     enabled: Boolean(selectedBranchId),
   })
 
+  const paidInvoiceIds = dailyStatsQuery.data?.paid_invoice_ids ?? []
   const paidInstallmentIds = dailyStatsQuery.data?.paid_installment_ids ?? []
+  const paidInvoiceKey = paidInvoiceIds.join(',')
   const paidInstallmentKey = paidInstallmentIds.join(',')
   const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
 
@@ -437,11 +439,12 @@ export function InstallmentCollectionPage() {
     {
       paginate_by: 'contract',
       'filter[action_branch_id]': selectedBranchId ?? undefined,
-      'filter[ids]': paidInstallmentKey || undefined,
+      'filter[invoice_ids]': paidInvoiceKey || undefined,
+      'filter[ids]': !paidInvoiceKey && paidInstallmentKey ? paidInstallmentKey : undefined,
       'filter[collector_user_id]': collectorFilter || undefined,
       'filter[search]': debouncedCustomerSearch || undefined,
     },
-    paidToday && paidInstallmentIds.length > 0,
+    paidToday && (paidInvoiceIds.length > 0 || paidInstallmentIds.length > 0),
   )
 
   const branchCountsQuery = useQuery({
@@ -661,6 +664,21 @@ export function InstallmentCollectionPage() {
       ),
     [contractInstallmentsQuery.data],
   )
+
+  useEffect(() => {
+    if (!selected?.sales_invoice_id || selectedContractRows.length === 0) return
+    setDueDateEdits((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const r of selectedContractRows) {
+        if (r.sales_invoice_id === selected.sales_invoice_id && r.status !== 'paid' && !(r.id in next)) {
+          next[r.id] = String(r.due_date).slice(0, 10)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [selected?.sales_invoice_id, selectedContractRows])
 
   const selectedIsOverdueContract = useMemo(() => {
     return selectedContractRows.some((r) => r.display_tier === 'overdue' || r.status === 'overdue')
@@ -927,10 +945,11 @@ export function InstallmentCollectionPage() {
     setCollectionReminderAt('')
     setCollectionNotes('')
     const edits: Record<number, string> = {}
-    branchRows
+    selectedContractRows
+      .concat(filteredRows)
       .filter((r) => r.sales_invoice_id === row.sales_invoice_id && r.status !== 'paid')
       .forEach((r) => {
-        edits[r.id] = String(r.due_date).slice(0, 10)
+        if (!(r.id in edits)) edits[r.id] = String(r.due_date).slice(0, 10)
       })
     setDueDateEdits(edits)
     const dueDate = row.due_date ? new Date(String(row.due_date)) : null
@@ -1000,6 +1019,22 @@ export function InstallmentCollectionPage() {
   const exitSpecialListModes = () => {
     setPaidToday(false)
     setCompletedContracts(false)
+  }
+
+  const saveCollectionFocus = (customerId: number) => {
+    saveInstallmentCollectionFocus({
+      customerId,
+      selectedBranchId,
+      customerSearch,
+      statusFilter,
+      contractTierFilter,
+      collectionStatusFilter,
+      collectorFilter,
+      sortByReminder,
+      followUpToday,
+      paidToday,
+      completedContracts,
+    })
   }
 
   return (
@@ -1250,30 +1285,16 @@ export function InstallmentCollectionPage() {
             <div className={`grid gap-md lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:min-h-0 lg:overflow-hidden ${showChrome ? 'lg:max-h-[calc(100dvh-8.5rem)]' : 'lg:max-h-[calc(100dvh-13rem)]'}`}>
               <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
                 <AsyncState
-                  isLoading={listQuery.isLoading}
-                  isError={listQuery.isError}
-                  error={listQuery.error}
+                  isLoading={listQuery.isLoading || (paidToday && dailyStatsQuery.isLoading)}
+                  isError={listQuery.isError || (paidToday && dailyStatsQuery.isError)}
+                  error={listQuery.error ?? (paidToday ? dailyStatsQuery.error : undefined)}
                 >
                 <InstallmentCollectionGroupedList
                   rows={filteredRows}
                   sortMode={sortByReminder ? 'reminder' : 'priority'}
                   focusCustomerId={collectionFocus?.customerId ?? null}
-                  onOpenProfile={(customerId) =>
-                    saveInstallmentCollectionFocus({
-                      customerId,
-                      selectedBranchId,
-                      customerSearch,
-                      statusFilter,
-                      contractTierFilter,
-                      collectionStatusFilter,
-                      collectorFilter,
-                      sortByReminder,
-                      followUpToday,
-                      paidToday,
-                      completedContracts,
-                    })
-                  }
-                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}`}
+                  onOpenProfile={saveCollectionFocus}
+                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}-${sortByReminder ? 'reminder' : 'priority'}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {
@@ -1369,6 +1390,7 @@ export function InstallmentCollectionPage() {
                 branchEmployees={branchEmployeesQuery.data ?? []}
                 suspendMutation={suspendMutation}
                 resumeMutation={resumeMutation}
+                onOpenProfile={saveCollectionFocus}
               />
               </div>
             </div>

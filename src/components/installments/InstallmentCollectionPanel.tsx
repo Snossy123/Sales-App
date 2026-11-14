@@ -24,7 +24,7 @@ import { normalizeScannedDigits } from '../../lib/scanner'
 import { formatInvoiceDate } from '../../lib/sales'
 import { TextArea } from '../ui/TextArea'
 import { NumericInput } from '../ui/NumericInput'
-import { userCanPerform } from '../../lib/access'
+import { userCanPerform, userHasPermission } from '../../lib/access'
 import { useAuthStore } from '../../stores/authStore'
 
 
@@ -123,6 +123,7 @@ export interface InstallmentCollectionPanelProps {
     unknown
   >
   resumeMutation: UseMutationResult<unknown, Error, void, unknown>
+  onOpenProfile?: (customerId: number) => void
 }
 
 export function InstallmentCollectionPanelEmpty() {
@@ -188,8 +189,10 @@ export function InstallmentCollectionPanel({
   hideCash = false,
   suspendMutation,
   resumeMutation,
+  onOpenProfile,
 }: InstallmentCollectionPanelProps) {
   const user = useAuthStore((s) => s.user)
+  const canViewCustomers = userHasPermission(user, 'customers.manage') || userHasPermission(user, 'customers.view')
   const canCollectPayment =
     userCanPerform(user, 'installments.collect') || userCanPerform(user, 'external_collections.collect')
   const canReconcile = userCanPerform(user, 'installments.reconcile')
@@ -278,9 +281,12 @@ export function InstallmentCollectionPanel({
             <dt className="text-on-surface-variant">العميل</dt>
             <dd className="flex min-w-0 items-center gap-2 font-medium text-on-surface">
               <span className="truncate">{String(selected.customer_name ?? '—')}</span>
-              {selected.customer_id ? (
+              {selected.customer_id && canViewCustomers ? (
                 <Link
                   to={`/customers/${selected.customer_id}`}
+                  onClick={() => {
+                    if (selected.customer_id) onOpenProfile?.(selected.customer_id)
+                  }}
                   className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
                 >
                   <Icon name="open_in_new" size={14} />
@@ -307,6 +313,9 @@ export function InstallmentCollectionPanel({
               {selected.sales_invoice_id ? (
                 <Link
                   to={`/contracts/${selected.sales_invoice_id}`}
+                  onClick={() => {
+                    if (selected.customer_id) onOpenProfile?.(selected.customer_id)
+                  }}
                   className="text-xs text-primary hover:underline"
                 >
                   التفاصيل

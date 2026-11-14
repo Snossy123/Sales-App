@@ -18,6 +18,8 @@ import { formatDatetime12hDisplay, isReminderDueToday } from '../../lib/datetime
 import { customerToPhoneEntries, type CustomerPhoneEntry } from '../../lib/customerForm'
 import { formatInvoiceDate, normalizeInstallmentItem } from '../../lib/sales'
 import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
+import { userHasPermission } from '../../lib/access'
+import { useAuthStore } from '../../stores/authStore'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { Icon } from '../Icon'
 import { StatusBadge } from '../StatusBadge'
@@ -622,6 +624,8 @@ export function InstallmentCollectionGroupedList({
   onLoadMore,
 }: InstallmentCollectionGroupedListProps) {
   const groups = useMemo(() => groupInstallmentsByCustomerAndContract(rows, sortMode), [rows, sortMode])
+  const user = useAuthStore((s) => s.user)
+  const canViewCustomers = userHasPermission(user, 'customers.manage') || userHasPermission(user, 'customers.view')
   const timeZone = useOrgSettingsStore((state) => state.general?.timezone || 'Africa/Cairo')
   const [currentTime, setCurrentTime] = useState(() => Date.now())
   const [expandedViews, setExpandedViews] = useState<Record<string, ContractExpandView>>({})
@@ -714,7 +718,7 @@ export function InstallmentCollectionGroupedList({
           summary={`${customer.contracts.length} عقد · ${customer.totalRemaining.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م متبقي${customer.overdueCount > 0 ? ` · ${customer.overdueCount} متأخر` : ''}`}
           defaultOpen={compact || index === 0 || customer.customerId === focusCustomerId}
           actions={
-            customer.customerId ? (
+            customer.customerId && canViewCustomers ? (
               <Link
                 to={`/customers/${customer.customerId}`}
                 title="فتح بروفايل العميل"
@@ -742,7 +746,7 @@ export function InstallmentCollectionGroupedList({
                     {(entry.label ?? '').trim() || `رقم ${index + 1}`}
                   </p>
                   <a
-                    href={`tel:${entry.number}`}
+                    href={`tel:${entry.number.replace(/\s+/g, '')}`}
                     dir="ltr"
                     className="mt-1 block text-sm font-bold tabular-nums text-primary hover:underline"
                   >
@@ -761,7 +765,8 @@ export function InstallmentCollectionGroupedList({
               const multipleContracts = customer.contracts.length > 1
               const contractOpen =
                 contractOpenByKey[contractKey] ?? (!multipleContracts || contractIndex === 0)
-              const contractTier = contractFilterTier(contract.rows)
+              const allRowsPaid = contract.rows.length > 0 && contract.rows.every((r) => r.status === 'paid')
+              const contractTier = allRowsPaid ? 'paid' : contractFilterTier(contract.rows)
               const reminderDueToday = isReminderDueToday(
                 contract.collectionReminderAt,
                 timeZone,
@@ -831,7 +836,10 @@ export function InstallmentCollectionGroupedList({
                             to={`/contracts/${contract.invoiceId}`}
                             dir="ltr"
                             className="text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (customer.customerId) onOpenProfile?.(customer.customerId)
+                            }}
                           >
                             {contract.invoiceNumber}
                           </Link>
@@ -879,7 +887,10 @@ export function InstallmentCollectionGroupedList({
                             to={`/contracts/${contract.invoiceId}`}
                             dir="ltr"
                             className="text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (customer.customerId) onOpenProfile?.(customer.customerId)
+                            }}
                           >
                             {contract.invoiceNumber}
                           </Link>
@@ -960,6 +971,29 @@ export function InstallmentCollectionGroupedList({
                       }
                       quickStatusPending={quickStatusPendingId === current.id}
                     />
+                  ) : allRowsPaid ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fallback = contract.rows[contract.rows.length - 1]
+                        if (fallback) onSelect(fallback)
+                      }}
+                      className={`flex w-full items-center justify-between gap-sm rounded-lg border px-sm py-sm text-right text-sm ${
+                        selectedId && contract.rows.some((row) => row.id === selectedId)
+                          ? 'border-primary/40 bg-primary/10'
+                          : 'border-outline-variant/70 bg-surface-container-low'
+                      }`}
+                    >
+                      <div className="flex items-center gap-xs">
+                        <StatusBadge status="paid" />
+                        <span className="text-on-surface">تم سداد الأقساط المعروضة</span>
+                      </div>
+                      {contract.rows[contract.rows.length - 1]?.paid_at ? (
+                        <span className="tabular-nums text-xs text-on-surface-variant" dir="ltr">
+                          {formatInvoiceDate(contract.rows[contract.rows.length - 1].paid_at)}
+                        </span>
+                      ) : null}
+                    </button>
                   ) : (
                     <button
                       type="button"
