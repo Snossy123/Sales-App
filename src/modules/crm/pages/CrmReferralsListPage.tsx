@@ -209,6 +209,7 @@ export function CrmReferralsListPage() {
     >
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <CrmTable
+          minWidth="840px"
           header={
             <CrmTableHeader columns={COLS}>
               <CrmCheckbox checked={allOn} onChange={toggleAll} />

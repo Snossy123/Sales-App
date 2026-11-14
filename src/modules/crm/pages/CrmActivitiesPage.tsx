@@ -297,6 +297,9 @@ function InstallationsPanel({
         </p>
       ) : (
         <CrmTable
+          borderless
+          maxBodyHeight="420px"
+          minWidth="760px"
           header={
             <CrmTableHeader columns={INSTALL_COLS}>
               <CrmTableHeaderCell>العقد</CrmTableHeaderCell>
@@ -348,30 +351,32 @@ function TasksPanel({ rows }: { rows: ActivitiesBoardTaskRow[] }) {
           لا توجد مهام
         </p>
       ) : (
-        rows.map((row) => {
-          const meta = statusMeta(row.status)
-          return (
-            <div
-              key={row.id}
-              className="flex items-center gap-2.5 px-[18px] py-2.5"
-              style={{ borderBottom: '1px solid var(--crm-border-soft)' }}
-            >
-              <span
-                className="h-[7px] w-[7px] shrink-0 rounded-full"
-                style={{ background: meta.color }}
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[12.5px] font-semibold">{row.subject}</span>
-                <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
-                  {row.owner_name} · {formatDatetime12hDisplay(row.date)}
+        <div className="max-h-[360px] overflow-y-auto overscroll-contain">
+          {rows.map((row) => {
+            const meta = statusMeta(row.status)
+            return (
+              <div
+                key={row.id}
+                className="flex items-center gap-2.5 px-[18px] py-2.5"
+                style={{ borderBottom: '1px solid var(--crm-border-soft)' }}
+              >
+                <span
+                  className="h-[7px] w-[7px] shrink-0 rounded-full"
+                  style={{ background: meta.color }}
+                />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-[12.5px] font-semibold">{row.subject}</span>
+                  <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
+                    {row.owner_name} · {formatDatetime12hDisplay(row.date)}
+                  </span>
+                </div>
+                <span className="text-[11.5px] font-semibold" style={{ color: meta.color }}>
+                  {meta.label}
                 </span>
               </div>
-              <span className="text-[11.5px] font-semibold" style={{ color: meta.color }}>
-                {meta.label}
-              </span>
-            </div>
-          )
-        })
+            )
+          })}
+        </div>
       )}
     </PanelShell>
   )
@@ -390,41 +395,43 @@ function CallsPanel({ rows }: { rows: ActivitiesBoardCallRow[] }) {
           لا توجد مكالمات
         </p>
       ) : (
-        rows.map((row) => {
-          const meta = statusMeta(row.status)
-          const name = row.referral_lead_name || row.subject || '—'
-          const phone = row.phones[0] ?? '—'
-          return (
-            <div
-              key={row.id}
-              className="flex items-center gap-2.5 px-[18px] py-2.5"
-              style={{ borderBottom: '1px solid var(--crm-border-soft)' }}
-            >
-              <span
-                className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[9px] text-[11px] font-semibold"
-                style={{
-                  background: 'var(--crm-neutral-soft)',
-                  color: 'var(--crm-text-muted)',
-                }}
+        <div className="max-h-[360px] overflow-y-auto overscroll-contain">
+          {rows.map((row) => {
+            const meta = statusMeta(row.status)
+            const name = row.referral_lead_name || row.subject || '—'
+            const phone = row.phones[0] ?? '—'
+            return (
+              <div
+                key={row.id}
+                className="flex items-center gap-2.5 px-[18px] py-2.5"
+                style={{ borderBottom: '1px solid var(--crm-border-soft)' }}
               >
-                {String(name).slice(0, 1)}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[12.5px] font-semibold">{name}</span>
                 <span
-                  className="text-[11.5px] tabular-nums"
-                  dir="ltr"
-                  style={{ color: 'var(--crm-text-faint)' }}
+                  className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[9px] text-[11px] font-semibold"
+                  style={{
+                    background: 'var(--crm-neutral-soft)',
+                    color: 'var(--crm-text-muted)',
+                  }}
                 >
-                  {phone} · {formatDatetime12hDisplay(row.date)}
+                  {String(name).slice(0, 1)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-[12.5px] font-semibold">{name}</span>
+                  <span
+                    className="text-[11.5px] tabular-nums"
+                    dir="ltr"
+                    style={{ color: 'var(--crm-text-faint)' }}
+                  >
+                    {phone} · {formatDatetime12hDisplay(row.date)}
+                  </span>
+                </div>
+                <span className="text-[11.5px] font-semibold" style={{ color: meta.color }}>
+                  {meta.label}
                 </span>
               </div>
-              <span className="text-[11.5px] font-semibold" style={{ color: meta.color }}>
-                {meta.label}
-              </span>
-            </div>
-          )
-        })
+            )
+          })}
+        </div>
       )}
     </PanelShell>
   )

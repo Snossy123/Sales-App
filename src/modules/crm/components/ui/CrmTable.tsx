@@ -1,25 +1,60 @@
 import type { ReactNode } from 'react'
 
-interface CrmTableProps {
+export interface CrmTableProps {
   header: ReactNode
   footer?: ReactNode
   children: ReactNode
+  /** Maximum height of the scrollable table body. Defaults to 'min(62vh, 480px)'. Pass `null` or `'none'` to disable capping. */
+  maxBodyHeight?: string | number | null
+  /** Minimum width for the table content to ensure columns don't compress. */
+  minWidth?: string | number
+  className?: string
+  bodyClassName?: string
+  /** Whether the table body is scrollable. Defaults to true. */
+  scrollable?: boolean
+  /** Remove border, radius, and shadow when nested inside an outer panel card */
+  borderless?: boolean
 }
 
-export function CrmTable({ header, footer, children }: CrmTableProps) {
+export function CrmTable({
+  header,
+  footer,
+  children,
+  maxBodyHeight = 'min(62vh, 480px)',
+  minWidth,
+  className = '',
+  bodyClassName = '',
+  scrollable = true,
+  borderless = false,
+}: CrmTableProps) {
+  const isCapped = scrollable && maxBodyHeight != null && maxBodyHeight !== 'none'
+
+  const content = (
+    <div className="flex flex-col" style={minWidth ? { minWidth } : undefined}>
+      <div className="shrink-0">{header}</div>
+      <div
+        className={`min-h-0 ${scrollable ? 'overflow-y-auto overscroll-contain' : ''} ${bodyClassName}`}
+        style={isCapped ? { maxHeight: maxBodyHeight } : undefined}
+      >
+        {children}
+      </div>
+      {footer ? <div className="shrink-0">{footer}</div> : null}
+    </div>
+  )
+
   return (
     <div
-      className="overflow-hidden"
+      className={`overflow-hidden ${className}`}
       style={{
         background: 'var(--crm-surface)',
-        border: '1px solid var(--crm-border)',
-        borderRadius: 'var(--crm-radius-md)',
-        boxShadow: 'var(--crm-shadow)',
+        border: borderless ? 'none' : '1px solid var(--crm-border)',
+        borderRadius: borderless ? 0 : 'var(--crm-radius-md)',
+        boxShadow: borderless ? 'none' : 'var(--crm-shadow)',
       }}
     >
-      {header}
-      {children}
-      {footer}
+      <div className="overflow-x-auto">
+        {content}
+      </div>
     </div>
   )
 }

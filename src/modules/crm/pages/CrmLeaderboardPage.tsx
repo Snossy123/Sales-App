@@ -289,6 +289,7 @@ export function CrmLeaderboardPage() {
             )}
 
             <CrmTable
+              minWidth="780px"
               header={
                 <>
                   <div

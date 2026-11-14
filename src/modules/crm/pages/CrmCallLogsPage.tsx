@@ -649,6 +649,7 @@ export function CrmCallLogsPage() {
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         <CrmTable
+          minWidth="760px"
           header={
             <CrmTableHeader columns={CALL_COLS}>
               <CrmTableHeaderCell>جهة الاتصال</CrmTableHeaderCell>

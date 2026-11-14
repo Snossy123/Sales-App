@@ -306,6 +306,7 @@ export function CrmReportsPage() {
                 </p>
               ) : (
                 <CrmTable
+                  minWidth="720px"
                   header={
                     <CrmTableHeader columns={PERF_COLS}>
                       <CrmTableHeaderCell>الموظف</CrmTableHeaderCell>
