@@ -799,6 +799,10 @@ export function InstallmentCollectionPage() {
     onSuccess: async () => {
       await refreshCollectionLists()
       resetInstallmentProcedure()
+      setCompletedContracts(false)
+      setPaidToday(false)
+      setFollowUpToday(false)
+      setCollectionStatusFilter('none')
     },
   })
 
@@ -838,6 +842,10 @@ export function InstallmentCollectionPage() {
         queryClient.invalidateQueries({ queryKey: ['collection-follow-ups', selected.sales_invoice_id] })
       }
       resetInstallmentProcedure()
+      setCompletedContracts(false)
+      setPaidToday(false)
+      setFollowUpToday(false)
+      setCollectionStatusFilter('none')
     },
   })
 
@@ -1363,7 +1371,7 @@ export function InstallmentCollectionPage() {
                 collectionReminderAt={collectionReminderAt}
                 onCollectionReminderAtChange={(value) => {
                   setCollectionReminderAt(value)
-                  if (value) setCollectionStatus('new_payment_date')
+                  if (value && !collectionStatus) setCollectionStatus('new_payment_date')
                 }}
                 collectionNotes={collectionNotes}
                 onCollectionNotesChange={setCollectionNotes}
