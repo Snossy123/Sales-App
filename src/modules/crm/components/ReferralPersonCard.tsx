@@ -1,10 +1,17 @@
+import type { ReferralLeadStatus } from '../../../api/types'
 import { DateTimeInput12h } from '../../../components/DateTimeInput12h'
 import { Icon } from '../../../components/Icon'
+import {
+  REFERRAL_STATUSES,
+  REFERRAL_STATUS_META,
+  referralStatusLabel,
+} from '../lib/referralLeads'
 
 export type ReferralEntry = {
   key: string
   phone: string
   name: string
+  status: ReferralLeadStatus
   follow_up_at: string
   notes: string
 }
@@ -40,6 +47,29 @@ export function ReferralPersonCard({
     </span>
   )
 
+  const statusMeta = REFERRAL_STATUS_META[entry.status]
+  const statusBadge = (
+    <span
+      className="inline-flex items-center gap-1 rounded-[7px] px-2 py-0.5 text-xs font-semibold"
+      style={{
+        background: statusMeta?.tint ?? 'var(--crm-surface-muted)',
+        color: statusMeta?.color ?? 'var(--crm-text)',
+      }}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${statusMeta?.dotClass ?? ''}`} />
+      {referralStatusLabel(entry.status)}
+    </span>
+  )
+
+  const dateLabel =
+    entry.status === 'installation_scheduled'
+      ? 'تاريخ ووقت موعد التركيب'
+      : entry.status === 'installed'
+        ? 'تاريخ التركيب'
+        : entry.status === 'not_interested'
+          ? 'موعد المتابعة'
+          : 'موعد المتابعة الأولى'
+
   if (!expanded) {
     return (
       <div
@@ -53,9 +83,10 @@ export function ReferralPersonCard({
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-2 text-start"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-start"
         >
           {badge}
+          {statusBadge}
           {(entry.phone || entry.name) && (
             <span className="truncate text-sm" style={{ color: 'var(--crm-text-muted)' }}>
               {entry.name || entry.phone}
@@ -95,6 +126,7 @@ export function ReferralPersonCard({
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={onToggle} className="flex items-center gap-2">
           {badge}
+          {statusBadge}
           <Icon name="expand_less" size={20} />
         </button>
         {canRemove && (
@@ -150,7 +182,31 @@ export function ReferralPersonCard({
       <div className="grid gap-sm sm:grid-cols-2">
         <div>
           <label className="mb-xs block text-sm font-medium text-on-surface">
-            موعد المتابعة الأولى{' '}
+            الحالة
+          </label>
+          <div className="relative">
+            <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
+              <Icon name="flag" size={18} />
+            </span>
+            <select
+              value={entry.status}
+              onChange={(e) => onChange({ status: e.target.value as ReferralLeadStatus })}
+              className={`${inputClass} cursor-pointer appearance-none pe-9`}
+            >
+              {REFERRAL_STATUSES.map((st) => (
+                <option key={st.key} value={st.key}>
+                  {st.label}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
+              <Icon name="expand_more" size={18} />
+            </span>
+          </div>
+        </div>
+        <div>
+          <label className="mb-xs block text-sm font-medium text-on-surface">
+            {dateLabel}{' '}
             <span className="font-normal text-on-surface-variant">(اختياري)</span>
           </label>
           <DateTimeInput12h
@@ -158,22 +214,23 @@ export function ReferralPersonCard({
             onChange={(value) => onChange({ follow_up_at: value })}
           />
         </div>
-        <div>
-          <label className="mb-xs block text-sm font-medium text-on-surface">
-            ملاحظات <span className="font-normal text-on-surface-variant">(اختياري)</span>
-          </label>
-          <div className="relative">
-            <span className="pointer-events-none absolute start-3 top-3 text-on-surface-variant">
-              <Icon name="description" size={18} />
-            </span>
-            <textarea
-              placeholder="اكتب أي ملاحظات حول الترشيح..."
-              value={entry.notes}
-              onChange={(e) => onChange({ notes: e.target.value })}
-              rows={3}
-              className={`${inputClass} min-h-[5.5rem] resize-y pt-2.5`}
-            />
-          </div>
+      </div>
+
+      <div>
+        <label className="mb-xs block text-sm font-medium text-on-surface">
+          ملاحظات <span className="font-normal text-on-surface-variant">(اختياري)</span>
+        </label>
+        <div className="relative">
+          <span className="pointer-events-none absolute start-3 top-3 text-on-surface-variant">
+            <Icon name="description" size={18} />
+          </span>
+          <textarea
+            placeholder="اكتب أي ملاحظات حول الترشيح..."
+            value={entry.notes}
+            onChange={(e) => onChange({ notes: e.target.value })}
+            rows={2}
+            className={`${inputClass} min-h-[4.5rem] resize-y pt-2.5`}
+          />
         </div>
       </div>
     </div>

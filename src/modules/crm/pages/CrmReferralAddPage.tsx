@@ -32,6 +32,7 @@ function createEmptyEntry(): ReferralEntry {
     key: crypto.randomUUID(),
     phone: '',
     name: '',
+    status: 'installation_scheduled',
     follow_up_at: '',
     notes: '',
   }
@@ -109,11 +110,18 @@ export function CrmReferralAddPage() {
           : { referred_by_customer_id: null, referred_by_referral_lead_id: null }
 
     for (const entry of validEntries) {
+      const isInstallationScheduled = entry.status === 'installation_scheduled'
+      const isInstalled = entry.status === 'installed'
+      const dateValue = entry.follow_up_at.trim() || null
+
       await api.post<ReferralLead>('/crm/referral-leads', {
         phone: entry.phone.trim(),
         name: entry.name.trim() || null,
+        status: entry.status,
         notes: entry.notes.trim() || null,
-        follow_up_at: entry.follow_up_at || null,
+        follow_up_at: !isInstallationScheduled && !isInstalled ? dateValue : null,
+        installation_scheduled_at: isInstallationScheduled ? dateValue : null,
+        installed_at: isInstalled ? dateValue : null,
         ...referrerPayload,
       })
     }
