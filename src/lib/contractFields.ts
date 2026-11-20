@@ -9,6 +9,7 @@ import type {
 import {
   cashRemainder,
   cashScheduleOptions,
+  cashSchedulePaymentCount,
   isDeferredCashSchedule,
   linePaidNow,
   type CashSchedule,
@@ -607,6 +608,11 @@ export function cashScheduleLabel(schedule?: string | null): string {
   return match?.label ?? 'فوري'
 }
 
+export interface CashDuePayment {
+  amount: number
+  dueDate: string
+}
+
 export interface LinePaymentDisplay {
   isCash: boolean
   scheduleLabel: string | null
@@ -614,6 +620,7 @@ export interface LinePaymentDisplay {
   showDownPayment: boolean
   remainder: number
   paymentsLabel: string | null
+  payments: CashDuePayment[]
 }
 
 function schedulePaymentsLabel(plan: InstallmentPlan | null | undefined): string | null {
@@ -661,6 +668,7 @@ export function linePaymentDisplay(
       showDownPayment: true,
       remainder: Math.max(0, lineTotal - Math.min(lineTotal, Math.max(0, downPayment))),
       paymentsLabel: null,
+      payments: [],
     }
   }
 
@@ -668,6 +676,7 @@ export function linePaymentDisplay(
   const paidNow = linePaidNow('cash', schedule, lineTotal, downPayment)
   const remainder =
     paidNow >= lineTotal ? 0 : cashRemainder(lineTotal, downPayment)
+  const payments = cashDuePayments(schedule, invoice, plan, remainder)
 
   return {
     isCash: true,
@@ -676,7 +685,81 @@ export function linePaymentDisplay(
     showDownPayment: downPayment > 0,
     remainder,
     paymentsLabel: remainder > 0 ? schedulePaymentsLabel(plan) : null,
+    payments,
   }
+}
+
+function addCalendarMonths(isoDate: string, months: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate)
+  if (!match) return isoDate
+  const date = new Date(Number(match[1]), Number(match[2]) - 1 + months, Number(match[3]))
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function splitAmount(total: number, count: number): number[] {
+  if (count < 1) return []
+  const cents = Math.round(total * 100)
+  const each = Math.floor(cents / count)
+  const extra = cents - each * count
+  return Array.from({ length: count }, (_, index) => (each + (index === count - 1 ? extra : 0)) / 100)
+}
+
+function storedCashPayments(plan: InstallmentPlan | null | undefined): CashDuePayment[] {
+  if (!plan) return []
+  const custom = plan.custom_schedule
+  if (custom && custom.length > 0) {
+    return custom.map((row) => ({ amount: Number(row.amount), dueDate: row.due_date }))
+  }
+  const items = plan.items ?? []
+  if (items.length === 0) return []
+  return items.map((item) => ({ amount: Number(item.amount), dueDate: item.due_date }))
+}
+
+function derivedCashPayments(
+  schedule: CashSchedule,
+  invoice: SalesInvoice,
+  plan: InstallmentPlan | null | undefined,
+  remainder: number,
+): CashDuePayment[] {
+  const presetCount = cashSchedulePaymentCount(schedule)
+  if (presetCount > 0 && invoice.invoice_date) {
+    const amounts = splitAmount(remainder, presetCount)
+    return amounts.map((amount, index) => ({
+      amount,
+      dueDate: addCalendarMonths(invoice.invoice_date, index + 1),
+    }))
+  }
+
+  const count = plan?.installment_count ?? 0
+  if (count < 1 || remainder <= 0) return []
+  const anchor = plan?.first_due_date
+    ? plan.first_due_date
+    : invoice.invoice_date
+      ? addCalendarMonths(invoice.invoice_date, 1)
+      : null
+  if (!anchor) return []
+  const amounts = splitAmount(remainder, count)
+  return amounts.map((amount, index) => ({
+    amount,
+    dueDate: addCalendarMonths(anchor, index),
+  }))
+}
+
+/** Stored cash rows win. Preset schedules (شهر / شهرين / 3 شهور) are dated from the contract date. */
+function cashDuePayments(
+  schedule: CashSchedule,
+  invoice: SalesInvoice,
+  plan: InstallmentPlan | null | undefined,
+  remainder: number,
+): CashDuePayment[] {
+  if (schedule === 'immediate') return []
+  const stored = storedCashPayments(plan)
+  if (stored.length > 0) return stored
+  if (remainder <= 0) return []
+  return derivedCashPayments(schedule, invoice, plan, remainder)
 }
 
 export function cashReviewRows(invoice: SalesInvoice): { label: string; value: string }[] {
@@ -849,30 +932,8 @@ function uniformHeaderFields(
   amountSuffix: string,
 ): ContractPaymentField[] {
   const term = resolveLinePaymentTerm(line, invoice)
-  const payment = linePaymentDisplay(line, invoice)
 
-  if (term === 'cash') {
-    const fields: ContractPaymentField[] = [
-      { label: 'طريقة الدفع', value: 'كاش' },
-      { label: 'موعد الكاش', value: payment.scheduleLabel ?? 'فوري' },
-    ]
-    if (payment.showDownPayment) {
-      fields.push({
-        label: 'المقدم',
-        value: `${fmtContractMoney(payment.downPayment)}${amountSuffix}`,
-      })
-      if (payment.remainder > 0) {
-        fields.push({
-          label: 'المتبقي بعد المقدم',
-          value: `${fmtContractMoney(payment.remainder)}${amountSuffix}`,
-        })
-      }
-    }
-    if ((line.cash_schedule ?? 'immediate') === 'custom' && payment.paymentsLabel) {
-      fields.push({ label: 'الدفعات', value: `${payment.paymentsLabel}${amountSuffix}` })
-    }
-    return fields
-  }
+  if (term === 'cash') return []
 
   const plan = resolveLinePlan(line, invoice)
   const fields: ContractPaymentField[] = [{ label: 'طريقة الدفع', value: 'تقسيط' }]

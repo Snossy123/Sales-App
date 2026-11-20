@@ -7,6 +7,7 @@ import {
   fmtContractMoney,
   invoiceContractSummary,
   linePaymentDisplay,
+  type CashDuePayment,
   resolveInstallmentMethodLabel,
   resolveProductModelName,
   resolveRenewalTypeLabel,
@@ -38,6 +39,28 @@ function resolveServiceLineLabel(line: SalesInvoiceLine): string {
     line.service?.name ??
     line.product_name_ar ??
     '—'
+  )
+}
+
+function CashDueList({ payments }: { payments: CashDuePayment[] }) {
+  if (payments.length === 0) return null
+  return (
+    <div className="border-t border-outline-variant/40 px-sm py-sm">
+      <p className="mb-xs text-xs font-bold text-on-surface">مواعيد الكاش</p>
+      <ul className="space-y-1">
+        {payments.map((payment, index) => (
+          <li
+            key={`${payment.dueDate}-${index}`}
+            className="flex items-center justify-between gap-sm text-sm"
+          >
+            <span className="text-on-surface-variant">{fmtContractDate(payment.dueDate)}</span>
+            <span className="font-medium tabular-nums text-on-surface">
+              {fmtContractMoney(payment.amount)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -320,12 +343,7 @@ function DeviceDetailCard({
           <MetricCell key={cell.label} {...cell} />
         ))}
       </div>
-      {payment.paymentsLabel ? (
-        <p className="border-t border-outline-variant/40 px-sm py-2 text-sm text-on-surface-variant">
-          دفعات الكاش:{' '}
-          <span className="font-medium text-on-surface">{payment.paymentsLabel}</span>
-        </p>
-      ) : null}
+      <CashDueList payments={payment.payments} />
     </div>
   )
 }
@@ -387,12 +405,7 @@ function ServiceDetailCard({
           <MetricCell key={cell.label} {...cell} />
         ))}
       </div>
-      {payment.paymentsLabel ? (
-        <p className="border-t border-outline-variant/40 px-sm py-2 text-sm text-on-surface-variant">
-          دفعات الكاش:{' '}
-          <span className="font-medium text-on-surface">{payment.paymentsLabel}</span>
-        </p>
-      ) : null}
+      <CashDueList payments={payment.payments} />
     </div>
   )
 }

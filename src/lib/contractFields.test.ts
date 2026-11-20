@@ -257,6 +257,46 @@ describe('linePaymentDisplay', () => {
     expect(display.isCash).toBe(false)
     expect(display.showDownPayment).toBe(true)
     expect(display.scheduleLabel).toBeNull()
+    expect(display.payments).toEqual([])
+  })
+
+  it('dates a two-month cash schedule from the contract date when no payments are stored', () => {
+    const plan = makePlan(7, 1, 3000, [])
+    const line = makeLine(1, 6800, 'cash', plan)
+    line.cash_schedule = 'month_2'
+    const display = linePaymentDisplay(
+      line,
+      makeInvoice([line], { payment_term: 'cash', invoice_date: '2026-09-19' }),
+    )
+
+    expect(display.payments).toEqual([
+      { amount: 1900, dueDate: '2026-10-19' },
+      { amount: 1900, dueDate: '2026-11-19' },
+    ])
+  })
+
+  it('uses stored cash payments instead of deriving dates', () => {
+    const plan = makePlan(8, 1, 0, [makeItem(1, 1500, 0), makeItem(2, 2300, 0)])
+    plan.custom_schedule = [
+      { amount: 1500, due_date: '2026-12-01' },
+      { amount: 2300, due_date: '2027-01-01' },
+    ]
+    const line = makeLine(1, 3800, 'cash', plan)
+    line.cash_schedule = 'custom'
+    const display = linePaymentDisplay(line, makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(display.payments).toEqual([
+      { amount: 1500, dueDate: '2026-12-01' },
+      { amount: 2300, dueDate: '2027-01-01' },
+    ])
+  })
+
+  it('lists no cash dates for immediate cash', () => {
+    const line = makeLine(1, 1000, 'cash')
+    line.cash_schedule = 'immediate'
+    const display = linePaymentDisplay(line, makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(display.payments).toEqual([])
   })
 })
 
@@ -347,5 +387,16 @@ describe('contractPaymentSummary', () => {
     expect(summary.headerFields).toEqual([{ label: 'طريقة الدفع', value: 'متعددة' }])
     expect(summary.lineDetails[1]).toContain('325 ج')
     expect(summary.lineDetails[2]).toContain('400 ج')
+  })
+
+  it('leaves cash details off the header because the device card lists them', () => {
+    const line = makeLine(1, 6800, 'cash', makePlan(7, 1, 3000, []))
+    line.cash_schedule = 'month_2'
+    const summary = contractPaymentSummary(
+      makeInvoice([line], { payment_term: 'cash', invoice_date: '2026-09-19' }),
+    )
+
+    expect(summary.uniform).toBe(true)
+    expect(summary.headerFields).toEqual([])
   })
 })
