@@ -27,6 +27,7 @@ import { CustomersPage } from '../pages/CustomersPage'
 import { CustomerAddPage } from '../pages/CustomerAddPage'
 import { CustomerEditPage } from '../pages/CustomerEditPage'
 import { CustomerDetailPage } from '../pages/CustomerDetailPage'
+import { CustomerPublicProfilePage } from '../pages/public/CustomerPublicProfilePage'
 import { SalesDailyMissionPage } from '../pages/SalesDailyMissionPage'
 import { DistributorsPage } from '../pages/DistributorsPage'
 import { DistributorAddPage } from '../pages/DistributorAddPage'
@@ -191,6 +192,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/setup" element={<BranchSetupPage />} />
+      <Route path="/c/:token" element={<CustomerPublicProfilePage />} />
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>

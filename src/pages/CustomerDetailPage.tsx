@@ -210,6 +210,16 @@ export function CustomerDetailPage() {
       ? completedRatings.reduce((a, b) => a + b, 0) / completedRatings.length
       : null
 
+  const [copiedProfileLink, setCopiedProfileLink] = useState(false)
+
+  const handleCopyProfileLink = async () => {
+    if (!customer) return
+    const { data } = await api.get<{ url: string }>(`/customers/${customer.id}/public-profile-link`)
+    await navigator.clipboard.writeText(data.url)
+    setCopiedProfileLink(true)
+    setTimeout(() => setCopiedProfileLink(false), 2500)
+  }
+
   return (
     <div>
       <Link
@@ -275,14 +285,23 @@ export function CustomerDetailPage() {
                       <h1 className="text-2xl font-bold text-on-surface">{customer.name}</h1>
                       <StatusBadge status={customer.status} />
                     </div>
-                    {canManage && (
-                      <div className="flex flex-wrap items-center gap-md">
-                        <Link
-                          to={`/customers/${customer.id}/edit`}
-                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                        >
-                          <Icon name="edit" size={18} />
-                          تعديل
+                    <div className="flex flex-wrap items-center gap-md">
+                      <button
+                        type="button"
+                        onClick={handleCopyProfileLink}
+                        className="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface px-2.5 py-1 text-xs font-medium text-on-surface hover:bg-surface-container"
+                      >
+                        <Icon name={copiedProfileLink ? 'check' : 'link'} size={16} />
+                        {copiedProfileLink ? 'تم نسخ الرابط' : 'نسخ رابط البروفايل'}
+                      </button>
+                      {canManage && (
+                        <>
+                          <Link
+                            to={`/customers/${customer.id}/edit`}
+                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                          >
+                            <Icon name="edit" size={18} />
+                            تعديل
                         </Link>
                         {canDelete && (
                           <button
@@ -294,8 +313,9 @@ export function CustomerDetailPage() {
                             حذف
                           </button>
                         )}
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-sm flex flex-wrap gap-x-md gap-y-1 text-sm text-on-surface-variant">
