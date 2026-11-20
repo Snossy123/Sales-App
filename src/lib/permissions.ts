@@ -464,7 +464,7 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
     normalized.match(/^\/invoices\/\d+\/ownership-transfer-contract$/) ||
     normalized.match(/^\/invoices\/\d+\/service-contract(?:\/\d+)?$/)
   ) {
-    return userHasPermission(user, 'review.print')
+    return Boolean(user)
   }
 
   if (normalized.match(/^\/invoices\/review\/\d+$/)) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { AuthUser } from '../api/types'
+import type { AuthUser, SalesInvoice } from '../api/types'
 import { getUserRole, isAnyAdmin, userHasPermission } from './access'
+import { canExchangeContract, canReturnContract } from './contractCases'
 import { canAccessRoute, getNavEntriesForUser } from './permissions'
 import {
   userHasAccountingAccess,
@@ -98,5 +99,25 @@ describe('expense edit and delete permissions', () => {
     for (const permission of ['expenses.edit', 'expenses.delete']) {
       expect(canAccessRoute('/review/expenses/123', user({ permissions: [permission], demo_role: 'sales' }))).toBe(true)
     }
+  })
+})
+
+describe('contract action access', () => {
+  const invoice = {
+    review_status: 'approved',
+    contract_status: 'active',
+  } as SalesInvoice
+
+  it('opens contract details, printing, return, and exchange without a special permission', () => {
+    const sales = user({ permissions: ['customers.view'], demo_role: 'sales' })
+    const collector = user({ permissions: [], demo_role: 'collector' })
+
+    expect(canAccessRoute('/contracts/12', sales)).toBe(true)
+    expect(canAccessRoute('/invoices/12/contract-print', sales)).toBe(true)
+    expect(canAccessRoute('/invoices/12/service-contract/3', sales)).toBe(true)
+    expect(canAccessRoute('/invoices/12/ownership-transfer-contract', collector)).toBe(true)
+    expect(canReturnContract(sales, invoice)).toBe(true)
+    expect(canExchangeContract(collector, invoice)).toBe(true)
+    expect(canAccessRoute('/problems', sales)).toBe(false)
   })
 })

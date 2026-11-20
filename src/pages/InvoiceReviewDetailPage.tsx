@@ -14,7 +14,6 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
-import { getUserRole, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel, reviewApproveLabel } from '../lib/contractKinds'
 import { canExchangeContract } from '../lib/contractCases'
@@ -29,9 +28,7 @@ export function InvoiceReviewDetailPage() {
   const [exchangeOpen, setExchangeOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
-  const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
   const { canApprove, canReject, canView: canViewDecision } = contractReviewPermissions(user)
-  const canPrint = userHasPermission(user, 'review.print') || reviewRole
 
   const query = useQuery({
     queryKey: ['sales-invoice', 'review', id],
@@ -80,7 +77,7 @@ export function InvoiceReviewDetailPage() {
 
   const invoice = query.data
   const invoiceId = Number(id)
-  const canReview = invoice?.review_status === 'pending' && (canApprove || canReject || canPrint)
+  const canReview = invoice?.review_status === 'pending' && (canApprove || canReject)
 
   return (
     <SalesPageShell
@@ -159,6 +156,7 @@ export function InvoiceReviewDetailPage() {
             <ContractReviewDetails invoice={invoice} />
 
             <ContractReviewDecisionPanel invoice={invoice}>
+              <ContractPrintActions invoice={invoice} autoPrint />
               {canReview ? (
                 <>
                   {canReject ? (
@@ -189,8 +187,6 @@ export function InvoiceReviewDetailPage() {
                       {reviewApproveLabel(invoice.contract_kind)}
                     </button>
                   ) : null}
-
-                  {canPrint ? <ContractPrintActions invoice={invoice} autoPrint /> : null}
 
                   {canReject ? (
                     <button

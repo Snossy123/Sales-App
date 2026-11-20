@@ -6,7 +6,13 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
 } from '../api/types'
-import { isDeferredCashSchedule } from './cashSchedule'
+import {
+  cashRemainder,
+  cashScheduleOptions,
+  isDeferredCashSchedule,
+  linePaidNow,
+  type CashSchedule,
+} from './cashSchedule'
 import { distributorLabel, isServiceInvoiceLine } from './sales'
 
 export const vehicleTypeLabels: Record<string, string> = {
@@ -596,6 +602,122 @@ export function resolvePlateLabel(line?: SalesInvoiceLine): string {
   return combined || '—'
 }
 
+export function cashScheduleLabel(schedule?: string | null): string {
+  const match = cashScheduleOptions.find((option) => option.value === schedule)
+  return match?.label ?? 'فوري'
+}
+
+export interface LinePaymentDisplay {
+  isCash: boolean
+  scheduleLabel: string | null
+  downPayment: number
+  showDownPayment: boolean
+  remainder: number
+  paymentsLabel: string | null
+}
+
+function schedulePaymentsLabel(plan: InstallmentPlan | null | undefined): string | null {
+  if (!plan) return null
+
+  const custom = plan.custom_schedule
+  const rows =
+    custom && custom.length > 0
+      ? custom
+      : (plan.items ?? []).map((item) => ({
+          amount: item.amount,
+          due_date: item.due_date,
+        }))
+
+  if (rows.length > 0) {
+    return rows
+      .map((row) => `${fmtContractMoney(row.amount)} في ${fmtContractDate(row.due_date)}`)
+      .join(' · ')
+  }
+
+  const count = plan.installment_count ?? 0
+  if (count > 0 && plan.first_due_date) {
+    const countLabel = count === 1 ? 'دفعة واحدة' : count === 2 ? 'دفعتان' : `${count} دفعات`
+    return `${countLabel}، أول استحقاق ${fmtContractDate(plan.first_due_date)}`
+  }
+
+  return null
+}
+
+/** Cash shows its schedule (فوري / شهر / شهرين / …). المقدم appears only when money was paid up front. */
+export function linePaymentDisplay(
+  line: SalesInvoiceLine | undefined,
+  invoice: SalesInvoice,
+): LinePaymentDisplay {
+  const term = resolveLinePaymentTerm(line, invoice)
+  const plan = resolveLinePlan(line, invoice)
+  const downPayment = Number(plan?.down_payment ?? 0)
+  const lineTotal = Number(line?.line_total ?? 0)
+
+  if (term !== 'cash') {
+    return {
+      isCash: false,
+      scheduleLabel: null,
+      downPayment,
+      showDownPayment: true,
+      remainder: Math.max(0, lineTotal - Math.min(lineTotal, Math.max(0, downPayment))),
+      paymentsLabel: null,
+    }
+  }
+
+  const schedule = (line?.cash_schedule ?? 'immediate') as CashSchedule
+  const paidNow = linePaidNow('cash', schedule, lineTotal, downPayment)
+  const remainder =
+    paidNow >= lineTotal ? 0 : cashRemainder(lineTotal, downPayment)
+
+  return {
+    isCash: true,
+    scheduleLabel: cashScheduleLabel(schedule),
+    downPayment,
+    showDownPayment: downPayment > 0,
+    remainder,
+    paymentsLabel: remainder > 0 ? schedulePaymentsLabel(plan) : null,
+  }
+}
+
+export function cashReviewRows(invoice: SalesInvoice): { label: string; value: string }[] {
+  const lines = (invoice.lines ?? []).filter(
+    (line) => resolveLinePaymentTerm(line, invoice) === 'cash',
+  )
+  if (lines.length === 0) return []
+
+  const seenPlans = new Set<number>()
+  let downPayment = 0
+  let remainder = 0
+  const scheduleLabels: string[] = []
+
+  for (const line of lines) {
+    const display = linePaymentDisplay(line, invoice)
+    if (display.scheduleLabel) scheduleLabels.push(display.scheduleLabel)
+
+    const plan = resolveLinePlan(line, invoice)
+    if (plan?.id != null) {
+      if (seenPlans.has(plan.id)) continue
+      seenPlans.add(plan.id)
+    }
+
+    downPayment += display.downPayment
+    remainder += display.remainder
+  }
+
+  const uniqueSchedules = [...new Set(scheduleLabels)]
+  const rows = [
+    {
+      label: 'موعد الكاش',
+      value: uniqueSchedules.length === 1 ? uniqueSchedules[0] : uniqueSchedules.join(' · '),
+    },
+  ]
+  if (downPayment > 0) rows.push({ label: 'المقدم', value: fmtContractMoney(downPayment) })
+  if (remainder > 0) {
+    rows.push({ label: 'المتبقي بعد المقدم', value: fmtContractMoney(remainder) })
+  }
+  return rows
+}
+
 export function resolveInstallmentMethodLabel(
   line?: SalesInvoiceLine,
   invoice?: SalesInvoice,
@@ -618,4 +740,183 @@ export function resolveRenewalTypeLabel(
   const renewalType = line?.renewal_type ?? invoice?.renewal_type
   if (!renewalType) return '—'
   return renewalTypeLabels[renewalType] ?? renewalType
+}
+
+export interface ContractPaymentField {
+  label: string
+  value: string
+}
+
+export interface ContractPaymentSummary {
+  uniform: boolean
+  headerFields: ContractPaymentField[]
+  lineDetails: Record<number, string>
+}
+
+function moneyKey(value: number): string {
+  return (Math.round(value * 100) / 100).toFixed(2)
+}
+
+function resolvedInstallmentAmount(
+  line: SalesInvoiceLine,
+  plan: InstallmentPlan | null | undefined,
+): number | null {
+  if (!plan) return null
+  if (plan.installment_amount != null && plan.installment_amount !== '') {
+    return Number(plan.installment_amount)
+  }
+  const count = plan.installment_count ?? 0
+  if (count < 1) return null
+  const down = Number(plan.down_payment ?? 0)
+  const total = Number(line.line_total ?? 0)
+  return Math.max(0, Math.round(((total - down) / count) * 100) / 100)
+}
+
+function customScheduleKey(plan: InstallmentPlan | null | undefined): string {
+  if (!plan) return ''
+  const custom = plan.custom_schedule
+  const rows =
+    custom && custom.length > 0
+      ? custom
+      : (plan.items ?? []).map((item) => ({
+          amount: item.amount,
+          due_date: item.due_date,
+        }))
+  return rows.map((row) => `${moneyKey(Number(row.amount))}@${row.due_date}`).join(',')
+}
+
+function linePaymentSignature(line: SalesInvoiceLine, invoice: SalesInvoice): string {
+  const term = resolveLinePaymentTerm(line, invoice)
+  const plan = resolveLinePlan(line, invoice)
+  const down = moneyKey(Number(plan?.down_payment ?? 0))
+
+  if (term === 'cash') {
+    const schedule = line.cash_schedule ?? 'immediate'
+    const display = linePaymentDisplay(line, invoice)
+    const custom = schedule === 'custom' ? customScheduleKey(plan) : ''
+    return `cash|${schedule}|${down}|${moneyKey(display.remainder)}|${custom}`
+  }
+
+  const amount = resolvedInstallmentAmount(line, plan)
+  return [
+    'installment',
+    down,
+    String(plan?.installment_count ?? 0),
+    amount == null ? 'none' : moneyKey(amount),
+    resolveIntervalLabel(plan),
+  ].join('|')
+}
+
+function perLineAmountSuffix(lines: SalesInvoiceLine[], invoice: SalesInvoice): string {
+  if (lines.length < 2) return ''
+  const eachLineHasOwnPlan = lines.every((line) => {
+    const plan = resolveLinePlan(line, invoice)
+    return plan != null && plan.sales_invoice_line_id != null
+  })
+  return eachLineHasOwnPlan ? ' لكل بند' : ''
+}
+
+function lineDetailLabel(line: SalesInvoiceLine, invoice: SalesInvoice): string {
+  const term = resolveLinePaymentTerm(line, invoice)
+  const payment = linePaymentDisplay(line, invoice)
+  const plan = resolveLinePlan(line, invoice)
+
+  if (term === 'cash') {
+    const rows = [`كاش · ${payment.scheduleLabel ?? cashScheduleLabel(line.cash_schedule)}`]
+    if (payment.showDownPayment) {
+      rows.push(`مقدم ${fmtContractMoney(payment.downPayment)}`)
+      if (payment.remainder > 0) rows.push(`المتبقي ${fmtContractMoney(payment.remainder)}`)
+    }
+    if ((line.cash_schedule ?? 'immediate') === 'custom' && payment.paymentsLabel) {
+      rows.push(payment.paymentsLabel)
+    }
+    return rows.join('\n')
+  }
+
+  const rows = ['تقسيط']
+  if (!plan) return rows.join('\n')
+  rows.push(`مقدم ${fmtContractMoney(plan.down_payment ?? 0)}`)
+  const method = resolveInstallmentMethodLabel(line, invoice)
+  if (method !== '—') rows.push(method)
+  const amount = resolvedInstallmentAmount(line, plan)
+  if (amount != null) rows.push(`قيمة القسط ${fmtContractMoney(amount)}`)
+  return rows.join('\n')
+}
+
+function uniformHeaderFields(
+  line: SalesInvoiceLine,
+  invoice: SalesInvoice,
+  amountSuffix: string,
+): ContractPaymentField[] {
+  const term = resolveLinePaymentTerm(line, invoice)
+  const payment = linePaymentDisplay(line, invoice)
+
+  if (term === 'cash') {
+    const fields: ContractPaymentField[] = [
+      { label: 'طريقة الدفع', value: 'كاش' },
+      { label: 'موعد الكاش', value: payment.scheduleLabel ?? 'فوري' },
+    ]
+    if (payment.showDownPayment) {
+      fields.push({
+        label: 'المقدم',
+        value: `${fmtContractMoney(payment.downPayment)}${amountSuffix}`,
+      })
+      if (payment.remainder > 0) {
+        fields.push({
+          label: 'المتبقي بعد المقدم',
+          value: `${fmtContractMoney(payment.remainder)}${amountSuffix}`,
+        })
+      }
+    }
+    if ((line.cash_schedule ?? 'immediate') === 'custom' && payment.paymentsLabel) {
+      fields.push({ label: 'الدفعات', value: `${payment.paymentsLabel}${amountSuffix}` })
+    }
+    return fields
+  }
+
+  const plan = resolveLinePlan(line, invoice)
+  const fields: ContractPaymentField[] = [{ label: 'طريقة الدفع', value: 'تقسيط' }]
+  if (!plan) return fields
+  fields.push({
+    label: 'المقدم',
+    value: `${fmtContractMoney(plan.down_payment ?? 0)}${amountSuffix}`,
+  })
+  const method = resolveInstallmentMethodLabel(line, invoice)
+  if (method !== '—') fields.push({ label: 'الأقساط', value: method })
+  const amount = resolvedInstallmentAmount(line, plan)
+  if (amount != null) {
+    fields.push({
+      label: 'قيمة القسط',
+      value: `${fmtContractMoney(amount)}${amountSuffix}`,
+    })
+  }
+  return fields
+}
+
+/** One header summary when every line shares a payment plan; otherwise per-line detail. */
+export function contractPaymentSummary(invoice: SalesInvoice): ContractPaymentSummary {
+  const lines = invoice.lines ?? []
+  const lineDetails: Record<number, string> = {}
+  const signatures: string[] = []
+
+  for (const line of lines) {
+    lineDetails[line.id] = lineDetailLabel(line, invoice)
+    signatures.push(linePaymentSignature(line, invoice))
+  }
+
+  const uniform = signatures.every((signature) => signature === signatures[0])
+  if (lines.length === 0 || !uniform) {
+    return {
+      uniform: lines.length === 0 || uniform,
+      headerFields:
+        lines.length === 0 ? [] : [{ label: 'طريقة الدفع', value: 'متعددة' }],
+      lineDetails,
+    }
+  }
+
+  return {
+    uniform: true,
+    headerFields: uniformHeaderFields(lines[0], invoice, perLineAmountSuffix(lines, invoice)),
+    lineDetails,
+  }
 }

@@ -1,8 +1,6 @@
 import type { AuthUser, SalesInvoice } from '../api/types'
 import { getUserRole, userHasPermission } from './access'
 
-export const CONTRACT_CASES_MANAGE_PERMISSION = 'contract_cases.manage'
-
 export type ContractProblemCaseType = 'exchange' | 'return'
 
 function isActiveContract(invoice?: SalesInvoice | null): boolean {
@@ -15,8 +13,7 @@ export function isContractEligibleForProblems(invoice?: SalesInvoice | null): bo
 }
 
 function canManageContractProblems(user: AuthUser | null): boolean {
-  if (getUserRole(user) === 'collector') return false
-  return userHasPermission(user, CONTRACT_CASES_MANAGE_PERMISSION)
+  return user != null
 }
 
 export function canRejectContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {

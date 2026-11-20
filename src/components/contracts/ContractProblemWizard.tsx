@@ -290,19 +290,17 @@ export function ContractProblemWizard({
   })
 
   const user = useAuthStore((s) => s.user)
-  const canDisburse = userCanPerform(user, 'contract_cases.disburse')
   const canAddInventoryUnit = userCanPerform(user, 'inventory.branch.add')
 
   const visibleTypeOptions = useMemo(
     () =>
       TYPE_OPTIONS.filter((opt) => {
         if (opt.value === 'cancel' && cancelPreviewQuery.data?.allowed === false) return false
-        if ((opt.value === 'return' || opt.value === 'cancel') && !canDisburse) return false
         if (opt.value === 'return' && invoice.review_status !== 'approved') return false
         if (invoice.review_status !== 'approved' && opt.value !== 'exchange') return false
         return true
       }),
-    [cancelPreviewQuery.data?.allowed, canDisburse, invoice.review_status],
+    [cancelPreviewQuery.data?.allowed, invoice.review_status],
   )
 
   const accountsQuery = useQuery({

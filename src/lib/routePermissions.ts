@@ -172,6 +172,13 @@ export function resolveRoutePermissions(path: string): string[] | null {
   if (normalized.startsWith('/daily-reports')) {
     return ['daily_reports.view']
   }
+  if (
+    normalized.match(/^\/invoices\/\d+\/contract-print$/) ||
+    normalized.match(/^\/invoices\/\d+\/ownership-transfer-contract$/) ||
+    normalized.match(/^\/invoices\/\d+\/service-contract(?:\/\d+)?$/)
+  ) {
+    return null
+  }
   if (normalized.match(/^\/invoices\/\d+\/edit$/)) {
     return ['sales.invoices.edit_before_review', 'review.edit_after_review']
   }
@@ -182,14 +189,7 @@ export function resolveRoutePermissions(path: string): string[] | null {
     return ['review.view_evaluation_queue', 'review.record_evaluation']
   }
   if (normalized.match(/^\/contracts\/\d+/)) {
-    return [
-      'contract_cases.manage',
-      'sales.invoices.view',
-      'customers.manage',
-      'installments.view',
-      'review.view_subscription_renewals',
-      'review.view_contracts',
-    ]
+    return null
   }
   if (normalized.match(/^\/invoices\/\d+/)) {
     return ['review.view_contracts', 'sales.invoices.view', 'review.view_detail']

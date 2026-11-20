@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { InstallmentItem, InstallmentPlan, SalesInvoice, SalesInvoiceLine } from '../api/types'
 import {
   buildInstallmentRows,
+  cashReviewRows,
+  contractPaymentSummary,
   displayPersonName,
   installmentTableColumnCount,
   lineFinancialSummary,
+  linePaymentDisplay,
 } from './contractFields'
 
 describe('displayPersonName', () => {
@@ -203,5 +206,146 @@ describe('lineFinancialSummary', () => {
       paid: 1500,
       balance: 6500,
     })
+  })
+})
+
+describe('linePaymentDisplay', () => {
+  it('shows immediate cash without a down payment', () => {
+    const line = makeLine(1, 6800, 'cash')
+    line.cash_schedule = 'immediate'
+    const display = linePaymentDisplay(line, makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(display.scheduleLabel).toBe('فوري')
+    expect(display.showDownPayment).toBe(false)
+    expect(display.remainder).toBe(0)
+    expect(display.paymentsLabel).toBeNull()
+  })
+
+  it('shows a partial cash down payment with the month count and later payments', () => {
+    const plan = makePlan(4, 1, 3000, [makeItem(1, 1900, 0), makeItem(2, 1900, 0)])
+    plan.first_due_date = '2026-10-19'
+    const line = makeLine(1, 6800, 'cash', plan)
+    line.cash_schedule = 'month_2'
+    const display = linePaymentDisplay(line, makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(display.scheduleLabel).toBe('شهرين')
+    expect(display.showDownPayment).toBe(true)
+    expect(display.downPayment).toBe(3000)
+    expect(display.remainder).toBe(3800)
+    expect(display.paymentsLabel).toContain('1,900 ج')
+    expect(display.paymentsLabel).toContain('2026/10/01')
+  })
+
+  it('hides a zero cash down payment and still names a one-month schedule', () => {
+    const plan = makePlan(5, 1, 0, [])
+    plan.installment_count = 1
+    plan.first_due_date = '2026-10-19'
+    const line = makeLine(1, 6800, 'cash', plan)
+    line.cash_schedule = 'month_1'
+    const display = linePaymentDisplay(line, makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(display.scheduleLabel).toBe('شهر')
+    expect(display.showDownPayment).toBe(false)
+    expect(display.remainder).toBe(6800)
+    expect(display.paymentsLabel).toBe('دفعة واحدة، أول استحقاق 2026/10/19')
+  })
+
+  it('keeps the installment down payment even when it is zero', () => {
+    const line = makeLine(1, 6800, 'installment', makePlan(6, 1, 0, []))
+    const display = linePaymentDisplay(line, makeInvoice([line]))
+
+    expect(display.isCash).toBe(false)
+    expect(display.showDownPayment).toBe(true)
+    expect(display.scheduleLabel).toBeNull()
+  })
+})
+
+describe('cashReviewRows', () => {
+  it('summarizes one deferred cash line for the review panel', () => {
+    const plan = makePlan(4, 1, 3000, [])
+    plan.installment_count = 3
+    plan.first_due_date = '2026-10-19'
+    const line = makeLine(1, 6800, 'cash', plan)
+    line.cash_schedule = 'month_3'
+    const rows = cashReviewRows(makeInvoice([line], { payment_term: 'cash' }))
+
+    expect(rows).toEqual([
+      { label: 'موعد الكاش', value: '3 شهور' },
+      { label: 'المقدم', value: '3,000 ج' },
+      { label: 'المتبقي بعد المقدم', value: '3,800 ج' },
+    ])
+  })
+
+  it('counts a shared plan once when two lines resolve it', () => {
+    const plan = makePlan(9, null, 1000, [])
+    plan.installment_count = 1
+    plan.first_due_date = '2026-10-19'
+    const lineA = makeLine(1, 4000, 'cash')
+    const lineB = makeLine(2, 4000, 'cash')
+    lineA.cash_schedule = 'month_1'
+    lineB.cash_schedule = 'month_1'
+    const invoice = makeInvoice([lineA, lineB], {
+      payment_term: 'cash',
+      installment_plan: plan,
+    })
+
+    const rows = cashReviewRows(invoice)
+    expect(rows.find((row) => row.label === 'المقدم')?.value).toBe('1,000 ج')
+  })
+})
+
+function installmentPlan(
+  id: number,
+  lineId: number,
+  amount: number,
+): InstallmentPlan {
+  return {
+    id,
+    sales_invoice_line_id: lineId,
+    down_payment: 0,
+    installment_count: 4,
+    installment_amount: amount,
+    interval_type: 'monthly',
+    items: [],
+  }
+}
+
+describe('contractPaymentSummary', () => {
+  it('shows one installment plan in the header when every line matches', () => {
+    const lineA = makeLine(1, 1300, 'installment', installmentPlan(1, 1, 325))
+    const lineB = makeLine(2, 1300, 'installment', installmentPlan(2, 2, 325))
+    const summary = contractPaymentSummary(makeInvoice([lineA, lineB]))
+
+    expect(summary.uniform).toBe(true)
+    expect(summary.headerFields).toEqual([
+      { label: 'طريقة الدفع', value: 'تقسيط' },
+      { label: 'المقدم', value: '0 ج لكل بند' },
+      { label: 'الأقساط', value: '4 قسط — شهري' },
+      { label: 'قيمة القسط', value: '325 ج لكل بند' },
+    ])
+  })
+
+  it('marks the contract mixed when one line is immediate cash and another is deferred', () => {
+    const immediate = makeLine(1, 1000, 'cash')
+    immediate.cash_schedule = 'immediate'
+    const deferred = makeLine(2, 1000, 'cash')
+    deferred.cash_schedule = 'month_1'
+    const summary = contractPaymentSummary(
+      makeInvoice([immediate, deferred], { payment_term: 'cash' }),
+    )
+
+    expect(summary.uniform).toBe(false)
+    expect(summary.headerFields).toEqual([{ label: 'طريقة الدفع', value: 'متعددة' }])
+  })
+
+  it('marks the contract mixed when installment amounts differ', () => {
+    const lineA = makeLine(1, 1300, 'installment', installmentPlan(1, 1, 325))
+    const lineB = makeLine(2, 1600, 'installment', installmentPlan(2, 2, 400))
+    const summary = contractPaymentSummary(makeInvoice([lineA, lineB]))
+
+    expect(summary.uniform).toBe(false)
+    expect(summary.headerFields).toEqual([{ label: 'طريقة الدفع', value: 'متعددة' }])
+    expect(summary.lineDetails[1]).toContain('325 ج')
+    expect(summary.lineDetails[2]).toContain('400 ج')
   })
 })

@@ -3,6 +3,7 @@ import { contractReviewPermissions } from '../../lib/contractReviewPermissions'
 import type { ReactNode } from 'react'
 import type { SalesInvoice } from '../../api/types'
 import {
+  cashReviewRows,
   contractSourceLabel,
   fmtContractMoney,
   invoiceContractSummary,
@@ -26,6 +27,7 @@ export function ContractReviewDecisionPanel({
   const summary = invoiceContractSummary(invoice)
   const ledger = reconcileContractLedger(invoice)
   const isInstallment = invoice.payment_term === 'installment'
+  const cashRows = cashReviewRows(invoice)
 
   return (
     <aside className="flex flex-col gap-md lg:sticky lg:top-4 lg:self-start">
@@ -78,6 +80,15 @@ export function ContractReviewDecisionPanel({
               </span>
             </div>
           ) : null}
+
+          {cashRows.map((row) => (
+            <div key={row.label} className="flex items-start justify-between gap-sm tabular-nums">
+              <span className="text-on-surface-variant">{row.label}</span>
+              <span className="shrink-0 whitespace-nowrap font-medium text-on-surface">
+                {row.value}
+              </span>
+            </div>
+          ))}
 
           {isInstallment ? (
             <>

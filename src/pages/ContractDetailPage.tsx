@@ -16,7 +16,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
-import { getUserRole, userCanPerform, userHasPermission } from '../lib/access'
+import { userCanPerform, userHasPermission } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
 import {
@@ -48,8 +48,6 @@ export function ContractDetailPage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const canViewDecision = contractReviewPermissions(user).canView
-  const reviewRole = ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
-  const canPrint = userHasPermission(user, 'review.print') || reviewRole
   const canViewFollowUpHistory = userCanPerform(user, 'installments.view')
   const [searchParams, setSearchParams] = useSearchParams()
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -209,7 +207,7 @@ export function ContractDetailPage() {
               تحويل للمشاكل
             </button>
           )}
-          {invoice && canPrint && (
+          {invoice && (
             <div className="shrink-0">
               <ContractPrintActions invoice={invoice} />
             </div>

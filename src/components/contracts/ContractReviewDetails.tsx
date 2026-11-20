@@ -1,11 +1,13 @@
 import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import {
   displayValue,
+  cashScheduleLabel,
+  contractPaymentSummary,
   fmtContractDate,
   fmtContractMoney,
   invoiceContractSummary,
+  linePaymentDisplay,
   resolveInstallmentMethodLabel,
-  resolveLinePlan,
   resolveProductModelName,
   resolveRenewalTypeLabel,
   resolveSerial,
@@ -66,10 +68,13 @@ function MetricCell({
 function DeviceIdentifiersTable({
   lines,
   customer,
+  lineDetails,
 }: {
   lines: SalesInvoiceLine[]
   customer: SalesInvoice['customer']
+  lineDetails?: Record<number, string> | null
 }) {
+  const showPayment = lineDetails != null
   return (
     <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
       <table className="w-full min-w-[36rem] text-sm">
@@ -82,6 +87,9 @@ function DeviceIdentifiersTable({
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">المستخدم (2)</th>
             <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">رقم الشريحة (3)</th>
             <th className="px-sm py-2 text-start align-middle font-bold">علامة مميزة بالتفصيل</th>
+            {showPayment ? (
+              <th className="whitespace-nowrap px-sm py-2 text-start align-middle font-bold">الدفع</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -114,6 +122,11 @@ function DeviceIdentifiersTable({
               <td className="px-sm py-2 text-start align-middle font-medium">
                 {resolveVehicleDistinctiveDetail(line)}
               </td>
+              {showPayment ? (
+                <td className="whitespace-pre-line px-sm py-2 text-start align-middle font-medium text-on-surface">
+                  {lineDetails[line.id]}
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -122,7 +135,22 @@ function DeviceIdentifiersTable({
   )
 }
 
-function ServiceLinesTable({ lines }: { lines: SalesInvoiceLine[] }) {
+function shortPaymentLabel(line: SalesInvoiceLine, invoice: SalesInvoice): string {
+  const term = line.payment_term ?? invoice.payment_term
+  const label = paymentTermLabel(term)
+  if (term !== 'cash') return label
+  return `${label} · ${cashScheduleLabel(line.cash_schedule)}`
+}
+
+function ServiceLinesTable({
+  lines,
+  invoice,
+  lineDetails,
+}: {
+  lines: SalesInvoiceLine[]
+  invoice: SalesInvoice
+  lineDetails?: Record<number, string> | null
+}) {
   return (
     <div className="overflow-x-auto rounded-lg border border-outline-variant/60">
       <table className="w-full min-w-[28rem] text-sm">
@@ -148,8 +176,10 @@ function ServiceLinesTable({ lines }: { lines: SalesInvoiceLine[] }) {
               <td className="px-sm py-2 font-medium tabular-nums">
                 {fmtContractMoney(line.line_total)}
               </td>
-              <td className="px-sm py-2 text-on-surface-variant">
-                {paymentTermLabel(line.payment_term)}
+              <td className="whitespace-pre-line px-sm py-2 text-on-surface-variant">
+                {lineDetails
+                  ? lineDetails[line.id]
+                  : shortPaymentLabel(line, invoice)}
               </td>
             </tr>
           ))}
@@ -253,9 +283,15 @@ function DeviceDetailCard({
 
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(paymentTerm) })
 
-  const plan = resolveLinePlan(line, invoice)
-  if (plan || paymentTerm === 'installment') {
-    cells.push({ label: 'المقدم', value: fmtContractMoney(plan?.down_payment ?? 0) })
+  const payment = linePaymentDisplay(line, invoice)
+  if (payment.scheduleLabel) {
+    cells.push({ label: 'موعد الكاش', value: payment.scheduleLabel })
+  }
+  if (payment.showDownPayment) {
+    cells.push({ label: 'المقدم', value: fmtContractMoney(payment.downPayment) })
+  }
+  if (payment.isCash && payment.remainder > 0) {
+    cells.push({ label: 'المتبقي بعد المقدم', value: fmtContractMoney(payment.remainder) })
   }
 
   const installmentMethod = resolveInstallmentMethodLabel(line, invoice)
@@ -284,6 +320,12 @@ function DeviceDetailCard({
           <MetricCell key={cell.label} {...cell} />
         ))}
       </div>
+      {payment.paymentsLabel ? (
+        <p className="border-t border-outline-variant/40 px-sm py-2 text-sm text-on-surface-variant">
+          دفعات الكاش:{' '}
+          <span className="font-medium text-on-surface">{payment.paymentsLabel}</span>
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -306,6 +348,17 @@ function ServiceDetailCard({
   }
   cells.push({ label: 'الصافي', value: fmtContractMoney(line.line_total) })
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(line.payment_term) })
+
+  const payment = linePaymentDisplay(line, invoice)
+  if (payment.scheduleLabel) {
+    cells.push({ label: 'موعد الكاش', value: payment.scheduleLabel })
+  }
+  if (payment.showDownPayment) {
+    cells.push({ label: 'المقدم', value: fmtContractMoney(payment.downPayment) })
+  }
+  if (payment.isCash && payment.remainder > 0) {
+    cells.push({ label: 'المتبقي بعد المقدم', value: fmtContractMoney(payment.remainder) })
+  }
 
   const installmentMethod = resolveInstallmentMethodLabel(line, invoice)
   if (installmentMethod && installmentMethod !== '—') {
@@ -334,6 +387,12 @@ function ServiceDetailCard({
           <MetricCell key={cell.label} {...cell} />
         ))}
       </div>
+      {payment.paymentsLabel ? (
+        <p className="border-t border-outline-variant/40 px-sm py-2 text-sm text-on-surface-variant">
+          دفعات الكاش:{' '}
+          <span className="font-medium text-on-surface">{payment.paymentsLabel}</span>
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -411,6 +470,8 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
   const serviceLines = allLines.filter((line) => isServiceInvoiceLine(line))
   const guarantors = customer?.guarantors ?? []
   const summary = invoiceContractSummary(invoice)
+  const paymentSummary = contractPaymentSummary(invoice)
+  const mixedPaymentDetails = paymentSummary.uniform ? null : paymentSummary.lineDetails
 
   let sectionNumber = 1
 
@@ -482,9 +543,13 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
         contentClassName="space-y-md p-sm sm:p-md"
       >
         <div className="grid grid-cols-1 gap-sm sm:grid-cols-3">
+          <CustomerField label="تاريخ التعاقد" value={fmtContractDate(invoice.invoice_date)} />
           <CustomerField label="مصدر التعاقد" value={invoice.distributor?.name_ar || invoice.distributor?.name || invoice.sales_user?.name || invoice.branch?.name_ar || invoice.branch?.name || '—'} />
           <CustomerField label="فرع تنفيذ البيع" value={invoice.action_branch?.name_ar || invoice.action_branch?.name || 'غير مسجل'} />
           <CustomerField label="منفذ البيع" value={invoice.user?.name || 'غير مسجل'} />
+          {paymentSummary.headerFields.map((field) => (
+            <CustomerField key={field.label} label={field.label} value={field.value} />
+          ))}
         </div>
 
         <div className="flex flex-wrap gap-xs">
@@ -497,14 +562,22 @@ export function ContractReviewDetails({ invoice }: ContractReviewDetailsProps) {
         {deviceLines.length > 0 ? (
           <div>
             <h4 className="mb-sm text-xs font-bold text-on-surface-variant">جدول الأجهزة</h4>
-            <DeviceIdentifiersTable lines={deviceLines} customer={customer} />
+            <DeviceIdentifiersTable
+              lines={deviceLines}
+              customer={customer}
+              lineDetails={mixedPaymentDetails}
+            />
           </div>
         ) : null}
 
         {serviceLines.length > 0 ? (
           <div>
             <h4 className="mb-sm text-xs font-bold text-on-surface-variant">جدول الخدمات</h4>
-            <ServiceLinesTable lines={serviceLines} />
+            <ServiceLinesTable
+              lines={serviceLines}
+              invoice={invoice}
+              lineDetails={mixedPaymentDetails}
+            />
           </div>
         ) : null}
 
