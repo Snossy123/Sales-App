@@ -75,7 +75,7 @@ export const DEFAULT_MESSAGING: MessagingSettings = {
 }
 
 export const MESSAGING_PLACEHOLDERS =
-  '{customer_name}, {invoice_number}, {total}, {down_payment}, {installment_amount}, {installment_count}, {due_date}, {paid_amount}, {next_installment_note}, {org_name}, {org_phone}'
+  '{customer_name}, {invoice_number}, {total}, {down_payment}, {installment_amount}, {installment_count}, {due_date}, {paid_amount}, {next_installment_note}, {org_name}, {org_phone}, {follow_up_link}'
 
 export const CURRENCY_OPTIONS = [
   { value: 'EGP', label: 'جنيه مصري (EGP)' },

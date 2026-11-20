@@ -14,9 +14,27 @@ export interface Administration {
   address?: string | null
   phone?: string | null
   is_active?: boolean
-  settings?: AdministrationCollectionSettings | null
+  settings?: (AdministrationCollectionSettings & { messaging?: AdministrationMessagingSettings | null }) | null
   department_stock?: DepartmentStock
   deletion_blockers?: AdministrationDeletionBlockers
+}
+
+export interface AdministrationMessagingSettings {
+  whatsapp_enabled?: boolean | null
+  driver?: 'inherit' | 'twilio' | 'http' | 'log' | null
+  follow_up_phone?: string | null
+  follow_up_label?: string | null
+  append_follow_up_link?: boolean | null
+  twilio?: {
+    sid?: string | null
+    auth_token?: string | null
+    from?: string | null
+  } | null
+  http?: {
+    url?: string | null
+    token?: string | null
+    instance_id?: string | null
+  } | null
 }
 
 export interface AdministrationCollectionSettings {

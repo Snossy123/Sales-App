@@ -17,6 +17,7 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { useOrgSettingsStore } from '../../../stores/orgSettingsStore'
 import { AdministrationCollectionSettingsCard } from '../components/AdministrationCollectionSettingsCard'
+import { AdministrationMessagingSettingsCard } from '../components/AdministrationMessagingSettingsCard'
 import { LogoUploader } from '../components/LogoUploader'
 import { ModuleToggleCard } from '../components/ModuleToggleCard'
 import { SettingsField, SettingsSectionCard, settingsInputClass, settingsToggleClass } from '../components/SettingsSectionCard'
@@ -694,9 +695,13 @@ export function AdminSystemSettingsPage() {
               )}
 
               {activeTab === 'messaging' && (
+                <AdministrationMessagingSettingsCard onToast={setToast} />
+              )}
+
+              {activeTab === 'messaging' && (
                 <SettingsSectionCard
                   title="رسائل واتساب للعملاء"
-                  description="تذكير الأقساط، ترحيب التعاقد، وتأكيد السداد — إعدادات API من ملف .env"
+                  description="تذكير الأقساط، ترحيب التعاقد، وتأكيد السداد — القوالب الافتراضية للمنظمة"
                 >
                   <label className="mb-md flex cursor-pointer items-center gap-sm rounded-lg border border-outline-variant px-md py-sm">
                     <input

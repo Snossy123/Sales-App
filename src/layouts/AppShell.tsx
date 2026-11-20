@@ -20,6 +20,7 @@ import { resolvePublicStorageUrl } from '../lib/storageUrl'
 import { ChatWidget } from '../modules/chat/components/ChatWidget'
 import { ChatbotWidget } from '../components/help/ChatbotWidget'
 import { BranchStockTickerBar } from '../components/BranchStockTickerBar'
+import { SyncStatusIndicator } from '../components/SyncStatusIndicator'
 import { ContentLoader } from '../components/ContentLoader'
 import { IncompleteProceduresBanner } from '../components/IncompleteProceduresBanner'
 import {
@@ -241,6 +242,7 @@ export function AppShell() {
 
           <div className="flex flex-row-reverse items-center gap-md">
             <BranchSwitcher />
+            <SyncStatusIndicator />
             <div className="flex flex-row-reverse gap-sm">
               <ChatWidget />
               <IncompleteProceduresBanner />
@@ -315,6 +317,7 @@ export function AppShell() {
             </div>
             <div className="mx-sm h-8 w-px bg-outline-variant" />
             <div className="flex items-center gap-sm">
+            <SyncStatusIndicator />
               <Link
                 to="/profile"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary hover:opacity-90"
