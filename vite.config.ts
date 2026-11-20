@@ -30,4 +30,18 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: '0.0.0.0',
+    port: 5174,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8100',
+        changeOrigin: true,
+      },
+      '/storage': {
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8100',
+        changeOrigin: true,
+      },
+    },
+  },
 })

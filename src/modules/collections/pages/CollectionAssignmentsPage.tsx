@@ -346,6 +346,19 @@ export function CollectionAssignmentsPage() {
     setSelected({})
   }
 
+  const selectCollector = (value: string) => {
+    setCollectorFilter((current) => (current === value ? '' : value))
+    setSelected({})
+  }
+
+  const collectorCardClass = (active: boolean) =>
+    [
+      'min-w-[10rem] shrink-0 rounded-xl border p-md text-right transition-all',
+      active
+        ? 'border-primary bg-primary text-on-primary shadow-sm ring-2 ring-primary/40'
+        : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary/50 hover:bg-primary/5',
+    ].join(' ')
+
   const applyBranchStatFilter = (branchId: number, tier: ContractTierFilter) => {
     setSelectedBranchId(branchId)
     setDueStatusFilter(tier === 'all' ? '' : tier === 'due_soon' ? 'due' : tier)
@@ -484,30 +497,51 @@ export function CollectionAssignmentsPage() {
           </button>
         </div>
 
-        <div className="mb-md flex min-w-0 gap-sm overflow-x-auto pb-xs">
-          <div className="min-w-[10rem] shrink-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md">
-            <p className="text-xs text-on-surface-variant">غير معيَّن</p>
-            <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">
+        <div className="mb-md flex min-w-0 items-stretch gap-sm overflow-x-auto pb-xs">
+          <button
+            type="button"
+            aria-pressed={collectorFilter === 'unassigned'}
+            onClick={() => selectCollector('unassigned')}
+            className={collectorCardClass(collectorFilter === 'unassigned')}
+          >
+            <p className={`text-xs ${collectorFilter === 'unassigned' ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>
+              غير معيَّن
+            </p>
+            <p className="mt-1 tabular-nums text-2xl font-bold">
               {workloadQuery.data?.unassigned_count ?? 0}
             </p>
-          </div>
+          </button>
           {collectors.map((collector) => {
             const assigned = (workloadQuery.data?.data ?? []).find(
               (row) => row.collector_user_id === collector.id,
             )
+            const active = collectorFilter === String(collector.id)
             return (
-              <div
+              <button
                 key={collector.id}
-                className="min-w-[10rem] shrink-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-md"
+                type="button"
+                aria-pressed={active}
+                onClick={() => selectCollector(String(collector.id))}
+                className={collectorCardClass(active)}
               >
-                <p className="truncate text-xs text-on-surface-variant">{collector.name}</p>
-                <p className="mt-1 tabular-nums text-2xl font-bold text-on-surface">
-                  {assigned?.contract_count ?? 0}
+                <p className={`truncate text-xs ${active ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>
+                  {collector.name}
                 </p>
-                <p className="text-[11px] text-on-surface-variant">عقد مفتوح</p>
-              </div>
+                <p className="mt-1 tabular-nums text-2xl font-bold">{assigned?.contract_count ?? 0}</p>
+                <p className={`text-[11px] ${active ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>عقد مفتوح</p>
+              </button>
             )
           })}
+          {collectorFilter ? (
+            <button
+              type="button"
+              onClick={() => selectCollector(collectorFilter)}
+              className="inline-flex min-w-[8rem] shrink-0 items-center justify-center gap-xs self-stretch rounded-xl border border-outline-variant bg-surface-container-low px-md text-sm font-medium text-on-surface hover:border-error/40 hover:bg-error/5 hover:text-error"
+            >
+              <Icon name="close" size={18} />
+              إلغاء الفلتر
+            </button>
+          ) : null}
         </div>
 
         {selectedIds.length > 0 && (

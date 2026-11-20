@@ -3,6 +3,7 @@ import { AppShell } from '../layouts/AppShell'
 import { useAuthStore } from '../stores/authStore'
 import { canAccessRoute, getDefaultRoute } from '../lib/permissions'
 import { LoginPage } from '../pages/LoginPage'
+import { BranchSetupPage } from '../pages/BranchSetupPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
 import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
@@ -189,6 +190,7 @@ function PortalPublicRoute() {
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/setup" element={<BranchSetupPage />} />
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
