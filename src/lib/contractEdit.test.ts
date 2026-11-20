@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthUser, SalesInvoice } from '../api/types'
-import { canConvertCashToInstallment, canEditContract, contractEditPath, isExecutionBranchOnlyContract } from './contractEdit'
+import { canConvertCashToInstallment, canEditContract, canOperateContract, contractEditPath, isExecutionBranchOnlyContract } from './contractEdit'
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -22,6 +22,14 @@ describe('contractEdit', () => {
     expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'external_device' }))).toBe(true)
     expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'new_contract' }))).toBe(false)
   })
+  it('lets branch users operate only sale or execution branch contracts', () => {
+    const staff = user({ data_scope: 'branch', branch_id: 1 })
+    expect(canOperateContract(staff, invoice('approved', { branch_id: 1 }))).toBe(true)
+    expect(canOperateContract(staff, invoice('approved', { branch_id: 2, action_branch_id: 1 }))).toBe(true)
+    expect(canOperateContract(staff, invoice('approved', { branch_id: 2, action_branch_id: 3 }))).toBe(false)
+    expect(canOperateContract(user({ data_scope: 'administration' }), invoice('approved', { branch_id: 9 }))).toBe(true)
+  })
+
   it('builds the invoice edit path', () => {
     expect(contractEditPath(12)).toBe('/invoices/12/edit')
   })

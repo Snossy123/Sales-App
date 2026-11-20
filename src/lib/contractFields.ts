@@ -230,6 +230,15 @@ export function resolveLinePlan(
   return invoicePlan ?? undefined
 }
 
+/** Contract-scope installment plan: one schedule for every line, shown in the header. */
+export function planIsSharedAcrossLines(
+  plan: InstallmentPlan | null | undefined,
+  invoice?: SalesInvoice | null,
+): boolean {
+  if (!plan || plan.sales_invoice_line_id != null) return false
+  return (invoice?.lines?.length ?? 0) > 1
+}
+
 export function resolveRenewalLabel(
   line?: SalesInvoiceLine,
   invoice?: SalesInvoice,

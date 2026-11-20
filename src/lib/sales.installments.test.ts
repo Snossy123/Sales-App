@@ -7,7 +7,49 @@ import {
   normalizeInstallmentItem,
   paymentTermLabel,
   suggestInstallmentAmount,
+  usesServiceContractPrint,
 } from './sales'
+import type { SalesInvoice } from '../api/types'
+
+describe('usesServiceContractPrint', () => {
+  const invoice = (extras: Partial<SalesInvoice>): SalesInvoice =>
+    ({
+      id: 1,
+      invoice_date: '2026-11-21',
+      total: 950,
+      balance_due: 550,
+      payment_term: 'installment',
+      payment_status: 'unpaid',
+      customer_id: 1,
+      lines: [],
+      ...extras,
+    }) as SalesInvoice
+
+  it('prints the service receipt for a combined service contract', () => {
+    expect(
+      usesServiceContractPrint(
+        invoice({
+          contract_kind: 'mixed',
+          lines: [
+            { id: 1, line_type: 'service', service_id: 4, description: 'رسوم سوفت وير' },
+            { id: 2, line_type: 'service', service_id: 5, description: 'رسوم فك' },
+          ],
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it('keeps device contracts on the device print', () => {
+    expect(
+      usesServiceContractPrint(
+        invoice({
+          contract_kind: 'new_contract',
+          lines: [{ id: 1, line_type: 'device', product_unit_id: 9 }],
+        }),
+      ),
+    ).toBe(false)
+  })
+})
 
 describe('sales installment helpers', () => {
   it('labels payment terms', () => {

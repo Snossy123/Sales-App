@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { SalesInvoice, SalesInvoiceLine } from '../../api/types'
 import { usesCashContractTemplate } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
-import { contractPrintPath, isServiceInvoiceLine, ownershipTransferContractPrintPath, paymentTermLabel } from '../../lib/sales'
+import { contractPrintPath, isServiceInvoiceLine, ownershipTransferContractPrintPath, paymentTermLabel, serviceContractPrintPath, usesServiceContractPrint } from '../../lib/sales'
 import { Icon } from '../Icon'
 
 function deviceLines(invoice: SalesInvoice): SalesInvoiceLine[] {
@@ -46,6 +46,18 @@ export function ContractPrintActions({
       >
         <Icon name="print" size={20} />
         طباعة عقد {contractKindLabel(invoice.contract_kind)}
+      </Link>
+    )
+  }
+
+  if (usesServiceContractPrint(invoice)) {
+    return (
+      <Link
+        to={serviceContractPrintPath(invoice.id, undefined, { autoPrint })}
+        className={className}
+      >
+        <Icon name="print" size={20} />
+        طباعة العقد
       </Link>
     )
   }

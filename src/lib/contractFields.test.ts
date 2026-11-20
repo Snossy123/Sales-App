@@ -8,6 +8,7 @@ import {
   installmentTableColumnCount,
   lineFinancialSummary,
   linePaymentDisplay,
+  planIsSharedAcrossLines,
 } from './contractFields'
 
 describe('displayPersonName', () => {
@@ -349,6 +350,30 @@ function installmentPlan(
     items: [],
   }
 }
+
+describe('planIsSharedAcrossLines', () => {
+  it('does not assign a contract-level plan to one service line', () => {
+    const plan = makePlan(9, null, 400, [])
+    const invoice = makeInvoice([
+      makeLine(1, 325, 'installment'),
+      makeLine(2, 150, 'installment'),
+      makeLine(3, 150, 'installment'),
+      makeLine(4, 325, 'installment'),
+    ], { installment_plan: plan })
+
+    expect(planIsSharedAcrossLines(plan, invoice)).toBe(true)
+  })
+
+  it('keeps a line-owned plan on that line', () => {
+    const plan = makePlan(9, 1, 80, [])
+    const invoice = makeInvoice([
+      makeLine(1, 400, 'installment', plan),
+      makeLine(2, 600, 'installment', makePlan(10, 2, 100, [])),
+    ])
+
+    expect(planIsSharedAcrossLines(plan, invoice)).toBe(false)
+  })
+})
 
 describe('contractPaymentSummary', () => {
   it('shows one installment plan in the header when every line matches', () => {

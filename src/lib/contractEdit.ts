@@ -1,5 +1,6 @@
 import type { AuthUser, SalesInvoice } from '../api/types'
 import { getUserRole, userHasPermission } from './access'
+import { getUserDataScope, isBranchInDataScope } from './dataScope'
 
 export const EDIT_BEFORE_REVIEW_PERMISSION = 'sales.invoices.edit_before_review'
 export const EDIT_AFTER_REVIEW_PERMISSION = 'review.edit_after_review'
@@ -16,8 +17,20 @@ export function contractEditPath(invoiceId: number): string {
   return `/invoices/${invoiceId}/edit`
 }
 
-export function canEditContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
+export function canOperateContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
   if (!user || !invoice) return false
+
+  const scope = getUserDataScope(user)
+  if (scope === 'organization' || scope === 'administration' || scope === 'none') return true
+
+  return (
+    isBranchInDataScope(user, invoice.branch_id) ||
+    isBranchInDataScope(user, invoice.action_branch_id)
+  )
+}
+
+export function canEditContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
+  if (!canOperateContract(user, invoice) || !invoice) return false
 
   const status = invoice.review_status
   const role = getUserRole(user)

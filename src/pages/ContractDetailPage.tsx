@@ -25,7 +25,7 @@ import {
   canReturnContract,
   type ContractProblemCaseType,
 } from '../lib/contractCases'
-import { canConvertCashToInstallment, canEditContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, canOperateContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
@@ -101,6 +101,7 @@ export function ContractDetailPage() {
   })
 
   const invoice = query.data
+  const canOperate = canOperateContract(user, invoice)
   const canReject = canRejectContract(user, invoice)
   const canExchange = canExchangeContract(user, invoice)
   const canReturn = canReturnContract(user, invoice)
@@ -197,7 +198,7 @@ export function ContractDetailPage() {
               استرجاع
             </button>
           )}
-          {invoice && (
+          {invoice && canOperate && (
             <button
               type="button"
               onClick={() => openWizard()}
@@ -207,7 +208,7 @@ export function ContractDetailPage() {
               تحويل للمشاكل
             </button>
           )}
-          {invoice && (
+          {invoice && canOperate && (
             <div className="shrink-0">
               <ContractPrintActions invoice={invoice} />
             </div>

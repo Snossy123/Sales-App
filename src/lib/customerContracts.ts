@@ -1,4 +1,4 @@
-import type { InstallmentItem, PaymentTransaction, SalesInvoice } from '../api/types'
+import type { InstallmentItem, InstallmentPlan, PaymentTransaction, SalesInvoice } from '../api/types'
 import { resolveLinePlan } from './contractFields'
 import { formatNumber } from './format'
 import { formatInvoiceDate } from './sales'
@@ -14,6 +14,35 @@ export interface ContractSummary {
 
 function getInstallmentPlan(invoice: SalesInvoice) {
   return resolveLinePlan(invoice.lines?.[0], invoice)
+}
+
+function planIdentity(plan: InstallmentPlan): string {
+  if (plan.id != null) return `id:${plan.id}`
+  if (plan.sales_invoice_line_id != null) return `line:${plan.sales_invoice_line_id}`
+  return 'invoice'
+}
+
+/** An invoice-level plan is returned for every line. Count that plan once. */
+function uniqueResolvedPlans(invoice: SalesInvoice): InstallmentPlan[] {
+  const lines = invoice.lines ?? []
+  const seen = new Set<string>()
+  const plans: InstallmentPlan[] = []
+
+  const add = (plan: InstallmentPlan | null | undefined) => {
+    if (!plan) return
+    const key = planIdentity(plan)
+    if (seen.has(key)) return
+    seen.add(key)
+    plans.push(plan)
+  }
+
+  if (lines.length > 0) {
+    for (const line of lines) add(resolveLinePlan(line, invoice))
+  } else {
+    add(getInstallmentPlan(invoice))
+  }
+
+  return plans
 }
 
 export function filterContracts(
@@ -79,22 +108,12 @@ export function buildContractSummary(invoice: SalesInvoice): ContractSummary {
     }
   }
 
-  const lines = invoice.lines ?? []
   let downPayment = 0
   let installmentCount = 0
 
-  if (lines.length > 0) {
-    for (const line of lines) {
-      const plan = resolveLinePlan(line, invoice)
-      if (plan) {
-        downPayment += Number(plan.down_payment ?? 0)
-        installmentCount += Number(plan.installment_count ?? 0)
-      }
-    }
-  } else {
-    const plan = getInstallmentPlan(invoice)
-    downPayment = Number(plan?.down_payment ?? 0)
-    installmentCount = Number(plan?.installment_count ?? 0)
+  for (const plan of uniqueResolvedPlans(invoice)) {
+    downPayment += Number(plan.down_payment ?? 0)
+    installmentCount += Number(plan.installment_count ?? 0)
   }
 
   return {
@@ -106,12 +125,10 @@ export function buildContractSummary(invoice: SalesInvoice): ContractSummary {
 }
 
 export function getInstallmentItems(invoice: SalesInvoice): InstallmentItem[] {
-  const lines = invoice.lines ?? []
   const aggregated: InstallmentItem[] = []
 
-  for (const line of lines) {
-    const plan = resolveLinePlan(line, invoice)
-    if (plan?.items?.length) {
+  for (const plan of uniqueResolvedPlans(invoice)) {
+    if (plan.items?.length) {
       aggregated.push(...plan.items)
     }
   }

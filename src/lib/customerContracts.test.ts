@@ -2,9 +2,20 @@ import { describe, expect, it } from 'vitest'
 import type { SalesInvoice } from '../api/types'
 import {
   assertPaymentVerification,
+  buildContractSummary,
+  getInstallmentItems,
   ownershipTransferInstallmentSummary,
   reconcileContractLedger,
 } from './customerContracts'
+
+function isoOffset(days: number): string {
+  const date = new Date()
+  date.setHours(12, 0, 0, 0)
+  date.setDate(date.getDate() + days)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
 
 function invoice(extras: Partial<SalesInvoice>): SalesInvoice {
   return {
@@ -241,6 +252,90 @@ describe('reconcileContractLedger', () => {
         collectorUserId: 4,
       }).amount,
     ).toBe(2000)
+  })
+
+  it('counts one shared service-combiner plan once', () => {
+    const plan = {
+      id: 9,
+      sales_invoice_line_id: null,
+      down_payment: 400,
+      installment_count: 3,
+      installment_amount: 200,
+      items: [
+        { id: 1, due_date: isoOffset(-10), amount: 200, paid_amount: 0, status: 'pending' as const },
+        { id: 2, due_date: isoOffset(20), amount: 200, paid_amount: 0, status: 'pending' as const },
+        { id: 3, due_date: isoOffset(50), amount: 150, paid_amount: 0, status: 'pending' as const },
+      ],
+    }
+    const contract = invoice({
+      total: 950,
+      paid_amount: 0,
+      balance_due: 550,
+      payment_term: 'installment',
+      installment_plan: plan,
+      lines: [325, 150, 150, 325].map((price, index) => ({
+        id: index + 1,
+        unit_price: price,
+        line_total: price,
+        payment_term: 'installment' as const,
+        service_id: index + 1,
+      })),
+    })
+
+    const summary = buildContractSummary(contract)
+    const ledger = reconcileContractLedger(contract)
+
+    expect(summary.downPayment).toBe(400)
+    expect(summary.installmentCount).toBe(3)
+    expect(getInstallmentItems(contract)).toHaveLength(3)
+    expect(ledger.confirmedOutstanding).toBe(550)
+    expect(ledger.confirmedOverdue).toBe(200)
+  })
+
+  it('still adds separate per-line installment plans', () => {
+    const contract = invoice({
+      payment_term: 'installment',
+      lines: [
+        {
+          id: 1,
+          unit_price: 400,
+          line_total: 400,
+          payment_term: 'installment',
+          installment_plan: {
+            id: 1,
+            sales_invoice_line_id: 1,
+            down_payment: 80,
+            installment_count: 2,
+            items: [
+              { id: 11, due_date: isoOffset(10), amount: 160, paid_amount: 0, status: 'pending' },
+              { id: 12, due_date: isoOffset(40), amount: 160, paid_amount: 0, status: 'pending' },
+            ],
+          },
+        },
+        {
+          id: 2,
+          unit_price: 600,
+          line_total: 600,
+          payment_term: 'installment',
+          installment_plan: {
+            id: 2,
+            sales_invoice_line_id: 2,
+            down_payment: 100,
+            installment_count: 2,
+            items: [
+              { id: 21, due_date: isoOffset(10), amount: 250, paid_amount: 0, status: 'pending' },
+              { id: 22, due_date: isoOffset(40), amount: 250, paid_amount: 0, status: 'pending' },
+            ],
+          },
+        },
+      ],
+    })
+
+    const summary = buildContractSummary(contract)
+
+    expect(summary.downPayment).toBe(180)
+    expect(summary.installmentCount).toBe(4)
+    expect(getInstallmentItems(contract)).toHaveLength(4)
   })
 
   it('rejects linking a transaction that is already allocated', () => {

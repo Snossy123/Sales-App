@@ -1,5 +1,6 @@
 import type { AuthUser, SalesInvoice } from '../api/types'
 import { getUserRole, userHasPermission } from './access'
+import { canOperateContract } from './contractEdit'
 
 export type ContractProblemCaseType = 'exchange' | 'return'
 
@@ -17,18 +18,18 @@ function canManageContractProblems(user: AuthUser | null): boolean {
 }
 
 export function canRejectContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
-  if (!invoice || invoice.review_status !== 'pending') return false
+  if (!canOperateContract(user, invoice) || !invoice || invoice.review_status !== 'pending') return false
   if (userHasPermission(user, 'review.reject')) return true
   return ['super_admin', 'admin', 'reviewer'].includes(getUserRole(user))
 }
 
 export function canExchangeContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
-  if (!canManageContractProblems(user) || !isActiveContract(invoice)) {
+  if (!canOperateContract(user, invoice) || !canManageContractProblems(user) || !isActiveContract(invoice)) {
     return false
   }
   return invoice?.review_status === 'pending' || invoice?.review_status === 'approved'
 }
 
 export function canReturnContract(user: AuthUser | null, invoice?: SalesInvoice | null): boolean {
-  return canManageContractProblems(user) && isContractEligibleForProblems(invoice)
+  return canOperateContract(user, invoice) && canManageContractProblems(user) && isContractEligibleForProblems(invoice)
 }

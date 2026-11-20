@@ -21,7 +21,7 @@ import {
   canReturnContract,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
-import { canConvertCashToInstallment, canEditContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, canOperateContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../../lib/contractEdit'
 
 export function contractReviewRowClass(reviewStatus?: string | null): string {
   if (reviewStatus === 'pending') return 'bg-error/20'
@@ -257,7 +257,7 @@ export function defaultContractListActions(
           استرجاع
         </button>
       )}
-      {onOpenProblems && (
+      {onOpenProblems && canOperateContract(user ?? null, row) && (
         <button
           type="button"
           onClick={() => onOpenProblems(row)}
@@ -266,10 +266,12 @@ export function defaultContractListActions(
           تحويل للمشاكل
         </button>
       )}
+      {canOperateContract(user ?? null, row) && (
       <ContractPrintActions
         invoice={row}
         className="inline-flex items-center gap-1 text-sm text-primary hover:underline whitespace-nowrap"
       />
+      )}
       {onDelete && <button type="button" className="text-sm font-medium text-error" onClick={() => onDelete(row)}>حذف التعاقد وإلغاء معاملاته</button>}
     </ContractActionsMenu>
   )

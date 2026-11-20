@@ -7,8 +7,10 @@ import {
   fmtContractMoney,
   invoiceContractSummary,
   linePaymentDisplay,
+  planIsSharedAcrossLines,
   type CashDuePayment,
   resolveInstallmentMethodLabel,
+  resolveLinePlan,
   resolveProductModelName,
   resolveRenewalTypeLabel,
   resolveSerial,
@@ -307,10 +309,11 @@ function DeviceDetailCard({
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(paymentTerm) })
 
   const payment = linePaymentDisplay(line, invoice)
+  const sharedPlan = planIsSharedAcrossLines(resolveLinePlan(line, invoice), invoice)
   if (payment.scheduleLabel) {
     cells.push({ label: 'موعد الكاش', value: payment.scheduleLabel })
   }
-  if (payment.showDownPayment) {
+  if (payment.showDownPayment && !sharedPlan) {
     cells.push({ label: 'المقدم', value: fmtContractMoney(payment.downPayment) })
   }
   if (payment.isCash && payment.remainder > 0) {
@@ -318,7 +321,7 @@ function DeviceDetailCard({
   }
 
   const installmentMethod = resolveInstallmentMethodLabel(line, invoice)
-  if (installmentMethod && installmentMethod !== '—') {
+  if (installmentMethod && installmentMethod !== '—' && !sharedPlan) {
     cells.push({ label: 'طريقة الأقساط', value: installmentMethod })
   }
 
@@ -368,10 +371,11 @@ function ServiceDetailCard({
   cells.push({ label: 'طريقة الدفع', value: paymentTermLabel(line.payment_term) })
 
   const payment = linePaymentDisplay(line, invoice)
+  const sharedPlan = planIsSharedAcrossLines(resolveLinePlan(line, invoice), invoice)
   if (payment.scheduleLabel) {
     cells.push({ label: 'موعد الكاش', value: payment.scheduleLabel })
   }
-  if (payment.showDownPayment) {
+  if (payment.showDownPayment && !sharedPlan) {
     cells.push({ label: 'المقدم', value: fmtContractMoney(payment.downPayment) })
   }
   if (payment.isCash && payment.remainder > 0) {
@@ -379,7 +383,7 @@ function ServiceDetailCard({
   }
 
   const installmentMethod = resolveInstallmentMethodLabel(line, invoice)
-  if (installmentMethod && installmentMethod !== '—') {
+  if (installmentMethod && installmentMethod !== '—' && !sharedPlan) {
     cells.push({ label: 'طريقة الأقساط', value: installmentMethod })
   }
 

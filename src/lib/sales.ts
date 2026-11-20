@@ -245,6 +245,15 @@ export function serviceContractPrintPath(
   return `/invoices/${invoiceId}/service-contract${qs ? `?${qs}` : ''}`
 }
 
+/** Service-only and combined-service contracts print the service receipt, not a device contract. */
+export function usesServiceContractPrint(invoice: SalesInvoice): boolean {
+  if (invoice.contract_kind === 'ownership_transfer') return false
+  const lines = invoice.lines ?? []
+  const hasDeviceLine = lines.some((line) => !isServiceInvoiceLine(line))
+  if (hasDeviceLine) return false
+  return invoice.contract_kind === 'mixed' || lines.some((line) => isServiceInvoiceLine(line))
+}
+
 export function isServiceInvoiceLine(line: {
   line_type?: 'device' | 'service' | string | null
   product_unit_id?: number | null

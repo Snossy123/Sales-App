@@ -8,7 +8,7 @@ import {
   canReturnContract,
   type ContractProblemCaseType,
 } from '../../lib/contractCases'
-import { canConvertCashToInstallment } from '../../lib/contractEdit'
+import { canConvertCashToInstallment, canOperateContract } from '../../lib/contractEdit'
 import { useAuthStore } from '../../stores/authStore'
 import { ConvertCashToInstallmentModal } from '../contracts/ConvertCashToInstallmentModal'
 import { ContractPrintActions } from '../contracts/ContractPrintActions'
@@ -90,6 +90,9 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
             const summary = buildContractSummary(invoice)
             const installmentItems = getInstallmentItems(invoice)
             const summaryLine = buildContractSummaryLine(invoice)
+            const saleBranch = invoice.branch?.name_ar || invoice.branch?.name
+            const actionBranch = invoice.action_branch?.name_ar || invoice.action_branch?.name
+            const canOperate = canOperateContract(user, invoice)
 
             return (
               <CollapsibleSection
@@ -100,6 +103,8 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                     showInvoiceStatusBadge(statusFilter) && invoice.status
                       ? invoiceStatusLabel(String(invoice.status))
                       : null,
+                    saleBranch ? `فرع البيع: ${saleBranch}` : null,
+                    actionBranch && actionBranch !== saleBranch ? `فرع التنفيذ: ${actionBranch}` : null,
                     invoice.ownership_transferred_at ? 'مستلم بنقل ملكية' : null,
                     invoice.contract_kind === 'ownership_transfer'
                       ? contractKindLabel(invoice.contract_kind)
@@ -175,7 +180,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <Icon name="description" size={18} />
                       تفاصيل العقد
                     </Link>
-                    {canConvertCashToInstallment(user, invoice) && (
+                    {canOperate && canConvertCashToInstallment(user, invoice) && (
                       <button
                         type="button"
                         onClick={() => setConvertInvoice(invoice)}
@@ -185,10 +190,12 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                         تحويل من كاش لقسط
                       </button>
                     )}
+                    {canOperate && (
                     <ContractPrintActions
                       invoice={invoice}
                       className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-md py-sm text-sm font-medium text-on-surface hover:bg-surface-container-low"
                     />
+                    )}
                     {canRejectContract(user, invoice) && (
                       <Link
                         to={`/invoices/review/${invoice.id}`}
@@ -224,6 +231,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                         استرجاع
                       </button>
                     )}
+                    {canOperate && (
                     <button
                       type="button"
                       onClick={() => {
@@ -235,6 +243,7 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                       <Icon name="report_problem" size={18} />
                       تحويل للمشاكل
                     </button>
+                    )}
                   </div>
 
                   {invoice.payment_term === 'installment' && installmentItems.length > 0 && (
