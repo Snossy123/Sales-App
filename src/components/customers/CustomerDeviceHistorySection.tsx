@@ -159,6 +159,8 @@ export function CustomerDeviceHistorySection({
                         {device.invoice_number}
                       </Link>
                     </>
+                  ) : device.invoice_number ? (
+                    <span className="text-on-surface-variant">{device.invoice_number}</span>
                   ) : (
                     <span className="text-xs text-on-surface-variant">بدون تعاقد في السيستم</span>
                   )}
