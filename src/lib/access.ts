@@ -97,11 +97,18 @@ const CRUD_MANAGE_FALLBACKS: Record<string, { keys: string[]; includeDelete?: bo
 }
 
 export function userCanCrud(user: AuthUser | null, resource: string, action: CrudAction): boolean {
+  if (action === 'delete') {
+    if (isSuperAdmin(user)) return true
+    if (userHasPermission(user, `${resource}.delete`)) return true
+    const fallback = CRUD_MANAGE_FALLBACKS[resource]
+    if (!fallback?.includeDelete) return false
+    return fallback.keys.some((key) => userHasPermission(user, key))
+  }
+
   if (userCanPerform(user, `${resource}.${action}`)) return true
 
   const fallback = CRUD_MANAGE_FALLBACKS[resource]
   if (!fallback) return false
-  if (action === 'delete' && !fallback.includeDelete) return false
 
   return fallback.keys.some((key) => userCanPerform(user, key))
 }

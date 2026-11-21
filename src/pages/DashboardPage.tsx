@@ -22,13 +22,10 @@ import { usePageTour } from '../hooks/usePageTour'
 import { computeDashboardInsights } from '../lib/pageStats'
 import { getUserRole } from '../lib/permissions'
 import { canPickBranch, getScopedBranchIds } from '../lib/dataScope'
+import { formatCalendarYmd } from '../lib/format'
 import { formatMoney } from '../lib/theme'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
 import { useAuthStore } from '../stores/authStore'
-
-function formatDate(value: string, locale = 'ar-EG') {
-  return new Intl.DateTimeFormat(locale, { numberingSystem: 'latn', dateStyle: 'medium' }).format(new Date(value))
-}
 
 function daysOverdueFromRow(row: DashboardInstallmentSummary): number {
   if (row.days_overdue != null) return row.days_overdue
@@ -63,7 +60,7 @@ export function DashboardPage() {
   const showReviews = role === 'super_admin' || role === 'admin' || role === 'reviewer'
   const userCanPickBranch = canPickBranch(user)
   const fmtMoney = (value: number) => formatMoney(value, currency, locale)
-  const fmtDate = (value: string) => formatDate(value, locale)
+  const fmtDate = (value: string) => formatCalendarYmd(value)
   const visibleActions = quickActions.filter((a) => a.roles.includes(role))
 
   const [period, setPeriod] = useState<DashboardPeriod>('day')

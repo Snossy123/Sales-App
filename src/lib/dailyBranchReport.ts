@@ -65,17 +65,23 @@ export interface DailyBranchReportFormState {
 
 const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 
+function reportCalendarDate(dateStr: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr ?? '')
+  if (!match) return null
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 export function arabicDayName(dateStr: string): string {
-  const date = new Date(`${dateStr}T12:00:00`)
+  const date = reportCalendarDate(dateStr)
+  if (!date) return ''
   return AR_DAYS[date.getDay()] ?? ''
 }
 
 export function formatReportHeaderDate(dateStr: string): string {
-  const date = new Date(`${dateStr}T12:00:00`)
-  const day = date.getDate()
-  const month = date.getMonth() + 1
-  const year = date.getFullYear()
-  return `${day} / ${month} / ${year}`
+  const date = reportCalendarDate(dateStr)
+  if (!date) return '—'
+  return `${date.getDate()} / ${date.getMonth() + 1} / ${date.getFullYear()}`
 }
 
 export function formatReportHeaderDateLong(dateStr: string): string {

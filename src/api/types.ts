@@ -1171,6 +1171,24 @@ export interface DailyBranchReportInference {
   existing_updated_at?: string | null
 }
 
+export interface HrmSalesTargetAllocation {
+  id: number
+  units_count?: number
+  allocated_at?: string
+  sales_invoice?: {
+    id: number
+    invoice_number?: string
+    invoice_date?: string
+    total?: string | number
+    customer?: { id: number; name?: string } | null
+  } | null
+}
+
+export interface HrmSalesTargetProgress {
+  active_target: HrmUserSalesTarget | null
+  allocations: HrmSalesTargetAllocation[]
+}
+
 export interface HrmUserSalesTarget {
   id: number
   employee_id: number

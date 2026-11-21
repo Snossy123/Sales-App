@@ -31,7 +31,10 @@ import {
 } from '../stores/procedureDraftStore'
 
 function isContractPrintPath(pathname: string): boolean {
-  return /\/(contract-print|ownership-transfer-contract|service-contract)(\/|$)/.test(pathname)
+  return (
+    /\/(contract-print|ownership-transfer-contract|service-contract)(\/|$)/.test(pathname) ||
+    /^\/daily-reports\/[^/]+\/print\/?$/.test(pathname)
+  )
 }
 
 function shouldShowStockTicker(pathname: string): boolean {

@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import axios from 'axios'
-import type { Employee, HrmUserSalesTarget } from '../api/types'
+import type { Employee, HrmSalesTargetAllocation, HrmSalesTargetProgress } from '../api/types'
+import { formatAccountingMoney } from '../lib/format'
 import { AsyncState } from '../components/AsyncState'
 import { Icon } from '../components/Icon'
 import { ProfilePhotoUploader } from '../components/ProfilePhotoUploader'
@@ -34,12 +35,10 @@ export function MyProfilePage() {
   })
 
   const targetQuery = useQuery({
-    queryKey: ['hrm', 'sales-targets', 'progress', employeeQuery.data?.id],
+    queryKey: ['me', 'sales-target'],
     queryFn: async () => {
-      const { data } = await api.get<{ active_target: HrmUserSalesTarget | null }>(
-        `/hrm/employees/${employeeQuery.data!.id}/sales-targets/progress`,
-      )
-      return data.active_target
+      const { data } = await api.get<HrmSalesTargetProgress>('/me/sales-target')
+      return data
     },
     enabled: Boolean(employeeQuery.data?.id),
   })
@@ -120,7 +119,22 @@ export function MyProfilePage() {
               </dl>
             </section>
 
-            {targetQuery.data && <SalesTargetProgressCard target={targetQuery.data} />}
+            <AsyncState
+              isLoading={targetQuery.isLoading}
+              isError={targetQuery.isError}
+              error={targetQuery.error}
+            >
+              {targetQuery.data?.active_target ? (
+                <div className="space-y-sm">
+                  <SalesTargetProgressCard target={targetQuery.data.active_target} />
+                  <SalesTargetAllocations allocations={targetQuery.data.allocations ?? []} />
+                </div>
+              ) : (
+                <p className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
+                  لا يوجد تارجت ساري لحسابك.
+                </p>
+              )}
+            </AsyncState>
 
             {canManageHrm && (
               <Link
@@ -136,5 +150,35 @@ export function MyProfilePage() {
         )}
       </AsyncState>
     </SalesPageShell>
+  )
+}
+
+function SalesTargetAllocations({ allocations }: { allocations: HrmSalesTargetAllocation[] }) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <h3 className="border-b border-outline-variant/60 px-md py-sm text-sm font-semibold">
+        العقود المحتسبة
+      </h3>
+      {allocations.length === 0 ? (
+        <p className="px-md py-lg text-center text-sm text-on-surface-variant">
+          لم يُحتسب تعاقد على هذا التارجت بعد.
+        </p>
+      ) : (
+        <ul className="divide-y divide-outline-variant/60">
+          {allocations.map((row) => (
+            <li key={row.id} className="flex items-center justify-between gap-sm px-md py-sm text-sm">
+              <div>
+                <p className="font-medium">{row.sales_invoice?.invoice_number ?? '—'}</p>
+                <p className="text-on-surface-variant">
+                  {row.sales_invoice?.customer?.name ?? '—'}
+                  {row.sales_invoice?.invoice_date ? ` · ${row.sales_invoice.invoice_date}` : ''}
+                </p>
+              </div>
+              <span className="tabular-nums">{formatAccountingMoney(row.sales_invoice?.total)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

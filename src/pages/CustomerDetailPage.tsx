@@ -22,6 +22,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { DeleteConfirmDialog } from '../components/crud/DeleteConfirmDialog'
 import { getEntityCrudConfig } from '../lib/crud/entityCrudRegistry'
 import { useSoftDelete } from '../lib/crud/useSoftDelete'
+import { userCanCrud } from '../lib/access'
 import { getUserRole } from '../lib/permissions'
 import {
   distributorLabel,
@@ -120,7 +121,7 @@ export function CustomerDetailPage() {
   const user = useAuthStore((s) => s.user)
   const crudConfig = getEntityCrudConfig('customers')
   const canManage = ['super_admin', 'admin', 'sales'].includes(getUserRole(user))
-  const canDelete = ['super_admin', 'admin'].includes(getUserRole(user))
+  const canDelete = userCanCrud(user, 'customers', 'delete')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 

@@ -6,6 +6,7 @@ import type {
   SalesInvoice,
   SalesInvoiceLine,
 } from '../api/types'
+import { formatCairoDateTime12h } from './format'
 import {
   cashRemainder,
   cashScheduleOptions,
@@ -68,14 +69,7 @@ export function fmtContractDateWithWeekday(value: string | null | undefined): st
 }
 
 export function fmtContractDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
-  const hasTime = value.includes('T') || /\d{1,2}:\d{2}/.test(value)
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return fmtContractDate(value)
-  if (!hasTime) return fmtContractDate(value)
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${fmtContractDate(value)}، ${hours}:${minutes}`
+  return formatCairoDateTime12h(value)
 }
 
 export function fmtInvoiceContractDateTime(

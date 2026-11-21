@@ -444,6 +444,10 @@ export function canAccessRoute(
     return canAccessDepartment(user, Number(deptDetailMatch[1]))
   }
 
+  if (/^\/admin\/roles\/[^/]+\/permissions$/.test(normalized)) {
+    if (role === 'super_admin' || role === 'admin' || user?.data_scope === 'administration') return true
+  }
+
   const requiredPerms = resolveRoutePermissions(normalized)
   const permAccess = userCanAccessByPermissions(user?.permissions, requiredPerms)
   // CRM screens follow the assigned permission for every role, including managers.

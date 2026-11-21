@@ -429,6 +429,7 @@ export function AdminUsersPage() {
                   queryKeys={[['admin', 'users']]}
                   onEdit={openEdit}
                   showView={false}
+                  allowDelete={row.id !== user?.id}
                 />
               ),
             },

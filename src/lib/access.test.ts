@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthUser, SalesInvoice } from '../api/types'
-import { getUserRole, isAnyAdmin, userHasPermission } from './access'
+import { getUserRole, isAnyAdmin, userCanCrud, userHasPermission } from './access'
 import { canExchangeContract, canReturnContract } from './contractCases'
 import type { CrmPageVisibilityContext } from './crmPageVisibility'
 import { canAccessRoute, getNavEntriesForUser } from './permissions'
@@ -53,6 +53,21 @@ describe('access', () => {
     expect(isAnyAdmin(user({ demo_role: 'admin' }))).toBe(true)
     expect(isAnyAdmin(user({ demo_role: 'super_admin' }))).toBe(true)
     expect(isAnyAdmin(user({ demo_role: 'sales' }))).toBe(false)
+  })
+
+  it('does not grant customer or distributor delete from manage or the admin role', () => {
+    const manager = user({
+      roles: [{ id: 2, name: 'AdministrationManager' }],
+      permissions: ['customers.manage', 'distributors.manage', 'settings.manage', 'collection_accounts.manage'],
+    })
+
+    expect(userCanCrud(manager, 'customers', 'edit')).toBe(true)
+    expect(userCanCrud(manager, 'customers', 'delete')).toBe(false)
+    expect(userCanCrud(manager, 'distributors', 'delete')).toBe(false)
+    expect(userCanCrud(manager, 'services', 'delete')).toBe(false)
+    expect(userCanCrud(manager, 'collection_accounts', 'delete')).toBe(true)
+    expect(userCanCrud(user({ permissions: ['customers.delete'], demo_role: 'sales' }), 'customers', 'delete')).toBe(true)
+    expect(userCanCrud(user({ roles: [{ id: 1, name: 'Admin' }] }), 'customers', 'delete')).toBe(true)
   })
 })
 
@@ -127,11 +142,36 @@ describe('CRM screen permissions', () => {
     expect(canAccessRoute('/crm/reports', manager)).toBe(true)
     expect(canAccessRoute('/crm/reports/leaderboard', manager)).toBe(false)
     expect(canAccessRoute('/admin/users', manager)).toBe(true)
+    expect(canAccessRoute('/admin/roles/6/permissions', manager)).toBe(true)
     expect(navLabels(manager)).toContain('تقارير الترشيحات')
     expect(navLabels(manager)).not.toContain('لوحة المتصدرين')
   })
 })
 
+
+describe('administration role overrides', () => {
+  it('opens the override screen without roles.manage', () => {
+    const manager = user({
+      roles: [{ id: 2, name: 'AdministrationManager' }],
+      data_scope: 'administration',
+      permissions: ['users.manage', 'dashboard.view'],
+    })
+    const administrationSales = user({
+      demo_role: 'sales',
+      data_scope: 'administration',
+      permissions: ['users.manage'],
+    })
+    const branchSales = user({
+      demo_role: 'sales',
+      data_scope: 'branch',
+      permissions: ['users.manage'],
+    })
+
+    expect(canAccessRoute('/admin/roles/6/permissions', manager)).toBe(true)
+    expect(canAccessRoute('/admin/roles/6/permissions', administrationSales)).toBe(true)
+    expect(canAccessRoute('/admin/roles/6/permissions', branchSales)).toBe(false)
+  })
+})
 
 describe('expense request detail access', () => {
   it('lets an expense submitter open the request and its details without review permissions', () => {

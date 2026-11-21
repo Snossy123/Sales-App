@@ -1,3 +1,5 @@
+import { periodLabels, to12HourParts } from './datetime12h'
+
 export const DISPLAY_LOCALE = 'ar-EG'
 export const DISPLAY_TIMEZONE = 'Africa/Cairo'
 
@@ -115,4 +117,67 @@ export function formatTime(
       minute: '2-digit',
     }).format(d),
   )
+}
+
+const DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/
+const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/
+const HAS_ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/
+
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function clock12(hour24: number, minute: number): string {
+  const { hour, period } = to12HourParts(hour24)
+  return `${pad2(hour)}:${pad2(minute)} ${periodLabels[period]}`
+}
+
+function ymdFromInstant(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DISPLAY_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((value) => value.type === type)?.value ?? ''
+  return `${part('year')}/${part('month')}/${part('day')}`
+}
+
+/** Calendar date as yyyy/mm/dd. A leading YYYY-MM-DD is kept as written. */
+export function formatCalendarYmd(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return '—'
+  if (typeof value === 'string') {
+    const match = DATE_PREFIX.exec(value.trim())
+    if (match) return `${match[1]}/${match[2]}/${match[3]}`
+  }
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return ymdFromInstant(date)
+}
+
+/** yyyy/mm/dd, and a 12-hour Cairo clock when the value includes a time. */
+export function formatCairoDateTime12h(value: string | null | undefined): string {
+  if (value == null || value === '') return '—'
+  const trimmed = value.trim()
+  const wall = WALL_CLOCK.exec(trimmed)
+  if (!wall) return formatCalendarYmd(trimmed)
+
+  if (HAS_ZONE.test(trimmed)) {
+    const instant = new Date(trimmed)
+    if (Number.isNaN(instant.getTime())) return `${wall[1]}/${wall[2]}/${wall[3]}`
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: DISPLAY_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(instant)
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
+    const hour = part('hour') === '24' ? 0 : Number(part('hour'))
+    return `${part('year')}/${part('month')}/${part('day')}، ${clock12(hour, Number(part('minute')))}`
+  }
+
+  return `${wall[1]}/${wall[2]}/${wall[3]}، ${clock12(Number(wall[4]), Number(wall[5]))}`
 }

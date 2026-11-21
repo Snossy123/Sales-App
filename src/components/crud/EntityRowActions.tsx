@@ -15,6 +15,7 @@ interface EntityRowActionsProps<T extends { id: number }> {
   queryKeys?: string[][]
   onEdit?: (row: T) => void
   showView?: boolean
+  allowDelete?: boolean
 }
 
 function hasPermission(roles: DemoRole[] | undefined, userRole: DemoRole): boolean {
@@ -28,6 +29,7 @@ export function EntityRowActions<T extends { id: number }>({
   queryKeys,
   onEdit,
   showView = true,
+  allowDelete = true,
 }: EntityRowActionsProps<T>) {
   const user = useAuthStore((s) => s.user)
   const role = getUserRole(user)
@@ -41,9 +43,9 @@ export function EntityRowActions<T extends { id: number }>({
   const canEdit = crud
     ? userCanCrud(user, crud, 'edit')
     : hasPermission(config.permissions.edit, role)
-  const canDelete = crud
+  const canDelete = allowDelete && (crud
     ? userCanCrud(user, crud, 'delete')
-    : hasPermission(config.permissions.delete, role)
+    : hasPermission(config.permissions.delete, role))
 
   const deleteMutation = useSoftDelete({
     resource: config.resource,

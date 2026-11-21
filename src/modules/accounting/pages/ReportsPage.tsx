@@ -30,6 +30,7 @@ type ReportTab =
   | 'trial-balance'
   | 'balance-sheet'
   | 'ar-ageing'
+  | 'ap-ageing'
   | 'income-statement'
   | 'general-ledger'
   | 'budget-variance'
@@ -94,6 +95,15 @@ export function ReportsPage() {
       return data
     },
     enabled: tab === 'ar-ageing',
+  })
+
+  const apQuery = useQuery({
+    queryKey: ['accounting', 'reports', 'ap-ageing'],
+    queryFn: async () => {
+      const { data } = await api.get<{ message: string; report: unknown[] }>('/accounting/reports/ap-ageing')
+      return data
+    },
+    enabled: tab === 'ap-ageing',
   })
 
   const incomeQuery = useQuery({
@@ -164,6 +174,7 @@ export function ReportsPage() {
     { id: 'trial-balance', label: 'ميزان المراجعة' },
     { id: 'balance-sheet', label: 'الميزانية العمومية' },
     { id: 'ar-ageing', label: 'أعمار الذمم (AR)' },
+    { id: 'ap-ageing', label: 'أعمار الذمم الدائنة (AP)' },
     { id: 'income-statement', label: 'قائمة الدخل' },
     { id: 'general-ledger', label: 'دفتر الأستاذ العام' },
     { id: 'budget-variance', label: 'الميزانية vs الفعلي' },
@@ -177,7 +188,7 @@ export function ReportsPage() {
     <div>
       <PageHeader
         title="التقارير المحاسبية"
-        subtitle="ميزان المراجعة، الميزانية، أعمار الذمم، وقائمة الدخل"
+        subtitle="ميزان المراجعة، الميزانية، أعمار الذمم المدينة والدائنة، وقائمة الدخل"
         actions={
           <div className="flex gap-xs">
             <button
@@ -404,6 +415,17 @@ export function ReportsPage() {
                   ? 'عرض تفصيلي حسب الفترة متاح في وضع العميل'
                   : 'لا توجد فواتير مستحقة'}
               </p>
+            )}
+          </AsyncState>
+        )}
+
+        {tab === 'ap-ageing' && (
+          <AsyncState isLoading={apQuery.isLoading} isError={apQuery.isError} error={apQuery.error}>
+            {apQuery.data && (
+              <div className="rounded-lg border border-outline-variant p-md">
+                <p className="text-sm text-on-surface">{apQuery.data.message}</p>
+                <p className="mt-sm text-sm text-on-surface-variant">لا توجد ذمم دائنة.</p>
+              </div>
             )}
           </AsyncState>
         )}
