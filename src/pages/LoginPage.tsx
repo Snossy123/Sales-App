@@ -20,6 +20,9 @@ export function LoginPage() {
         password,
         device_name: 'web',
       })
+      if (!data?.token || !data?.user) {
+        throw new Error('استجابة تسجيل الدخول غير صالحة من السيرفر.')
+      }
       return data
     },
     onSuccess: (data) => {

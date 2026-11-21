@@ -317,7 +317,6 @@ export function AppShell() {
             </div>
             <div className="mx-sm h-8 w-px bg-outline-variant" />
             <div className="flex items-center gap-sm">
-            <SyncStatusIndicator />
               <Link
                 to="/profile"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary hover:opacity-90"

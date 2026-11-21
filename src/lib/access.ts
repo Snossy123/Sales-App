@@ -129,9 +129,9 @@ export function canAccessDepartment(user: AuthUser | null, departmentId: number)
 
 export function canAccessBranch(
   user: AuthUser | null,
-  branch: Pick<Branch, 'id' | 'administration_id' | 'department_id'>,
+  branch?: Pick<Branch, 'id' | 'administration_id' | 'department_id'> | null,
 ): boolean {
-  if (!user) return false
+  if (!user || !branch) return false
   const scope = getUserDataScope(user)
   if (scope === 'organization') return true
 

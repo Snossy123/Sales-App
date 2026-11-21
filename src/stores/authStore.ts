@@ -29,29 +29,32 @@ export const useAuthStore = create<AuthState>()(
       warehouseId: null,
 
       setAuth: (token, user) => {
-        import('./tourStore').then(({ useTourStore }) => {
-          useTourStore.getState().hydrateFromUser(user)
-        })
+        if (user) {
+          import('./tourStore').then(({ useTourStore }) => {
+            useTourStore.getState().hydrateFromUser(user)
+          })
+        }
         set({
           token,
-          user,
-          departmentId: user.administration_id ?? user.department_id ?? null,
-          branchId: user.active_branch_id ?? user.preferences?.active_branch_id ?? user.branch_id ?? user.branch?.id ?? null,
+          user: user ?? null,
+          departmentId: user?.administration_id ?? user?.department_id ?? null,
+          branchId: user?.active_branch_id ?? user?.preferences?.active_branch_id ?? user?.branch_id ?? user?.branch?.id ?? null,
           warehouseId: null,
         })
       },
 
       updateUser: (user) => {
+        if (!user) return
         set((state) => {
           const nextBranchId =
-            user.active_branch_id ??
-            user.preferences?.active_branch_id ??
-            user.branch_id ??
-            user.branch?.id ??
+            user?.active_branch_id ??
+            user?.preferences?.active_branch_id ??
+            user?.branch_id ??
+            user?.branch?.id ??
             state.branchId
           return {
             user,
-            departmentId: user.administration_id ?? user.department_id ?? state.departmentId,
+            departmentId: user?.administration_id ?? user?.department_id ?? state.departmentId,
             branchId: nextBranchId,
             warehouseId: nextBranchId !== state.branchId ? null : state.warehouseId,
           }

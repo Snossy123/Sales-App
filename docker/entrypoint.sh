@@ -16,7 +16,11 @@ elif [ package.json -nt node_modules ]; then
 fi
 
 if [ ! -f .env ]; then
-  cp .env.example .env
+  if [ -f .env.example ]; then
+    cp .env.example .env
+  else
+    touch .env
+  fi
 fi
 
 exec "$@"
