@@ -1,5 +1,15 @@
 export type ContractTierFilter = 'all' | 'overdue' | 'due_soon' | 'upcoming' | 'open_reconciliation'
 
+export function collectorFilterValues(value: string | string[] | null | undefined): string[] {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
+  return [...new Set(raw.map((item) => item.trim()).filter(Boolean))]
+}
+
+export function collectorFilterParam(values: string[]): string | undefined {
+  const tokens = collectorFilterValues(values)
+  return tokens.length > 0 ? tokens.join(',') : undefined
+}
+
 export type FirstDueStatus = 'upcoming' | 'due' | 'overdue'
 
 export const firstDueStatusLabels: Record<FirstDueStatus, string> = {

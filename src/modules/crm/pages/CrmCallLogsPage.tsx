@@ -1,6 +1,6 @@
 import { AppDateTimePicker } from '../../../components/AppDateTimePicker'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { api, getErrorMessage } from '../../../api/client'
@@ -204,6 +204,10 @@ function ContactPickerSection({
 
 export function CrmCallLogsPage() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const referralLeadParam = searchParams.get('referral_lead_id')
+  const referralLeadId =
+    referralLeadParam && /^\d+$/.test(referralLeadParam) ? Number(referralLeadParam) : null
   const [panelOpen, setPanelOpen] = useState(false)
   const [editCall, setEditCall] = useState<CrmCallLog | null>(null)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
@@ -308,13 +312,26 @@ export function CrmCallLogsPage() {
   }, [contactSearchQuery.data, selectedContact])
 
   const query = useQuery({
-    queryKey: ['crm', 'call-logs'],
+    queryKey: ['crm', 'call-logs', referralLeadId],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<CrmCallLog>>('/crm/call-logs', {
-        params: { per_page: 50, include: 'lead,user,serviceEvaluationRequest,crmTask' },
+        params: {
+          per_page: 50,
+          include: 'lead,user,serviceEvaluationRequest,crmTask',
+          ...(referralLeadId ? { referral_lead_id: referralLeadId } : {}),
+        },
       })
       return data.data
     },
+  })
+
+  const referralLeadQuery = useQuery({
+    queryKey: ['crm-referral-lead', referralLeadId],
+    queryFn: async () => {
+      const { data } = await api.get<ReferralLead>(`/crm/referral-leads/${referralLeadId}`)
+      return data
+    },
+    enabled: referralLeadId != null,
   })
 
   const evaluationCustomerId = form.customer_id === '' ? null : Number(form.customer_id)
@@ -575,7 +592,7 @@ export function CrmCallLogsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedSearch])
+  }, [debouncedSearch, referralLeadId])
 
   const formatDuration = (seconds?: number | null) => {
     if (seconds == null) return '—'
@@ -644,6 +661,19 @@ export function CrmCallLogsPage() {
           placeholder="بحث في الترشيحات والعملاء…"
           className={`${CRM_INPUT} min-w-[220px] flex-1`}
         />
+        {referralLeadId != null ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[12.5px] font-semibold" style={{ color: 'var(--crm-text)' }}>
+              مكالمات{' '}
+              {referralLeadQuery.data?.name?.trim() ||
+                referralLeadQuery.data?.phone ||
+                `#${referralLeadId}`}
+            </span>
+            <Link to="/crm/call-logs" className="text-[12.5px] font-semibold" style={{ color: 'var(--crm-primary)' }}>
+              عرض كل المكالمات
+            </Link>
+          </div>
+        ) : null}
       </CrmFilterPanel>
 
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>

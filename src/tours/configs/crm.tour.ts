@@ -29,7 +29,7 @@ export const crmTour: TourConfig = {
       target: '[data-tour="crm-lead-card"]',
       title: { ar: 'بطاقة الترشيح', en: 'Referral card' },
       content: {
-        ar: 'كل بطاقة تعرض الاسم والهاتف والمُحيل. غيّر الحالة أو افتح ملف الترشيح.',
+        ar: 'كل بطاقة تعرض الاسم والهاتف والمرشح. غيّر الحالة أو افتح ملف الترشيح.',
         en: 'Each card shows name, phone, and referrer. Change status or open the profile.',
       },
       placement: 'left',

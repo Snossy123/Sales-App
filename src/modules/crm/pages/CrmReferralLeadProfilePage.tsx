@@ -19,6 +19,7 @@ import {
   referralStatusMeta,
   referrerLabel,
 } from '../lib/referralLeads'
+import { useStartReferralSale } from '../lib/useStartReferralSale'
 
 export function CrmReferralLeadProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -49,6 +50,7 @@ export function CrmReferralLeadProfilePage() {
   })
 
   const lead = query.data
+  const sale = useStartReferralSale(lead)
   const timeline = lead?.timeline ?? []
   const ini = (lead?.name || lead?.phone || '؟').slice(0, 1)
 
@@ -82,10 +84,20 @@ export function CrmReferralLeadProfilePage() {
       }
       actions={
         <>
+          {sale.canStart ? (
+            <button
+              type="button"
+              className={CRM_PRIMARY_BTN}
+              disabled={sale.pending}
+              onClick={() => void sale.start()}
+            >
+              تعاقد جديد
+            </button>
+          ) : null}
           {lead ? (
             <Link
               to={`/crm/call-logs?referral_lead_id=${lead.id}`}
-              className={CRM_PRIMARY_BTN}
+              className={sale.canStart ? CRM_SECONDARY_BTN : CRM_PRIMARY_BTN}
             >
               تسجيل مكالمة
             </Link>
@@ -100,6 +112,11 @@ export function CrmReferralLeadProfilePage() {
       <AsyncState isLoading={query.isLoading} isError={query.isError} error={query.error}>
         {lead && (
           <>
+            {sale.error ? (
+              <p className="m-0 text-xs" style={{ color: 'var(--crm-danger)' }}>
+                {sale.error}
+              </p>
+            ) : null}
             <section className="flex flex-col gap-2.5">
               <span className="text-[11.5px] font-semibold" style={{ color: 'var(--crm-text-faint)' }}>
                 الحالة الحالية
@@ -141,7 +158,7 @@ export function CrmReferralLeadProfilePage() {
             <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
               {[
                 { label: 'الهاتف', value: lead.phone, ltr: true },
-                { label: 'المُحيل', value: referrerLabel(lead) },
+                { label: 'المرشح', value: referrerLabel(lead) },
                 {
                   label: 'المسند إليه',
                   value: lead.assignee?.name || lead.creator?.name || '—',

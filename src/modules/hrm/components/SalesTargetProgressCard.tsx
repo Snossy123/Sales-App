@@ -1,5 +1,6 @@
 import { Icon } from '../../../components/Icon'
 import type { HrmUserSalesTarget } from '../../../api/types'
+import { salesTargetCommissionLabel, salesTargetEarnedLabel } from '../salesTargetCommission'
 
 interface SalesTargetProgressCardProps {
   target: HrmUserSalesTarget
@@ -40,8 +41,10 @@ export function SalesTargetProgressCard({ target, compact = false }: SalesTarget
           style={{ width: `${percent}%` }}
         />
       </div>
-      {target.commission_percent != null && !compact && (
-        <p className="mt-sm text-sm text-on-surface-variant">عمولة: {target.commission_percent}%</p>
+      {!compact && (
+        <p className="mt-sm text-sm text-on-surface-variant">
+          العمولة: {salesTargetCommissionLabel(target)} — المستحق: {salesTargetEarnedLabel(target)}
+        </p>
       )}
     </div>
   )

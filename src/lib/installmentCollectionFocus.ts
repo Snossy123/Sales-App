@@ -17,7 +17,7 @@ export interface InstallmentCollectionFocus {
   statusFilter: string
   contractTierFilter: ContractTierFilter
   collectionStatusFilter: string
-  collectorFilter: string
+  collectorFilter: string | string[]
   sortByReminder: boolean
   followUpToday?: boolean
   paidToday?: boolean
@@ -34,7 +34,8 @@ function isFocus(value: unknown): value is InstallmentCollectionFocus {
     typeof focus.statusFilter === 'string' &&
     contractTiers.has(focus.contractTierFilter) &&
     typeof focus.collectionStatusFilter === 'string' &&
-    typeof focus.collectorFilter === 'string' &&
+    (typeof focus.collectorFilter === 'string' ||
+      (Array.isArray(focus.collectorFilter) && focus.collectorFilter.every((item) => typeof item === 'string'))) &&
     typeof focus.sortByReminder === 'boolean' &&
     (focus.followUpToday === undefined || typeof focus.followUpToday === 'boolean') &&
     (focus.paidToday === undefined || typeof focus.paidToday === 'boolean') &&

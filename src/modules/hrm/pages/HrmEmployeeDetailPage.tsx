@@ -26,6 +26,7 @@ import { ToastBanner } from '../../../components/ToastBanner'
 import { EmployeeAccountModeField, inferEmployeeAccountMode, type EmployeeAccountMode } from '../components/EmployeeAccountModeField'
 import { EmployeeAttachmentsSection } from '../components/EmployeeAttachmentsSection'
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
+import { salesTargetCommissionLabel, salesTargetEarnedLabel } from '../salesTargetCommission'
 import { SalesTargetProgressCard } from '../components/SalesTargetProgressCard'
 import { hrmLeaveTypeLabel } from '../lib/labels'
 import { NumericInput } from '../../../components/ui/NumericInput'
@@ -694,11 +695,16 @@ export function HrmEmployeeDetailPage() {
                         render: (row) => row.achieved_count ?? 0,
                       },
                       {
-                        key: 'commission_percent',
-                        header: 'العمولة %',
+                        key: 'commission',
+                        header: 'العمولة',
                         className: 'tabular-nums',
-                        render: (row) =>
-                          row.commission_percent != null ? `${row.commission_percent}%` : '—',
+                        render: (row) => salesTargetCommissionLabel(row as HrmUserSalesTarget),
+                      },
+                      {
+                        key: 'commission_earned',
+                        header: 'المستحق',
+                        className: 'tabular-nums',
+                        render: (row) => salesTargetEarnedLabel(row as HrmUserSalesTarget),
                       },
                       {
                         key: 'actions',

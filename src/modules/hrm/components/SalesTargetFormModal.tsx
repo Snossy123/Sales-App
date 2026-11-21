@@ -1,5 +1,5 @@
 import { AppDatePicker } from '../../../components/AppDatePicker'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../../api/client'
 import type { Employee, HrmUserSalesTarget, PaginatedResponse } from '../../../api/types'
@@ -28,14 +28,14 @@ export function SalesTargetFormModal({
 }: SalesTargetFormModalProps) {
   const [toast, setToast] = useState('')
   const [employeeSearch, setEmployeeSearch] = useState('')
-  const [form, setForm] = useState({
-    employee_id: employeeId ?? ('' as number | ''),
-    target_start: target?.target_start ?? '',
-    target_end: target?.target_end ?? '',
-    target_count: target?.target_count != null ? String(target.target_count) : '',
-    commission_percent:
-      target?.commission_percent != null ? String(target.commission_percent) : '',
-  })
+  const [form, setForm] = useState(() => targetFormState(employeeId, target))
+
+  useEffect(() => {
+    if (!open) return
+    setForm(targetFormState(employeeId, target))
+    setEmployeeSearch('')
+    setToast('')
+  }, [open, employeeId, target])
 
   const employeesQuery = useQuery({
     queryKey: ['employees', 'sales-target-form'],
@@ -50,12 +50,16 @@ export function SalesTargetFormModal({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const isFixed = form.commission_type === 'fixed'
       const payload = {
         employee_id: Number(employeeId ?? form.employee_id),
         target_start: form.target_start,
         target_end: form.target_end,
         target_count: Number(form.target_count),
-        commission_percent: Number(form.commission_percent),
+        commission_type: form.commission_type,
+        ...(isFixed
+          ? { commission_amount: Number(form.commission_amount) }
+          : { commission_percent: Number(form.commission_percent) }),
       }
       if (target?.id) {
         const { data } = await api.put<HrmUserSalesTarget>(`/hrm/sales-targets/${target.id}`, payload)
@@ -127,17 +131,45 @@ export function SalesTargetFormModal({
           required
           className={inputClass}
         />
-        <NumericInput
-          type="number"
-          min={0}
-          max={100}
-          step="0.01"
-          placeholder="نسبة العمولة %"
-          value={form.commission_percent}
-          onChange={(e) => setForm({ ...form, commission_percent: e.target.value })}
-          required
-          className={inputClass}
-        />
+        <div>
+          <div className="mb-1 flex gap-1" role="group" aria-label="نوع العمولة">
+            {([
+              ['percent', 'نسبة'],
+              ['fixed', 'قيمة ثابتة'],
+            ] as const).map(([type, label]) => (
+              <button
+                key={type}
+                type="button"
+                aria-pressed={form.commission_type === type}
+                onClick={() => setForm({ ...form, commission_type: type })}
+                className={`rounded-lg px-sm py-1 text-xs font-medium ${
+                  form.commission_type === type
+                    ? 'bg-primary text-on-primary'
+                    : 'border border-outline-variant text-on-surface'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <NumericInput
+            type="number"
+            min={0}
+            max={form.commission_type === 'fixed' ? undefined : 100}
+            step="0.01"
+            placeholder={form.commission_type === 'fixed' ? 'قيمة العمولة' : 'نسبة العمولة %'}
+            value={form.commission_type === 'fixed' ? form.commission_amount : form.commission_percent}
+            onChange={(e) =>
+              setForm(
+                form.commission_type === 'fixed'
+                  ? { ...form, commission_amount: e.target.value }
+                  : { ...form, commission_percent: e.target.value },
+              )
+            }
+            required
+            className={inputClass}
+          />
+        </div>
         <div className="flex gap-sm sm:col-span-2">
           <button
             type="submit"
@@ -157,4 +189,22 @@ export function SalesTargetFormModal({
       </form>
     </Modal>
   )
+}
+
+function dateOnly(value?: string | null) {
+  return value ? value.slice(0, 10) : ''
+}
+
+function targetFormState(employeeId: number | undefined, target?: HrmUserSalesTarget | null) {
+  return {
+    employee_id: employeeId ?? target?.employee_id ?? ('' as number | ''),
+    target_start: dateOnly(target?.target_start),
+    target_end: dateOnly(target?.target_end),
+    target_count: target?.target_count != null ? String(target.target_count) : '',
+    commission_type: (target?.commission_type === 'fixed' ? 'fixed' : 'percent') as 'fixed' | 'percent',
+    commission_percent:
+      target?.commission_percent != null ? String(target.commission_percent) : '',
+    commission_amount:
+      target?.commission_amount != null ? String(target.commission_amount) : '',
+  }
 }

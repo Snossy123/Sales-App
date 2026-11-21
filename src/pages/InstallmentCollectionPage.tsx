@@ -25,6 +25,8 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import {
   buildCollectionFollowUpPayload,
+  collectorFilterParam,
+  collectorFilterValues,
   collectionStatusLabels,
   collectionStatusFilterOptions,
   type ContractTierFilter,
@@ -35,7 +37,7 @@ import {
   normalizeInstallmentItem,
 } from '../lib/sales'
 import { useAuthStore } from '../stores/authStore'
-import { userHasPermission } from '../lib/access'
+import { userCanPerform, userHasPermission } from '../lib/access'
 import {
   clearInstallmentCollectionFocus,
   readInstallmentCollectionFocus,
@@ -307,6 +309,7 @@ export function InstallmentCollectionPage() {
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const user = useAuthStore((s) => s.user)
   const canAssignCollectors = userHasPermission(user, 'installments.assign')
+  const canChooseCollector = userCanPerform(user, 'installments.assign')
   const savedDraft = readProcedureDraft<InstallmentDraft>(PROCEDURE_DRAFT_IDS.installments, userId)
   const restoredRef = useRef(false)
   const [collectionFocus] = useState(() => readInstallmentCollectionFocus())
@@ -329,7 +332,9 @@ export function InstallmentCollectionPage() {
   const [followUpToday, setFollowUpToday] = useState(() => collectionFocus?.followUpToday ?? false)
   const [completedContracts, setCompletedContracts] = useState(() => collectionFocus?.completedContracts ?? false)
   const [paidToday, setPaidToday] = useState(() => collectionFocus?.paidToday ?? false)
-  const [collectorFilter, setCollectorFilter] = useState(() => collectionFocus?.collectorFilter ?? '')
+  const [collectorFilter, setCollectorFilter] = useState<string[]>(() =>
+    canChooseCollector ? collectorFilterValues(collectionFocus?.collectorFilter) : [],
+  )
   const [sortByReminder, setSortByReminder] = useState(() => collectionFocus?.sortByReminder ?? false)
   const [customerSearch, setCustomerSearch] = useState(() => collectionFocus?.customerSearch ?? '')
   const [showFollowUps, setShowFollowUps] = useState(false)
@@ -434,6 +439,7 @@ export function InstallmentCollectionPage() {
   })
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 300)
+  const collectorParam = canChooseCollector ? collectorFilterParam(collectorFilter) : undefined
 
   const dailyStatsQuery = useQuery({
     queryKey: [
@@ -448,7 +454,7 @@ export function InstallmentCollectionPage() {
     queryFn: async () => {
       const params: Record<string, string | number> = {}
       if (selectedBranchId) params['filter[action_branch_id]'] = selectedBranchId
-      if (collectorFilter) params['filter[collector_user_id]'] = collectorFilter
+      if (collectorParam) params['filter[collector_user_id]'] = collectorParam
       if (contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation') {
         params['filter[contract_tier]'] = contractTierFilter
       }
@@ -475,14 +481,14 @@ export function InstallmentCollectionPage() {
       'filter[action_branch_id]': selectedBranchId ?? undefined,
       'filter[ids]': paidInstallmentKey || undefined,
       'filter[invoice_ids]': !paidInstallmentKey && paidInvoiceKey ? paidInvoiceKey : undefined,
-      'filter[collector_user_id]': collectorFilter || undefined,
+      'filter[collector_user_id]': collectorParam,
       'filter[search]': debouncedCustomerSearch || undefined,
     },
     paidToday && (paidInvoiceIds.length > 0 || paidInstallmentIds.length > 0),
   )
 
   const branchCountsQuery = useQuery({
-    queryKey: ['installments', 'branch-counts'],
+    queryKey: ['installments', 'branch-counts', collectorParam],
     queryFn: async () => {
       const { data } = await api.get<{
         data: Array<{
@@ -492,7 +498,9 @@ export function InstallmentCollectionPage() {
           due_soon_count: number
           upcoming_count: number
         }>
-      }>('/installments/branch-counts')
+      }>('/installments/branch-counts', {
+        params: collectorParam ? { 'filter[collector_user_id]': collectorParam } : undefined,
+      })
       return data.data
     },
   })
@@ -504,12 +512,12 @@ export function InstallmentCollectionPage() {
       ...(completedContracts ? {
         'filter[status]': 'paid',
         'filter[fully_paid_contract]': 1,
-        'filter[collector_user_id]': collectorFilter || undefined,
+        'filter[collector_user_id]': collectorParam,
         'filter[search]': debouncedCustomerSearch || undefined,
       } : {
         'filter[status]': statusFilter || undefined,
         'filter[collection_status]': collectionStatusFilter || undefined,
-        'filter[collector_user_id]': collectorFilter || undefined,
+        'filter[collector_user_id]': collectorParam,
         'filter[search]': debouncedCustomerSearch || undefined,
         'filter[contract_tier]':
           contractTierFilter !== 'all' && contractTierFilter !== 'open_reconciliation'
@@ -1019,7 +1027,7 @@ export function InstallmentCollectionPage() {
     setCollectionStatusFilter('')
     setFollowUpToday(false)
     setPaidToday(false)
-    setCollectorFilter('')
+    setCollectorFilter([])
     setContractTierFilter('all')
     setSortByReminder(false)
   }
@@ -1046,12 +1054,12 @@ export function InstallmentCollectionPage() {
     setCustomerSearch('')
   }
 
-  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter || contractTierFilter !== 'all' || followUpToday || paidToday || completedContracts)
+  const hasFilters = Boolean(customerSearch || statusFilter || collectionStatusFilter || collectorFilter.length > 0 || contractTierFilter !== 'all' || followUpToday || paidToday || completedContracts)
   const activeFilterCount = [
     customerSearch,
     statusFilter,
     collectionStatusFilter,
-    collectorFilter,
+    collectorFilter.length > 0,
     contractTierFilter !== 'all',
     followUpToday,
     paidToday,
@@ -1105,6 +1113,23 @@ export function InstallmentCollectionPage() {
       filters={
         showChrome ? (
         <FilterBar
+          multiSelects={canChooseCollector ? [{
+            id: 'collector',
+            label: 'المحصل',
+            values: collectorFilter,
+            emptyLabel: 'كل المحصلين',
+            onChange: (values) => {
+              setCollectorFilter(values)
+              setSelected(null)
+            },
+            options: [
+              { value: 'unassigned', label: 'غير معيَّن' },
+              ...(collectorsQuery.data ?? []).map((collector) => ({
+                value: String(collector.id),
+                label: collector.name,
+              })),
+            ],
+          }] : []}
           selects={[
             {
               id: 'contract-tier',
@@ -1136,23 +1161,6 @@ export function InstallmentCollectionPage() {
                 setSelected(null)
               },
               options: collectionStatusFilterOptions,
-            },
-            {
-              id: 'collector',
-              label: 'المحصل',
-              value: collectorFilter,
-              onChange: (v) => {
-                setCollectorFilter(v)
-                setSelected(null)
-              },
-              options: [
-                { value: '', label: 'كل المحصلين' },
-                { value: 'unassigned', label: 'غير معيَّن' },
-                ...(collectorsQuery.data ?? []).map((collector) => ({
-                  value: String(collector.id),
-                  label: collector.name,
-                })),
-              ],
             },
             {
               id: 'status',
@@ -1352,7 +1360,7 @@ export function InstallmentCollectionPage() {
                   }
                   focusCustomerId={collectionFocus?.customerId ?? null}
                   onOpenProfile={saveCollectionFocus}
-                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorFilter}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}-${sortByReminder ? 'reminder' : 'priority'}`}
+                  pageKey={`${selectedBranchId}-${contractTierFilter}-${customerSearch}-${statusFilter}-${collectionStatusFilter}-${collectorParam ?? ''}-${followUpToday ? 'follow-up' : 'all'}-${paidToday ? 'paid' : 'open'}-${completedContracts ? 'completed' : 'active'}-${sortByReminder ? 'reminder' : 'priority'}`}
                   selectedId={selected?.id as number | undefined}
                   onSelect={selectRow}
                   onReconcile={(row) => {

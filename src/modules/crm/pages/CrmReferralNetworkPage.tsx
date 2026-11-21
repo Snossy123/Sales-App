@@ -164,7 +164,7 @@ export function CrmReferralNetworkPage() {
             ) : null}
           </div>
           <span className="text-xs" style={{ color: 'var(--crm-text-faint)' }}>
-            اضغط على المُحيل لعرض من جاء عن طريقه
+            اضغط على المرشح لعرض من جاء عن طريقه
           </span>
           {rootCustomer ? (
             <button

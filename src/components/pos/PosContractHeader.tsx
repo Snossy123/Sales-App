@@ -141,7 +141,7 @@ export function PosContractHeader({
             )}
             {selectedCustomer?.distributor && (
               <p className="mt-xs text-[13px] leading-snug text-secondary">
-                موزّع مُحيل: {distributorLabel(selectedCustomer.distributor)}
+                موزّع مرشح: {distributorLabel(selectedCustomer.distributor)}
               </p>
             )}
             {selectedCustomer?.branch && (

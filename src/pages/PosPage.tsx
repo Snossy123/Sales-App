@@ -6,7 +6,7 @@ import { inspectPosDraftRestoration } from '../lib/posDraftRestoration'
 import { Modal } from '../components/Modal'
 import { useSuspendedPosStore, readActivePosDraft } from '../stores/suspendedPosStore'
 import { canAccessBranch, userHasPermission } from '../lib/access'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
@@ -133,6 +133,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   usePageTour('pos')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const location = useLocation()
   const routeParams = useParams<{ id?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const editInvoiceId = useMemo(() => {
@@ -142,12 +143,16 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     return Number.isFinite(fromQuery) && fromQuery > 0 ? fromQuery : null
   }, [routeParams.id, searchParams])
   const isEditMode = Boolean(editInvoiceId)
+  const linkedSaleCustomerId = Number(searchParams.get('customer_id'))
+  const fromReferralSale =
+    !isEditMode && Number.isFinite(linkedSaleCustomerId) && linkedSaleCustomerId > 0
   const hydratedEditRef = useRef<number | null>(null)
+  const appliedReferralCustomerId = useRef<number | null>(null)
   const sessionWarehouseId = useAuthStore((s) => s.warehouseId)
   const user = useAuthStore((s) => s.user)
   const draftUserId = user?.id ?? null
   const [deviceDraft] = useState(() => {
-    if (isEditMode) return null
+    if (isEditMode || fromReferralSale) return null
     const session = draftUserId == null ? undefined : useSuspendedPosStore.getState().sessions[draftUserId]
     return readActivePosDraft(draftUserId) ?? (session ? null : readDeviceDraft(draftUserId))
   })
@@ -563,6 +568,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       setRenewalUsername('')
       setRenewalCustomerLocked(false)
     }
+    appliedReferralCustomerId.current = null
     setSelectedCustomer(customer)
     setDistributorBalanceAmount(0)
     setCheckoutPaymentMethod('cash')
@@ -570,7 +576,81 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setCheckoutSenderNumber('')
   }
 
+  const referralSalesUserId = searchParams.get('sales_user_id') ?? ''
+  const navSalesRep = (location.state as { referralSalesRep?: SalesRep } | null)?.referralSalesRep ?? null
+
   useEffect(() => {
+    if (!fromReferralSale) return
+    const salesUserId = Number(referralSalesUserId)
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const { data: customer } = await api.get<Customer>(`/customers/${linkedSaleCustomerId}`, {
+          params: { include: 'salesUser,branch,distributor' },
+        })
+        if (cancelled) return
+
+        let salesRep: SalesRep | null = null
+        if (Number.isFinite(salesUserId) && salesUserId > 0) {
+          if (navSalesRep?.id === salesUserId) {
+            salesRep = navSalesRep
+          } else if (customer.sales_user?.id === salesUserId) {
+            salesRep = {
+              id: customer.sales_user.id,
+              name: customer.sales_user.name,
+              branch_id: customer.sales_user.branch_id,
+            }
+          } else {
+            const { data } = await api.get<{ data: SalesRep[] }>('/sales-reps')
+            salesRep = data.data.find((rep) => rep.id === salesUserId) ?? null
+          }
+        }
+        if (!salesRep && customer.sales_user) {
+          salesRep = {
+            id: customer.sales_user.id,
+            name: customer.sales_user.name,
+            branch_id: customer.sales_user.branch_id,
+          }
+        }
+        if (cancelled) return
+
+        appliedReferralCustomerId.current = customer.id
+        setSelectedCustomer(customer)
+        setCustomerSearch(customer.name)
+        if (salesRep) {
+          setTransactionSource('sales')
+          setSelectedSalesRep(salesRep)
+          setSalesRepSearch(salesRep.name)
+          setSelectedBranch(null)
+          setSelectedDistributor(null)
+          setBranchSearch('')
+          setDistributorSearch('')
+        }
+      } catch {
+        // Leave the form editable if the referred customer cannot be loaded.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    fromReferralSale,
+    linkedSaleCustomerId,
+    referralSalesUserId,
+    navSalesRep?.id,
+    navSalesRep?.name,
+    navSalesRep?.branch_id,
+  ])
+
+  useEffect(() => {
+    if (
+      appliedReferralCustomerId.current != null &&
+      selectedCustomer?.id === appliedReferralCustomerId.current
+    ) {
+      return
+    }
     if (!selectedCustomer?.sales_user_id) return
 
     let cancelled = false

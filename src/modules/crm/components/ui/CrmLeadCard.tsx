@@ -59,7 +59,7 @@ export function CrmLeadCard({
         style={{ borderTop: '1px solid var(--crm-border-soft)' }}
       >
         <span className="text-[11.5px]" style={{ color: 'var(--crm-text-faint)' }}>
-          المُحيل: {referrerLabel(lead)}
+          المرشح: {referrerLabel(lead)}
         </span>
         <span
           className="text-[11.5px] font-semibold"

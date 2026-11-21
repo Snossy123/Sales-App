@@ -12,6 +12,9 @@ import type {
 import { AsyncState } from '../../../components/AsyncState'
 import { Icon } from '../../../components/Icon'
 import { formatDatetime12hDisplay } from '../../../lib/datetime12h'
+import { isCrmPageEnabled } from '../../../lib/crmPageVisibility'
+import { useAuthStore } from '../../../stores/authStore'
+import { useContextStore } from '../../../stores/contextStore'
 import {
   CRM_PRIMARY_BTN,
   CRM_SECONDARY_BTN,
@@ -82,10 +85,11 @@ function formatDayLabel(iso: string) {
   return date.toLocaleDateString('ar-EG', { numberingSystem: 'latn', day: 'numeric', month: 'short' })
 }
 
-function buildDailyActivity(data: OwnerDetailResponse) {
+function buildDailyActivity(data: OwnerDetailResponse, includeTasks: boolean) {
   const counts = new Map<string, number>()
 
   for (const activity of data.activities) {
+    if (!includeTasks && activity.type === 'task') continue
     if (!activity.date) continue
     counts.set(activity.date, (counts.get(activity.date) ?? 0) + 1)
   }
@@ -113,6 +117,8 @@ export function CrmOwnerDetailPage() {
   const { userId: routeUserId } = useParams<{ userId?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const contextDepartmentId = useAuthStore((s) => s.departmentId)
+  const departments = useContextStore((s) => s.departments)
   const initialRange = useMemo(() => defaultOwnerReportDateRange(), [])
 
   const initialUserId = routeUserId || searchParams.get('user_id') || ''
@@ -143,7 +149,7 @@ export function CrmOwnerDetailPage() {
     queryKey: ['employees', 'crm-owner-detail'],
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<Employee>>('/employees', {
-        params: { per_page: 100, 'filter[status]': 'active' },
+        params: { per_page: 100, 'filter[status]': 'active', include: 'branch' },
       })
       return data.data.filter((emp) => emp.user_id != null)
     },
@@ -186,9 +192,27 @@ export function CrmOwnerDetailPage() {
     [employeesQuery.data, applied.userId],
   )
 
+  const administrationId =
+    selectedEmployee?.branch?.administration_id ??
+    selectedEmployee?.branch?.department_id ??
+    contextDepartmentId
+
+  const pageVisibility = useMemo(
+    () => ({ departmentId: administrationId, departments }),
+    [administrationId, departments],
+  )
+  const showTasks = isCrmPageEnabled('tasks', pageVisibility)
+  const showActivities = isCrmPageEnabled('activities', pageVisibility)
+
   const dailyActivity = useMemo(
-    () => (query.data ? buildDailyActivity(query.data) : []),
-    [query.data],
+    () => (query.data && showActivities ? buildDailyActivity(query.data, showTasks) : []),
+    [query.data, showActivities, showTasks],
+  )
+
+  const visibleTasks = useMemo(
+    () =>
+      (query.data?.activities ?? []).filter((row) => showActivities || row.type === 'task'),
+    [query.data, showActivities],
   )
 
   const employeeName = query.data?.user.name
@@ -219,7 +243,11 @@ export function CrmOwnerDetailPage() {
     <CrmPageShell
       kicker="التحليلات"
       title="أداء الموظف"
-      subtitle="الترشيحات والمكالمات والمهام لموظف واحد خلال الفترة."
+      subtitle={
+        showTasks
+          ? 'الترشيحات والمكالمات والمهام لموظف واحد خلال الفترة.'
+          : 'الترشيحات والمكالمات لموظف واحد خلال الفترة.'
+      }
       actions={
         <button
           type="button"
@@ -335,13 +363,24 @@ export function CrmOwnerDetailPage() {
 
               <section className="flex flex-wrap gap-3.5">
                 <CrmKpiCard label="الترشيحات" value={summary.leads} />
-                <CrmKpiCard label="إجمالي الأنشطة" value={summary.total_activities} />
+                {showActivities ? (
+                  <CrmKpiCard
+                    label="إجمالي الأنشطة"
+                    value={showTasks ? summary.total_activities : summary.calls + summary.meetings}
+                  />
+                ) : null}
                 <CrmKpiCard label="مكالمات" value={summary.calls} />
                 <CrmKpiCard label="محوّل" value={summary.converted} />
                 <CrmKpiCard label="معدل التحويل" value={`${summary.conversion_rate}%`} />
               </section>
 
-              <div className="grid items-start gap-3.5 [grid-template-columns:minmax(340px,1.4fr)_minmax(300px,1fr)] max-[960px]:grid-cols-1">
+              <div
+                className={
+                  showActivities
+                    ? 'grid items-start gap-3.5 [grid-template-columns:minmax(340px,1.4fr)_minmax(300px,1fr)] max-[960px]:grid-cols-1'
+                    : 'grid items-start gap-3.5'
+                }
+              >
                 <section className="overflow-hidden" style={sectionStyle}>
                   <div
                     className="flex items-center justify-between gap-2.5 px-[18px] py-3.5"
@@ -393,7 +432,7 @@ export function CrmOwnerDetailPage() {
                               style={{ color: 'var(--crm-text-faint)' }}
                             >
                               <span dir="ltr">{row.phone || '—'}</span>
-                              {' · المُحيل '}
+                              {' · المرشح '}
                               {refLabel}
                             </span>
                           </div>
@@ -404,6 +443,7 @@ export function CrmOwnerDetailPage() {
                   )}
                 </section>
 
+                {showActivities ? (
                 <section className="overflow-hidden" style={sectionStyle}>
                   <div
                     className="px-[18px] py-3.5"
@@ -448,9 +488,17 @@ export function CrmOwnerDetailPage() {
                     )}
                   </div>
                 </section>
+                ) : null}
               </div>
 
-              <div className="grid items-start gap-3.5 [grid-template-columns:minmax(340px,1fr)_minmax(340px,1fr)] max-[960px]:grid-cols-1">
+              <div
+                className={
+                  showTasks
+                    ? 'grid items-start gap-3.5 [grid-template-columns:minmax(340px,1fr)_minmax(340px,1fr)] max-[960px]:grid-cols-1'
+                    : 'grid items-start gap-3.5'
+                }
+              >
+                {showTasks ? (
                 <section className="overflow-hidden" style={sectionStyle}>
                   <div
                     className="flex items-center justify-between gap-2.5 px-[18px] py-3.5"
@@ -466,7 +514,7 @@ export function CrmOwnerDetailPage() {
                     </Link>
                   </div>
 
-                  {query.data.activities.length === 0 ? (
+                  {visibleTasks.length === 0 ? (
                     <p
                       className="m-0 px-[18px] py-8 text-center text-[13px]"
                       style={{ color: 'var(--crm-text-faint)' }}
@@ -474,7 +522,7 @@ export function CrmOwnerDetailPage() {
                       لا توجد مهام في هذه الفترة
                     </p>
                   ) : (
-                    query.data.activities.slice(0, 12).map((row) => {
+                    visibleTasks.slice(0, 12).map((row) => {
                       const statusLabel =
                         ACTIVITY_STATUS_LABELS[row.status] || row.status
                       const priorityLabel = row.priority
@@ -510,6 +558,7 @@ export function CrmOwnerDetailPage() {
                     })
                   )}
                 </section>
+                ) : null}
 
                 <section className="overflow-hidden" style={sectionStyle}>
                   <div

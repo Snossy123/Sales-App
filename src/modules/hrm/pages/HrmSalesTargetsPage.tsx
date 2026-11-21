@@ -21,6 +21,7 @@ import { DataTable } from '../../../components/DataTable'
 import { Icon } from '../../../components/Icon'
 import { SalesPageShell } from '../../../components/SalesPageShell'
 import { SalesTargetFormModal } from '../components/SalesTargetFormModal'
+import { salesTargetCommissionLabel, salesTargetEarnedLabel } from '../salesTargetCommission'
 
 const PIE_COLORS = [
   '#3B82F6',
@@ -41,6 +42,25 @@ type TargetWithEmployee = HrmUserSalesTarget & {
 
 function employeeName(row: TargetWithEmployee): string {
   return row.employee?.name ?? `#${row.employee_id}`
+}
+
+function TargetBarTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: ReadonlyArray<{ payload?: { name?: string; التارجت?: number; المحقق?: number } }>
+}) {
+  const row = payload?.[0]?.payload
+  if (!active || !row) return null
+
+  return (
+    <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-xs shadow-sm">
+      <p className="mb-xs font-medium text-on-surface">{row.name}</p>
+      <p className="text-on-surface-variant">التارجت: {row.التارجت ?? 0}</p>
+      <p className="text-on-surface-variant">المحقق: {row.المحقق ?? 0}</p>
+    </div>
+  )
 }
 
 function aggregateByEmployee(targets: TargetWithEmployee[]) {
@@ -120,6 +140,7 @@ export function HrmSalesTargetsPage() {
         name: row.name,
         التارجت: row.target,
         المحقق: row.achieved,
+        المتبقي: Math.max(0, row.target - row.achieved),
       })),
     [chartRows],
   )
@@ -205,10 +226,16 @@ export function HrmSalesTargetsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant, #e2e8f0)" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={60} />
                   <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip />
+                  <Tooltip content={<TargetBarTooltip />} />
                   <Legend />
-                  <Bar dataKey="التارجت" fill="#93C5FD" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="المحقق" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="المحقق" stackId="target" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="المتبقي"
+                    name="التارجت"
+                    stackId="target"
+                    fill="#93C5FD"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -272,9 +299,14 @@ export function HrmSalesTargetsPage() {
               render: (row) => `${row.achieved_count ?? 0}/${row.target_count ?? 0}`,
             },
             {
-              key: 'commission_percent',
-              header: 'العمولة %',
-              render: (row) => (row.commission_percent != null ? `${row.commission_percent}%` : '—'),
+              key: 'commission',
+              header: 'العمولة',
+              render: (row) => salesTargetCommissionLabel(row as HrmUserSalesTarget),
+            },
+            {
+              key: 'commission_earned',
+              header: 'المستحق',
+              render: (row) => salesTargetEarnedLabel(row as HrmUserSalesTarget),
             },
             {
               key: 'actions',

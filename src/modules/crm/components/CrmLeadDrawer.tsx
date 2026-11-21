@@ -11,6 +11,7 @@ import {
   referrerLabel,
 } from '../lib/referralLeads'
 import { CRM_PRIMARY_BTN, CRM_SECONDARY_BTN } from './CrmPageShell'
+import { useStartReferralSale } from '../lib/useStartReferralSale'
 
 interface CrmLeadDrawerProps {
   leadId: number | null
@@ -35,6 +36,8 @@ export function CrmLeadDrawer({
       return data
     },
   })
+
+  const sale = useStartReferralSale(query.data)
 
   const statusMutation = useMutation({
     mutationFn: async (status: ReferralLeadStatus) => {
@@ -165,7 +168,7 @@ export function CrmLeadDrawer({
 
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { label: 'المُحيل', value: referrerLabel(lead) },
+                  { label: 'المرشح', value: referrerLabel(lead) },
                   { label: 'المسند إليه', value: lead.assignee?.name || lead.creator?.name || '—' },
                   { label: 'المتابعة القادمة', value: formatReferralDateTime(lead.follow_up_at) },
                   {
@@ -245,26 +248,43 @@ export function CrmLeadDrawer({
 
         {lead ? (
           <div
-            className="flex gap-2.5 px-[18px] py-3.5"
+            className="flex flex-col gap-2.5 px-[18px] py-3.5"
             style={{ borderTop: '1px solid var(--crm-border-soft)' }}
           >
-            <Link
-              to={`/crm/call-logs?referral_lead_id=${lead.id}`}
-              className={`${CRM_PRIMARY_BTN} flex-1 justify-center`}
-              onClick={onClose}
-            >
-              تسجيل مكالمة
-            </Link>
-            <button
-              type="button"
-              className={`${CRM_SECONDARY_BTN} flex-1 justify-center`}
-              onClick={() => {
-                if (onScheduleInstall) onScheduleInstall(lead)
-                else onRequestStatusModal(lead, 'installation_scheduled')
-              }}
-            >
-              جدولة تركيب
-            </button>
+            {sale.error ? (
+              <p className="m-0 text-xs" style={{ color: 'var(--crm-danger)' }}>
+                {sale.error}
+              </p>
+            ) : null}
+            {sale.canStart ? (
+              <button
+                type="button"
+                className={`${CRM_PRIMARY_BTN} justify-center`}
+                disabled={sale.pending}
+                onClick={() => void sale.start()}
+              >
+                تعاقد جديد
+              </button>
+            ) : null}
+            <div className="flex gap-2.5">
+              <Link
+                to={`/crm/call-logs?referral_lead_id=${lead.id}`}
+                className={`${sale.canStart ? CRM_SECONDARY_BTN : CRM_PRIMARY_BTN} flex-1 justify-center`}
+                onClick={onClose}
+              >
+                تسجيل مكالمة
+              </Link>
+              <button
+                type="button"
+                className={`${CRM_SECONDARY_BTN} flex-1 justify-center`}
+                onClick={() => {
+                  if (onScheduleInstall) onScheduleInstall(lead)
+                  else onRequestStatusModal(lead, 'installation_scheduled')
+                }}
+              >
+                جدولة تركيب
+              </button>
+            </div>
           </div>
         ) : null}
       </aside>

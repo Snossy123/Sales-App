@@ -1178,7 +1178,10 @@ export interface HrmUserSalesTarget {
   target_end: string
   target_count?: number
   achieved_count?: number
+  commission_type?: 'percent' | 'fixed' | null
+  commission_amount?: string | number | null
   commission_percent?: string | number | null
+  commission_earned?: string | number | null
 }
 
 export interface PriceCatalogItem {

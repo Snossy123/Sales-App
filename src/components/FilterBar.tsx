@@ -1,5 +1,5 @@
 import { AppDatePicker } from './AppDatePicker'
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 
 export interface FilterSelectOption {
@@ -15,11 +15,21 @@ export interface FilterSelectConfig {
   onChange: (value: string) => void
 }
 
+export interface FilterMultiSelectConfig {
+  id: string
+  label: string
+  values: string[]
+  options: FilterSelectOption[]
+  onChange: (values: string[]) => void
+  emptyLabel: string
+}
+
 interface FilterBarProps {
   search?: string
   onSearchChange?: (value: string) => void
   searchPlaceholder?: string
   selects?: FilterSelectConfig[]
+  multiSelects?: FilterMultiSelectConfig[]
   dateFrom?: string
   dateTo?: string
   onDateFromChange?: (value: string) => void
@@ -35,6 +45,83 @@ const inputClass =
   'h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-sm text-sm text-on-surface'
 
 const fieldClass = 'min-w-0 flex flex-col gap-xs'
+
+function multiSelectSummary(config: FilterMultiSelectConfig): string {
+  if (config.values.length === 0) return config.emptyLabel
+  if (config.values.length === 1) {
+    return config.options.find((option) => option.value === config.values[0])?.label ?? config.values[0]
+  }
+  return `${config.values.length} محصلين`
+}
+
+function FilterMultiSelect({ config }: { config: FilterMultiSelectConfig }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const listId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  const toggle = (value: string) => {
+    config.onChange(
+      config.values.includes(value)
+        ? config.values.filter((item) => item !== value)
+        : [...config.values, value],
+    )
+  }
+
+  return (
+    <FilterField label={config.label} htmlFor={config.id}>
+      <div ref={rootRef} className="relative">
+        <button
+          id={config.id}
+          type="button"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setOpen((current) => !current)}
+          className={`${inputClass} flex items-center justify-between gap-xs text-start`}
+        >
+          <span className="truncate">{multiSelectSummary(config)}</span>
+          <Icon name="expand_more" size={18} className="shrink-0 text-on-surface-variant" />
+        </button>
+        {open && (
+          <div
+            id={listId}
+            className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-sm shadow-lg"
+          >
+            <label className="flex cursor-pointer items-center gap-xs rounded px-xs py-1 text-sm hover:bg-surface-container">
+              <input
+                type="checkbox"
+                checked={config.values.length === 0}
+                onChange={() => config.onChange([])}
+              />
+              {config.emptyLabel}
+            </label>
+            {config.options.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-xs rounded px-xs py-1 text-sm hover:bg-surface-container"
+              >
+                <input
+                  type="checkbox"
+                  checked={config.values.includes(option.value)}
+                  onChange={() => toggle(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    </FilterField>
+  )
+}
 
 function FilterField({
   label,
@@ -62,6 +149,7 @@ export function FilterBar({
   onSearchChange,
   searchPlaceholder = 'بحث...',
   selects = [],
+  multiSelects = [],
   dateFrom,
   dateTo,
   onDateFromChange,
@@ -76,7 +164,8 @@ export function FilterBar({
     onSearchChange !== undefined &&
     onDateFromChange === undefined &&
     onDateToChange === undefined &&
-    selects.length === 0
+    selects.length === 0 &&
+    multiSelects.length === 0
 
   return (
     <div
@@ -129,6 +218,10 @@ export function FilterBar({
             />
           </FilterField>
         )}
+
+        {multiSelects.map((select) => (
+          <FilterMultiSelect key={select.id} config={select} />
+        ))}
 
         {selects.map((select) => (
           <FilterField key={select.id} label={select.label} htmlFor={select.id}>

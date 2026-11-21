@@ -214,7 +214,7 @@ export function CrmReferralsListPage() {
               <CrmTableHeaderCell>الاسم</CrmTableHeaderCell>
               <CrmTableHeaderCell>الهاتف</CrmTableHeaderCell>
               <CrmTableHeaderCell>الحالة</CrmTableHeaderCell>
-              <CrmTableHeaderCell>المُحيل</CrmTableHeaderCell>
+              <CrmTableHeaderCell>المرشح</CrmTableHeaderCell>
               <CrmTableHeaderCell>المتابعة</CrmTableHeaderCell>
               <CrmTableHeaderCell>التركيب</CrmTableHeaderCell>
               <CrmTableHeaderCell>إجراء</CrmTableHeaderCell>

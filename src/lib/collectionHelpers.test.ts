@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCollectionFollowUpPayload,
+  collectorFilterParam,
+  collectorFilterValues,
   compareContractCollection,
   computeContractStats,
   contractFilterTier,
@@ -29,6 +31,13 @@ function makeRow(overrides: Partial<InstallmentCollectionRow> & { id: number }):
     ...overrides,
   }
 }
+
+it('joins selected collectors and keeps a blank selection as every collector', () => {
+  expect(collectorFilterValues('7, unassigned,7')).toEqual(['7', 'unassigned'])
+  expect(collectorFilterValues(['4', ''])).toEqual(['4'])
+  expect(collectorFilterParam(['12', '34', 'unassigned'])).toBe('12,34,unassigned')
+  expect(collectorFilterParam([])).toBeUndefined()
+})
 
 it('keeps reminders from earlier today active until the day ends', () => {
   const now = new Date(2026, 10, 6, 18, 0).getTime()
