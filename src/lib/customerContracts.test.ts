@@ -292,6 +292,39 @@ describe('reconcileContractLedger', () => {
     expect(ledger.confirmedOverdue).toBe(200)
   })
 
+  it('keeps the cash partial down payment visible with the deferred schedule', () => {
+    const contract = invoice({
+      payment_term: 'cash',
+      total: 6800,
+      paid_amount: 3000,
+      balance_due: 3800,
+      lines: [
+        {
+          id: 1,
+          unit_price: 6800,
+          line_total: 6800,
+          payment_term: 'cash',
+          cash_schedule: 'month_2',
+          installment_plan: {
+            id: 4,
+            sales_invoice_line_id: 1,
+            down_payment: 3000,
+            installment_count: 2,
+            items: [
+              { id: 41, due_date: '2026-12-14', amount: 1900, paid_amount: 0, status: 'pending' },
+              { id: 42, due_date: '2027-01-14', amount: 1900, paid_amount: 0, status: 'pending' },
+            ],
+          },
+        },
+      ],
+    })
+
+    const summary = buildContractSummary(contract)
+
+    expect(summary.downPayment).toBe(3000)
+    expect(summary.installmentCount).toBe(2)
+  })
+
   it('still adds separate per-line installment plans', () => {
     const contract = invoice({
       payment_term: 'installment',

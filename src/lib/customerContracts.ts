@@ -99,15 +99,7 @@ export function buildContractSummary(invoice: SalesInvoice): ContractSummary {
   const paidAmount = Number(invoice.paid_amount ?? 0)
   const remaining = Number(invoice.balance_due ?? 0)
 
-  if (invoice.payment_term !== 'installment') {
-    return {
-      downPayment: 0,
-      installmentCount: 0,
-      paidAmount,
-      remaining,
-    }
-  }
-
+  // Cash with a partial down payment stores that amount on the same plan as the deferred rows.
   let downPayment = 0
   let installmentCount = 0
 

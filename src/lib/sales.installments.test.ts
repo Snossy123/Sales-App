@@ -31,8 +31,8 @@ describe('usesServiceContractPrint', () => {
         invoice({
           contract_kind: 'mixed',
           lines: [
-            { id: 1, line_type: 'service', service_id: 4, description: 'رسوم سوفت وير' },
-            { id: 2, line_type: 'service', service_id: 5, description: 'رسوم فك' },
+            { id: 1, line_type: 'service', service_id: 4, description: 'رسوم سوفت وير', unit_price: 0 },
+            { id: 2, line_type: 'service', service_id: 5, description: 'رسوم فك', unit_price: 0 },
           ],
         }),
       ),
@@ -44,7 +44,7 @@ describe('usesServiceContractPrint', () => {
       usesServiceContractPrint(
         invoice({
           contract_kind: 'new_contract',
-          lines: [{ id: 1, line_type: 'device', product_unit_id: 9 }],
+          lines: [{ id: 1, line_type: 'device', product_unit_id: 9, unit_price: 0 }],
         }),
       ),
     ).toBe(false)
