@@ -382,7 +382,7 @@
   - هدف المبيعات: `employee_id`, `target_start`, `target_end`, `target_count`, `achieved_count`, `commission_percent`.
 - **الترشيح ومهام ومكالمات CRM (`ReferralLead`, `CrmTask`, `CrmCallLog`):**
   - الترشيح: مصدر إحالة واحد فقط (عميل أو ترشيح سابق بحالة `not_interested` فقط) — رسائل المنع: `"يجب تحديد مصدر ترشيح واحد فقط (عميل أو ترشيح سابق)"` | `"يمكن الإحالة فقط من ترشيح بحالة غير مهتم"` | `"يجب تحديد موعد إعادة الاتصال"` (لـ `no_answer`) | `"يجب تحديد تاريخ ووقت موعد التركيب"` (لـ `installation_scheduled`). لا يوجد منع تكرار رقم الهاتف عند إنشاء الترشيح نفسه.
-  - المكالمة: ملف صوتي `mp3/mp4/wav/ogg/webm` بحد أقصى `20480` KB؛ `CallStatementForm` (`outcome`, `next_action`, `priority`, `follow_up_date`, `notes`).
+  - المكالمة: كل حقول نموذج التسجيل اختيارية (جهة الاتصال، الوقت، المدة، الإفادة، الربط، الملف الصوتي). الملف الصوتي `mp3/mp4/wav/ogg/webm` بحد أقصى `20480` KB. `CallStatementForm` (`outcome`, `next_action`, `priority`, `follow_up_date`, `notes`) اختياري. إنشاء مهمة من الإفادة يطلب المطلوب التالي وموظفاً. نافذة التسجيل تتقيد بارتفاع الشاشة ويُمرَّر محتواها.
 - **مهمة الدعم الفني (`SupportTask`):** `executed_at` إلزامي عند `completed` (`"تاريخ التنفيذ مطلوب عند إتمام المهمة."`).
 - **الدردشة الداخلية (`Chat`):** `recipient_user_id` (`different:current_user_id`), `body` (`max:5000`).
 - **الملاحظات (`Feedback`):** `message` (`required|max:2000`), `rating` (`1..5|nullable`), `page_context` (`max:255`).

@@ -45,7 +45,7 @@ export function AppDateTimePicker({
         onChange={(event) => update(date, event.target.value)}
         min={date === min?.split('T')[0] ? min.split('T')[1] : undefined}
         max={date === max?.split('T')[0] ? max.split('T')[1] : undefined}
-        required={required || Boolean(date)}
+        required={required}
         disabled={disabled || !date}
         className={className}
         dir="ltr"

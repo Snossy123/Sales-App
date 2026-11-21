@@ -1,5 +1,5 @@
 import { AppDateTimePicker } from '../../../components/AppDateTimePicker'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { api, getErrorMessage } from '../../../api/client'
@@ -38,7 +38,11 @@ import {
 } from '../lib/contactPhones'
 
 const inputClass =
-  'h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface'
+  'h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition-colors focus:border-primary'
+
+const labelClass = 'mb-1 block text-xs font-semibold text-on-surface-variant'
+
+const sectionClass = 'space-y-3 rounded-xl border border-outline-variant/80 bg-surface-container-low p-3'
 
 interface OpenCaseOption {
   id: number
@@ -65,6 +69,7 @@ export function CallLogFormModal({
   embedded?: boolean
 }) {
   const queryClient = useQueryClient()
+  const formId = `call-log-form-${useId().replace(/:/g, '')}`
   const [selectedContact, setSelectedContact] = useState<CallContactOption | null>(null)
   const [contactSearch, setContactSearch] = useState('')
   const debouncedContactSearch = useDebouncedValue(contactSearch, 300)
@@ -215,9 +220,6 @@ export function CallLogFormModal({
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedContact || !form.mobile_number.trim()) {
-        throw new Error('اختر جهة اتصال من البحث (عميل أو ترشيح)')
-      }
       if (createWithTask) {
         if (!canCreateTaskFromStatement(form.statement_form)) {
           throw new Error('حدد المطلوب التالي في الإفادة لإنشاء مهمة')
@@ -232,7 +234,7 @@ export function CallLogFormModal({
           : null,
       }
       const payload = {
-        mobile_number: form.mobile_number,
+        mobile_number: form.mobile_number.trim() || undefined,
         mobile_name: form.mobile_name || undefined,
         customer_id: form.customer_id ? Number(form.customer_id) : undefined,
         lead_id: form.lead_id ? Number(form.lead_id) : undefined,
@@ -243,7 +245,7 @@ export function CallLogFormModal({
         service_evaluation_request_id: lockedEvaluationId ?? (form.service_evaluation_request_id
           ? Number(form.service_evaluation_request_id)
           : undefined),
-        start_time: datetimeLocalToIso(form.start_time) ?? new Date().toISOString(),
+        start_time: datetimeLocalToIso(form.start_time),
         contract_case_id: caseId === '' ? undefined : Number(caseId),
       }
 
@@ -293,17 +295,31 @@ export function CallLogFormModal({
 
   if (!open) return null
 
+  const submitButton = (
+    <button
+      type="submit"
+      form={formId}
+      disabled={createMutation.isPending}
+      className="h-10 w-full rounded-lg bg-primary text-sm font-bold text-on-primary shadow-sm transition-opacity disabled:opacity-50"
+    >
+      {createMutation.isPending ? 'جاري الحفظ...' : 'حفظ المكالمة'}
+    </button>
+  )
+
   const formBody = (
       <form
+        id={formId}
         onSubmit={(e) => {
           e.preventDefault()
           createMutation.mutate()
         }}
-        className="space-y-sm"
+        className="space-y-3"
       >
-        {formError ? <p className="text-sm text-error">{formError}</p> : null}
+        {formError ? (
+          <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">{formError}</p>
+        ) : null}
         {lockedCustomerId ? (
-          <div className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-sm">
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2.5 text-sm">
             <p className="font-medium text-on-surface">
               العميل: {lockedCustomerQuery.data?.name ?? selectedContact?.name ?? '…'}
               {selectedContact ? (
@@ -315,37 +331,61 @@ export function CallLogFormModal({
             </p>
           </div>
         ) : (
-          <div className="space-y-sm rounded-lg border border-outline-variant/70 p-sm">
-            <SearchableSelect
-              label="جهة الاتصال (عميل / ترشيح / عميل محتمل)"
-              options={contactOptions}
-              value={selectedContact}
-              onChange={(contact) => {
-                setSelectedContact(contact)
-                setCaseId('')
-                setForm((prev) => ({
-                  ...prev,
-                  mobile_number: contact?.number ?? '',
-                  mobile_name: contact?.name ?? '',
-                  customer_id: contact?.customerId ?? '',
-                  lead_id: contact?.leadId ?? '',
-                  referral_lead_id: contact?.referralLeadId ?? '',
-                  service_evaluation_request_id: '',
-                }))
-              }}
-              onSearchChange={setContactSearch}
-              getOptionValue={(c) => c.optionKey}
-              getOptionLabel={(c) => c.label}
-              placeholder="ابحث بالاسم أو رقم الموبايل..."
-              loading={contactSearchQuery.isLoading}
-              emptyMessage="لا يوجد تطابق في العملاء أو الترشيحات"
+          <SearchableSelect
+            label="جهة الاتصال (عميل / ترشيح / عميل محتمل)"
+            options={contactOptions}
+            value={selectedContact}
+            onChange={(contact) => {
+              setSelectedContact(contact)
+              setCaseId('')
+              setForm((prev) => ({
+                ...prev,
+                mobile_number: contact?.number ?? '',
+                mobile_name: contact?.name ?? '',
+                customer_id: contact?.customerId ?? '',
+                lead_id: contact?.leadId ?? '',
+                referral_lead_id: contact?.referralLeadId ?? '',
+                service_evaluation_request_id: '',
+              }))
+            }}
+            onSearchChange={setContactSearch}
+            getOptionValue={(c) => c.optionKey}
+            getOptionLabel={(c) => c.label}
+            placeholder="ابحث بالاسم أو رقم الموبايل..."
+            loading={contactSearchQuery.isLoading}
+            emptyMessage="لا يوجد تطابق في العملاء أو الترشيحات"
+          />
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={problemMode ? 'min-w-0 sm:col-span-2' : 'min-w-0'}>
+            <label className={labelClass}>وقت المكالمة</label>
+            <AppDateTimePicker
+              value={form.start_time}
+              onChange={(e) => setForm({ ...form, start_time: e })}
+              className={inputClass}
             />
           </div>
-        )}
+          {problemMode ? null : (
+            <div>
+              <label className={labelClass}>المدة بالثواني</label>
+              <NumericInput
+                type="number"
+                min={0}
+                step={1}
+                placeholder="0"
+                value={form.duration}
+                onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                className={inputClass}
+                dir="ltr"
+              />
+            </div>
+          )}
+        </div>
 
         {showCasePicker ? (
           <div>
-            <label className="mb-1 block text-sm font-medium text-on-surface">ربط بمشكلة (اختياري)</label>
+            <label className={labelClass}>ربط بمشكلة</label>
             <select
               value={caseId}
               onChange={(e) => setCaseId(e.target.value ? Number(e.target.value) : '')}
@@ -361,17 +401,10 @@ export function CallLogFormModal({
             </select>
           </div>
         ) : null}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-on-surface">وقت المكالمة</label>
-          <AppDateTimePicker
-            value={form.start_time}
-            onChange={(e) => setForm({ ...form, start_time: e })}
-            required
-            className={inputClass}
-          />
-        </div>
+
         {problemMode ? (
-          <>
+          <div className={sectionClass}>
+            <p className="text-sm font-bold text-on-surface">الإفادة</p>
             <Field label="نتيجة المكالمة">
               <select
                 value={form.statement_form.outcome ?? ''}
@@ -405,46 +438,32 @@ export function CallLogFormModal({
                     statement_form: { ...form.statement_form, notes: e.target.value },
                   })
                 }
-                rows={3}
+                rows={2}
                 maxLength={2000}
-                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface"
+                className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
               />
             </Field>
-          </>
+          </div>
+        ) : lockedEvaluationId ? (
+          <Field label="ملاحظات مكالمة التقييم">
+            <TextArea
+              mode="arabic"
+              value={form.statement_form.notes ?? ''}
+              onChange={(e) => setForm({ ...form, statement_form: { ...form.statement_form, notes: e.target.value } })}
+              rows={2}
+              maxLength={2000}
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </Field>
         ) : (
           <>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">المدة بالثواني</label>
-              <NumericInput
-                type="number"
-                min={0}
-                step={1}
-                placeholder="0"
-                value={form.duration}
-                onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                className={inputClass}
-                dir="ltr"
-              />
-            </div>
-            {lockedEvaluationId ? (
-              <Field label="ملاحظات مكالمة التقييم">
-                <TextArea
-                  mode="arabic"
-                  value={form.statement_form.notes ?? ''}
-                  onChange={(e) => setForm({ ...form, statement_form: { ...form.statement_form, notes: e.target.value } })}
-                  rows={3}
-                  maxLength={2000}
-                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm"
-                />
-              </Field>
-            ) : (
-              <>
-              <StatementFields
-                value={form.statement_form}
-                onChange={(statement_form) => setForm({ ...form, statement_form })}
-              />
+            <StatementFields
+              value={form.statement_form}
+              onChange={(statement_form) => setForm({ ...form, statement_form })}
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-on-surface">ربط بتقييم (تفتيش)</label>
+                <label className={labelClass}>ربط بتقييم (تفتيش)</label>
                 <select
                   value={form.service_evaluation_request_id}
                   onChange={(e) =>
@@ -465,55 +484,60 @@ export function CallLogFormModal({
                   ))}
                 </select>
               </div>
-              <div className="space-y-sm rounded-lg border border-outline-variant/70 p-sm">
-                <label className="flex items-center gap-sm text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={createWithTask}
-                    onChange={(e) => setCreateWithTask(e.target.checked)}
-                  />
-                  إنشاء مهمة من الإفادة بعد الحفظ
-                </label>
-                {createWithTask ? (
-                  <select
-                    value={taskEmployeeId}
-                    onChange={(e) => setTaskEmployeeId(e.target.value ? Number(e.target.value) : '')}
-                    className={inputClass}
-                  >
-                    <option value="">— اختر موظفاً —</option>
-                    {(employeesQuery.data ?? []).map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-                {createWithTask && canCreateTaskFromStatement(form.statement_form) ? (
-                  <p className="text-xs text-on-surface-variant">
-                    معاينة: {previewTaskTitle(form.statement_form, form.mobile_name || form.mobile_number)}
-                  </p>
-                ) : null}
+              <div>
+                <label className={labelClass}>ملف صوتي</label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => setCreateAudioFile(e.target.files?.[0] ?? null)}
+                  className="block w-full cursor-pointer rounded-lg border border-dashed border-outline-variant bg-surface-container-low px-2 py-2 text-xs text-on-surface-variant file:me-2 file:rounded-md file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-primary"
+                />
               </div>
-              </>
-            )}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-on-surface">إرفاق ملف صوتي للمكالمة</label>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(e) => setCreateAudioFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm"
-              />
+            </div>
+            <div className={sectionClass}>
+              <label className="flex items-center gap-2 text-sm font-medium text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={createWithTask}
+                  onChange={(e) => setCreateWithTask(e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                إنشاء مهمة من الإفادة بعد الحفظ
+              </label>
+              {createWithTask ? (
+                <select
+                  value={taskEmployeeId}
+                  onChange={(e) => setTaskEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                  className={inputClass}
+                >
+                  <option value="">— اختر موظفاً —</option>
+                  {(employeesQuery.data ?? []).map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {createWithTask && canCreateTaskFromStatement(form.statement_form) ? (
+                <p className="text-xs text-on-surface-variant">
+                  معاينة: {previewTaskTitle(form.statement_form, form.mobile_name || form.mobile_number)}
+                </p>
+              ) : null}
             </div>
           </>
         )}
-        <button
-          type="submit"
-          disabled={createMutation.isPending || !selectedContact}
-          className="h-10 w-full rounded-lg bg-primary text-sm font-bold text-on-primary disabled:opacity-50"
-        >
-          {createMutation.isPending ? 'جاري الحفظ...' : 'حفظ المكالمة'}
-        </button>
+        {lockedEvaluationId ? (
+          <div>
+            <label className={labelClass}>ملف صوتي</label>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => setCreateAudioFile(e.target.files?.[0] ?? null)}
+              className="block w-full cursor-pointer rounded-lg border border-dashed border-outline-variant bg-surface-container-low px-2 py-2 text-xs text-on-surface-variant file:me-2 file:rounded-md file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-primary"
+            />
+          </div>
+        ) : null}
+        {embedded ? submitButton : null}
       </form>
   )
 
@@ -527,7 +551,13 @@ export function CallLogFormModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={lockedEvaluationId ? 'تسجيل مكالمة تقييم العميل' : 'تسجيل مكالمة'} size="lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={lockedEvaluationId ? 'تسجيل مكالمة تقييم العميل' : 'تسجيل مكالمة'}
+      size="lg"
+      footer={submitButton}
+    >
       {formBody}
     </Modal>
   )
@@ -535,8 +565,8 @@ export function CallLogFormModal({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 block text-sm font-medium text-on-surface">{label}</label>
+    <div className="min-w-0">
+      <label className={labelClass}>{label}</label>
       {children}
     </div>
   )
@@ -550,8 +580,9 @@ function StatementFields({
   onChange: (next: CallStatementForm) => void
 }) {
   return (
-    <div className="space-y-sm rounded-lg border border-outline-variant bg-surface-container-low p-sm">
-      <p className="text-sm font-medium text-on-surface">الإفادة</p>
+    <div className={sectionClass}>
+      <p className="text-sm font-bold text-on-surface">الإفادة</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Field label="نتيجة المكالمة">
         <select
           value={value.outcome ?? ''}
@@ -582,6 +613,8 @@ function StatementFields({
           ))}
         </select>
       </Field>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Field label="موعد المتابعة">
         <AppDateTimePicker
           value={value.follow_up_date ? isoToDatetimeLocal(value.follow_up_date) : ''}
@@ -604,15 +637,16 @@ function StatementFields({
           ))}
         </select>
       </Field>
+      </div>
       <Field label="الملاحظة">
         <TextArea
           mode="arabic"
           placeholder="تفاصيل إضافية…"
           value={value.notes ?? ''}
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
-          rows={3}
+          rows={2}
           maxLength={2000}
-          className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface"
+          className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
         />
       </Field>
     </div>
