@@ -90,20 +90,20 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/help/faq': 'dashboard.view',
   '/messages': 'dashboard.view',
   '/feedback': 'dashboard.view',
-  '/crm': 'crm.access_own_leads',
-  '/crm/ceo': 'crm.access_all_leads',
-  '/crm/referrals': 'crm.access_own_leads',
-  '/crm/referrals/add': 'crm.access_own_leads',
-  '/crm/referrals/list': 'crm.access_own_leads',
-  '/crm/referrals/network': 'crm.access_own_leads',
-  '/crm/reports/employees': 'crm.access_all_leads',
-  '/crm/reports/leaderboard': 'crm.access_all_leads',
-  '/crm/reports/owner-detail': 'crm.access_all_leads',
-  '/crm/reports/owner-pipeline': 'crm.access_all_leads',
-  '/crm/activities': ['crm.activities.manage', 'crm.access_own_leads'],
+  '/crm': ['crm.referrals.pipeline', 'crm.access_own_leads'],
+  '/crm/ceo': ['crm.ceo.view', 'crm.access_all_leads'],
+  '/crm/referrals': ['crm.referrals.pipeline', 'crm.access_own_leads'],
+  '/crm/referrals/add': ['crm.referrals.pipeline', 'crm.access_own_leads'],
+  '/crm/referrals/list': ['crm.referrals.list', 'crm.access_own_leads'],
+  '/crm/referrals/network': ['crm.referrals.network', 'crm.access_own_leads'],
+  '/crm/reports/employees': ['crm.reports.referrals', 'crm.access_all_leads'],
+  '/crm/reports/leaderboard': ['crm.reports.leaderboard', 'crm.access_all_leads'],
+  '/crm/reports/owner-detail': ['crm.reports.owner_detail', 'crm.access_all_leads'],
+  '/crm/reports/owner-pipeline': ['crm.reports.pipeline', 'crm.access_all_leads'],
+  '/crm/activities': ['crm.activities.view', 'crm.activities.manage', 'crm.access_own_leads'],
   '/crm/call-logs': ['crm.view_own_call_log', 'crm.view_all_call_log'],
-  '/crm/reports': 'crm.access_all_leads',
-  '/crm/tasks': ['crm.access_own_schedule', 'crm.access_all_schedule'],
+  '/crm/reports': ['crm.reports.referrals', 'crm.access_all_leads'],
+  '/crm/tasks': ['crm.tasks.view', 'crm.access_own_schedule', 'crm.access_all_schedule'],
   '/support/my-tasks': 'support.view_assigned_tasks',
   '/support/tasks': ['support.view_all_tasks', 'support.assign_tasks'],
   '/problems': 'contract_cases.manage',
@@ -215,11 +215,25 @@ export function resolveRoutePermissions(path: string): string[] | null {
     if (!value) return ['users.manage']
     return asPermissionList(value)
   }
+  if (normalized.match(/^\/crm\/referrals\/\d+$/)) {
+    return [
+      'crm.referrals.pipeline',
+      'crm.referrals.list',
+      'crm.reports.owner_detail',
+      'crm.access_own_leads',
+      'crm.access_all_leads',
+    ]
+  }
   if (normalized.startsWith('/crm/reports/employees')) {
-    return ['crm.access_all_leads']
+    return ['crm.reports.referrals', 'crm.access_all_leads']
   }
   if (normalized.startsWith('/crm/reports/owners')) {
-    return ['crm.access_all_leads']
+    return [
+      'crm.reports.owner_detail',
+      'crm.reports.leaderboard',
+      'crm.reports.pipeline',
+      'crm.access_all_leads',
+    ]
   }
   if (normalized.startsWith('/crm/')) {
     const crmRoute = normalized.match(/^\/crm\/[^/]+/)?.[0] ?? '/crm'

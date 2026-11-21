@@ -6,6 +6,12 @@ export interface PaginatedResponse<T> {
   total: number
 }
 
+export interface AdministrationCrmPageSettings {
+  /** Absent or true keeps the page visible. False hides it for this administration. */
+  crm_tasks_enabled?: boolean | null
+  crm_activities_enabled?: boolean | null
+}
+
 export interface Administration {
   id: number
   name: string
@@ -14,7 +20,8 @@ export interface Administration {
   address?: string | null
   phone?: string | null
   is_active?: boolean
-  settings?: (AdministrationCollectionSettings & { messaging?: AdministrationMessagingSettings | null }) | null
+  settings?: (AdministrationCollectionSettings &
+    AdministrationCrmPageSettings & { messaging?: AdministrationMessagingSettings | null }) | null
   department_stock?: DepartmentStock
   deletion_blockers?: AdministrationDeletionBlockers
 }
@@ -71,7 +78,7 @@ export interface Department {
   address?: string | null
   phone?: string | null
   is_active?: boolean
-  settings?: AdministrationCollectionSettings | null
+  settings?: (AdministrationCollectionSettings & AdministrationCrmPageSettings) | null
   department_stock?: DepartmentStock
 }
 

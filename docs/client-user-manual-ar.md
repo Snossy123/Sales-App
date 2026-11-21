@@ -33,8 +33,6 @@
 - **وضعان للتشغيل (`ERP_MODE`):**
   - `cloud` (السحابي — الافتراضي): يعمل بكامل الموديولات والترحيل المحاسبي.
   - `branch` (خادم فرع محلي أوفلاين): يعتمد على بوابة `BranchSetupGate` (`GET /api/v1/setup/status`)؛ إذا كان `needs_setup === true` يُعاد التوجيه إجبارياً إلى `/setup`، وإذا اكتمل الإعداد وحاول المستخدم فتح `/setup` يُعاد توجيهه إلى `/login`.
-- **وضع التجريب (`VITE_DEMO_MODE=true`):** يفعّل محاكاة MSW للعرض التجريبي فقط ويُظهر شريطاً توضيحياً في القائمة الجانبية («تعاقد → أقساط → مراجعة»).
-
 ### 1.2 اللغة واتجاه الواجهة وتطبيع الأرقام
 - **اتجاه الصفحة واللغة:** واجهة عربية أولاً (`<html dir="rtl" lang="ar">`)، Locale افتراضي `ar` / `ar_SA`، العملة الافتراضية `EGP`، المنطقة الزمنية `Africa/Cairo`، صيغة التاريخ `Y/m/d`، صيغة الوقت `12h`.
 - **الخطوط والأيقونات:** `Noto Sans Arabic`، `Noto Naskh Arabic`، `IBM Plex Sans Arabic`، مع `Material Symbols Outlined` و `Font Awesome 6.5`.
@@ -144,7 +142,7 @@
 | **Installments & Payments (12)** | `installments.collect`, `installments.view`, `installments.reconcile`, `installments.assign`, `external_collections.collect`, `collection_accounts.manage`, `collection_accounts.view`, `collection_accounts.add`, `collection_accounts.edit`, `collection_accounts.delete`, `payments.view`, `payments.refund` |
 | **Contract Cases (2)** | `contract_cases.manage`, `contract_cases.disburse` |
 | **Admin, Trash, Audit & Help (10)** | `trash.view`, `trash.restore`, `trash.force_delete`, `faq.manage`, `feedback.view`, `users.manage`, `roles.manage`, `audit.view`, `settings.manage`, `reports.financial` |
-| **CRM (15)** | `crm.access_all_leads`, `crm.access_own_leads`, `crm.access_all_schedule`, `crm.access_own_schedule`, `crm.access_all_campaigns`, `crm.access_own_campaigns`, `crm.access_contact_login`, `crm.access_sources`, `crm.access_life_stage`, `crm.access_proposal`, `crm.view_all_call_log`, `crm.view_own_call_log`, `crm.access_b2b_marketplace`, `crm.leads.manage`, `crm.activities.manage` |
+| **CRM (25)** | `crm.access_all_leads`, `crm.access_own_leads`, `crm.access_all_schedule`, `crm.access_own_schedule`, `crm.access_all_campaigns`, `crm.access_own_campaigns`, `crm.access_contact_login`, `crm.access_sources`, `crm.access_life_stage`, `crm.access_proposal`, `crm.view_all_call_log`, `crm.view_own_call_log`, `crm.access_b2b_marketplace`, `crm.leads.manage`, `crm.activities.manage`, `crm.referrals.pipeline`, `crm.referrals.list`, `crm.tasks.view`, `crm.activities.view`, `crm.reports.referrals`, `crm.reports.owner_detail`, `crm.reports.leaderboard`, `crm.referrals.network`, `crm.reports.pipeline`, `crm.ceo.view` |
 | **HRM (10)** | `hrm.leave.manage`, `hrm.leave.approve`, `hrm.attendance.manage`, `hrm.payroll.manage`, `hrm.shift.manage`, `hrm.holiday.manage`, `hrm.allowance.manage`, `hrm.sales_target.manage`, `hr.employees.manage`, `hr.attendance.manage` |
 | **Accounting (13)** | `accounting.access_accounting_module`, `accounting.manage_accounts`, `accounting.view_journal`, `accounting.add_journal`, `accounting.edit_journal`, `accounting.delete_journal`, `accounting.map_transactions`, `accounting.view_transfer`, `accounting.add_transfer`, `accounting.edit_transfer`, `accounting.delete_transfer`, `accounting.manage_budget`, `accounting.view_reports` |
 | **Support (4)** | `support.view_assigned_tasks`, `support.update_assigned_tasks`, `support.view_all_tasks`, `support.assign_tasks` |
@@ -214,17 +212,17 @@
 | **قسم الأقساط** | توزيع التحصيل | `/installments/assignments` | `super_admin, admin` | `installments.assign` |
 | **قسم الأقساط** | التحصيلات الخارجية | `/call-center/collections` | `super_admin, admin, call_center` | `external_collections.collect` |
 | **قسم الأقساط** | حسابات التحويل | `/admin/collection-accounts` | `super_admin, admin` | `collection_accounts.manage \| view` |
-| **المبيعات (CRM)** | خط الترشيحات | `/crm/referrals` | `super_admin, admin, crm` | `crm.access_own_leads` |
-| **المبيعات (CRM)** | قائمة الترشيحات | `/crm/referrals/list` | `super_admin, admin, crm` | `crm.access_own_leads` |
-| **المبيعات (CRM)** | المهام | `/crm/tasks` | `super_admin, admin, crm` | `crm.access_own_schedule \| all` |
+| **المبيعات (CRM)** | خط الترشيحات | `/crm/referrals` | `super_admin, admin, crm` | `crm.referrals.pipeline \| crm.access_own_leads` |
+| **المبيعات (CRM)** | قائمة الترشيحات | `/crm/referrals/list` | `super_admin, admin, crm` | `crm.referrals.list \| crm.access_own_leads` |
+| **المبيعات (CRM)** | المهام | `/crm/tasks` | `super_admin, admin, crm` | `crm.tasks.view \| crm.access_own_schedule \| all` |
 | **المبيعات (CRM)** | سجل المكالمات | `/crm/call-logs` | `super_admin, admin, crm` | `crm.view_own_call_log \| all` |
-| **المبيعات (CRM)** | الأنشطة | `/crm/activities` | `super_admin, admin, crm` | `crm.activities.manage \| access_own_leads` |
-| **المبيعات (CRM)** | تقارير الترشيحات | `/crm/reports` | `super_admin, admin, crm` | `crm.access_all_leads` |
-| **المبيعات (CRM)** | أداء الموظف | `/crm/reports/owner-detail` | `super_admin, admin, crm` | `crm.access_all_leads` |
-| **المبيعات (CRM)** | لوحة المتصدرين | `/crm/reports/leaderboard` | `super_admin, admin, crm` | `crm.access_all_leads` |
-| **المبيعات (CRM)** | شبكة الإحالات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.access_own_leads` |
-| **المبيعات (CRM)** | خط الأنابيب | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.access_all_leads` |
-| **المبيعات (CRM)** | لوحة المدير | `/crm/ceo` | `super_admin, admin, crm` | `crm.access_all_leads` |
+| **المبيعات (CRM)** | الأنشطة | `/crm/activities` | `super_admin, admin, crm` | `crm.activities.view \| crm.activities.manage \| access_own_leads` |
+| **المبيعات (CRM)** | تقارير الترشيحات | `/crm/reports` | `super_admin, admin, crm` | `crm.reports.referrals \| crm.access_all_leads` |
+| **المبيعات (CRM)** | أداء الموظف | `/crm/reports/owner-detail` | `super_admin, admin, crm` | `crm.reports.owner_detail \| crm.access_all_leads` |
+| **المبيعات (CRM)** | لوحة المتصدرين | `/crm/reports/leaderboard` | `super_admin, admin, crm` | `crm.reports.leaderboard \| crm.access_all_leads` |
+| **المبيعات (CRM)** | شبكة الإحالات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.referrals.network \| crm.access_own_leads` |
+| **المبيعات (CRM)** | خط الأنابيب | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.reports.pipeline \| crm.access_all_leads` |
+| **المبيعات (CRM)** | لوحة المدير | `/crm/ceo` | `super_admin, admin, crm` | `crm.ceo.view \| crm.access_all_leads` |
 | **المراجعة** | مراجعة التعاقدات | `/invoices/review` | `super_admin, admin, reviewer` | `review.view_queue \| view_detail` |
 | **المراجعة** | مراجعة التحصيلات | `/review/collections` | `super_admin, admin, reviewer` | `review.view_collections` |
 | **المراجعة** | مراجعة مخزون الفرع | `/review/branch-inventory` | `super_admin, admin, reviewer` | `review.view_branch_inventory` |
@@ -381,7 +379,7 @@
   - البدل/الخصم: `description`, `type` (`allowance|deduction|bonus`), `amount`, `amount_type` (`fixed|percent`), `applicable_date`.
   - هدف المبيعات: `employee_id`, `target_start`, `target_end`, `target_count`, `achieved_count`, `commission_percent`.
 - **الترشيح ومهام ومكالمات CRM (`ReferralLead`, `CrmTask`, `CrmCallLog`):**
-  - الترشيح: مصدر إحالة واحد فقط (عميل أو ترشيح سابق بحالة `not_interested` فقط) — رسائل المنع: `"يجب تحديد مصدر ترشيح واحد فقط (عميل أو ترشيح سابق)"` | `"يمكن الإحالة فقط من ترشيح بحالة غير مهتم"` | `"يجب تحديد موعد إعادة الاتصال"` (لـ `no_answer`) | `"يجب تحديد تاريخ ووقت موعد التركيب"` (لـ `installation_scheduled`). لا يوجد منع تكرار رقم الهاتف عند إنشاء الترشيح نفسه.
+  - الترشيح: مصدر إحالة واحد فقط (عميل أو ترشيح سابق بحالة `not_interested` فقط) — رسائل المنع: `"يجب تحديد مصدر ترشيح واحد فقط (عميل أو ترشيح سابق)"` | `"يمكن الإحالة فقط من ترشيح بحالة غير مهتم"` | `"يجب تحديد موعد إعادة الاتصال"` (لـ `no_answer`) | `"يجب تحديد تاريخ ووقت موعد التركيب"` (لـ `installation_scheduled`). لا يوجد منع تكرار رقم الهاتف عند إنشاء الترشيح نفسه. مدة المكالمة بالثواني وتسجيلها اختياريان في نموذج الإضافة؛ وجود أحدهما ينشئ مكالمة مربوطة بالترشيح (الرقم والاسم والملاحظات والمدة والملف).
   - المكالمة: كل حقول نموذج التسجيل اختيارية (جهة الاتصال، الوقت، المدة، الإفادة، الربط، الملف الصوتي). الملف الصوتي `mp3/mp4/wav/ogg/webm` بحد أقصى `20480` KB. `CallStatementForm` (`outcome`, `next_action`, `priority`, `follow_up_date`, `notes`) اختياري. إنشاء مهمة من الإفادة يطلب المطلوب التالي وموظفاً. نافذة التسجيل تتقيد بارتفاع الشاشة ويُمرَّر محتواها.
 - **مهمة الدعم الفني (`SupportTask`):** `executed_at` إلزامي عند `completed` (`"تاريخ التنفيذ مطلوب عند إتمام المهمة."`).
 - **الدردشة الداخلية (`Chat`):** `recipient_user_id` (`different:current_user_id`), `body` (`max:5000`).

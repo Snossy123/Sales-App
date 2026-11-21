@@ -1,8 +1,6 @@
 import axios from 'axios'
 import { usePortalAuthStore } from '../stores/portalAuthStore'
-import { isDemoMode } from './client'
 import { attachLoadingInterceptors } from './loadingInterceptors'
-import { createMockPortalApi } from './mock/portal'
 
 const baseURL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
 
@@ -37,6 +35,4 @@ axiosPortal.interceptors.response.use(
   },
 )
 
-const mockPortalApi = createMockPortalApi()
-
-export const portalApi = isDemoMode ? mockPortalApi : axiosPortal
+export const portalApi = axiosPortal

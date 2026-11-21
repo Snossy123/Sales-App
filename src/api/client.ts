@@ -1,9 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { attachLoadingInterceptors } from './loadingInterceptors'
-import { createMockApi } from './mock'
-
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
 
 const baseURL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
 
@@ -65,9 +62,7 @@ axiosApi.interceptors.response.use(
   },
 )
 
-const mockApi = createMockApi()
-
-export const api = isDemoMode ? mockApi : axiosApi
+export const api = axiosApi
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {

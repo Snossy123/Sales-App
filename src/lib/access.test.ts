@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AuthUser, SalesInvoice } from '../api/types'
 import { getUserRole, isAnyAdmin, userHasPermission } from './access'
 import { canExchangeContract, canReturnContract } from './contractCases'
+import type { CrmPageVisibilityContext } from './crmPageVisibility'
 import { canAccessRoute, getNavEntriesForUser } from './permissions'
 import {
   userHasAccountingAccess,
@@ -55,8 +56,8 @@ describe('access', () => {
   })
 })
 
-function navLabels(account: AuthUser): string[] {
-  return getNavEntriesForUser(account).flatMap((entry) =>
+function navLabels(account: AuthUser, visibility?: CrmPageVisibilityContext): string[] {
+  return getNavEntriesForUser(account, visibility).flatMap((entry) =>
     entry.type === 'item' ? [entry.item.label] : entry.group.items.map((item) => item.label),
   )
 }
@@ -75,6 +76,29 @@ describe('user manual access', () => {
 
     expect(navLabels(branchManager)).toContain('دليل الاستخدام')
     expect(navLabels(sales)).not.toContain('دليل الاستخدام')
+  })
+
+  it('hides CRM tasks and activities for the current administration', () => {
+    const crm = user({ demo_role: 'admin' })
+    const hidden = {
+      departmentId: 4,
+      departments: [{ id: 4, settings: { crm_tasks_enabled: false, crm_activities_enabled: false } }],
+    }
+    const visibleSibling = {
+      departmentId: 5,
+      departments: [
+        { id: 4, settings: { crm_tasks_enabled: false, crm_activities_enabled: false } },
+        { id: 5, settings: { crm_tasks_enabled: true, crm_activities_enabled: true } },
+      ],
+    }
+
+    expect(canAccessRoute('/crm/tasks', crm, hidden)).toBe(false)
+    expect(canAccessRoute('/crm/activities', crm, hidden)).toBe(false)
+    expect(canAccessRoute('/crm/call-logs', crm, hidden)).toBe(true)
+    expect(navLabels(crm, hidden)).not.toContain('المهام')
+    expect(navLabels(crm, hidden)).not.toContain('الأنشطة')
+    expect(navLabels(crm, visibleSibling)).toContain('المهام')
+    expect(navLabels(crm, visibleSibling)).toContain('الأنشطة')
   })
 })
 

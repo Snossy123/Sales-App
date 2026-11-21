@@ -35,6 +35,8 @@ function createEmptyEntry(): ReferralEntry {
     status: 'installation_scheduled',
     follow_up_at: '',
     notes: '',
+    call_duration: '',
+    audio_file: null,
   }
 }
 
@@ -113,8 +115,12 @@ export function CrmReferralAddPage() {
       const isInstallationScheduled = entry.status === 'installation_scheduled'
       const isInstalled = entry.status === 'installed'
       const dateValue = entry.follow_up_at.trim() || null
+      const duration = entry.call_duration.trim()
+      if (duration !== '' && !/^\d+$/.test(duration)) {
+        throw new Error('مدة المكالمة يجب أن تكون عدداً صحيحاً من الثواني')
+      }
 
-      await api.post<ReferralLead>('/crm/referral-leads', {
+      const payload = {
         phone: entry.phone.trim(),
         name: entry.name.trim() || null,
         status: entry.status,
@@ -122,8 +128,22 @@ export function CrmReferralAddPage() {
         follow_up_at: !isInstallationScheduled && !isInstalled ? dateValue : null,
         installation_scheduled_at: isInstallationScheduled ? dateValue : null,
         installed_at: isInstalled ? dateValue : null,
+        ...(duration !== '' ? { call_duration: Number(duration) } : {}),
         ...referrerPayload,
-      })
+      }
+
+      if (entry.audio_file) {
+        const body = new FormData()
+        for (const [key, value] of Object.entries(payload)) {
+          if (value !== null && value !== undefined) {
+            body.append(key, String(value))
+          }
+        }
+        body.append('audio', entry.audio_file)
+        await api.post<ReferralLead>('/crm/referral-leads', body)
+      } else {
+        await api.post<ReferralLead>('/crm/referral-leads', payload)
+      }
     }
   }
 
@@ -188,7 +208,6 @@ export function CrmReferralAddPage() {
           disabled={pending}
           className={`${CRM_SECONDARY_BTN} mt-3 disabled:opacity-60`}
         >
-          <Icon name="add" size={18} />
           إضافة عميل كمصدر للترشيح
         </button>
       </section>
@@ -241,7 +260,6 @@ export function CrmReferralAddPage() {
             color: 'var(--crm-primary)',
           }}
         >
-          <Icon name="add" size={20} />
           إضافة شخص آخر
         </button>
       </section>
@@ -278,7 +296,6 @@ export function CrmReferralAddPage() {
             className={`${CRM_SECONDARY_BTN} disabled:opacity-60`}
             style={{ borderColor: 'var(--crm-primary)', color: 'var(--crm-primary)' }}
           >
-            <Icon name="add" size={18} />
             حفظ ومتابعة الإضافة
           </button>
           <button

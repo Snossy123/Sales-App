@@ -166,7 +166,7 @@ export function ReferralStatusModal({
               className="text-sm font-semibold"
               style={{ color: 'var(--crm-primary)' }}
             >
-              + إضافة رقم
+              إضافة رقم
             </button>
           </div>
         )}

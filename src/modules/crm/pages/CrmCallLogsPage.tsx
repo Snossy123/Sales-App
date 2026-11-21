@@ -16,7 +16,6 @@ import type {
   ServiceEvaluationRequest,
 } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
-import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { SearchableSelect } from '../../../components/SearchableSelect'
 import { TextArea } from '../../../components/ui/TextArea'
@@ -623,7 +622,7 @@ export function CrmCallLogsPage() {
             تصدير
           </button>
           <button type="button" onClick={openCreate} className={CRM_PRIMARY_BTN}>
-            <Icon name="add" size={18} /> + تسجيل مكالمة
+            تسجيل مكالمة
           </button>
         </>
       }

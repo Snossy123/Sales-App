@@ -14,6 +14,8 @@ export type ReferralEntry = {
   status: ReferralLeadStatus
   follow_up_at: string
   notes: string
+  call_duration: string
+  audio_file: File | null
 }
 
 const inputClass =
@@ -231,6 +233,54 @@ export function ReferralPersonCard({
             rows={2}
             className={`${inputClass} min-h-[4.5rem] resize-y pt-2.5`}
           />
+        </div>
+      </div>
+
+      <div
+        className="grid gap-sm rounded-[9px] p-3 sm:grid-cols-2"
+        style={{
+          border: '1px dashed var(--crm-border)',
+          background: 'var(--crm-surface-muted)',
+        }}
+      >
+        <div className="sm:col-span-2">
+          <p className="m-0 text-sm font-medium text-on-surface">
+            بيانات المكالمة <span className="font-normal text-on-surface-variant">(اختياري)</span>
+          </p>
+          <p className="m-0 mt-0.5 text-xs text-on-surface-variant">
+            أدخل المدة أو أرفق التسجيل لإنشاء مكالمة مع هذا الترشيح.
+          </p>
+        </div>
+        <div>
+          <label className="mb-xs block text-sm font-medium text-on-surface">المدة بالثواني</label>
+          <div className="relative">
+            <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
+              <Icon name="timer" size={18} />
+            </span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              placeholder="0"
+              value={entry.call_duration}
+              onChange={(e) => onChange({ call_duration: e.target.value })}
+              className={inputClass}
+              dir="ltr"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="mb-xs block text-sm font-medium text-on-surface">تسجيل المكالمة</label>
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={(e) => onChange({ audio_file: e.target.files?.[0] ?? null })}
+            className="block w-full text-[13px] text-on-surface file:me-3 file:rounded-[9px] file:border-0 file:bg-white file:px-3 file:py-2 file:text-[13px] file:font-semibold file:text-on-surface"
+          />
+          {entry.audio_file ? (
+            <p className="m-0 mt-1 truncate text-xs text-on-surface-variant">{entry.audio_file.name}</p>
+          ) : null}
         </div>
       </div>
     </div>

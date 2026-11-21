@@ -15,12 +15,10 @@ Copy [`.env.example`](.env.example).
 
 | Variable | Meaning |
 | --- | --- |
-| `VITE_DEMO_MODE=true` | Standalone mock API (MSW). For demos only. |
-| `VITE_DEMO_MODE=false` | Real Laravel API |
-| `VITE_API_URL` | Production API base, e.g. `https://example.com/public/api/v1` |
+| `VITE_API_URL` | API base, e.g. `https://example.com/public/api/v1`. Leave empty locally so Vite proxies `/api`. |
 | `VITE_PROXY_TARGET` | Docker/local proxy target (compose sets `http://api:8100`) |
 
-Production builds must ship with `VITE_DEMO_MODE=false` and a real `VITE_API_URL`. See [`.env.production`](.env.production) for the hosted pattern.
+Production builds need a real `VITE_API_URL`. See [`.env.production`](.env.production) for the hosted pattern.
 
 ## Local
 

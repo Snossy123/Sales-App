@@ -317,8 +317,7 @@ export function CrmTasksPage() {
             {viewMode === 'pipeline' ? 'التقويم' : 'الأنابيب'}
           </button>
           <button type="button" onClick={openCreate} className={CRM_PRIMARY_BTN}>
-            <Icon name="add" size={18} />
-            + مهمة جديدة
+            مهمة جديدة
           </button>
         </>
       }

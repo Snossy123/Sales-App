@@ -7,11 +7,12 @@ import { MobileBottomNav } from '../components/MobileBottomNav'
 import { SidebarNav } from '../components/SidebarNav'
 import { TourProvider } from '../components/tour/TourProvider'
 import { useAuthStore } from '../stores/authStore'
+import { useContextStore } from '../stores/contextStore'
 import { useContextData } from '../hooks/useContextData'
 import { useOrgSettingsBootstrap } from '../hooks/useOrgSettings'
 import { useSessionTimeout } from '../hooks/useSessionTimeout'
 import { useOrgSettingsStore } from '../stores/orgSettingsStore'
-import { api, isDemoMode } from '../api/client'
+import { api } from '../api/client'
 import type { AppNotification } from '../api/types'
 import { useAuthRefresh } from '../hooks/useAuthRefresh'
 import { getNavEntriesForUser, getRoleLabel, getUserRole } from '../lib/permissions'
@@ -50,13 +51,15 @@ export function AppShell() {
   useSessionTimeout()
   useAuthRefresh()
   const user = useAuthStore((s) => s.user)
+  const departmentId = useAuthStore((s) => s.departmentId)
+  const departments = useContextStore((s) => s.departments)
   const organization = useOrgSettingsStore((s) => s.organization)
   const general = useOrgSettingsStore((s) => s.general)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const location = useLocation()
   const showStockTicker = shouldShowStockTicker(location.pathname)
-  const navEntries = getNavEntriesForUser(user)
+  const navEntries = getNavEntriesForUser(user, { departmentId, departments })
   const role = getUserRole(user)
   const dataScopeLabel = getDataScopeLabel(user)
   const showPosShortcut = role === 'super_admin' || role === 'admin' || role === 'sales'
@@ -171,12 +174,6 @@ export function AppShell() {
               </div>
             )}
           </div>
-
-          {isDemoMode && !sidebarCollapsed && (
-            <div className="mb-sm rounded-lg bg-primary/5 px-sm py-xs text-xs text-on-surface-variant">
-              تعاقد → أقساط → مراجعة
-            </div>
-          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             <SidebarNav

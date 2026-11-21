@@ -1,5 +1,6 @@
 import type { AuthUser, DemoRole } from '../api/types'
 import { canAccessDepartment, getUserRole, isSuperAdmin, userHasPermission } from './access'
+import { crmPageForPath, isCrmPageEnabled, type CrmPageVisibilityContext } from './crmPageVisibility'
 import { buildActiveCrmNavItems, CRM_DEFAULT_ROUTE } from '../modules/crm/lib/crmNavCatalog'
 import { userHasReviewAccess } from './permissionChecks'
 import { resolveRoutePermissions, userCanAccessByPermissions } from './routePermissions'
@@ -377,8 +378,15 @@ const routeRoles: Record<string, DemoRole[]> = {
   '/problems': ['super_admin', 'admin', 'reviewer', 'collector'],
 }
 
-function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
+function canSeeNavItem(
+  item: NavItem,
+  user: AuthUser | null,
+  visibility?: CrmPageVisibilityContext | null,
+): boolean {
   if (!user) return false
+
+  const hiddenPage = crmPageForPath(item.to)
+  if (hiddenPage && !isCrmPageEnabled(hiddenPage, visibility)) return false
 
   if (item.to === '/admin/settings') {
     return isSuperAdmin(user)
@@ -400,8 +408,12 @@ function canSeeNavItem(item: NavItem, user: AuthUser | null): boolean {
   return roleAllowed
 }
 
-function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
-  if (!canSeeNavItem(item, user)) return null
+function resolveNavItem(
+  item: NavItem,
+  user: AuthUser | null,
+  visibility?: CrmPageVisibilityContext | null,
+): NavItem | null {
+  if (!canSeeNavItem(item, user, visibility)) return null
   if (item.dynamicTo && user) {
     const resolved = item.dynamicTo(user)
     if (!resolved) return null
@@ -410,9 +422,16 @@ function resolveNavItem(item: NavItem, user: AuthUser | null): NavItem | null {
   return item
 }
 
-export function canAccessRoute(path: string, user: AuthUser | null): boolean {
+export function canAccessRoute(
+  path: string,
+  user: AuthUser | null,
+  visibility?: CrmPageVisibilityContext | null,
+): boolean {
   const role = getUserRole(user)
   const normalized = path.replace(/\/$/, '') || '/'
+
+  const hiddenPage = crmPageForPath(normalized)
+  if (hiddenPage && !isCrmPageEnabled(hiddenPage, visibility)) return false
 
   if (normalized === '/admin/settings') {
     return isSuperAdmin(user)
@@ -564,16 +583,19 @@ export function canAccessRoute(path: string, user: AuthUser | null): boolean {
   return allowed.includes(role)
 }
 
-export function getNavEntriesForUser(user: AuthUser | null): NavEntry[] {
+export function getNavEntriesForUser(
+  user: AuthUser | null,
+  visibility?: CrmPageVisibilityContext | null,
+): NavEntry[] {
   return navEntries
     .map((entry) => {
       if (entry.type === 'item') {
-        const resolved = resolveNavItem(entry.item, user)
+        const resolved = resolveNavItem(entry.item, user, visibility)
         return resolved ? { type: 'item' as const, item: resolved } : null
       }
 
       const items = entry.group.items
-        .map((item) => resolveNavItem(item, user))
+        .map((item) => resolveNavItem(item, user, visibility))
         .filter((item): item is NavItem => item != null)
 
       if (items.length === 0) return null

@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../layouts/AppShell'
 import { useAuthStore } from '../stores/authStore'
+import { useContextStore } from '../stores/contextStore'
 import { canAccessRoute, getDefaultRoute } from '../lib/permissions'
 import { LoginPage } from '../pages/LoginPage'
 import { BranchSetupPage } from '../pages/BranchSetupPage'
@@ -155,9 +156,11 @@ function ProtectedRoute() {
 
 function RoleRoute() {
   const user = useAuthStore((s) => s.user)
+  const departmentId = useAuthStore((s) => s.departmentId)
+  const departments = useContextStore((s) => s.departments)
   const location = useLocation()
 
-  if (!canAccessRoute(location.pathname, user)) {
+  if (!canAccessRoute(location.pathname, user, { departmentId, departments })) {
     return <Navigate to={getDefaultRoute(user)} replace />
   }
 

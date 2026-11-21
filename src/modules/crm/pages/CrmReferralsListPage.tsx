@@ -5,7 +5,6 @@ import { api, getErrorMessage } from '../../../api/client'
 import type { Employee, PaginatedResponse, ReferralLead, ReferralLeadStatus } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
 import { DateTimeInput12h } from '../../../components/DateTimeInput12h'
-import { Icon } from '../../../components/Icon'
 import { Modal } from '../../../components/Modal'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { CrmLeadDrawer } from '../components/CrmLeadDrawer'
@@ -171,8 +170,7 @@ export function CrmReferralsListPage() {
             خط الترشيحات
           </Link>
           <Link to="/crm/referrals/add" className={CRM_PRIMARY_BTN}>
-            <Icon name="add" size={18} />
-            + ترشيح جديد
+            ترشيح جديد
           </Link>
         </>
       }

@@ -17,6 +17,7 @@ import { PageHeader } from '../../../components/PageHeader'
 import { ToastBanner } from '../../../components/ToastBanner'
 import { useOrgSettingsStore } from '../../../stores/orgSettingsStore'
 import { AdministrationCollectionSettingsCard } from '../components/AdministrationCollectionSettingsCard'
+import { AdministrationCrmPagesSettingsCard } from '../components/AdministrationCrmPagesSettingsCard'
 import { AdministrationMessagingSettingsCard } from '../components/AdministrationMessagingSettingsCard'
 import { LogoUploader } from '../components/LogoUploader'
 import { ModuleToggleCard } from '../components/ModuleToggleCard'
@@ -693,6 +694,8 @@ export function AdminSystemSettingsPage() {
                   onToast={setToast}
                 />
               )}
+
+              {activeTab === 'sales' && <AdministrationCrmPagesSettingsCard onToast={setToast} />}
 
               {activeTab === 'messaging' && (
                 <AdministrationMessagingSettingsCard onToast={setToast} />

@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../api/client'
 import type { PaginatedResponse, ReferralLead, ReferralLeadStatus } from '../../../api/types'
 import { AsyncState } from '../../../components/AsyncState'
-import { Icon } from '../../../components/Icon'
 import { CrmLeadDrawer } from '../components/CrmLeadDrawer'
 import { CRM_PRIMARY_BTN, CRM_SECONDARY_BTN, CrmPageShell } from '../components/CrmPageShell'
 import { ReferralStatusModal } from '../components/ReferralStatusModal'
@@ -158,8 +157,7 @@ export function CrmReferralsPipelinePage() {
             تصدير
           </Link>
           <Link to="/crm/referrals/add" className={CRM_PRIMARY_BTN}>
-            <Icon name="add" size={18} />
-            + ترشيح جديد
+            ترشيح جديد
           </Link>
         </>
       }
