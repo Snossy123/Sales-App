@@ -1,27 +1,35 @@
 import { describe, expect, it } from 'vitest'
 import manualSource from '../../../docs/client-user-manual-ar.md?raw'
-import { manualHeadingId, manualSectionsMatching, parseManual } from './userManual'
+import {
+  countManualMatches,
+  manualHeadingId,
+  manualSectionsMatching,
+  parseManual,
+} from './userManual'
 
 describe('userManual', () => {
-  it('builds heading ids that match the manual table of contents', () => {
-    expect(manualHeadingId('4. الآعدادات — المستخدمون والأدوار')).toBe(
-      '4-الآعدادات--المستخدمون-والأدوار',
+  it('builds heading ids consistently for Arabic and English headings', () => {
+    expect(manualHeadingId('1. نظرة عامة على النظام والبيئة')).toBe(
+      '1-نظرة-عامة-على-النظام-والبيئة',
     )
-    expect(manualHeadingId('11. المبيعات (CRM)')).toBe('11-المبيعات-crm')
+    expect(manualHeadingId('2. الأدوار والصلاحيات وسياق البيانات (RBAC & Scope)')).toBe(
+      '2-الأدوار-والصلاحيات-وسياق-البيانات-rbac--scope',
+    )
   })
 
-  it('splits the client manual into the published sections', () => {
+  it('parses all 8 exhaustive specification sections and nested subsections', () => {
     const parsed = parseManual(manualSource)
-    const settings = parsed.sections.find((section) => section.title.startsWith('4.'))
-    expect(settings?.id).toBe('4-الآعدادات--المستخدمون-والأدوار')
-    expect(parsed.sections.some((section) => section.id === 'فهرس-المحتويات')).toBe(true)
-    expect(parsed.sections.length).toBeGreaterThan(10)
+    expect(parsed.sections).toHaveLength(8)
+    expect(parsed.sections[0]?.title).toContain('1.')
+    expect(parsed.sections[7]?.title).toContain('8.')
+    expect(parsed.sections.every((s) => s.subsections.length > 0)).toBe(true)
   })
 
-  it('filters sections by search text', () => {
+  it('filters sections and counts matches accurately', () => {
     const { sections } = parseManual(manualSource)
     const matches = manualSectionsMatching(sections, 'مخزون')
-    expect(matches.some((section) => section.title.includes('المخزون'))).toBe(true)
+    expect(matches.length).toBeGreaterThan(0)
+    expect(countManualMatches(matches[0], 'مخزون')).toBeGreaterThan(0)
     expect(manualSectionsMatching(sections, '')).toHaveLength(sections.length)
     expect(manualSectionsMatching(sections, 'عبارة-غير-موجودة-في-الدليل')).toHaveLength(0)
   })
