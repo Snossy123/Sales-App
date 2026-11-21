@@ -44,10 +44,10 @@ export function parseManual(source: string): ParsedManual {
     if (current) {
       const h3 = /^### (.+)$/.exec(line)
       if (h3) {
-        const subTitle = h3[1].trim()
+        const rawSubTitle = h3[1].trim()
         current.subsections.push({
-          id: manualHeadingId(subTitle),
-          title: subTitle,
+          id: manualHeadingId(rawSubTitle),
+          title: rawSubTitle.replace(/`/g, ''),
         })
       }
       current.lines.push(line)
