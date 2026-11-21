@@ -1,8 +1,7 @@
-import { isValidElement, useMemo, useState, type ReactNode } from 'react'
+import { isValidElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Icon } from '../components/Icon'
-import { SalesPageShell } from '../components/SalesPageShell'
 import {
   countManualMatches,
   manualHeadingId,
@@ -18,6 +17,85 @@ const manualModules = import.meta.glob('../../docs/client-user-manual-ar.md', {
 const manualSource = manualModules['../../docs/client-user-manual-ar.md'] ?? ''
 const manual = parseManual(manualSource)
 
+interface SectionMeta {
+  icon: string
+  accent: 'blue' | 'teal'
+  shortTitle: string
+  description: string
+  category: string
+}
+
+const SECTION_META: SectionMeta[] = [
+  {
+    icon: 'public',
+    accent: 'blue',
+    shortTitle: 'نظرة عامة على النظام والبيئة',
+    description: 'نطاق النظام، أوضاع التشغيل السحابي والأوفلاين، اتجاه RTL، وسلوك الموبايل والقوائم.',
+    category: 'التأسيس والبيئة',
+  },
+  {
+    icon: 'admin_panel_settings',
+    accent: 'teal',
+    shortTitle: 'الأدوار والصلاحيات (RBAC)',
+    description: 'الأدوار الـ 11، القائمة السوداء للمديرين، كتالوج الصلاحيات، ونطاق عزل البيانات.',
+    category: 'الأمان والصلاحيات',
+  },
+  {
+    icon: 'account_tree',
+    accent: 'blue',
+    shortTitle: 'خريطة الشاشات والمسارات',
+    description: 'جميع مسارات الواجهة الظاهرة والمخفية، الطباعة، بوابة العميل، وخريطة الـ API.',
+    category: 'التنقل والمسارات',
+  },
+  {
+    icon: 'dataset',
+    accent: 'teal',
+    shortTitle: 'الكيانات والحقول والتحقق',
+    description: 'الحقول الإلزامية والاختيارية، قواعد التحقق، ورسائل المنع الدقيقة لكل موديول.',
+    category: 'البيانات والنماذج',
+  },
+  {
+    icon: 'sync_alt',
+    accent: 'blue',
+    shortTitle: 'دورات الحياة وحالات التحوّل',
+    description: 'جميع الـ Enums والانتقالات المسموحة والممنوعة للعقود والأقساط والمخزون والدعم.',
+    category: 'إدارة الحالات',
+  },
+  {
+    icon: 'checklist',
+    accent: 'teal',
+    shortTitle: 'العمليات والـ Workflows',
+    description: 'خطوات التنفيذ التفصيلية والتأثيرات الجانبية على المخزون والمحاسبة والأقساط.',
+    category: 'سير العمل',
+  },
+  {
+    icon: 'calculate',
+    accent: 'blue',
+    shortTitle: 'الحسابات والمنطق المالي',
+    description: 'معادلات التسعير والعروض، أولويات التحصيل والغرامات، الرواتب، والمحاسبة.',
+    category: 'القواعد المالية',
+  },
+  {
+    icon: 'shield',
+    accent: 'teal',
+    shortTitle: 'الحالات الحدية والأوفلاين',
+    description: 'أخطاء الشبكة، مزامنة الفروع، سلة المهملات، سجل التدقيق، وأقفال التزامن.',
+    category: 'الاعتمادية والأمان',
+  },
+]
+
+function getSectionMeta(index: number, fallbackTitle: string): SectionMeta {
+  return (
+    SECTION_META[index] ?? {
+      icon: 'article',
+      accent: 'blue',
+      shortTitle: fallbackTitle,
+      description: 'توثيق تفصيلي للمحاور والقواعد والقيود المرتبطة بهذا القسم.',
+      category: 'توثيق النظام',
+    }
+  )
+}
+
 function nodeText(node: ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
   if (Array.isArray(node)) return node.map(nodeText).join('')
@@ -30,29 +108,41 @@ function scrollToHeading(id: string) {
 }
 
 function buildMarkdownComponents(
+  isDark: boolean,
   copiedId: string | null,
   onCopyAnchor: (id: string) => void,
 ): Components {
+  const textPrimary = isDark ? 'text-slate-100' : 'text-[#0F172A]'
+  const textBody = isDark ? 'text-slate-300' : 'text-slate-700'
+  const textMuted = isDark ? 'text-slate-400' : 'text-slate-500'
+  const borderColor = isDark ? 'border-slate-800' : 'border-[#E2E8F0]'
+
   return {
     h1: ({ children }) => (
-      <h1 className="mb-3 text-xl font-bold tracking-tight text-on-surface">{children}</h1>
+      <h1 className={`mb-4 text-2xl font-bold tracking-tight ${textPrimary}`}>{children}</h1>
     ),
     h2: ({ children }) => {
       const id = manualHeadingId(nodeText(children))
       const isCopied = copiedId === id
       return (
-        <div className="group mb-5 flex items-center justify-between gap-4 border-b-2 border-primary/15 pb-3.5">
-          <h2 id={id} className="scroll-mt-24 text-lg font-bold text-on-surface sm:text-xl">
+        <div
+          className={`group mb-6 flex items-center justify-between gap-4 border-b pb-4 ${borderColor}`}
+        >
+          <h2 id={id} className={`scroll-mt-28 text-2xl font-bold tracking-tight ${textPrimary}`}>
             {children}
           </h2>
           <button
             type="button"
             onClick={() => onCopyAnchor(id)}
             title="نسخ رابط القسم"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-outline-variant/70 bg-surface-container-low/70 px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition hover:border-primary hover:bg-primary/5 hover:text-primary print:hidden"
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition print:hidden ${
+              isDark
+                ? 'border-slate-700 bg-slate-800/80 text-slate-300 hover:border-[#2563EB] hover:text-blue-400'
+                : 'border-[#E2E8F0] bg-[#F8FAFC] text-slate-600 hover:border-[#2563EB] hover:text-[#2563EB]'
+            }`}
           >
             <Icon name={isCopied ? 'check' : 'link'} size={14} />
-            <span>{isCopied ? 'تم النسخ' : 'رابط'}</span>
+            <span>{isCopied ? 'تم النسخ' : 'نسخ الرابط'}</span>
           </button>
         </div>
       )
@@ -62,38 +152,53 @@ function buildMarkdownComponents(
       return (
         <h3
           id={id}
-          className="mt-7 mb-3 scroll-mt-24 border-t border-outline-variant/40 pt-5 text-base font-bold text-primary first:mt-2 first:border-t-0 first:pt-0"
+          className={`mt-8 mb-3 scroll-mt-28 border-t pt-6 text-lg font-bold first:mt-2 first:border-t-0 first:pt-0 ${borderColor} ${
+            isDark ? 'text-blue-400' : 'text-[#0F172A]'
+          }`}
         >
           {children}
         </h3>
       )
     },
     h4: ({ children }) => (
-      <h4 className="mt-5 mb-2 inline-flex items-center rounded-md bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface">
-        {children}
+      <h4
+        className={`mt-5 mb-2.5 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${
+          isDark
+            ? 'border-teal-800/60 bg-teal-950/50 text-teal-300'
+            : 'border-teal-200 bg-teal-50 text-[#0D9488]'
+        }`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-[#0D9488]" />
+        <span>{children}</span>
       </h4>
     ),
     p: ({ children }) => (
-      <p className="my-2.5 text-sm leading-7 text-on-surface">{children}</p>
+      <p className={`my-3 text-[15px] leading-8 ${textBody}`}>{children}</p>
     ),
     ul: ({ children }) => (
-      <ul className="my-3 list-outside list-disc space-y-2 pr-6 text-sm leading-7 text-on-surface">
+      <ul className={`my-3.5 list-outside list-disc space-y-2 pr-6 text-[15px] leading-8 ${textBody}`}>
         {children}
       </ul>
     ),
     ol: ({ children }) => (
-      <ol className="my-3 list-outside list-decimal space-y-2.5 pr-6 text-sm leading-7 text-on-surface">
+      <ol
+        className={`my-3.5 list-outside list-decimal space-y-2.5 pr-6 text-[15px] leading-8 ${textBody}`}
+      >
         {children}
       </ol>
     ),
     li: ({ children }) => (
-      <li className="pl-1 marker:font-semibold marker:text-primary/70">{children}</li>
+      <li className="pl-1 marker:font-semibold marker:text-[#2563EB]">{children}</li>
     ),
-    strong: ({ children }) => (
-      <strong className="font-bold text-on-surface">{children}</strong>
-    ),
+    strong: ({ children }) => <strong className={`font-bold ${textPrimary}`}>{children}</strong>,
     blockquote: ({ children }) => (
-      <blockquote className="my-3 space-y-1.5 rounded-xl border-r-4 border-primary bg-primary/[0.04] px-4 py-3 text-sm leading-7 text-on-surface">
+      <blockquote
+        className={`my-4 space-y-1.5 rounded-xl border border-r-4 px-4 py-3.5 text-sm leading-7 ${
+          isDark
+            ? 'border-blue-900/70 border-r-[#2563EB] bg-blue-950/35 text-slate-200'
+            : 'border-blue-200/80 border-r-[#2563EB] bg-blue-50/70 text-slate-800'
+        }`}
+      >
         {children}
       </blockquote>
     ),
@@ -103,7 +208,7 @@ function buildMarkdownComponents(
         return (
           <button
             type="button"
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            className="font-medium text-[#2563EB] underline-offset-4 hover:underline"
             onClick={() => scrollToHeading(id)}
           >
             {children}
@@ -116,7 +221,7 @@ function buildMarkdownComponents(
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            className="font-medium text-[#2563EB] underline-offset-4 hover:underline"
           >
             {children}
           </a>
@@ -125,32 +230,40 @@ function buildMarkdownComponents(
       return <span>{children}</span>
     },
     table: ({ children }) => (
-      <div className="my-4 overflow-x-auto rounded-xl border border-outline-variant/70 shadow-2xs">
+      <div className={`my-5 overflow-x-auto rounded-xl border ${borderColor}`}>
         <table className="w-full border-collapse text-sm">{children}</table>
       </div>
     ),
     thead: ({ children }) => (
-      <thead className="bg-surface-container-low/90">{children}</thead>
+      <thead className={isDark ? 'bg-slate-800/80' : 'bg-[#F8FAFC]'}>{children}</thead>
     ),
     tr: ({ children }) => (
-      <tr className="border-b border-outline-variant/50 transition-colors last:border-b-0 odd:bg-surface-container-lowest even:bg-surface-container-low/25 hover:bg-primary/[0.04]">
+      <tr
+        className={`border-b transition-colors last:border-b-0 ${borderColor} ${
+          isDark ? 'hover:bg-slate-800/50' : 'hover:bg-blue-50/40'
+        }`}
+      >
         {children}
       </tr>
     ),
     th: ({ children }) => (
-      <th className="border-l border-outline-variant/50 px-3.5 py-2.5 text-right text-xs font-bold whitespace-nowrap text-on-surface last:border-l-0">
+      <th
+        className={`border-l px-4 py-3 text-right text-xs font-bold whitespace-nowrap last:border-l-0 ${borderColor} ${textPrimary}`}
+      >
         {children}
       </th>
     ),
     td: ({ children }) => (
-      <td className="border-l border-outline-variant/40 px-3.5 py-2.5 align-top text-xs leading-6 text-on-surface last:border-l-0">
+      <td
+        className={`border-l px-4 py-3 align-top text-xs leading-6 last:border-l-0 ${borderColor} ${textBody}`}
+      >
         {children}
       </td>
     ),
     pre: ({ children }) => (
       <pre
         dir="ltr"
-        className="my-3 overflow-x-auto rounded-xl border border-outline-variant/70 bg-slate-900 p-4 text-left text-xs leading-6 text-slate-100"
+        className="my-4 overflow-x-auto rounded-xl border border-slate-800 bg-[#0F172A] p-4 text-left text-xs leading-6 text-slate-100"
       >
         {children}
       </pre>
@@ -161,26 +274,51 @@ function buildMarkdownComponents(
         return <code className={className}>{children}</code>
       }
       return (
-        <code className="mx-0.5 inline rounded-md border border-outline-variant/50 bg-surface-container-low px-1.5 py-0.5 font-mono text-[12px] font-medium text-on-surface [unicode-bidi:isolate]">
+        <code
+          className={`mx-0.5 inline rounded-md border px-1.5 py-0.5 font-mono text-[12.5px] font-medium [unicode-bidi:isolate] ${
+            isDark
+              ? 'border-slate-700 bg-slate-800 text-teal-300'
+              : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A]'
+          }`}
+        >
           {children}
         </code>
       )
     },
-    hr: () => <hr className="my-6 border-outline-variant/50" />,
+    hr: () => <hr className={`my-7 ${borderColor}`} />,
+    em: ({ children }) => <em className={textMuted}>{children}</em>,
   }
 }
 
-export function UserManualPage() {
+export interface UserManualPageProps {
+  initialSectionId?: string | null
+}
+
+export function UserManualPage({ initialSectionId = null }: UserManualPageProps) {
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(initialSectionId)
+  const [activeSubId, setActiveSubId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'all' | 'single'>('all')
-  const [activeSectionId, setActiveSectionId] = useState<string>(manual.sections[0]?.id ?? '')
-  const [expandedTocIds, setExpandedTocIds] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(manual.sections.slice(0, 1).map((s) => [s.id, true])),
-  )
-  const [mobileTocOpen, setMobileTocOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [isDark, setIsDark] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const trimmedSearch = search.trim()
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setSearchOpen(true)
+        requestAnimationFrame(() => searchInputRef.current?.focus())
+      } else if (event.key === 'Escape' && searchOpen) {
+        setSearchOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [searchOpen])
 
   const matchingSections = useMemo(
     () => manualSectionsMatching(manual.sections, search),
@@ -194,26 +332,36 @@ export function UserManualPage() {
     )
   }, [matchingSections, trimmedSearch])
 
-  const totalMatches = useMemo(
-    () => Object.values(matchCountsById).reduce((acc, n) => acc + n, 0),
-    [matchCountsById],
-  )
-
   const totalSubsections = useMemo(
     () => manual.sections.reduce((acc, s) => acc + s.subsections.length, 0),
     [],
   )
 
-  const visibleSections = useMemo(() => {
-    if (trimmedSearch || viewMode === 'all') return matchingSections
-    const selected = matchingSections.find((s) => s.id === activeSectionId)
-    return selected ? [selected] : matchingSections.slice(0, 1)
-  }, [matchingSections, trimmedSearch, viewMode, activeSectionId])
-
-  const activeIndex = useMemo(
-    () => manual.sections.findIndex((s) => s.id === (visibleSections[0]?.id ?? activeSectionId)),
-    [visibleSections, activeSectionId],
+  const selectedIndex = useMemo(
+    () => (selectedSectionId ? manual.sections.findIndex((s) => s.id === selectedSectionId) : -1),
+    [selectedSectionId],
   )
+
+  const currentSection = selectedIndex >= 0 ? manual.sections[selectedIndex] : null
+  const currentMeta = currentSection
+    ? getSectionMeta(selectedIndex, currentSection.title)
+    : null
+
+  const openSection = (sectionId: string, subId?: string) => {
+    setSelectedSectionId(sectionId)
+    setActiveSubId(subId ?? null)
+    setMobileNavOpen(false)
+    setSearchOpen(false)
+    if (typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        if (subId) {
+          scrollToHeading(subId)
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      })
+    }
+  }
 
   const handleCopyAnchor = (id: string) => {
     if (typeof window !== 'undefined' && navigator.clipboard) {
@@ -224,279 +372,614 @@ export function UserManualPage() {
     setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000)
   }
 
-  const handleSelectSection = (sectionId: string, targetHeadingId?: string) => {
-    setActiveSectionId(sectionId)
-    setExpandedTocIds((prev) => ({ ...prev, [sectionId]: true }))
-    setMobileTocOpen(false)
-    const scrollTarget = targetHeadingId ?? sectionId
-    if (typeof window !== 'undefined') {
-      requestAnimationFrame(() => scrollToHeading(scrollTarget))
-    }
-  }
-
-  const toggleTocExpand = (sectionId: string) => {
-    setExpandedTocIds((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }))
-  }
-
   const markdownComponents = useMemo(
-    () => buildMarkdownComponents(copiedId, handleCopyAnchor),
-    [copiedId],
+    () => buildMarkdownComponents(isDark, copiedId, handleCopyAnchor),
+    [isDark, copiedId],
   )
 
-  const showPreamble = trimmedSearch === '' && (viewMode === 'all' || activeIndex <= 0)
-  const allExpanded = manual.sections.every((s) => expandedTocIds[s.id])
+  const prevSection = selectedIndex > 0 ? manual.sections[selectedIndex - 1] : null
+  const nextSection =
+    selectedIndex >= 0 && selectedIndex < manual.sections.length - 1
+      ? manual.sections[selectedIndex + 1]
+      : null
 
   return (
-    <SalesPageShell
-      title="دليل الاستخدام والمرجع التفصيلي الشامل"
-      subtitle="المرجع الوظيفي والتقني الكامل لنظام GPS للمبيعات — الأدوار والصلاحيات، المسارات، الكيانات، دورات الحياة، الحسابات، والأوفلاين."
+    <div
+      className={`min-h-[calc(100vh-4.5rem)] rounded-2xl border shadow-sm transition-colors ${
+        isDark
+          ? 'border-slate-800 bg-[#0F172A] text-slate-100'
+          : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A]'
+      }`}
     >
-      {/* Top summary & controls toolbar */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-lowest px-4 py-3 shadow-2xs print:hidden">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary/10 px-3 font-semibold text-primary">
-            <Icon name="menu_book" size={15} />
-            <span>{manual.sections.length} أقسام رئيسية</span>
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-surface-container-low px-3 font-medium text-on-surface-variant">
-            <Icon name="list" size={15} />
-            <span>{totalSubsections} محوراً فرعياً</span>
-          </span>
-          {trimmedSearch && (
-            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 font-semibold text-on-primary">
-              <span>
-                {totalMatches} نتيجة في {matchingSections.length} قسم
-              </span>
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* Top Portal Header (#0F172A Deep Slate) */}
+      <header className="rounded-t-2xl bg-[#0F172A] px-5 py-3.5 text-white print:hidden">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => setMobileTocOpen((v) => !v)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-outline-variant/70 bg-surface-container-low px-3 text-xs font-medium text-on-surface transition hover:border-primary lg:hidden"
+            onClick={() => {
+              setSelectedSectionId(null)
+              setActiveSubId(null)
+            }}
+            className="flex items-center gap-3 text-right transition hover:opacity-90"
           >
-            <Icon name="toc" size={16} />
-            <span>{mobileTocOpen ? 'إخفاء الفهرس' : 'فهرس الأقسام'}</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB] text-white shadow-sm">
+              <Icon name="menu_book" size={20} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold tracking-wide">GPS ERP DOCS</span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-teal-300">
+                  الإصدار 2.0
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">مركز المعرفة والمرجع التفصيلي الشامل</p>
+            </div>
           </button>
 
-          <div className="inline-flex h-9 items-center overflow-hidden rounded-lg border border-outline-variant/70 bg-surface-container-low p-1 text-xs">
+          <div className="flex items-center gap-2">
+            {currentSection && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen(true)
+                  requestAnimationFrame(() => searchInputRef.current?.focus())
+                }}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-3 text-xs text-slate-300 transition hover:border-slate-500 hover:text-white"
+              >
+                <Icon name="search" size={16} />
+                <span className="hidden sm:inline">بحث سريع...</span>
+                <kbd
+                  dir="ltr"
+                  className="hidden rounded border border-slate-600 bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] text-slate-400 sm:inline"
+                >
+                  ⌘ K
+                </kbd>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setViewMode('all')}
-              className={`h-full rounded-md px-3 font-semibold transition ${
-                viewMode === 'all'
-                  ? 'bg-primary text-on-primary shadow-2xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
+              onClick={() => setIsDark((d) => !d)}
+              title={isDark ? 'الوضع النهاري' : 'الوضع الليلي'}
+              aria-label={isDark ? 'الوضع النهاري' : 'الوضع الليلي'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/80 text-slate-300 transition hover:border-slate-500 hover:text-white"
             >
-              عرض الكل
+              <Icon name={isDark ? 'light_mode' : 'dark_mode'} size={18} />
             </button>
+
             <button
               type="button"
-              onClick={() => setViewMode('single')}
-              className={`h-full rounded-md px-3 font-semibold transition ${
-                viewMode === 'single'
-                  ? 'bg-primary text-on-primary shadow-2xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
+              onClick={() => typeof window !== 'undefined' && window.print()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 text-xs font-medium text-slate-200 transition hover:border-[#2563EB] hover:bg-[#2563EB]/20 hover:text-white"
             >
-              قسم واحد
+              <Icon name="print" size={16} />
+              <span className="hidden sm:inline">طباعة / PDF</span>
             </button>
           </div>
+        </div>
+      </header>
 
-          <button
-            type="button"
-            onClick={() => typeof window !== 'undefined' && window.print()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-3 text-xs font-semibold text-on-surface transition hover:border-primary hover:bg-primary/5 hover:text-primary"
-          >
-            <Icon name="print" size={16} />
-            <span>طباعة / PDF</span>
-          </button>
+      {/* Secondary Breadcrumb & Utility Bar */}
+      <div
+        className={`border-b px-5 py-2.5 text-xs print:hidden ${
+          isDark
+            ? 'border-slate-800 bg-slate-900/70 text-slate-400'
+            : 'border-[#E2E8F0] bg-white text-slate-500'
+        }`}
+      >
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedSectionId(null)}
+              className={`font-medium transition hover:text-[#2563EB] ${
+                !currentSection ? (isDark ? 'text-slate-100' : 'text-[#0F172A]') : ''
+              }`}
+            >
+              التوثيق
+            </button>
+            <span>/</span>
+            {currentSection && currentMeta ? (
+              <>
+                <span className="hidden sm:inline">{currentMeta.category}</span>
+                <span className="hidden sm:inline">/</span>
+                <span className={`font-semibold ${isDark ? 'text-slate-100' : 'text-[#0F172A]'}`}>
+                  {currentMeta.shortTitle}
+                </span>
+              </>
+            ) : (
+              <span>المرجع الشامل للنظام</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1 sm:inline-flex">
+              <Icon name="layers" size={14} />
+              <span>{manual.sections.length} أقسام</span>
+              <span>•</span>
+              <span>{totalSubsections} محوراً</span>
+            </span>
+            {currentSection && (
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen((v) => !v)}
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-medium lg:hidden ${
+                  isDark
+                    ? 'border-slate-700 bg-slate-800 text-slate-200'
+                    : 'border-[#E2E8F0] bg-[#F8FAFC] text-slate-700'
+                }`}
+              >
+                <Icon name="toc" size={15} />
+                <span>الأقسام</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[19.5rem_minmax(0,1fr)]">
-        {/* Sticky Hierarchical Sidebar TOC */}
-        <nav
-          aria-label="فهرس الدليل"
-          className={`${
-            mobileTocOpen ? 'block' : 'hidden'
-          } rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-4 shadow-2xs lg:sticky lg:top-20 lg:block print:hidden`}
-        >
-          <div className="mb-3 flex items-center justify-between border-b border-outline-variant/40 pb-2.5">
-            <p className="text-xs font-bold text-on-surface">أقسام المرجع</p>
-            <button
-              type="button"
-              onClick={() => {
-                setExpandedTocIds(
-                  Object.fromEntries(manual.sections.map((s) => [s.id, !allExpanded])),
-                )
-              }}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              {allExpanded ? 'طي الكل' : 'توسيع الكل'}
-            </button>
-          </div>
-
-          <div className="max-h-[55vh] space-y-1.5 overflow-y-auto pl-1 lg:max-h-[calc(100vh-13rem)]">
-            {matchingSections.map((section) => {
-              const isActive = activeSectionId === section.id
-              const isExpanded = Boolean(expandedTocIds[section.id]) || Boolean(trimmedSearch)
-              const matchCount = matchCountsById[section.id]
-
-              return (
-                <div key={section.id} className="space-y-1">
-                  <div
-                    className={`flex items-start gap-1.5 rounded-lg px-2.5 py-2 transition ${
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-on-surface hover:bg-surface-container-low/70'
-                    }`}
-                  >
-                    {section.subsections.length > 0 && (
-                      <button
-                        type="button"
-                        aria-label="توسيع القسم"
-                        onClick={() => toggleTocExpand(section.id)}
-                        className="mt-0.5 shrink-0 rounded p-0.5 text-on-surface-variant transition hover:text-primary"
-                      >
-                        <Icon
-                          name={isExpanded ? 'expand_more' : 'chevron_left'}
-                          size={16}
-                        />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="flex-1 text-right text-xs font-semibold leading-5"
-                      onClick={() => handleSelectSection(section.id)}
-                    >
-                      {section.title}
-                    </button>
-                    {matchCount ? (
-                      <span className="mt-0.5 shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
-                        {matchCount}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {isExpanded && section.subsections.length > 0 && (
-                    <div className="mr-4 space-y-0.5 border-r-2 border-outline-variant/50 pr-3">
-                      {section.subsections.map((sub) => (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          onClick={() => handleSelectSection(section.id, sub.id)}
-                          className="block w-full rounded-md px-2 py-1.5 text-right text-xs leading-5 text-on-surface-variant transition hover:bg-surface-container-low hover:text-primary"
-                        >
-                          {sub.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {matchingSections.length === 0 && (
-              <p className="px-2 py-3 text-center text-xs text-on-surface-variant">
-                لا توجد أقسام مطابقة.
-              </p>
-            )}
-          </div>
-        </nav>
-
-        {/* Main Specification Content */}
-        <div className="min-w-0 space-y-5">
-          {/* RTL Search Input */}
-          <div className="relative print:hidden">
+      {/* Main Body: Homepage OR 3-Column Documentation Reader */}
+      {!currentSection ? (
+        /* ==================== PORTAL HOMEPAGE ==================== */
+        <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+          {/* Command-style Search Bar */}
+          <div className="relative mb-8">
             <Icon
               name="search"
               size={20}
-              className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant"
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
+              ref={searchInputRef}
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="ابحث في الدليل (مثال: صلاحية، قسط، مخزون، أوفلاين، استرداد، ZKTeco)..."
-              className="w-full rounded-xl border border-outline-variant/70 bg-surface-container-lowest py-3 pr-11 pl-10 text-sm text-on-surface shadow-2xs outline-none transition placeholder:text-on-surface-variant/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث في التوثيق، الصلاحيات، المسارات، الحسابات، الأوفلاين، أو الـ API..."
+              className={`w-full rounded-xl border py-3.5 pr-12 pl-20 text-sm shadow-2xs outline-none transition ${
+                isDark
+                  ? 'border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/25'
+                  : 'border-[#E2E8F0] bg-white text-[#0F172A] placeholder:text-slate-400 focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15'
+              }`}
             />
-            {search && (
-              <button
-                type="button"
-                aria-label="مسح البحث"
-                onClick={() => setSearch('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-on-surface-variant transition hover:bg-surface-container-low hover:text-on-surface"
-              >
-                <Icon name="close" size={18} />
-              </button>
-            )}
+            <div className="absolute left-3.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+              {search ? (
+                <button
+                  type="button"
+                  aria-label="مسح البحث"
+                  onClick={() => setSearch('')}
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-200/50 hover:text-slate-600"
+                >
+                  <Icon name="close" size={16} />
+                </button>
+              ) : (
+                <kbd
+                  dir="ltr"
+                  className={`rounded-md border px-2 py-0.5 font-mono text-[11px] ${
+                    isDark
+                      ? 'border-slate-700 bg-slate-800 text-slate-400'
+                      : 'border-[#E2E8F0] bg-[#F8FAFC] text-slate-500'
+                  }`}
+                >
+                  ⌘ K
+                </kbd>
+              )}
+            </div>
           </div>
 
-          {showPreamble && manual.preamble && (
-            <article className="rounded-xl border border-primary/20 bg-surface-container-lowest p-6 shadow-2xs">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {manual.preamble}
-              </ReactMarkdown>
-            </article>
-          )}
-
-          {visibleSections.map((section) => (
-            <article
-              key={section.id}
-              className="rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-6 shadow-2xs"
+          {/* Hero Section */}
+          <div className="mb-8 space-y-2">
+            <h1
+              className={`text-2xl font-extrabold tracking-tight sm:text-3xl ${
+                isDark ? 'text-white' : 'text-[#0F172A]'
+              }`}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {section.markdown}
-              </ReactMarkdown>
-            </article>
-          ))}
+              كل ما تحتاجه لإتقان نظام GPS للمبيعات.
+            </h1>
+            <p className={`max-w-2xl text-sm leading-7 sm:text-base ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              تصفّح موديولات النظام، الصلاحيات ونطاق البيانات، دورات الحياة، المعادلات المالية،
+              ومعمارية المزامنة الأوفلاين في مرجع واحد مستخرج مباشرة من الكود الفعلي.
+            </p>
+          </div>
 
-          {viewMode === 'single' && !trimmedSearch && visibleSections.length > 0 && (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-lowest px-4 py-3 shadow-2xs print:hidden">
-              <button
-                type="button"
-                disabled={activeIndex <= 0}
-                onClick={() => {
-                  const prev = manual.sections[activeIndex - 1]
-                  if (prev) handleSelectSection(prev.id)
-                }}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-outline-variant/70 px-3 text-xs font-semibold text-on-surface transition hover:border-primary hover:text-primary disabled:opacity-40"
-              >
-                <Icon name="arrow_forward" size={16} />
-                <span>القسم السابق</span>
-              </button>
-              <span className="text-xs font-medium text-on-surface-variant">
-                القسم {activeIndex + 1} من {manual.sections.length}
+          {/* Search Results Info */}
+          {trimmedSearch && (
+            <div className="mb-5 flex items-center justify-between text-xs">
+              <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                تم العثور على <strong className="text-[#2563EB]">{matchingSections.length}</strong>{' '}
+                أقسام مطابقة لـ «{trimmedSearch}»
               </span>
               <button
                 type="button"
-                disabled={activeIndex >= manual.sections.length - 1}
-                onClick={() => {
-                  const next = manual.sections[activeIndex + 1]
-                  if (next) handleSelectSection(next.id)
-                }}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-outline-variant/70 px-3 text-xs font-semibold text-on-surface transition hover:border-primary hover:text-primary disabled:opacity-40"
+                onClick={() => setSearch('')}
+                className="font-medium text-[#2563EB] hover:underline"
               >
-                <span>القسم التالي</span>
-                <Icon name="arrow_back" size={16} />
+                عرض جميع الأقسام
               </button>
             </div>
           )}
 
-          {visibleSections.length === 0 && (
-            <div className="rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-8 text-center shadow-2xs">
-              <p className="text-sm font-semibold text-on-surface">لا توجد نتائج مطابقة لهذا البحث.</p>
-              <p className="mt-1.5 text-xs text-on-surface-variant">
-                جرّب كلمة مفتاحية أخرى مثل: الصلاحيات، المسارات، الأقساط، المخزون، أو المزامنة.
+          {/* Module Cards Grid (2 columns like Stripe/Odoo concept) */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {matchingSections.map((section) => {
+              const idx = manual.sections.findIndex((s) => s.id === section.id)
+              const meta = getSectionMeta(idx, section.title)
+              const matches = matchCountsById[section.id]
+              const iconColor =
+                meta.accent === 'teal'
+                  ? isDark
+                    ? 'bg-teal-950/70 text-teal-400 border-teal-800/50'
+                    : 'bg-teal-50 text-[#0D9488] border-teal-100'
+                  : isDark
+                    ? 'bg-blue-950/70 text-blue-400 border-blue-800/50'
+                    : 'bg-blue-50 text-[#2563EB] border-blue-100'
+
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => openSection(section.id)}
+                  className={`group flex flex-col justify-between rounded-2xl border p-5 text-right transition-all ${
+                    isDark
+                      ? 'border-slate-800 bg-slate-900/80 hover:border-[#2563EB] hover:bg-slate-900'
+                      : 'border-[#E2E8F0] bg-white hover:border-[#2563EB]/60 hover:shadow-md'
+                  }`}
+                >
+                  <div>
+                    <div className="mb-3.5 flex items-center justify-between gap-2">
+                      <span
+                        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-transform group-hover:scale-105 ${iconColor}`}
+                      >
+                        <Icon name={meta.icon} size={20} />
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {matches ? (
+                          <span className="rounded-full bg-[#2563EB] px-2.5 py-0.5 text-[11px] font-bold text-white">
+                            {matches} نتيجة
+                          </span>
+                        ) : null}
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                            isDark
+                              ? 'bg-slate-800 text-slate-400'
+                              : 'bg-[#F8FAFC] text-slate-500'
+                          }`}
+                        >
+                          {section.subsections.length} محاور
+                        </span>
+                      </div>
+                    </div>
+
+                    <h2
+                      className={`mb-1.5 text-base font-bold transition-colors group-hover:text-[#2563EB] ${
+                        isDark ? 'text-slate-100' : 'text-[#0F172A]'
+                      }`}
+                    >
+                      {idx + 1}. {meta.shortTitle}
+                    </h2>
+                    <p
+                      className={`text-xs leading-6 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
+                      {meta.description}
+                    </p>
+                  </div>
+
+                  {/* Preview of first 3 subsections */}
+                  {section.subsections.length > 0 && (
+                    <div
+                      className={`mt-4 flex flex-wrap gap-1.5 border-t pt-3 ${
+                        isDark ? 'border-slate-800' : 'border-slate-100'
+                      }`}
+                    >
+                      {section.subsections.slice(0, 3).map((sub) => (
+                        <span
+                          key={sub.id}
+                          className={`max-w-[13rem] truncate rounded-md px-2 py-0.5 text-[11px] ${
+                            isDark
+                              ? 'bg-slate-800/80 text-slate-300'
+                              : 'bg-[#F8FAFC] text-slate-600'
+                          }`}
+                        >
+                          {sub.title.replace(/^\d+\.\d+\s*/, '')}
+                        </span>
+                      ))}
+                      {section.subsections.length > 3 && (
+                        <span className="px-1 py-0.5 text-[11px] font-medium text-[#2563EB]">
+                          +{section.subsections.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {matchingSections.length === 0 && (
+            <div
+              className={`rounded-2xl border p-10 text-center ${
+                isDark ? 'border-slate-800 bg-slate-900' : 'border-[#E2E8F0] bg-white'
+              }`}
+            >
+              <p className="text-sm font-semibold">لا توجد نتائج مطابقة لبحثك.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                جرّب البحث عن: الصلاحيات، المخزون، الأقساط، الرواتب، المحاسبة، أو الأوفلاين.
               </p>
             </div>
           )}
         </div>
-      </div>
-    </SalesPageShell>
+      ) : (
+        /* ==================== 3-COLUMN DOCUMENTATION READER ==================== */
+        <div className="mx-auto grid max-w-7xl items-start gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[15.5rem_minmax(0,1fr)_14.5rem]">
+          {/* Column 1 (Right in RTL): Modules Navigation */}
+          <aside
+            aria-label="التنقل بين الأقسام"
+            className={`${
+              mobileNavOpen ? 'block' : 'hidden'
+            } rounded-xl border p-3.5 lg:sticky lg:top-20 lg:block print:hidden ${
+              isDark
+                ? 'border-slate-800 bg-slate-900/70'
+                : 'border-[#E2E8F0] bg-white'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSectionId(null)
+                setMobileNavOpen(false)
+              }}
+              className={`mb-3 flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                isDark
+                  ? 'border-slate-700 bg-slate-800/80 text-slate-200 hover:border-[#2563EB] hover:text-blue-400'
+                  : 'border-[#E2E8F0] bg-[#F8FAFC] text-slate-700 hover:border-[#2563EB] hover:text-[#2563EB]'
+              }`}
+            >
+              <Icon name="home" size={16} />
+              <span>الرئيسية (كل الأقسام)</span>
+            </button>
+
+            <p
+              className={`mb-2 px-2 text-[11px] font-bold tracking-wider uppercase ${
+                isDark ? 'text-slate-500' : 'text-slate-400'
+              }`}
+            >
+              أقسام المرجع
+            </p>
+
+            <nav className="max-h-[calc(100vh-14rem)] space-y-1 overflow-y-auto">
+              {manual.sections.map((section, idx) => {
+                const meta = getSectionMeta(idx, section.title)
+                const isActive = section.id === currentSection.id
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => openSection(section.id)}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-right text-xs transition ${
+                      isActive
+                        ? isDark
+                          ? 'bg-[#2563EB]/20 font-bold text-blue-400'
+                          : 'bg-blue-50 font-bold text-[#2563EB]'
+                        : isDark
+                          ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          : 'text-slate-600 hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+                    }`}
+                  >
+                    <Icon name={meta.icon} size={16} className="shrink-0" />
+                    <span className="leading-5">
+                      {idx + 1}. {meta.shortTitle}
+                    </span>
+                  </button>
+                )
+              })}
+            </nav>
+          </aside>
+
+          {/* Column 2 (Center): Main Content */}
+          <main className="min-w-0">
+            <article
+              className={`rounded-2xl border p-6 sm:p-8 ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900/60'
+                  : 'border-[#E2E8F0] bg-white shadow-2xs'
+              }`}
+            >
+              {/* Module Category Pill */}
+              {currentMeta && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                      isDark
+                        ? 'bg-blue-950/70 text-blue-300'
+                        : 'bg-blue-50 text-[#2563EB]'
+                    }`}
+                  >
+                    <Icon name={currentMeta.icon} size={14} />
+                    <span>{currentMeta.category}</span>
+                  </span>
+                  <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {currentSection.subsections.length} محاور فرعية
+                  </span>
+                </div>
+              )}
+
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {currentSection.markdown}
+              </ReactMarkdown>
+            </article>
+
+            {/* Previous / Next Module Navigation Cards */}
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 print:hidden">
+              {prevSection ? (
+                <button
+                  type="button"
+                  onClick={() => openSection(prevSection.id)}
+                  className={`flex flex-col items-start rounded-xl border p-4 text-right transition ${
+                    isDark
+                      ? 'border-slate-800 bg-slate-900/70 hover:border-[#2563EB]'
+                      : 'border-[#E2E8F0] bg-white hover:border-[#2563EB]'
+                  }`}
+                >
+                  <span className="mb-1 flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                    <Icon name="arrow_forward" size={14} />
+                    <span>القسم السابق</span>
+                  </span>
+                  <span className="text-sm font-bold text-[#2563EB]">
+                    {getSectionMeta(selectedIndex - 1, prevSection.title).shortTitle}
+                  </span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {nextSection && (
+                <button
+                  type="button"
+                  onClick={() => openSection(nextSection.id)}
+                  className={`flex flex-col items-end rounded-xl border p-4 text-left transition ${
+                    isDark
+                      ? 'border-slate-800 bg-slate-900/70 hover:border-[#2563EB]'
+                      : 'border-[#E2E8F0] bg-white hover:border-[#2563EB]'
+                  }`}
+                >
+                  <span className="mb-1 flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                    <span>القسم التالي</span>
+                    <Icon name="arrow_back" size={14} />
+                  </span>
+                  <span className="text-sm font-bold text-[#2563EB]">
+                    {getSectionMeta(selectedIndex + 1, nextSection.title).shortTitle}
+                  </span>
+                </button>
+              )}
+            </div>
+          </main>
+
+          {/* Column 3 (Left in RTL): "On this page" Outline */}
+          <aside
+            aria-label="في هذه الصفحة"
+            className="hidden lg:sticky lg:top-20 lg:block print:hidden"
+          >
+            <div
+              className={`border-r-2 pr-4 ${
+                isDark ? 'border-slate-800' : 'border-[#E2E8F0]'
+              }`}
+            >
+              <p
+                className={`mb-3 text-xs font-bold ${
+                  isDark ? 'text-slate-200' : 'text-[#0F172A]'
+                }`}
+              >
+                في هذه الصفحة
+              </p>
+              <ul className="max-h-[calc(100vh-12rem)] space-y-2 overflow-y-auto">
+                {currentSection.subsections.map((sub) => {
+                  const isActive = activeSubId === sub.id
+                  return (
+                    <li key={sub.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveSubId(sub.id)
+                          scrollToHeading(sub.id)
+                        }}
+                        className={`block w-full text-right text-xs leading-5 transition ${
+                          isActive
+                            ? 'font-bold text-[#2563EB]'
+                            : isDark
+                              ? 'text-slate-400 hover:text-slate-200'
+                              : 'text-slate-500 hover:text-[#0F172A]'
+                        }`}
+                      >
+                        {sub.title}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Command Palette Search Modal (⌘K) when inside a section */}
+      {searchOpen && currentSection && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/60 p-4 pt-20 backdrop-blur-xs print:hidden"
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${
+              isDark
+                ? 'border-slate-700 bg-slate-900 text-slate-100'
+                : 'border-[#E2E8F0] bg-white text-[#0F172A]'
+            }`}
+          >
+            <div
+              className={`relative border-b ${
+                isDark ? 'border-slate-800' : 'border-[#E2E8F0]'
+              }`}
+            >
+              <Icon
+                name="search"
+                size={20}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ابحث في جميع أقسام المرجع..."
+                className="w-full bg-transparent py-3.5 pr-12 pl-12 text-sm outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-0.5 text-xs text-slate-400 hover:text-slate-600"
+              >
+                ESC
+              </button>
+            </div>
+
+            <div className="max-h-80 space-y-1 overflow-y-auto p-2">
+              {matchingSections.map((section) => {
+                const idx = manual.sections.findIndex((s) => s.id === section.id)
+                const meta = getSectionMeta(idx, section.title)
+                const matches = matchCountsById[section.id]
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => openSection(section.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-right transition ${
+                      isDark ? 'hover:bg-slate-800' : 'hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={meta.icon} size={18} className="text-[#2563EB]" />
+                      <div>
+                        <p className="text-xs font-bold">
+                          {idx + 1}. {meta.shortTitle}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{meta.description}</p>
+                      </div>
+                    </div>
+                    {matches ? (
+                      <span className="shrink-0 rounded-full bg-[#2563EB]/15 px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
+                        {matches}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
+              {matchingSections.length === 0 && (
+                <p className="py-8 text-center text-xs text-slate-400">لا توجد نتائج مطابقة.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
