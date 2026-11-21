@@ -395,14 +395,15 @@ function canSeeNavItem(
   const role = getUserRole(user)
   const roleAllowed = item.roles.includes(role)
 
-  // Admin / super_admin are already gated by item.roles. Their API permission
-  // lists are often incomplete (e.g. Admin only has users/roles/settings),
-  // so don't hide the rest of the sidebar behind that list.
-  if (role === 'super_admin' || role === 'admin') return roleAllowed
-
   const path = item.dynamicTo ? item.dynamicTo(user) ?? item.to : item.to
   const requiredPerms = resolveRoutePermissions(path)
   const permAccess = userCanAccessByPermissions(user.permissions, requiredPerms)
+  // CRM screens follow the assigned permission even for managers. Other modules
+  // still use the role list for admin / super_admin, because those permission
+  // payloads are not a complete map of every non-CRM page.
+  if ((role === 'super_admin' || role === 'admin') && !path.startsWith('/crm')) {
+    return roleAllowed
+  }
   if (permAccess !== null) return permAccess
 
   return roleAllowed
@@ -445,8 +446,11 @@ export function canAccessRoute(
 
   const requiredPerms = resolveRoutePermissions(normalized)
   const permAccess = userCanAccessByPermissions(user?.permissions, requiredPerms)
-  // Same as nav: admin roles are gated by routeRoles below, not a partial permission array.
-  if (permAccess !== null && role !== 'super_admin' && role !== 'admin') return permAccess
+  // CRM screens follow the assigned permission for every role, including managers.
+  const honorPermissions = permAccess !== null && (
+    normalized.startsWith('/crm') || (role !== 'super_admin' && role !== 'admin')
+  )
+  if (honorPermissions) return permAccess
 
   if (normalized === '/customers/add') {
     return routeRoles['/customers/add']?.includes(role) ?? false

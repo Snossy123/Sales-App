@@ -65,7 +65,7 @@ export function CrmOwnerPipelinePage() {
   return (
     <CrmPageShell
       kicker="التحليلات"
-      title="خط الأنابيب"
+      title="حالات الترشيح"
       subtitle="توزيع الترشيحات حسب الحالة"
       filters={
         <CrmFilterPanel>

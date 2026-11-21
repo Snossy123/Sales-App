@@ -102,6 +102,36 @@ describe('user manual access', () => {
   })
 })
 
+describe('CRM screen permissions', () => {
+  it('hides an analytics screen when its permission is off, even if the older lead permission is on', () => {
+    const crm = user({
+      demo_role: 'crm',
+      permissions: ['crm.access_all_leads', 'crm.access_own_leads', 'crm.reports.referrals'],
+    })
+
+    expect(canAccessRoute('/crm/reports', crm)).toBe(true)
+    expect(canAccessRoute('/crm/reports/leaderboard', crm)).toBe(false)
+    expect(canAccessRoute('/crm/ceo', crm)).toBe(false)
+    expect(navLabels(crm)).toContain('تقارير الترشيحات')
+    expect(navLabels(crm)).not.toContain('لوحة المتصدرين')
+    expect(navLabels(crm)).not.toContain('لوحة المدير')
+  })
+
+  it('hides CRM screens for a manager who no longer has that permission', () => {
+    const manager = user({
+      demo_role: 'admin',
+      roles: [{ id: 2, name: 'AdministrationManager' }],
+      permissions: ['dashboard.view', 'crm.reports.referrals', 'users.manage'],
+    })
+
+    expect(canAccessRoute('/crm/reports', manager)).toBe(true)
+    expect(canAccessRoute('/crm/reports/leaderboard', manager)).toBe(false)
+    expect(canAccessRoute('/admin/users', manager)).toBe(true)
+    expect(navLabels(manager)).toContain('تقارير الترشيحات')
+    expect(navLabels(manager)).not.toContain('لوحة المتصدرين')
+  })
+})
+
 
 describe('expense request detail access', () => {
   it('lets an expense submitter open the request and its details without review permissions', () => {

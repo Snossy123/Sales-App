@@ -212,17 +212,17 @@
 | **قسم الأقساط** | توزيع التحصيل | `/installments/assignments` | `super_admin, admin` | `installments.assign` |
 | **قسم الأقساط** | التحصيلات الخارجية | `/call-center/collections` | `super_admin, admin, call_center` | `external_collections.collect` |
 | **قسم الأقساط** | حسابات التحويل | `/admin/collection-accounts` | `super_admin, admin` | `collection_accounts.manage \| view` |
-| **المبيعات (CRM)** | خط الترشيحات | `/crm/referrals` | `super_admin, admin, crm` | `crm.referrals.pipeline \| crm.access_own_leads` |
-| **المبيعات (CRM)** | قائمة الترشيحات | `/crm/referrals/list` | `super_admin, admin, crm` | `crm.referrals.list \| crm.access_own_leads` |
-| **المبيعات (CRM)** | المهام | `/crm/tasks` | `super_admin, admin, crm` | `crm.tasks.view \| crm.access_own_schedule \| all` |
-| **المبيعات (CRM)** | سجل المكالمات | `/crm/call-logs` | `super_admin, admin, crm` | `crm.view_own_call_log \| all` |
-| **المبيعات (CRM)** | الأنشطة | `/crm/activities` | `super_admin, admin, crm` | `crm.activities.view \| crm.activities.manage \| access_own_leads` |
-| **المبيعات (CRM)** | تقارير الترشيحات | `/crm/reports` | `super_admin, admin, crm` | `crm.reports.referrals \| crm.access_all_leads` |
-| **المبيعات (CRM)** | أداء الموظف | `/crm/reports/owner-detail` | `super_admin, admin, crm` | `crm.reports.owner_detail \| crm.access_all_leads` |
-| **المبيعات (CRM)** | لوحة المتصدرين | `/crm/reports/leaderboard` | `super_admin, admin, crm` | `crm.reports.leaderboard \| crm.access_all_leads` |
-| **المبيعات (CRM)** | شبكة الإحالات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.referrals.network \| crm.access_own_leads` |
-| **المبيعات (CRM)** | خط الأنابيب | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.reports.pipeline \| crm.access_all_leads` |
-| **المبيعات (CRM)** | لوحة المدير | `/crm/ceo` | `super_admin, admin, crm` | `crm.ceo.view \| crm.access_all_leads` |
+| **المبيعات (CRM)** | خط الترشيحات | `/crm/referrals` | `super_admin, admin, crm` | `crm.referrals.pipeline` |
+| **المبيعات (CRM)** | قائمة الترشيحات | `/crm/referrals/list` | `super_admin, admin, crm` | `crm.referrals.list` |
+| **المبيعات (CRM)** | المهام | `/crm/tasks` | `super_admin, admin, crm` | `crm.tasks.view` |
+| **المبيعات (CRM)** | سجل المكالمات | `/crm/call-logs` | `super_admin, admin, crm` | `crm.view_own_call_log \| crm.view_all_call_log` |
+| **المبيعات (CRM)** | الأنشطة | `/crm/activities` | `super_admin, admin, crm` | `crm.activities.view` |
+| **المبيعات (CRM)** | تقارير الترشيحات | `/crm/reports` | `super_admin, admin, crm` | `crm.reports.referrals` |
+| **المبيعات (CRM)** | أداء الموظف | `/crm/reports/owner-detail` | `super_admin, admin, crm` | `crm.reports.owner_detail` |
+| **المبيعات (CRM)** | لوحة المتصدرين | `/crm/reports/leaderboard` | `super_admin, admin, crm` | `crm.reports.leaderboard` |
+| **المبيعات (CRM)** | شبكة الإحالات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.referrals.network` |
+| **المبيعات (CRM)** | خط الأنابيب | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.reports.pipeline` |
+| **المبيعات (CRM)** | لوحة المدير | `/crm/ceo` | `super_admin, admin, crm` | `crm.ceo.view` |
 | **المراجعة** | مراجعة التعاقدات | `/invoices/review` | `super_admin, admin, reviewer` | `review.view_queue \| view_detail` |
 | **المراجعة** | مراجعة التحصيلات | `/review/collections` | `super_admin, admin, reviewer` | `review.view_collections` |
 | **المراجعة** | مراجعة مخزون الفرع | `/review/branch-inventory` | `super_admin, admin, reviewer` | `review.view_branch_inventory` |

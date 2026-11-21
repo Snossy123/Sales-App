@@ -86,7 +86,7 @@ export function CrmReferralNetworkPage() {
   return (
     <CrmPageShell
       kicker="التحليلات"
-      title="شبكة الإحالات"
+      title="شجرة الترشيحات"
       subtitle="من أحال من — مع عدد الترشيحات ونسبة التحويل وإجمالي المبيعات."
       actions={
         <>
