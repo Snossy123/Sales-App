@@ -19,7 +19,7 @@
   5. الأقساط والتحصيل والمدفوعات: توليد الجداول، التحصيل الداخلي والخارجي (مركز الاتصال)، توزيع التحصيل، حسابات التحويل، التصالح (`Reconciliation`)، التعليق والاستئناف والترحيل، إجراءات التحصيل، الاسترداد والإلغاء في نفس اليوم.
   6. المراجعة: مراجعة التعاقدات، مراجعة التحصيلات، مراجعة مخزون الفرع، مراجعة المصروفات، طابور تقييم العملاء بعد التنفيذ، وطابور تجديد الاشتراكات.
   7. قسم المشاكل / حالات العقود (`ContractCases`): دعم فني، استرجاع، استبدال، إلغاء تعاقد، والتراجع عن الحالة.
-  8. الـ CRM: خط وقائمة الترشيحات (`ReferralLeads`)، شبكة الإحالات الشجرية، المهام، الأنشطة، سجل المكالمات وإفاداتها، لوحة المدير التنفيذي (`CEO Dashboard`)، تقارير الموظفين ولوحة المتصدرين.
+  8. الـ CRM: خط وقائمة الترشيحات (`ReferralLeads`)، شجرة الترشيحات، المهام، الأنشطة، سجل المكالمات وإفاداتها، لوحة المدير التنفيذي (`CEO Dashboard`)، تقارير الموظفين ولوحة المتصدرين.
   9. المحاسبة (`Accounting`): دليل الحسابات الشجري، قيود اليومية والأرصدة الافتتاحية، التحويلات، الترحيل التلقائي (`TransactionMap`)، الميزانيات، و9 تقارير مالية.
   10. الموارد البشرية (`HRM`): الموظفون، الوظائف، أهداف المبيعات والعمولات، الورديات، الحضور والانصراف، تكامل أجهزة البصمة `ZKTeco` (عبر `UDP Pull` و `ADMS/PUSH`)، الإجازات والعطلات، البدلات والخصومات ومديونيات الموظفين، والرواتب ومسيراتها.
   11. الدعم الفني (`SupportTasks`)، الدردشة الداخلية (`Chat`)، الرسائل التلقائية عبر واتساب (`Messaging`)، الأسئلة الشائعة والمساعد الذكي (`FAQ`)، الملاحظات (`Feedback`)، سلة المهملات (`Trash`)، سجل التدقيق (`Activity Log`)، والعمل الأوفلاين للفروع (`Offline Branch Sync`).
@@ -220,8 +220,8 @@
 | **المبيعات (CRM)** | تقارير الترشيحات | `/crm/reports` | `super_admin, admin, crm` | `crm.reports.referrals` |
 | **المبيعات (CRM)** | أداء الموظف | `/crm/reports/owner-detail` | `super_admin, admin, crm` | `crm.reports.owner_detail` |
 | **المبيعات (CRM)** | لوحة المتصدرين | `/crm/reports/leaderboard` | `super_admin, admin, crm` | `crm.reports.leaderboard` |
-| **المبيعات (CRM)** | شبكة الإحالات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.referrals.network` |
-| **المبيعات (CRM)** | خط الأنابيب | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.reports.pipeline` |
+| **المبيعات (CRM)** | شجرة الترشيحات | `/crm/referrals/network` | `super_admin, admin, crm` | `crm.referrals.network` |
+| **المبيعات (CRM)** | حالات الترشيح | `/crm/reports/owner-pipeline` | `super_admin, admin, crm` | `crm.reports.pipeline` |
 | **المبيعات (CRM)** | لوحة المدير | `/crm/ceo` | `super_admin, admin, crm` | `crm.ceo.view` |
 | **المراجعة** | مراجعة التعاقدات | `/invoices/review` | `super_admin, admin, reviewer` | `review.view_queue \| view_detail` |
 | **المراجعة** | مراجعة التحصيلات | `/review/collections` | `super_admin, admin, reviewer` | `review.view_collections` |
