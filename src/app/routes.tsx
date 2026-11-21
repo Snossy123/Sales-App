@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { canAccessRoute, getDefaultRoute } from '../lib/permissions'
 import { LoginPage } from '../pages/LoginPage'
 import { BranchSetupPage } from '../pages/BranchSetupPage'
+import { SyncDebugPage } from '../pages/SyncDebugPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { InventoryPage } from '../pages/InventoryPage'
 import { InventoryAddStockPage } from '../pages/InventoryAddStockPage'
@@ -208,6 +209,7 @@ export function AppRoutes() {
             <Route path="departments/:id" element={<DepartmentDetailPage />} />
             <Route path="branches" element={<BranchesPage />} />
             <Route path="branches/:id" element={<BranchDetailPage />} />
+            <Route path="sync-debug" element={<SyncDebugPage />} />
             <Route path="sections" element={<SectionsPage />} />
             <Route path="gps/management" element={<GpsManagementPage />} />
             <Route path="inventory" element={<InventoryPage />} />

@@ -79,6 +79,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/branches': 'branches.manage',
   '/sections': 'branches.manage',
   '/gps/management': 'branches.manage',
+  '/sync-debug': 'dashboard.view',
   '/admin/users': 'users.manage',
   '/admin/roles': 'roles.manage',
   '/admin/activity-log': 'audit.view',

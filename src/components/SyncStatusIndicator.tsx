@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 
 type SyncStatus = {
@@ -45,7 +46,8 @@ export function SyncStatusIndicator() {
 
   return (
     <div className="group relative flex items-center" tabIndex={0}>
-      <span
+      <Link
+        to="/sync-debug"
         className="relative flex h-3 w-3 cursor-pointer"
         aria-label={status.status}
       >
@@ -55,7 +57,7 @@ export function SyncStatusIndicator() {
           />
         )}
         <span className={`relative inline-flex h-3 w-3 rounded-full ${dotColor}`} />
-      </span>
+      </Link>
 
       <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-64 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-xs shadow-lg group-hover:block group-focus-within:block">
         <div className="mb-1.5 flex items-center gap-2">
