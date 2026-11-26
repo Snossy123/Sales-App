@@ -255,6 +255,9 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
       ? line.line_total
       : paidDisplay
   const discountPercent = resolveLineDiscountPercent(line, invoice)
+  const currentSerial = resolveSerial(line, customer)
+  const physicalSerial = line?.product_unit?.physical_serial?.trim() ?? ''
+  const hasChangedSerial = Boolean(physicalSerial && currentSerial && physicalSerial !== currentSerial)
 
   const installmentAmount =
     plan?.installment_amount != null
@@ -339,7 +342,14 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
             <div className="ic-renewal-fields">
               {renewalField('السيد /', customer?.name ?? '')}
               {renewalField('اسم المستخدم /', resolveUsername(line, customer))}
-              {renewalField('رقم السيريال /', resolveSerial(line, customer), { dir: 'ltr' })}
+              {hasChangedSerial ? (
+                <>
+                  {renewalField('السيريال الأساسي /', physicalSerial, { dir: 'ltr' })}
+                  {renewalField('السيريال الجديد /', currentSerial, { dir: 'ltr' })}
+                </>
+              ) : (
+                renewalField('رقم السيريال /', currentSerial, { dir: 'ltr' })
+              )}
               {renewalField('الموبايل 1 /', customer?.phone ?? '', { dir: 'ltr' })}
               {renewalField('الموبايل 2 /', customer?.phone_2 ?? '', { dir: 'ltr' })}
               <div className="ic-renewal-date-row">
@@ -362,11 +372,6 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                     رسوم تجديد الاشتراك (
                     <span dir="ltr">{fmtAmount(renewalFeeAmount)}</span>)
                   </div>
-                  {discountPercent > 0 && (
-                    <div className="ic-renewal-cash-fee-row">
-                      نسبة الخصم (<span dir="ltr">{fmtAmount(discountPercent)}%</span>)
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
@@ -390,12 +395,6 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                       <span>مدة التقسيط</span>
                       <strong>{installmentDurationLabel || '—'}</strong>
                     </div>
-                    {discountPercent > 0 && (
-                      <div className="ic-renewal-summary-item ic-renewal-summary-item--full">
-                        <span>نسبة الخصم</span>
-                        <strong dir="ltr">{fmtAmount(discountPercent)}%</strong>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -426,6 +425,15 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {discountPercent > 0 && (
+              <div className="ic-renewal-date-row ic-renewal-discount-row">
+                <span className="ic-renewal-date-label">نسبة الخصم :</span>
+                <span className="ic-renewal-date-value" dir="ltr">
+                  {fmtAmount(discountPercent)}%
+                </span>
               </div>
             )}
 
