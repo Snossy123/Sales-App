@@ -12,7 +12,7 @@ import {
   type InstallmentTableCell,
   lineFinancialSummary,
   resolveInvoiceLine,
-  resolveLineDiscountPercent,
+  resolveLineDiscountSummary,
   resolveLinePlan,
   resolveSerial,
   resolveSim,
@@ -254,9 +254,12 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     line?.line_total != null && line.line_total !== ''
       ? line.line_total
       : paidDisplay
-  const discountPercent = resolveLineDiscountPercent(line, invoice)
+  const discountSummary = resolveLineDiscountSummary(line, invoice)
+  const discountPercent = discountSummary.discountPercent
   const currentSerial = resolveSerial(line, customer)
-  const physicalSerial = line?.product_unit?.physical_serial?.trim() ?? ''
+  const sourceDeviceSerial =
+    invoice.source_invoice?.lines?.find((l) => !l.service_id && l.serial_number)?.serial_number?.trim() ?? ''
+  const physicalSerial = line?.product_unit?.physical_serial?.trim() || sourceDeviceSerial
   const hasChangedSerial = Boolean(physicalSerial && currentSerial && physicalSerial !== currentSerial)
 
   const installmentAmount =
@@ -428,12 +431,27 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               </div>
             )}
 
-            {discountPercent > 0 && (
-              <div className="ic-renewal-date-row ic-renewal-discount-row">
-                <span className="ic-renewal-date-label">نسبة الخصم :</span>
-                <span className="ic-renewal-date-value" dir="ltr">
-                  {fmtAmount(discountPercent)}%
-                </span>
+            {discountSummary.discountAmount > 0 && (
+              <div className="ic-renewal-discount-box">
+                <div className="ic-renewal-discount-item">
+                  <span className="ic-renewal-discount-label">المبلغ قبل الخصم :</span>
+                  <span className="ic-renewal-discount-value" dir="ltr">
+                    {fmtAmount(discountSummary.gross)}
+                  </span>
+                </div>
+                <div className="ic-renewal-discount-item">
+                  <span className="ic-renewal-discount-label">الخصم :</span>
+                  <span className="ic-renewal-discount-value" dir="ltr">
+                    {fmtAmount(discountSummary.discountAmount)}
+                    {discountPercent > 0 ? ` (${fmtAmount(discountPercent)}%)` : ''}
+                  </span>
+                </div>
+                <div className="ic-renewal-discount-item">
+                  <span className="ic-renewal-discount-label">المبلغ بعد الخصم :</span>
+                  <span className="ic-renewal-discount-value" dir="ltr">
+                    {fmtAmount(discountSummary.net)}
+                  </span>
+                </div>
               </div>
             )}
 

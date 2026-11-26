@@ -516,23 +516,45 @@ function lineQuantity(line: SalesInvoiceLine): number {
   return quantity > 0 ? quantity : 1
 }
 
+export interface LineDiscountSummary {
+  gross: number
+  discountAmount: number
+  discountPercent: number
+  net: number
+}
+
+export function resolveLineDiscountSummary(
+  line: SalesInvoiceLine | undefined,
+  invoice: SalesInvoice,
+): LineDiscountSummary {
+  if (line) {
+    const gross = Number(line.unit_price ?? 0) * lineQuantity(line)
+    const discountAmount = Number(line.discount ?? 0)
+    const net =
+      line.line_total != null && line.line_total !== ''
+        ? Number(line.line_total)
+        : Math.max(0, gross - discountAmount)
+    const discountPercent =
+      gross > 0 && discountAmount > 0
+        ? Math.round((discountAmount / gross) * 10000) / 100
+        : 0
+    return { gross, discountAmount, discountPercent, net }
+  }
+  const discountAmount = Number(invoice.discount_amount ?? 0)
+  const net = Number(invoice.total ?? 0)
+  const gross = net + discountAmount
+  const discountPercent =
+    gross > 0 && discountAmount > 0
+      ? Math.round((discountAmount / gross) * 10000) / 100
+      : 0
+  return { gross, discountAmount, discountPercent, net }
+}
+
 export function resolveLineDiscountPercent(
   line: SalesInvoiceLine | undefined,
   invoice: SalesInvoice,
 ): number {
-  if (line) {
-    const gross = Number(line.unit_price ?? 0) * lineQuantity(line)
-    const discount = Number(line.discount ?? 0)
-    if (gross > 0 && discount > 0) {
-      return Math.round((discount / gross) * 10000) / 100
-    }
-  }
-  const invoiceDiscount = Number(invoice.discount_amount ?? 0)
-  const invoiceGross = Number(invoice.total ?? 0) + invoiceDiscount
-  if (invoiceGross > 0 && invoiceDiscount > 0) {
-    return Math.round((invoiceDiscount / invoiceGross) * 10000) / 100
-  }
-  return 0
+  return resolveLineDiscountSummary(line, invoice).discountPercent
 }
 
 function lineExtendedTotal(line: SalesInvoiceLine): number {
