@@ -8,6 +8,7 @@ import { renewalTypeLabels } from '../../lib/contractFields'
 import { contractStatusLabel } from '../../lib/contractStatus'
 import { StatusBadge } from '../StatusBadge'
 import { Icon } from '../Icon'
+import { describeDeviceSerials } from '../../lib/deviceSerials'
 import { CustomerLegacyDevicesFields } from './CustomerLegacyDevicesFields'
 import {
   emptyLegacyDeviceDraft,
@@ -130,14 +131,31 @@ export function CustomerDeviceHistorySection({
               const invoice = device.sales_invoice_id
                 ? invoiceById.get(device.sales_invoice_id)
                 : undefined
+              const serialInfo = describeDeviceSerials(device)
               return (
                 <li key={device.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
-                    Serial: {device.serial_number?.trim() || 'غير مسجل'}
-                  </span>
-                  <span className="text-on-surface-variant">
-                    Physical Serial: {device.physical_serial?.trim() || 'غير مسجل'}
-                  </span>
+                  {serialInfo.changed ? (
+                    <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
+                      <span>السيريال الأساسية:</span>
+                      <span dir="ltr" className="font-mono">
+                        {serialInfo.primary}
+                      </span>
+                      <span className="text-on-surface-variant">— تم تغييرها إلى:</span>
+                      <span
+                        dir="ltr"
+                        className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary"
+                      >
+                        {serialInfo.current}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="font-medium">
+                      السيريال الأساسية:{' '}
+                      <span dir="ltr" className="font-mono">
+                        {serialInfo.primary || 'غير مسجل'}
+                      </span>
+                    </span>
+                  )}
                   <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">
                     {DEVICE_ORIGIN_LABELS[device.origin ?? 'company_stock']}
                   </span>

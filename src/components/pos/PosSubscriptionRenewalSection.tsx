@@ -82,6 +82,7 @@ export function PosSubscriptionRenewalSection({
           onUsernameChange={onUsernameChange}
           showIdentityFields={showIdentityFields}
           identityLocked={identityLocked}
+          allowSerialEdit={Boolean(selectedDevice)}
           showErrors={submitAttempted}
         />
       )}

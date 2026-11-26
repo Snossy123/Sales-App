@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CustomerContractDevice, DeviceOrigin } from '../../api/types'
+import { describeDeviceSerials } from '../../lib/deviceSerials'
 import { normalizeScannedDigits } from '../../lib/scanner'
 import { isGpsUsernameComplete } from '../../lib/gpsUsername'
 import type { DeviceLineDraft } from '../pos/DeviceLineCard'
@@ -199,9 +200,7 @@ export function CustomerContractDevicePicker({
       {selectedDevice && !manual && (
         <div className="flex flex-wrap gap-x-md gap-y-xs text-xs text-on-surface-variant">
           <span>المصدر: {DEVICE_ORIGIN_LABELS[selectedDevice.origin ?? 'company_stock']}</span>
-          <span>
-            Physical Serial: {selectedDevice.physical_serial?.trim() || 'غير مسجل'}
-          </span>
+          <span dir="auto">{describeDeviceSerials(selectedDevice).label}</span>
         </div>
       )}
 

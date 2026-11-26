@@ -12,6 +12,7 @@ import {
   type InstallmentTableCell,
   lineFinancialSummary,
   resolveInvoiceLine,
+  resolveLineDiscountPercent,
   resolveLinePlan,
   resolveSerial,
   resolveSim,
@@ -253,6 +254,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
     line?.line_total != null && line.line_total !== ''
       ? line.line_total
       : paidDisplay
+  const discountPercent = resolveLineDiscountPercent(line, invoice)
 
   const installmentAmount =
     plan?.installment_amount != null
@@ -360,6 +362,11 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                     رسوم تجديد الاشتراك (
                     <span dir="ltr">{fmtAmount(renewalFeeAmount)}</span>)
                   </div>
+                  {discountPercent > 0 && (
+                    <div className="ic-renewal-cash-fee-row">
+                      نسبة الخصم (<span dir="ltr">{fmtAmount(discountPercent)}%</span>)
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -383,6 +390,12 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                       <span>مدة التقسيط</span>
                       <strong>{installmentDurationLabel || '—'}</strong>
                     </div>
+                    {discountPercent > 0 && (
+                      <div className="ic-renewal-summary-item ic-renewal-summary-item--full">
+                        <span>نسبة الخصم</span>
+                        <strong dir="ltr">{fmtAmount(discountPercent)}%</strong>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -454,6 +467,9 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                   {cashField('تاريخ التعاقد :', fmtDMY(invoice.invoice_date))}
                   {cashField('تاريخ تجديد اشتراك القمر الاصطناعي :', renewalDisplay)}
                   {cashField('تم دفع مبلغ :', fmtAmount(paidDisplay), { dir: 'ltr' })}
+                  {discountPercent > 0
+                    ? cashField('نسبة الخصم :', `${fmtAmount(discountPercent)}%`, { dir: 'ltr' })
+                    : null}
                   {cashField('الفني :', resolveTechnician(line, invoice))}
                   {cashField('نوع المركبة :', vehicleTypeLabel)}
                   <div className="ic-cash-cell ic-cash-cell--split">
@@ -617,6 +633,14 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                   <span className="ic-pill-label">مقدم</span>
                   <span className="ic-pill ic-pill--num-sm">{fmtAmount(downPaymentDisplay)}</span>
                 </span>
+                {discountPercent > 0 ? (
+                  <span className="ic-srow-item ic-srow-item--amount">
+                    <span className="ic-pill-label">نسبة الخصم</span>
+                    <span className="ic-pill ic-pill--num-sm" dir="ltr">
+                      {fmtAmount(discountPercent)}%
+                    </span>
+                  </span>
+                ) : null}
                 <span className="ic-srow-item ic-srow-item--grow">
                   <span className="ic-pill-label">متبقى مبلغ</span>
                   <span className="ic-pill">{fmtAmount(balanceDisplay)}</span>

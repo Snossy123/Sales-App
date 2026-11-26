@@ -121,8 +121,16 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
 
   useEffect(() => {
     const existing = draft.deviceLines[0]
-    const identity = draft.selectedCustomerDevice
+    const deviceIdentity = draft.selectedCustomerDevice
       ? identityFromCustomerDevice(draft.selectedCustomerDevice)
+      : null
+    const identity = deviceIdentity
+      ? {
+          ...deviceIdentity,
+          serialNumber: draft.renewalSerial || deviceIdentity.serialNumber,
+          simNumber: draft.renewalSim || deviceIdentity.simNumber,
+          username: draft.renewalUsername || deviceIdentity.username,
+        }
       : {
           serialNumber: draft.renewalSerial,
           simNumber: draft.renewalSim,

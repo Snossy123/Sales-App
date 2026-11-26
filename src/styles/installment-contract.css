@@ -1091,6 +1091,11 @@
 .ic-renewal-summary-item:nth-last-child(-n + 2) {
   border-bottom: none;
 }
+.ic-renewal-summary-item--full {
+  grid-column: 1 / -1;
+  border-inline-end: none;
+  border-bottom: none;
+}
 .ic-renewal-summary-item strong {
   width: calc(100% - 3mm);
   min-width: 0;
