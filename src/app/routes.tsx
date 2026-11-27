@@ -14,6 +14,7 @@ import { InventoryReturnsPage } from '../pages/InventoryReturnsPage'
 import { InventoryProductSettingsPage } from '../pages/InventoryProductSettingsPage'
 import { WarehousesPage } from '../pages/WarehousesPage'
 import { PosPage } from '../pages/PosPage'
+import { InvoiceEditPage } from '../pages/InvoiceEditPage'
 import { PosServicesPage } from '../pages/PosServicesPage'
 import { PosFlowPage } from '../modules/sales/flow/PosFlowPage'
 import { AccessoriesSalesPage } from '../pages/AccessoriesSalesPage'
@@ -263,7 +264,7 @@ export function AppRoutes() {
             <Route path="review/subscription-renewals" element={<SubscriptionRenewalQueuePage />} />
             <Route path="review/evaluation-questions" element={<EvaluationQuestionsPage />} />
             <Route path="invoices/mine" element={<InvoicesPage mine />} />
-            <Route path="invoices/:id/edit" element={<PosPage />} />
+            <Route path="invoices/:id/edit" element={<InvoiceEditPage />} />
             <Route path="invoices/:id/contract-print" element={<InstallmentContractPrintPage />} />
             <Route path="invoices/:id/ownership-transfer-contract" element={<OwnershipTransferContractPrintPage />} />
             <Route path="invoices/:id/service-contract/:lineId" element={<ServiceContractPrintPage />} />

@@ -54,6 +54,7 @@ export interface DeviceLineDraft {
   productUnitId?: number
   imei?: string
   serialNumber: string
+  physicalSerial?: string
   simNumber: string
   username: string
   unitPrice: number

@@ -41,6 +41,7 @@ function deviceLinesPayload(
       unit_price: line.unitPrice,
       discount: line.discountAmount,
       serial_number: line.serialNumber.trim() || undefined,
+      physical_serial: line.physicalSerial?.trim() || undefined,
       sim_number: line.simNumber.trim() || undefined,
       username: line.username.trim() || undefined,
       payment_term: kind === 'ownership_transfer' ? ('cash' as const) : line.paymentTerm,
@@ -414,7 +415,9 @@ export function detailsReady(
     if (draft.deviceLines.length === 0) errors.push('أكمل بيانات الجهاز المنقول')
   }
   if (draft.action === 'renewal') {
-    if (
+    if (!draft.selectedCustomerDevice || draft.renewalManualDevice) {
+      errors.push('اختار الجهاز أو سجّله وربطه بالعميل')
+    } else if (
       !isRenewalSourceReady({
         candidate: draft.sourceRenewalCandidate,
         serialNumber: draft.renewalSerial,
@@ -422,7 +425,7 @@ export function detailsReady(
         username: draft.renewalUsername,
       })
     ) {
-      errors.push('اختار الجهاز أو أدخل بياناته')
+      errors.push('اختار الجهاز أو سجّله وربطه بالعميل')
     }
     const line = draft.deviceLines[0]
     if (

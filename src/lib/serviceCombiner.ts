@@ -3,7 +3,6 @@ import type { ServiceLineDraft } from '../components/services/ServiceLineCard'
 
 export type CombinerChipId =
   | 'annual_renewal'
-  | 'external_device'
   | 'uninstall'
   | 'installation'
   | 'programming'
@@ -15,7 +14,7 @@ export const COMBINER_CHIPS: { id: CombinerChipId; label: string }[] = [
   { id: 'annual_renewal', label: 'تجديد اشتراك سنوي' },
 ]
 
-export type CombinerFeeChipId = Exclude<CombinerChipId, 'annual_renewal' | 'external_device'>
+export type CombinerFeeChipId = Exclude<CombinerChipId, 'annual_renewal'>
 
 export interface FeeLineInstance {
   key: string
@@ -158,12 +157,10 @@ export function deriveCombinerContractKind(
   hasCatalogServices = false,
 ): CheckoutPayload['contract_kind'] {
   const hasRenewal = selected.has('annual_renewal')
-  const hasExternal = selected.has('external_device')
   const hasFee = hasCatalogServices || COMBINER_FEE_CHIPS.some((chip) => selected.has(chip.id))
 
-  const typeCount = Number(hasRenewal) + Number(hasExternal) + Number(hasFee)
-  if (typeCount > 1 || (hasFee && !hasRenewal && !hasExternal)) return 'mixed'
+  if (hasRenewal && hasFee) return 'mixed'
+  if (hasFee && !hasRenewal) return 'mixed'
   if (hasRenewal) return 'subscription_renewal'
-  if (hasExternal) return 'external_device'
   return 'mixed'
 }

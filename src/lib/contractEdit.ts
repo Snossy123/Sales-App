@@ -9,8 +9,9 @@ export function isClosedContract(invoice?: SalesInvoice | null): boolean {
   return invoice?.contract_status === 'cancelled' || invoice?.contract_status === 'returned'
 }
 
-export function isExecutionBranchOnlyContract(invoice: SalesInvoice): boolean {
-  return ['mixed', 'subscription_renewal', 'ownership_transfer', 'external_device'].includes(invoice.contract_kind ?? '')
+/** @deprecated Sold services now use the same full edit flow as new contracts. Kept for callers until removed. */
+export function isExecutionBranchOnlyContract(_invoice: SalesInvoice): boolean {
+  return false
 }
 
 export function contractEditPath(invoiceId: number): string {

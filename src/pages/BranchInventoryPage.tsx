@@ -151,6 +151,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
   const [visitAction, setVisitAction] = useState<'enter' | 'exit' | null>(null)
   const [visitDate, setVisitDate] = useState(todayIsoDate)
   const [visitError, setVisitError] = useState('')
+  const [visitCharges, setVisitCharges] = useState<Record<number, { amount: string; notes: string }>>({})
 
   const query = useQuery({
     queryKey: ['branch-inventory', user?.id, branchId, reviewMode],
@@ -303,11 +304,27 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
 
   const visitMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post<{ units: ProductUnit[] }>('/inventory/maintenance/visits', {
+      const payload: Record<string, unknown> = {
         product_unit_ids: selectedMaintenanceIds,
         action: visitAction,
         occurred_on: visitDate,
-      })
+      }
+      if (visitAction === 'exit') {
+        const charges: Record<number, { amount: number; notes?: string }> = {}
+        for (const id of selectedMaintenanceIds) {
+          const row = visitCharges[id] ?? { amount: '', notes: '' }
+          const amount = Number(String(row.amount).replace(/,/g, ''))
+          if (!Number.isFinite(amount) || amount < 0) {
+            throw new Error('أدخل مبلغ صيانة صالحاً لكل جهاز (صفر أو أكثر).')
+          }
+          charges[id] = {
+            amount,
+            ...(row.notes.trim() ? { notes: row.notes.trim() } : {}),
+          }
+        }
+        payload.charges = charges
+      }
+      const { data } = await api.post<{ units: ProductUnit[] }>('/inventory/maintenance/visits', payload)
       return data
     },
     onSuccess: (data) => {
@@ -317,6 +334,7 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
       })
       setSelectedIds([])
       setVisitAction(null)
+      setVisitCharges({})
       setVisitError('')
       queryClient.invalidateQueries({ queryKey: ['branch-inventory'] })
     },
@@ -327,7 +345,27 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
     setVisitAction(action)
     setVisitDate(todayIsoDate())
     setVisitError('')
+    if (action === 'exit') {
+      const next: Record<number, { amount: string; notes: string }> = {}
+      for (const id of selectedMaintenanceIds) {
+        const unit = filteredUnits.find((row) => row.id === id)
+        next[id] = {
+          amount: unit?.maintenance_amount != null ? String(unit.maintenance_amount) : '',
+          notes: unit?.maintenance_notes ?? '',
+        }
+      }
+      setVisitCharges(next)
+    } else {
+      setVisitCharges({})
+    }
   }
+
+  const selectedVisitUnits = useMemo(
+    () => selectedMaintenanceIds
+      .map((id) => filteredUnits.find((unit) => unit.id === id))
+      .filter((unit): unit is ProductUnit => Boolean(unit)),
+    [filteredUnits, selectedMaintenanceIds],
+  )
 
   function toggleUnit(id: number) {
     setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
@@ -804,10 +842,13 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
       <Modal
         open={visitAction !== null}
         onClose={() => {
-          if (!visitMutation.isPending) setVisitAction(null)
+          if (!visitMutation.isPending) {
+            setVisitAction(null)
+            setVisitCharges({})
+          }
         }}
         title={visitAction === 'exit' ? 'خلص صيانة' : 'راح الصيانة'}
-        size="sm"
+        size={visitAction === 'exit' ? 'md' : 'sm'}
       >
         <form
           className="space-y-md"
@@ -826,17 +867,67 @@ export function BranchInventoryPage({ reviewMode = false }: { reviewMode?: boole
               className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2"
             />
           </label>
-          <p className="text-sm text-on-surface-variant">
-            {visitAction === 'exit'
-              ? `هيتم تسجيل خروج ${selectedMaintenanceIds.length} جهاز، ويفضلوا في قائمة الصيانة.`
-              : `هيتم تسجيل دخول ${selectedMaintenanceIds.length} جهاز للصيانة.`}
-          </p>
+          {visitAction === 'exit' ? (
+            <div className="space-y-3">
+              <p className="text-sm text-on-surface-variant">
+                هيتم تسجيل خروج {selectedMaintenanceIds.length} جهاز، ويفضلوا في قائمة الصيانة. أدخل مبلغ الصيانة وملاحظات لكل جهاز.
+              </p>
+              {selectedVisitUnits.map((unit) => {
+                const charge = visitCharges[unit.id] ?? { amount: '', notes: '' }
+                return (
+                  <div key={unit.id} className="rounded-lg border border-outline-variant bg-surface-container-low p-3 space-y-2">
+                    <p className="text-sm font-medium text-on-surface">{productUnitDisplayCode(unit)}</p>
+                    <label className="block text-sm">
+                      <span className="text-on-surface-variant">مبلغ الصيانة</span>
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        dir="ltr"
+                        className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2"
+                        value={charge.amount}
+                        onChange={(event) =>
+                          setVisitCharges((current) => ({
+                            ...current,
+                            [unit.id]: { ...charge, amount: event.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="text-on-surface-variant">ملاحظات على ما حصل في الصيانة</span>
+                      <textarea
+                        rows={2}
+                        className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2"
+                        value={charge.notes}
+                        onChange={(event) =>
+                          setVisitCharges((current) => ({
+                            ...current,
+                            [unit.id]: { ...charge, notes: event.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant">
+              هيتم تسجيل دخول {selectedMaintenanceIds.length} جهاز للصيانة.
+            </p>
+          )}
           {visitError && <p className="text-sm text-error">{visitError}</p>}
           <div className="flex justify-end gap-2">
             <button
               type="button"
               className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
-              onClick={() => setVisitAction(null)}
+              onClick={() => {
+                setVisitAction(null)
+                setVisitCharges({})
+              }}
               disabled={visitMutation.isPending}
             >
               إلغاء

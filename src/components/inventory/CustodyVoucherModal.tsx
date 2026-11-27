@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Customer, CustomerContractDevice, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
+import { useCheckoutPayment } from '../../hooks/useCheckoutPayment'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { CUSTODY_BUCKET_OPTIONS } from '../../lib/inventoryBuckets'
 import { normalizeScannedDigits } from '../../lib/scanner'
 import { CustodyVoucherDetails } from './CustodyVoucherDetails'
 import { CustomerCreateModal } from '../customers/CustomerCreateModal'
+import { CheckoutPaymentSection } from '../pos/CheckoutPaymentSection'
 import { Modal } from '../Modal'
 
 interface CustodyVoucherModalProps {
@@ -46,8 +48,22 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const [checkingOverdue, setCheckingOverdue] = useState(false)
   const [issuanceWarningError, setIssuanceWarningError] = useState<string | null>(null)
   const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
+  const [showPaymentErrors, setShowPaymentErrors] = useState(false)
+  const checkoutPayment = useCheckoutPayment()
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
   const customerQuery = debouncedCustomerSearch.trim()
+  const maintenanceAmount = Number(resolvedUnit?.maintenance_amount ?? 0)
+  const needsMaintenanceBilling = useMemo(
+    () =>
+      mode === 'issue' &&
+      recipientType === 'customer' &&
+      Boolean(resolvedUnit) &&
+      Number.isFinite(maintenanceAmount) &&
+      maintenanceAmount > 0 &&
+      !resolvedUnit?.maintenance_invoice_id,
+    [mode, recipientType, resolvedUnit, maintenanceAmount],
+  )
+  const checkoutPaymentError = checkoutPayment.paymentError(needsMaintenanceBilling)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -202,6 +218,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
       } else {
         payload.customer_id = customerId
       }
+      Object.assign(payload, checkoutPayment.paymentPayload(needsMaintenanceBilling))
       const { data } = await api.post<CustodyVoucher>('/inventory/custody/issue', payload)
       return data
     },
@@ -214,6 +231,10 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const handleSave = async () => {
     if (mode !== 'issue') { submitMutation.mutate(); return }
     if (!resolvedUnit || checkingOverdue || submitMutation.isPending) return
+    if (needsMaintenanceBilling && checkoutPaymentError) {
+      setShowPaymentErrors(true)
+      return
+    }
     setCheckingOverdue(true)
     setIssuanceWarningError(null)
     try {
@@ -524,6 +545,30 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
               ) : null}
             </div>
           </>
+        )}
+
+        {needsMaintenanceBilling && resolvedUnit && (
+          <div className="space-y-3 rounded-lg border border-outline-variant bg-surface-container-low p-3">
+            <div>
+              <p className="text-sm text-on-surface-variant">تكلفة الصيانة</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-on-surface">
+                {maintenanceAmount.toLocaleString('ar-EG', { numberingSystem: 'latn' })} ج.م
+              </p>
+            </div>
+            {resolvedUnit.maintenance_notes ? (
+              <div>
+                <p className="text-sm text-on-surface-variant">ملاحظات الصيانة</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-on-surface">{resolvedUnit.maintenance_notes}</p>
+              </div>
+            ) : null}
+            <CheckoutPaymentSection
+              payment={checkoutPayment}
+              number={1}
+              subtitle="تحصيل مبلغ الصيانة عند إذن الصرف"
+              showErrors={showPaymentErrors}
+              error={checkoutPaymentError}
+            />
+          </div>
         )}
 
         <div>

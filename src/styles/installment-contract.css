@@ -1308,56 +1308,75 @@
   justify-content: flex-start;
   direction: rtl;
   align-items: baseline;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 13pt;
   font-weight: 800;
-  padding: 1.5mm 1mm 3mm;
-  margin-bottom: 3mm;
+  padding: 1.5mm 1mm 2mm;
+  margin-bottom: 2mm;
 }
 .sr-meta-date {
   direction: rtl;
   font-weight: 800;
+  color: var(--ic-ink);
 }
 .sr-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1.6px solid #111;
-  margin-bottom: 5mm;
+  border: 1.25px solid var(--ic-gray-bar);
+  border-radius: 1.2mm;
+  overflow: hidden;
+  margin-bottom: 4mm;
 }
 .sr-info-cell {
   display: flex;
   align-items: baseline;
   gap: 2mm;
-  padding: 3mm 3.5mm 2.5mm;
-  min-height: 11mm;
+  padding: 2.4mm 3mm 2.2mm;
+  min-height: 9.5mm;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11.5pt;
   font-weight: 700;
-  border: 0.8px solid #111;
+  border: 0.6px solid #e4e4e4;
+  background: var(--ic-gray1);
+}
+.sr-info-cell:nth-child(even) {
+  background: var(--ic-gray2);
 }
 .sr-info-label {
   white-space: nowrap;
+  color: #333;
+}
+.sr-info-label::before {
+  content: '◆';
+  color: var(--ic-red);
+  font-size: 9pt;
+  margin-inline-end: 1.4mm;
 }
 .sr-dash {
   flex: 1;
   min-width: 0;
   min-height: 5.5mm;
-  border-bottom: 1.5px dashed #111;
+  border-bottom: 1.4px dashed var(--ic-red);
   padding: 0 1.5mm 0.5mm;
+  color: var(--ic-ink);
 }
 .sr-work {
   position: relative;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-height: 58mm;
-  max-height: 100mm;
-  border: 1.6px solid #111;
-  padding: 4mm 3.5mm 5mm;
-  margin-bottom: 5mm;
+  min-height: 42mm;
+  max-height: 78mm;
+  border: 1.25px solid #e4e4e4;
+  border-radius: 2.4mm;
+  padding: 0 0 3.5mm;
+  margin-bottom: 3.5mm;
   overflow: hidden;
+  background: #fff;
 }
 .sr-watermark {
   position: absolute;
-  inset: 18% 14% 10%;
+  inset: 22% 14% 10%;
   width: auto;
   height: auto;
   max-width: 62%;
@@ -1375,22 +1394,28 @@
   z-index: 1;
 }
 .sr-work-title {
-  margin: 0 auto 5mm;
-  width: fit-content;
-  max-width: 92%;
+  margin: 0 0 3.5mm;
+  width: 100%;
+  max-width: none;
   text-align: center;
-  font-size: 12.5pt;
-  font-weight: 800;
-  line-height: 1.45;
-  padding: 2mm 7mm;
-  border: 2.4px double #111;
-  background: #fff;
+  font-family: 'AL Mateen', Tahoma, Arial, sans-serif;
+  font-size: 11.5pt;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.35;
+  padding: 1.8mm 4mm;
+  border: none;
+  background: var(--ic-red);
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .sr-proc-table {
   display: table;
-  width: 100%;
+  width: calc(100% - 7mm);
+  margin-inline: 3.5mm;
   border-collapse: separate;
-  border-spacing: 0 4.5mm;
+  border-spacing: 0 3.2mm;
   table-layout: fixed;
 }
 .sr-proc-table tbody {
@@ -1415,15 +1440,18 @@
   width: 100%;
 }
 .sr-procedure-label {
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11.5pt;
   font-weight: 800;
   white-space: nowrap;
   padding-bottom: 0.5mm;
+  color: var(--ic-ink);
 }
 .sr-procedure-notes {
   min-width: 0;
-  min-height: 6.5mm;
-  border-bottom: 1.5px dashed #111;
+  min-height: 6mm;
+  border-bottom: 1.4px dashed var(--ic-red);
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11pt;
   font-weight: 700;
   padding: 0 1mm 0.5mm;
@@ -1435,64 +1463,72 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin: 0 0 3mm;
+  margin: 0 0 2.5mm;
   flex: 0 0 auto;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 12pt;
   font-weight: 700;
 }
 .sr-fees th {
   background: var(--ic-red);
   color: #fff;
-  border: 1.4px solid #111;
-  padding: 2.2mm 2mm;
+  border: 1.2px solid var(--ic-red-d);
+  padding: 2mm 2mm;
   font-weight: 800;
   text-align: center;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 .sr-fees td {
-  border: 1.4px solid #111;
-  height: 9mm;
-  padding: 1.6mm 2mm;
+  border: 1.2px solid var(--ic-gray-bar);
+  height: 8.5mm;
+  padding: 1.4mm 2mm;
   text-align: center;
   vertical-align: middle;
+  background: #fff;
 }
 .sr-pay {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin: 0 0 2.5mm;
+  margin: 0 0 2mm;
   flex: 0 0 auto;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 11pt;
   font-weight: 700;
 }
 .sr-pay th,
 .sr-pay td {
-  border: 1.4px solid #111;
-  padding: 1.4mm 2mm;
+  border: 1.2px solid var(--ic-gray-bar);
+  padding: 1.3mm 2mm;
   text-align: center;
   vertical-align: middle;
 }
 .sr-pay th {
   width: 42%;
-  background: #f3f3f3;
+  background: #f8ecee;
+  color: #333;
   font-weight: 800;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+.sr-pay td {
+  background: #fff;
 }
 .sr-installments {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin: 0 0 3mm;
+  margin: 0 0 2mm;
   flex: 0 0 auto;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 9pt;
   font-weight: 700;
 }
 .sr-installments th {
   background: var(--ic-red);
   color: #fff;
-  border: 1.2px solid #111;
+  border: 1.1px solid var(--ic-red-d);
   padding: 1mm 1.4mm;
   font-weight: 800;
   text-align: center;
@@ -1500,7 +1536,7 @@
   print-color-adjust: exact;
 }
 .sr-installments td {
-  border: 1.2px solid #111;
+  border: 1.1px solid var(--ic-gray-bar);
   padding: 0.9mm 1.4mm;
   text-align: center;
   vertical-align: middle;
@@ -1510,13 +1546,18 @@
   width: 10mm;
 }
 .sr-sign {
-  margin-top: 4mm;
+  margin-top: 2.5mm;
   padding-top: 0;
-  margin-bottom: 10mm;
+  margin-bottom: 3mm;
   text-align: start;
-  font-size: 13pt;
+  font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
+  font-size: 12pt;
   font-weight: 800;
   flex: 0 0 auto;
+  color: var(--ic-ink);
+}
+.service-receipt .ic-footer {
+  margin-top: auto;
 }
 .ownership-transfer-contract {
   --ic-red: #c1060f;
@@ -1701,8 +1742,8 @@
 
 .sr-sign-line {
   width: 48mm;
-  margin-top: 5mm;
-  border-bottom: 1.6px dotted #111;
+  margin-top: 4mm;
+  border-bottom: 1.6px dashed var(--ic-red);
 }
 
 @media print {

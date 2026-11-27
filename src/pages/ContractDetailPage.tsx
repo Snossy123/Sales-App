@@ -25,7 +25,7 @@ import {
   canReturnContract,
   type ContractProblemCaseType,
 } from '../lib/contractCases'
-import { canConvertCashToInstallment, canEditContract, canOperateContract, contractEditPath, isClosedContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { canConvertCashToInstallment, canEditContract, canOperateContract, contractEditPath, isClosedContract } from '../lib/contractEdit'
 import { contractStatusLabel } from '../lib/contractStatus'
 import { reviewStatusForBadge, reviewStatusLabel } from '../lib/sales'
 import { ContractReviewDecisionPanel } from '../components/contracts/ContractReviewDecisionPanel'
@@ -150,13 +150,13 @@ export function ContractDetailPage() {
       }
       actions={
         <div className="flex max-w-full items-center gap-sm overflow-x-auto">
-          {invoice && canEditContract(user, invoice) && (isClosedContract(invoice) || !isExecutionBranchOnlyContract(invoice) || userHasPermission(user, 'sales.invoices.change_action_branch')) ? (
+          {invoice && canEditContract(user, invoice) ? (
             <Link
               to={contractEditPath(invoice.id)}
               className="inline-flex shrink-0 items-center gap-xs whitespace-nowrap rounded-lg bg-primary px-md py-sm text-sm font-medium text-on-primary"
             >
               <Icon name="edit" size={18} />
-              {isClosedContract(invoice) ? 'تصحيح البيانات' : isExecutionBranchOnlyContract(invoice) ? 'تغيير فرع التنفيذ' : 'تعديل العقد'}
+              {isClosedContract(invoice) ? 'تصحيح البيانات' : 'تعديل العقد'}
             </Link>
           ) : null}
           {invoice && canConvertCashToInstallment(user, invoice) ? (

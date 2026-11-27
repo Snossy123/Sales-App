@@ -322,24 +322,6 @@ function DevicePriceGuide({ product }: { product: GpsProduct }) {
         />
       </PriceGroup>
 
-      <PriceGroup title="خارج الشركة — جهاز خارجي">
-        <PriceRow
-          label="كاش — اشتراك سنوي"
-          value={gpsPrice(product, { contractKind: 'external_device', paymentTerm: 'cash', renewalType: 'annual' })}
-        />
-        <PriceRow
-          label="كاش — مدى الحياة"
-          value={gpsPrice(product, { contractKind: 'external_device', paymentTerm: 'cash', renewalType: 'permanent' })}
-        />
-        <PriceRow
-          label="تقسيط — اشتراك سنوي"
-          value={gpsPrice(product, { contractKind: 'external_device', paymentTerm: 'installment', renewalType: 'annual' })}
-        />
-        <PriceRow
-          label="تقسيط — مدى الحياة"
-          value={gpsPrice(product, { contractKind: 'external_device', paymentTerm: 'installment', renewalType: 'permanent' })}
-        />
-      </PriceGroup>
     </div>
   )
 }

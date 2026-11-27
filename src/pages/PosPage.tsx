@@ -91,15 +91,15 @@ import { PosSubscriptionRenewalSection } from '../components/pos/PosSubscription
 import {
   applyContractDeviceIdentity,
   identityFromCustomerDevice,
+  type RegisterCustomerDevicePayload,
 } from '../components/services/CustomerContractDevicePicker'
 import {
   candidateFromCustomerDevice,
   isRenewalSourceReady,
   matchCustomerDevice,
 } from '../lib/posRenewalSource'
-import { canEditContract, isClosedContract, isExecutionBranchOnlyContract } from '../lib/contractEdit'
+import { canEditContract, isClosedContract } from '../lib/contractEdit'
 import { ClosedContractCorrectionEditor } from '../components/contracts/ClosedContractCorrectionEditor'
-import { ContractExecutionBranchEditor } from '../components/contracts/ContractExecutionBranchEditor'
 import { deviceDraftsFromInvoice } from '../lib/hydratePosFromInvoice'
 
 function addDays(dateStr: string, days: number): string {
@@ -263,6 +263,13 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   const [renewalManualDevice, setRenewalManualDevice] = useState(() => deviceDraft?.renewalManualDevice ?? false)
   const [renewalSerial, setRenewalSerial] = useState(
     () => deviceDraft?.renewalSerial ?? deviceDraft?.deviceLines?.[0]?.serialNumber ?? '',
+  )
+  const [renewalPhysicalSerial, setRenewalPhysicalSerial] = useState(
+    () =>
+      deviceDraft?.renewalPhysicalSerial ??
+      deviceDraft?.deviceLines?.[0]?.physicalSerial ??
+      deviceDraft?.selectedCustomerDevice?.physical_serial ??
+      '',
   )
   const [renewalSim, setRenewalSim] = useState(() => deviceDraft?.renewalSim ?? deviceDraft?.deviceLines?.[0]?.simNumber ?? '')
   const [renewalUsername, setRenewalUsername] = useState(
@@ -1157,6 +1164,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   const applyRenewalIdentityToLines = (identity: {
     productUnitId?: number
     serialNumber: string
+    physicalSerial?: string
     simNumber: string
     username?: string
     vehicleType?: DeviceLineDraft['vehicleType']
@@ -1191,6 +1199,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setSelectedCustomerDevice(device)
     setRenewalManualDevice(false)
     setRenewalSerial(identity.serialNumber)
+    setRenewalPhysicalSerial(identity.physicalSerial)
     setRenewalSim(identity.simNumber)
     setRenewalUsername(identity.username)
     setSourceRenewalCandidate(
@@ -1203,12 +1212,8 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setSelectedCustomerDevice(null)
     setRenewalManualDevice(true)
     setSourceRenewalCandidate(null)
-    applyRenewalIdentityToLines({
-      productUnitId: undefined,
-      serialNumber: renewalSerial,
-      simNumber: renewalSim,
-      username: renewalUsername,
-    })
+    setDeviceLines([])
+    setQuantity(0)
   }
 
   const handleClearRenewalDevice = () => {
@@ -1216,27 +1221,51 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     setRenewalManualDevice(false)
     setSourceRenewalCandidate(null)
     setRenewalSerial('')
+    setRenewalPhysicalSerial('')
     setRenewalSim('')
     setRenewalUsername('')
+    setDeviceLines([])
+    setQuantity(0)
   }
 
   const patchRenewalIdentity = (patch: {
     serialNumber?: string
+    physicalSerial?: string
     simNumber?: string
     username?: string
   }) => {
     const nextSerial = patch.serialNumber ?? renewalSerial
+    const nextPhysical = patch.physicalSerial ?? renewalPhysicalSerial
     const nextSim = patch.simNumber ?? renewalSim
     const nextUsername = patch.username ?? renewalUsername
     setRenewalSerial(nextSerial)
+    setRenewalPhysicalSerial(nextPhysical)
     setRenewalSim(nextSim)
     setRenewalUsername(nextUsername)
-    applyRenewalIdentityToLines({
-      serialNumber: nextSerial,
-      simNumber: nextSim,
-      username: nextUsername,
-    })
+    if (selectedCustomerDevice && !renewalManualDevice) {
+      applyRenewalIdentityToLines({
+        productUnitId: selectedCustomerDevice.product_unit_id ?? undefined,
+        serialNumber: nextSerial,
+        physicalSerial: nextPhysical,
+        simNumber: nextSim,
+        username: nextUsername,
+      })
+    }
   }
+
+  const registerRenewalDeviceMutation = useMutation({
+    mutationFn: async (payload: RegisterCustomerDevicePayload) => {
+      const { data } = await api.post<{ data: CustomerContractDevice }>(
+        `/customers/${selectedCustomer!.id}/devices`,
+        payload,
+      )
+      return data.data
+    },
+    onSuccess: (device) => {
+      queryClient.invalidateQueries({ queryKey: ['customers', selectedCustomer?.id, 'devices'] })
+      handleSelectRenewalDevice(device)
+    },
+  })
 
   useEffect(() => {
     if (contractKind !== 'subscription_renewal' || !sourceRenewalCandidate) {
@@ -1397,6 +1426,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       selectedCustomerDevice,
       renewalManualDevice,
       renewalSerial,
+      renewalPhysicalSerial,
       renewalSim,
       renewalUsername,
       renewalCustomerLocked,
@@ -1446,6 +1476,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       selectedCustomerDevice,
       renewalManualDevice,
       renewalSerial,
+      renewalPhysicalSerial,
       renewalSim,
       renewalUsername,
       renewalCustomerLocked,
@@ -1700,12 +1731,14 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     if (isOwnershipTransfer && !hasTransferSource) return
     if (
       isRenewal &&
-      !isRenewalSourceReady({
-        candidate: sourceRenewalCandidate,
-        serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
-        simNumber: deviceLines[0]?.simNumber ?? renewalSim,
-        username: deviceLines[0]?.username ?? renewalUsername,
-      })
+      (!selectedCustomerDevice ||
+        renewalManualDevice ||
+        !isRenewalSourceReady({
+          candidate: sourceRenewalCandidate,
+          serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
+          simNumber: deviceLines[0]?.simNumber ?? renewalSim,
+          username: deviceLines[0]?.username ?? renewalUsername,
+        }))
     ) {
       return
     }
@@ -1721,6 +1754,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
         unit_price: line.unitPrice,
         discount: line.discountAmount,
         serial_number: line.serialNumber.trim() || undefined,
+        physical_serial: line.physicalSerial?.trim() || undefined,
         sim_number: line.simNumber.trim() || undefined,
         username: line.username.trim() || undefined,
         payment_term: line.paymentTerm,
@@ -1988,14 +2022,16 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     }
     if (
       contractKind === 'subscription_renewal' &&
-      !isRenewalSourceReady({
-        candidate: sourceRenewalCandidate,
-        serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
-        simNumber: deviceLines[0]?.simNumber ?? renewalSim,
-        username: deviceLines[0]?.username ?? renewalUsername,
-      })
+      (!selectedCustomerDevice ||
+        renewalManualDevice ||
+        !isRenewalSourceReady({
+          candidate: sourceRenewalCandidate,
+          serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
+          simNumber: deviceLines[0]?.simNumber ?? renewalSim,
+          username: deviceLines[0]?.username ?? renewalUsername,
+        }))
     ) {
-      messages.push('يجب اختيار جهاز أو تعاقد، أو إدخال السيريال والشريحة واسم المستخدم')
+      messages.push('يجب اختيار الجهاز أو تسجيله وربطه بالعميل')
     }
     if (contractKind !== 'subscription_renewal' && !sourceReady) {
       if (transactionSource === 'branch') messages.push('يجب اختيار الفرع')
@@ -2053,6 +2089,8 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     sourceTransferInvoice,
     sourceTransferDevice,
     sourceRenewalCandidate,
+    selectedCustomerDevice,
+    renewalManualDevice,
     renewalSerial,
     renewalSim,
     renewalUsername,
@@ -2075,12 +2113,15 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     submitAttempted && !manualDeviceEntry && hasDeviceSale && !warehouseId
   const hasSourceTransferError =
     submitAttempted && isOwnershipTransfer && !hasTransferSource
-  const renewalReady = isRenewalSourceReady({
-    candidate: sourceRenewalCandidate,
-    serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
-    simNumber: deviceLines[0]?.simNumber ?? renewalSim,
-    username: deviceLines[0]?.username ?? renewalUsername,
-  })
+  const renewalReady =
+    Boolean(selectedCustomerDevice) &&
+    !renewalManualDevice &&
+    isRenewalSourceReady({
+      candidate: sourceRenewalCandidate,
+      serialNumber: deviceLines[0]?.serialNumber ?? renewalSerial,
+      simNumber: deviceLines[0]?.simNumber ?? renewalSim,
+      username: deviceLines[0]?.username ?? renewalUsername,
+    })
   const hasSourceRenewalError =
     submitAttempted && contractKind === 'subscription_renewal' && !renewalReady
 
@@ -2111,11 +2152,6 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
   if (isEditMode && editInvoiceQuery.data && isClosedContract(editInvoiceQuery.data)) {
     return <ClosedContractCorrectionEditor key={editInvoiceQuery.data.id} invoice={editInvoiceQuery.data}
       branches={branchesQuery.data ?? []} employees={employeesQuery.data ?? []} loading={branchesQuery.isLoading} />
-  }
-
-  if (isEditMode && editInvoiceQuery.data && isExecutionBranchOnlyContract(editInvoiceQuery.data)) {
-    return <ContractExecutionBranchEditor key={editInvoiceQuery.data.id} invoice={editInvoiceQuery.data}
-      branches={branchesQuery.data ?? []} loading={branchesQuery.isLoading} error={branchesQuery.isError} />
   }
 
   return (
@@ -2391,14 +2427,23 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 selectedDevice={selectedCustomerDevice}
                 manual={renewalManualDevice}
                 serialNumber={renewalSerial}
+                physicalSerial={renewalPhysicalSerial}
                 simNumber={renewalSim}
                 username={renewalUsername}
                 onSelectDevice={handleSelectRenewalDevice}
                 onManual={handleManualRenewalDevice}
                 onClear={handleClearRenewalDevice}
                 onSerialChange={(value) => patchRenewalIdentity({ serialNumber: value })}
+                onPhysicalSerialChange={(value) => patchRenewalIdentity({ physicalSerial: value })}
                 onSimChange={(value) => patchRenewalIdentity({ simNumber: value })}
                 onUsernameChange={(value) => patchRenewalIdentity({ username: value })}
+                onRegister={(payload) => registerRenewalDeviceMutation.mutate(payload)}
+                registering={registerRenewalDeviceMutation.isPending}
+                registerError={
+                  registerRenewalDeviceMutation.isError
+                    ? getErrorMessage(registerRenewalDeviceMutation.error)
+                    : null
+                }
                 submitAttempted={submitAttempted}
               />
             )}
@@ -2451,7 +2496,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                 />
               )}
 
-              {hasDeviceSale ? (
+              {hasDeviceSale &&
+              !(
+                contractKind === 'subscription_renewal' &&
+                (renewalManualDevice || !selectedCustomerDevice)
+              ) ? (
                 <div className="flex flex-col gap-md overflow-visible">
                   {deviceLines.map((line, index) => (
                     <DeviceLineCard
@@ -2465,8 +2514,9 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                       installmentPrice={installmentPrice}
                       onChange={(next) => {
                         updateDeviceLine(index, next)
-                        if (contractKind === 'subscription_renewal' && renewalManualDevice) {
+                        if (contractKind === 'subscription_renewal') {
                           setRenewalSerial(next.serialNumber)
+                          setRenewalPhysicalSerial(next.physicalSerial ?? renewalPhysicalSerial)
                           setRenewalSim(next.simNumber)
                           setRenewalUsername(next.username)
                         }
@@ -2478,18 +2528,14 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
                       showErrors={submitAttempted}
                       hidePaymentSection={contractKind === 'ownership_transfer'}
                       ownershipLifetimeUpgradeInFees={subscriptionUpgradeAmount}
-                      lockedFromSource={
-                        contractKind === 'subscription_renewal' &&
-                        Boolean(selectedCustomerDevice) &&
-                        !renewalManualDevice
-                      }
+                      lockedFromSource={contractKind === 'subscription_renewal'}
                     />
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-on-surface-variant">
                   {contractKind === 'subscription_renewal'
-                    ? 'اختر العميل والجهاز أو أدخل بيانات الجهاز لإكمال التجديد.'
+                    ? 'اختر جهاز العميل أو سجّل جهازًا غير موجود في السيستم لإكمال التجديد.'
                     : 'اختر عدد الأجهزة من الأعلى لبدء إدخال بيانات الأجهزة.'}
                 </p>
               )}

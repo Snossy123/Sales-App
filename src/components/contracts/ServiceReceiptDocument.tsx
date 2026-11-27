@@ -11,6 +11,7 @@ import {
 } from '../../lib/contractFields'
 import { isServiceInvoiceLine } from '../../lib/sales'
 import { useAuthStore } from '../../stores/authStore'
+import { ContractPrintFooter } from './ContractPrintFooter'
 import { ContractPrintHeader } from './ContractPrintHeader'
 import '../../styles/installment-contract.css'
 
@@ -68,6 +69,13 @@ function receiptProcedureLines(invoice: SalesInvoice, focused?: SalesInvoiceLine
 }
 
 function receiptIdentityLine(invoice: SalesInvoice, focused?: SalesInvoiceLine): SalesInvoiceLine | undefined {
+  if (focused?.previous_sim_number) {
+    return focused
+  }
+  const programmingLine = (invoice.lines ?? []).find((line) => Boolean(line.previous_sim_number))
+  if (programmingLine) {
+    return programmingLine
+  }
   if (focused && (focused.serial_number || focused.username || focused.sim_number)) {
     return focused
   }
@@ -153,6 +161,23 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
             <span className="sr-info-label">رقم السيريال :</span>
             {dashedValue(resolveSerial(identityLine, customer), { dir: 'ltr' })}
           </div>
+          {identityLine?.previous_sim_number ? (
+            <>
+              <div className="sr-info-cell">
+                <span className="sr-info-label">الشريحة قبل :</span>
+                {dashedValue(identityLine.previous_sim_number, { dir: 'ltr' })}
+              </div>
+              <div className="sr-info-cell">
+                <span className="sr-info-label">الشريحة بعد :</span>
+                {dashedValue(identityLine.sim_number ?? '', { dir: 'ltr' })}
+              </div>
+            </>
+          ) : identityLine?.sim_number ? (
+            <div className="sr-info-cell">
+              <span className="sr-info-label">رقم الشريحة :</span>
+              {dashedValue(identityLine.sim_number, { dir: 'ltr' })}
+            </div>
+          ) : null}
         </div>
 
         <div className="sr-work">
@@ -237,6 +262,8 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
           <div>توقيع المسؤول {signerName}</div>
           <div className="sr-sign-line" />
         </div>
+
+        <ContractPrintFooter reference={invoice.invoice_number} />
       </div>
     </article>
   )

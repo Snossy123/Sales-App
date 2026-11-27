@@ -18,8 +18,11 @@ function invoice(review_status: string, overrides: Partial<SalesInvoice> = {}): 
 }
 
 describe('contractEdit', () => {
-  it('changes only the execution branch for legacy external devices while keeping new sales on stock replacement', () => {
-    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'external_device' }))).toBe(true)
+  it('allows full edit for all sold contract kinds including legacy external devices', () => {
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'external_device' }))).toBe(false)
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'subscription_renewal' }))).toBe(false)
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'ownership_transfer' }))).toBe(false)
+    expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'mixed' }))).toBe(false)
     expect(isExecutionBranchOnlyContract(invoice('approved', { contract_kind: 'new_contract' }))).toBe(false)
   })
   it('lets branch users operate only sale or execution branch contracts', () => {

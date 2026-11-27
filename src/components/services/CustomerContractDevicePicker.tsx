@@ -56,6 +56,7 @@ export function applyContractDeviceIdentity(
     ...line,
     productUnitId: identity.productUnitId,
     serialNumber: identity.serialNumber,
+    physicalSerial: identity.physicalSerial?.trim() || line.physicalSerial || undefined,
     simNumber: identity.simNumber,
     username: identity.username?.trim() || line.username || identity.serialNumber,
     vehicleType: identity.vehicleType || line.vehicleType || 'other',
@@ -63,6 +64,22 @@ export function applyContractDeviceIdentity(
     vehiclePlateNumbers: identity.vehiclePlateNumbers ?? line.vehiclePlateNumbers,
     chassisNumber: identity.chassisNumber ?? line.chassisNumber,
     engineNumber: identity.engineNumber ?? line.engineNumber,
+  }
+}
+
+export function buildRegisterCustomerDevicePayload(input: {
+  origin: 'legacy' | 'external'
+  serialNumber: string
+  physicalSerial: string
+  simNumber: string
+  username: string
+}): RegisterCustomerDevicePayload {
+  return {
+    origin: input.origin,
+    serial_number: input.serialNumber.trim(),
+    physical_serial: input.physicalSerial.trim(),
+    sim_number: input.simNumber.trim() || undefined,
+    username: input.username.trim() || undefined,
   }
 }
 
@@ -107,12 +124,14 @@ interface CustomerContractDevicePickerProps {
   selectedDevice: CustomerContractDevice | null
   manual: boolean
   serialNumber: string
+  physicalSerial?: string
   simNumber: string
   username: string
   onSelectDevice: (device: CustomerContractDevice) => void
   onManual: () => void
   onClear?: () => void
   onSerialChange: (value: string) => void
+  onPhysicalSerialChange?: (value: string) => void
   onSimChange: (value: string) => void
   onUsernameChange: (value: string) => void
   showIdentityFields: boolean
@@ -135,12 +154,14 @@ export function CustomerContractDevicePicker({
   selectedDevice,
   manual,
   serialNumber,
+  physicalSerial = '',
   simNumber,
   username,
   onSelectDevice,
   onManual,
   onClear,
   onSerialChange,
+  onPhysicalSerialChange,
   onSimChange,
   onUsernameChange,
   showIdentityFields,
@@ -163,7 +184,9 @@ export function CustomerContractDevicePicker({
     return [...listed, REGISTER_OPTION]
   }, [devices, search])
   const selected = manual ? REGISTER_OPTION : selectedDevice
+  const showPhysicalSerialField = Boolean(manual && onRegister && onPhysicalSerialChange)
   const serialError = showErrors && !serialNumber.trim()
+  const physicalSerialError = showErrors && showPhysicalSerialField && !physicalSerial.trim()
   const simError = showErrors && !simNumber.trim()
   const usernameError = showErrors && !isGpsUsernameComplete(username)
 
@@ -246,6 +269,22 @@ export function CustomerContractDevicePicker({
             />
             {serialError && <p className="mt-xs text-xs text-error">السريال مطلوب</p>}
           </div>
+          {showPhysicalSerialField && (
+            <div className={posRequiredWrap(physicalSerialError)}>
+              <label className={posLabelClass}>السريال الفعلي</label>
+              <input
+                value={physicalSerial}
+                onChange={(e) => onPhysicalSerialChange?.(normalizeScannedDigits(e.target.value))}
+                placeholder="امسح أو أدخل السريال الفعلي"
+                className={`${posScanClass}${physicalSerialError ? ' border-error' : ''}`}
+                dir="ltr"
+                inputMode="numeric"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {physicalSerialError && <p className="mt-xs text-xs text-error">السريال الفعلي مطلوب</p>}
+            </div>
+          )}
           <div className={posRequiredWrap(simError)}>
             <label className={posLabelClass}>رقم الشريحة / الكارت</label>
             <input
@@ -281,17 +320,20 @@ export function CustomerContractDevicePicker({
             disabled={
               registering ||
               !serialNumber.trim() ||
+              (showPhysicalSerialField && !physicalSerial.trim()) ||
               !simNumber.trim() ||
               !isGpsUsernameComplete(username)
             }
             onClick={() =>
-              onRegister({
-                origin: registerOrigin,
-                serial_number: serialNumber.trim(),
-                physical_serial: serialNumber.trim(),
-                sim_number: simNumber.trim() || undefined,
-                username: username.trim() || undefined,
-              })
+              onRegister(
+                buildRegisterCustomerDevicePayload({
+                  origin: registerOrigin,
+                  serialNumber,
+                  physicalSerial: showPhysicalSerialField ? physicalSerial : serialNumber,
+                  simNumber,
+                  username,
+                }),
+              )
             }
             className="rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-50"
           >

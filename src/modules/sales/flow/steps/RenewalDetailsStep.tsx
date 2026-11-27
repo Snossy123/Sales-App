@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../../../api/client'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, getErrorMessage } from '../../../../api/client'
 import type {
   Branch,
   CustomerContractDevice,
@@ -17,8 +17,9 @@ import { PosSubscriptionRenewalSection } from '../../../../components/pos/PosSub
 import {
   applyContractDeviceIdentity,
   identityFromCustomerDevice,
+  type RegisterCustomerDevicePayload,
 } from '../../../../components/services/CustomerContractDevicePicker'
-import { candidateFromCustomerDevice, isRenewalSourceReady } from '../../../../lib/posRenewalSource'
+import { candidateFromCustomerDevice } from '../../../../lib/posRenewalSource'
 import { resolveGpsUnitPrice } from '../../../../lib/gpsProductPricing'
 import { subscriptionRenewalUnitPrice } from '../../../../lib/contractKinds'
 import { useAuthStore } from '../../../../stores/authStore'
@@ -33,12 +34,14 @@ interface RenewalDetailsStepProps {
 }
 
 export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: RenewalDetailsStepProps) {
+  const queryClient = useQueryClient()
   const contextBranchId = useAuthStore((s) => s.branchId)
   const contextDepartmentId = useAuthStore((s) => s.departmentId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
   const customer = draft.selectedCustomer
+  const [registerError, setRegisterError] = useState<string | null>(null)
 
   const devicesQuery = useQuery({
     queryKey: ['customers', customer?.id, 'devices'],
@@ -120,22 +123,21 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
   }, [customer, devicesQuery.data, draft.renewalManualDevice, draft.selectedCustomerDevice, onPatch])
 
   useEffect(() => {
+    if (!draft.selectedCustomerDevice) {
+      if (draft.deviceLines.length > 0 && draft.renewalManualDevice) {
+        onPatch({ deviceLines: [] })
+      }
+      return
+    }
     const existing = draft.deviceLines[0]
-    const deviceIdentity = draft.selectedCustomerDevice
-      ? identityFromCustomerDevice(draft.selectedCustomerDevice)
-      : null
-    const identity = deviceIdentity
-      ? {
-          ...deviceIdentity,
-          serialNumber: draft.renewalSerial || deviceIdentity.serialNumber,
-          simNumber: draft.renewalSim || deviceIdentity.simNumber,
-          username: draft.renewalUsername || deviceIdentity.username,
-        }
-      : {
-          serialNumber: draft.renewalSerial,
-          simNumber: draft.renewalSim,
-          username: draft.renewalUsername,
-        }
+    const deviceIdentity = identityFromCustomerDevice(draft.selectedCustomerDevice)
+    const identity = {
+      ...deviceIdentity,
+      serialNumber: draft.renewalSerial || deviceIdentity.serialNumber,
+      physicalSerial: draft.renewalPhysicalSerial || deviceIdentity.physicalSerial,
+      simNumber: draft.renewalSim || deviceIdentity.simNumber,
+      username: draft.renewalUsername || deviceIdentity.username,
+    }
     const base =
       existing ??
       createDeviceLine(unitPrice, undefined, { contractDate: draft.contractDate, minDownPercent })
@@ -147,8 +149,10 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
       !existing ||
       existing.unitPrice !== next.unitPrice ||
       existing.serialNumber !== next.serialNumber ||
+      existing.physicalSerial !== next.physicalSerial ||
       existing.simNumber !== next.simNumber ||
-      existing.username !== next.username
+      existing.username !== next.username ||
+      existing.productUnitId !== next.productUnitId
     ) {
       onPatch({ deviceLines: [next], quantity: 1 })
     }
@@ -156,28 +160,51 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
   }, [
     draft.selectedCustomerDevice,
     draft.renewalSerial,
+    draft.renewalPhysicalSerial,
     draft.renewalSim,
     draft.renewalUsername,
+    draft.renewalManualDevice,
     unitPrice,
     draft.contractDate,
   ])
 
   const handleSelectDevice = (device: CustomerContractDevice) => {
     const identity = identityFromCustomerDevice(device)
+    setRegisterError(null)
     onPatch({
       selectedCustomerDevice: device,
       renewalManualDevice: false,
       renewalSerial: identity.serialNumber,
+      renewalPhysicalSerial: identity.physicalSerial,
       renewalSim: identity.simNumber,
       renewalUsername: identity.username,
       sourceRenewalCandidate: customer ? candidateFromCustomerDevice(device, customer) : null,
     })
   }
 
-  const patchIdentity = (partial: Partial<DeviceLineDraft>) => {
+  const registerMutation = useMutation({
+    mutationFn: async (payload: RegisterCustomerDevicePayload) => {
+      const { data } = await api.post<{ data: CustomerContractDevice }>(
+        `/customers/${customer!.id}/devices`,
+        payload,
+      )
+      return data.data
+    },
+    onSuccess: (device) => {
+      setRegisterError(null)
+      queryClient.invalidateQueries({ queryKey: ['customers', customer?.id, 'devices'] })
+      handleSelectDevice(device)
+    },
+    onError: (error) => {
+      setRegisterError(getErrorMessage(error))
+    },
+  })
+
+  const patchIdentity = (partial: Partial<DeviceLineDraft> & { physicalSerial?: string }) => {
     const current = draft.deviceLines[0]
     onPatch({
       renewalSerial: partial.serialNumber ?? draft.renewalSerial,
+      renewalPhysicalSerial: partial.physicalSerial ?? draft.renewalPhysicalSerial,
       renewalSim: partial.simNumber ?? draft.renewalSim,
       renewalUsername: partial.username ?? draft.renewalUsername,
       deviceLines: current ? [{ ...current, ...partial, unitPrice }] : draft.deviceLines,
@@ -193,6 +220,7 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
         selectedDevice={draft.selectedCustomerDevice}
         manual={draft.renewalManualDevice}
         serialNumber={draft.renewalSerial}
+        physicalSerial={draft.renewalPhysicalSerial}
         simNumber={draft.renewalSim}
         username={draft.renewalUsername}
         onSelectDevice={handleSelectDevice}
@@ -201,6 +229,7 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
             selectedCustomerDevice: null,
             renewalManualDevice: true,
             sourceRenewalCandidate: null,
+            deviceLines: [],
           })
         }
         onClear={() =>
@@ -208,6 +237,7 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
             selectedCustomerDevice: null,
             renewalManualDevice: false,
             renewalSerial: '',
+            renewalPhysicalSerial: '',
             renewalSim: '',
             renewalUsername: '',
             sourceRenewalCandidate: null,
@@ -215,18 +245,16 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
           })
         }
         onSerialChange={(value) => patchIdentity({ serialNumber: value })}
+        onPhysicalSerialChange={(value) => patchIdentity({ physicalSerial: value })}
         onSimChange={(value) => patchIdentity({ simNumber: value })}
         onUsernameChange={(value) => patchIdentity({ username: value })}
+        onRegister={(payload) => registerMutation.mutate(payload)}
+        registering={registerMutation.isPending}
+        registerError={registerError}
         submitAttempted={showErrors}
       />
 
-      {line &&
-      isRenewalSourceReady({
-        candidate: draft.sourceRenewalCandidate,
-        serialNumber: draft.renewalSerial,
-        simNumber: draft.renewalSim,
-        username: draft.renewalUsername,
-      }) ? (
+      {line && draft.selectedCustomerDevice && !draft.renewalManualDevice ? (
         <DeviceLineCard
           index={0}
           line={line}
@@ -239,6 +267,7 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
             onPatch({
               deviceLines: [next],
               renewalSerial: next.serialNumber,
+              renewalPhysicalSerial: next.physicalSerial ?? draft.renewalPhysicalSerial,
               renewalSim: next.simNumber,
               renewalUsername: next.username,
             })
@@ -248,11 +277,11 @@ export function RenewalDetailsStep({ draft, onPatch, showErrors = false }: Renew
           employees={employeesQuery.data ?? []}
           employeesLoading={employeesQuery.isLoading}
           showErrors={showErrors}
-          lockedFromSource={Boolean(draft.selectedCustomerDevice) && !draft.renewalManualDevice}
+          lockedFromSource
         />
       ) : (
         <p className="text-sm text-on-surface-variant">
-          اختار جهاز العميل أو أدخل السيريال والشريحة واسم المستخدم لإكمال التجديد.
+          اختار جهاز العميل أو سجّل جهازًا غير موجود في السيستم لإكمال التجديد.
         </p>
       )}
     </div>

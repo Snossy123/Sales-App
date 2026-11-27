@@ -1,8 +1,8 @@
 import { CheckoutPaymentSection } from '../components/pos/CheckoutPaymentSection'
 import { useCheckoutPayment } from '../hooks/useCheckoutPayment'
 import { Application, Calendar, Exchange, Fingerprint, SettingTwo, Tool, Toolkit, PeoplePlus } from '@icon-park/react'
-import { useMemo, useState, useEffect, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../api/client'
 import type {
@@ -98,11 +98,12 @@ import {
 } from '../stores/salesDraftStore'
 import { NumericInput } from '../components/ui/NumericInput'
 import { UninstallDeviceHandoverModal } from '../components/UninstallDeviceHandoverModal'
+import { canEditContract, isClosedContract } from '../lib/contractEdit'
+import { hydrateServiceCombinerFromInvoice } from '../lib/hydrateServiceCombinerFromInvoice'
 
 
 const CHIP_ICONS: Record<CombinerChipId, string> = {
   annual_renewal: 'event_repeat',
-  external_device: 'devices_other',
   uninstall: 'handyman',
   installation: 'home_repair_service',
   programming: 'memory',
@@ -159,7 +160,7 @@ function addDays(dateStr: string, days: number): string {
 
 function deviceCheckoutLine(
   line: DeviceLineDraft,
-  kind: 'subscription_renewal' | 'external_device',
+  kind: 'subscription_renewal',
   contractDate: string,
   maxInstallmentCount: number,
   collectionScope: 'contract' | 'service' = 'service',
@@ -168,7 +169,7 @@ function deviceCheckoutLine(
   const base = {
     line_type: 'device' as const,
     line_contract_kind: kind,
-    description: kind === 'subscription_renewal' ? 'تجديد اشتراك سنوي' : 'جهاز خارج الشركة',
+    description: 'تجديد اشتراك سنوي',
     unit_price: line.unitPrice,
     discount: line.discountAmount,
     product_unit_id: line.productUnitId,
@@ -210,23 +211,42 @@ function deviceCheckoutLine(
   }
 }
 
-export function ServiceCombinerPage() {
+export function ServiceCombinerPage({ editInvoiceId }: { editInvoiceId?: number } = {}) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const isEditMode = Boolean(editInvoiceId)
+  const hydratedEditRef = useRef<number | null>(null)
   const contextBranchId = useAuthStore((s) => s.branchId)
   const salesSettings = useOrgSettingsStore((s) => s.sales)
   const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
   const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
 
-  const draftUserId = useAuthStore((s) => s.user?.id ?? null)
-  const serviceDraft = readServiceDraft(draftUserId)
+  const user = useAuthStore((s) => s.user)
+  const draftUserId = user?.id ?? null
+  const serviceDraft = isEditMode ? null : readServiceDraft(draftUserId)
+
+  const editInvoiceQuery = useQuery({
+    queryKey: ['sales-invoice', 'combiner-edit', editInvoiceId],
+    queryFn: async () => {
+      const { data } = await api.get<SalesInvoice>(`/sales-invoices/${editInvoiceId}`, {
+        params: {
+          include:
+            'customer,distributor,salesUser,branch,actionBranch,lines.productUnit,lines.technician,lines.service,lines.installmentPlan.items,lines.productModel,lines.accessoryPackage,paymentTransactions,sourceInvoice,installmentPlans.items',
+        },
+      })
+      return data
+    },
+    enabled: isEditMode,
+  })
 
   const [selectedChips, setSelectedChips] = useState<Set<CombinerChipId>>(
     () =>
       new Set(
-        (serviceDraft?.selectedChips ?? []).filter(
-          (chip): chip is CombinerChipId =>
-            chip === 'annual_renewal' || chip === 'external_device',
-        ),
+        isEditMode
+          ? []
+          : (serviceDraft?.selectedChips ?? []).filter(
+              (chip): chip is CombinerChipId => chip === 'annual_renewal',
+            ),
       ),
   )
   const [transactionSource, setTransactionSource] = useState<TransactionSource>(
@@ -263,11 +283,9 @@ export function ServiceCombinerPage() {
   const [contractUsername, setContractUsername] = useState(() => serviceDraft?.contractUsername ?? '')
   const [newServiceUsername, setNewServiceUsername] = useState(() => serviceDraft?.newServiceUsername ?? '')
   const [newSoftwareSerial, setNewSoftwareSerial] = useState(() => serviceDraft?.newSoftwareSerial ?? '')
+  const [newProgrammingSim, setNewProgrammingSim] = useState(() => serviceDraft?.newProgrammingSim ?? '')
   const [renewalLine, setRenewalLine] = useState<DeviceLineDraft | null>(
     () => serviceDraft?.renewalLine ?? null,
-  )
-  const [externalLine, setExternalLine] = useState<DeviceLineDraft | null>(
-    () => serviceDraft?.externalLine ?? null,
   )
   const [feeLines, setFeeLines] = useState<FeeLineInstance[]>(() =>
     normalizeFeeLineInstances(serviceDraft?.feeLines),
@@ -287,6 +305,7 @@ export function ServiceCombinerPage() {
     checkoutAccountId, setCheckoutAccountId,
     checkoutSenderNumber, setCheckoutSenderNumber,
   } = checkoutPayment
+
   const [distributorBalanceAmount, setDistributorBalanceAmount] = useState(
     () => serviceDraft?.distributorBalanceAmount ?? 0,
   )
@@ -301,6 +320,67 @@ export function ServiceCombinerPage() {
   )
   const [technicianSearch, setTechnicianSearch] = useState(() => serviceDraft?.technicianSearch ?? '')
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
+
+  useEffect(() => {
+    const invoice = editInvoiceQuery.data
+    if (!invoice || !editInvoiceId) return
+    if (hydratedEditRef.current === editInvoiceId) return
+    hydratedEditRef.current = editInvoiceId
+
+    const date = invoice.invoice_date?.slice(0, 10) || new Date().toISOString().split('T')[0]
+    setContractDate(date)
+    setNotes(invoice.notes ?? '')
+    if (invoice.customer) {
+      setSelectedCustomer(invoice.customer)
+      setCustomerSearch(invoice.customer.name)
+    }
+    if (invoice.sales_user) {
+      setTransactionSource('sales')
+      setSelectedSalesRep({
+        id: invoice.sales_user.id,
+        name: invoice.sales_user.name,
+        branch_id: invoice.sales_user.branch_id ?? invoice.branch_id ?? null,
+      } as SalesRep)
+      setSalesRepSearch(invoice.sales_user.name)
+    } else if (invoice.distributor) {
+      setTransactionSource('distributor')
+      setSelectedDistributor(invoice.distributor)
+      setDistributorSearch(invoice.distributor.name_ar || invoice.distributor.name || '')
+    } else if (invoice.branch) {
+      setTransactionSource('branch')
+      setSelectedBranch(invoice.branch)
+      setBranchSearch(invoice.branch.name_ar || invoice.branch.name || '')
+    }
+
+    const hydrated = hydrateServiceCombinerFromInvoice(invoice, minDownPercent)
+    setSelectedChips(new Set(hydrated.selectedChips))
+    setRenewalLine(hydrated.renewalLine)
+    setFeeLines(hydrated.feeLines)
+    setAccessoryLines(hydrated.accessoryLines)
+    setContractSerial(hydrated.contractSerial)
+    setContractSim(hydrated.contractSim)
+    setContractUsername(hydrated.contractUsername)
+    setSelectedCustomerDevice(hydrated.selectedCustomerDevice)
+    setManualDeviceEntry(!hydrated.selectedCustomerDevice?.product_unit_id && Boolean(hydrated.contractSerial))
+    setFeeTechnician(hydrated.feeTechnician)
+    if (hydrated.feeTechnician) setTechnicianSearch(hydrated.feeTechnician.name)
+    setCollectionScope(hydrated.collectionScope)
+    setContractPayment(
+      createDefaultServicePayment(Number(invoice.total ?? 0), minDownPercent),
+    )
+    const checkoutPaymentTx = invoice.payment_transactions?.find(
+      (payment) =>
+        payment.status === 'active' &&
+        !payment.installment_item_id &&
+        ['down_payment', 'pos_cash', 'transportation_fee'].includes(payment.payment_source ?? ''),
+    )
+    if (checkoutPaymentTx) {
+      setCheckoutPaymentMethod(checkoutPaymentTx.payment_method ?? 'cash')
+      setCheckoutAccountId(checkoutPaymentTx.collection_payment_account_id ?? '')
+      setCheckoutSenderNumber(checkoutPaymentTx.sender_transfer_number ?? '')
+    }
+  }, [editInvoiceQuery.data, editInvoiceId, minDownPercent, setCheckoutPaymentMethod, setCheckoutAccountId, setCheckoutSenderNumber])
+
 
   const serviceDraftSnapshot = useMemo<ServiceContractDraft>(
     () => ({
@@ -323,8 +403,8 @@ export function ServiceCombinerPage() {
       contractUsername,
       newServiceUsername,
       newSoftwareSerial,
+      newProgrammingSim,
       renewalLine,
-      externalLine,
       feeLines,
       accessoryLines,
       distributorBalanceAmount,
@@ -356,8 +436,8 @@ export function ServiceCombinerPage() {
       contractUsername,
       newServiceUsername,
       newSoftwareSerial,
+      newProgrammingSim,
       renewalLine,
-      externalLine,
       feeLines,
       accessoryLines,
       distributorBalanceAmount,
@@ -373,11 +453,11 @@ export function ServiceCombinerPage() {
 
   useProcedureDraft({
     id: PROCEDURE_DRAFT_IDS.posService,
-    userId: draftUserId,
+    userId: isEditMode ? null : draftUserId,
     titleAr: 'تعاقد خدمات',
     resumePath: '/pos/services',
     snapshot: serviceDraftSnapshot,
-    isMeaningful: isServiceContractDraftMeaningful(serviceDraftSnapshot),
+    isMeaningful: !isEditMode && isServiceContractDraftMeaningful(serviceDraftSnapshot),
   })
 
   const resetServiceForm = () => {
@@ -400,8 +480,8 @@ export function ServiceCombinerPage() {
     setContractUsername('')
     setNewServiceUsername('')
     setNewSoftwareSerial('')
+    setNewProgrammingSim('')
     setRenewalLine(null)
-    setExternalLine(null)
     setFeeLines([])
     setAccessoryLines([])
     setSubmitAttempted(false)
@@ -439,6 +519,7 @@ export function ServiceCombinerPage() {
     setContractUsername('')
     setNewServiceUsername('')
     setNewSoftwareSerial('')
+    setNewProgrammingSim('')
   }
 
   const handleCustomerChange = (customer: Customer | null) => {
@@ -662,15 +743,6 @@ export function ServiceCombinerPage() {
     return employees.filter((employee) => employee.name.toLowerCase().includes(q))
   }, [employeesQuery.data, technicianSearch])
   const annualRenewalPrice = Number(product?.annual_renewal_price ?? 0)
-  const externalCashPrice = Number(
-    product?.external_cash_annual_price ?? product?.cash_annual_price ?? product?.sell_price ?? 0,
-  )
-  const externalInstallmentPrice = Number(
-    product?.external_installment_annual_price ??
-      product?.installment_annual_price ??
-      product?.installment_price ??
-      externalCashPrice,
-  )
 
   const appendFeeLine = (service: Service) => {
     if (feeLines.some((item) => (item.serviceId ?? item.line.service_id) === service.id)) return false
@@ -853,7 +925,6 @@ export function ServiceCombinerPage() {
     identity: Parameters<typeof applyContractDeviceIdentity>[1],
   ) => {
     setRenewalLine((line) => (line ? applyContractDeviceIdentity(line, identity) : line))
-    setExternalLine((line) => (line ? applyContractDeviceIdentity(line, identity) : line))
   }
 
   const handleSelectCustomerDevice = (device: CustomerContractDevice) => {
@@ -861,6 +932,7 @@ export function ServiceCombinerPage() {
     setSelectedCustomerDevice(device)
     setNewServiceUsername('')
     setNewSoftwareSerial('')
+    setNewProgrammingSim('')
     setManualDeviceEntry(false)
     setContractSerial(identity.serialNumber)
     setContractSim(identity.simNumber)
@@ -873,6 +945,7 @@ export function ServiceCombinerPage() {
     setManualDeviceEntry(true)
     setNewServiceUsername('')
     setNewSoftwareSerial('')
+    setNewProgrammingSim('')
     applyIdentityToDeviceLines({
       productUnitId: undefined,
       serialNumber: contractSerial,
@@ -959,25 +1032,6 @@ export function ServiceCombinerPage() {
         }
       }
 
-      if (id === 'external_device') {
-        if (enabling) {
-          const price = product
-            ? resolveGpsUnitPrice(product, {
-                contractKind: 'external_device',
-                paymentTerm: collectionScope === 'contract' ? contractPayment.paymentTerm : 'cash',
-                renewalType: 'annual',
-              })
-            : externalCashPrice
-          setExternalLine(
-            applyContractDeviceIdentity(
-              createDeviceLine(price, undefined, { contractDate, minDownPercent }),
-              currentDeviceIdentity(),
-            ),
-          )
-        } else {
-          setExternalLine(null)
-        }
-      }
 
       return next
     })
@@ -990,8 +1044,7 @@ export function ServiceCombinerPage() {
   const activeFeeLines = feeLines.map((item) => item.line)
 
   const devicesSubtotal =
-    (renewalLine && selectedChips.has('annual_renewal') ? lineNetTotal(renewalLine) : 0) +
-    (externalLine && selectedChips.has('external_device') ? lineNetTotal(externalLine) : 0)
+    renewalLine && selectedChips.has('annual_renewal') ? lineNetTotal(renewalLine) : 0
   const feesSubtotal = activeFeeLines.reduce((sum, line) => sum + serviceLineTotal(line), 0)
   const accessoriesSubtotal = accessoryLines.reduce((sum, item) => sum + accessoryLineTotal(item), 0)
   const total = devicesSubtotal + feesSubtotal + accessoriesSubtotal
@@ -1007,14 +1060,6 @@ export function ServiceCombinerPage() {
               renewalLine.cashSchedule,
               lineNetTotal(renewalLine),
               renewalLine.downPayment,
-            )
-          : 0) +
-        (externalLine && selectedChips.has('external_device')
-          ? linePaidNow(
-              externalLine.paymentTerm,
-              externalLine.cashSchedule,
-              lineNetTotal(externalLine),
-              externalLine.downPayment,
             )
           : 0) +
         activeFeeLines.reduce((sum, line) => sum + serviceLinePaidNow(line), 0) +
@@ -1044,13 +1089,6 @@ export function ServiceCombinerPage() {
         ...renewalLine,
         paymentTerm: term,
         unitPrice: annualRenewalPrice,
-      })
-    }
-    if (externalLine) {
-      setExternalLine({
-        ...externalLine,
-        paymentTerm: term,
-        unitPrice: catalogTermPrice(externalCashPrice, externalInstallmentPrice, term),
       })
     }
     setFeeLines((prev) =>
@@ -1125,6 +1163,11 @@ export function ServiceCombinerPage() {
     listedDeviceSelected && Boolean(newSoftwareSerial.trim()) &&
     newSoftwareSerial.trim() !== identityFromCustomerDevice(selectedCustomerDevice!).serialNumber
   )
+  const programmingSelected = feeLines.some((item) => feeLineCategory(item) === 'programming')
+  const programmingValid = !programmingSelected || (
+    listedDeviceSelected && Boolean(newProgrammingSim.trim()) &&
+    newProgrammingSim.trim() !== identityFromCustomerDevice(selectedCustomerDevice!).simNumber
+  )
   const needsFeeTechnician = feeLines.some((item) => ['uninstall', 'installation'].includes(feeLineCategory(item) ?? ''))
   const hasSelectedServices = selectedChips.size > 0 || feeLines.length > 0
 
@@ -1133,14 +1176,6 @@ export function ServiceCombinerPage() {
     (Boolean(renewalLine) &&
       validateDeviceLine(renewalLine!, minDownPercent, maxInstallmentCount, {
         requireTechnician: false,
-        skipPayment: skipLinePayment,
-      }).valid)
-
-  const externalValid =
-    !selectedChips.has('external_device') ||
-    (Boolean(externalLine) &&
-      validateDeviceLine(externalLine!, minDownPercent, maxInstallmentCount, {
-        requireTechnician: !listedDeviceSelected,
         skipPayment: skipLinePayment,
       }).valid)
 
@@ -1189,8 +1224,8 @@ export function ServiceCombinerPage() {
     contractDeviceReady &&
     userTransferValid &&
     softwareValid &&
+    programmingValid &&
     renewalValid &&
-    externalValid &&
     feesValid &&
     accessoriesValid &&
     !accessoriesNeedWarehouse &&
@@ -1216,33 +1251,29 @@ export function ServiceCombinerPage() {
           ),
         )
       }
-      if (selectedChips.has('external_device') && externalLine) {
-        lines.push(
-          deviceCheckoutLine(
-            externalLine,
-            'external_device',
-            contractDate,
-            maxInstallmentCount,
-            collectionScope,
-          ),
-        )
-      }
       for (const item of feeLines) {
         const line = item.line
         const identity = currentDeviceIdentity()
+        const category = feeLineCategory(item)
         const serialNumber =
-          feeLineCategory(item) === 'software' ? newSoftwareSerial : identity.serialNumber
+          category === 'software' ? newSoftwareSerial : identity.serialNumber
+        const simNumber =
+          category === 'programming' ? newProgrammingSim : identity.simNumber
         const base = {
           line_type: 'service' as const,
           service_id: line.service_id,
           description: line.description,
           unit_price: line.unit_price,
-          technician_id: ['uninstall', 'installation'].includes(feeLineCategory(item) ?? '') ? feeTechnician?.id : undefined,
+          technician_id: ['uninstall', 'installation'].includes(category ?? '') ? feeTechnician?.id : undefined,
           product_unit_id: identity.productUnitId,
           serial_number: serialNumber.trim() || undefined,
           physical_serial: identity.physicalSerial?.trim() || undefined,
-          sim_number: identity.simNumber.trim() || undefined,
-          username: (feeLineCategory(item) === 'user_transfer' ? newServiceUsername : identity.username).trim() || undefined,
+          sim_number: simNumber.trim() || undefined,
+          previous_sim_number:
+            category === 'programming'
+              ? identity.simNumber.trim() || undefined
+              : undefined,
+          username: (category === 'user_transfer' ? newServiceUsername : identity.username).trim() || undefined,
           payment_term: collectionScope === 'contract' ? contractPayment.paymentTerm : line.paymentTerm,
         }
         if (collectionScope === 'contract') {
@@ -1347,21 +1378,32 @@ export function ServiceCombinerPage() {
         payload.distributor_balance_amount = distributorBalanceAmount
       }
 
+      if (isEditMode && editInvoiceId) {
+        const { data } = await api.put<SalesInvoice>(`/sales-invoices/${editInvoiceId}`, payload)
+        return data
+      }
       const { data } = await api.post<SalesInvoice>('/sales-invoices/checkout', payload)
       return data
     },
     onSuccess: (invoice) => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['installments'] })
+      queryClient.invalidateQueries({ queryKey: ['customers', selectedCustomer?.id, 'devices'] })
+      queryClient.invalidateQueries({ queryKey: ['accessories'] })
+      if (isEditMode) {
+        navigate(`/contracts/${invoice.id}`)
+        return
+      }
       const hasInstallment =
         collectionScope === 'contract'
           ? contractPayment.paymentTerm === 'installment'
           : (renewalLine?.paymentTerm === 'installment' && selectedChips.has('annual_renewal')) ||
-            (externalLine?.paymentTerm === 'installment' && selectedChips.has('external_device')) ||
             activeFeeLines.some((line) => line.paymentTerm === 'installment') ||
             accessoryLines.some((item) => item.line.paymentTerm === 'installment')
       const hasUninstall =
         feeLines.some((item) => feeLineCategory(item) === 'uninstall') ||
         invoice.lines?.some((line) => line.service?.category === 'uninstall')
-      const customerId = selectedCustomer?.id
       const successMessage = `تم تسجيل العملية — فاتورة ${invoice.invoice_number ?? `#${invoice.id}`}`
       resetServiceForm()
       setLastInvoice(invoice)
@@ -1370,11 +1412,6 @@ export function ServiceCombinerPage() {
       if (hasUninstall) {
         setUninstallInvoice(invoice)
       }
-      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['installments'] })
-      queryClient.invalidateQueries({ queryKey: ['customers', customerId, 'devices'] })
-      queryClient.invalidateQueries({ queryKey: ['accessories'] })
     },
   })
 
@@ -1390,13 +1427,37 @@ export function ServiceCombinerPage() {
       ? distributorLabel(selectedDistributor)
       : selectedBranch?.name_ar || selectedBranch?.name || undefined
 
+  if (isEditMode && editInvoiceQuery.isError) {
+    return (
+      <SalesPageShell title="تعديل تعاقد خدمات">
+        <p role="alert" className="text-sm text-error">تعذر تحميل التعاقد للتعديل.</p>
+      </SalesPageShell>
+    )
+  }
+
+  if (isEditMode && editInvoiceQuery.data && !canEditContract(user, editInvoiceQuery.data)) {
+    return (
+      <SalesPageShell title="تعديل تعاقد خدمات">
+        <p role="alert" className="text-sm text-error">لا توجد صلاحية لتعديل هذا التعاقد في حالته الحالية.</p>
+      </SalesPageShell>
+    )
+  }
+
+  if (isEditMode && editInvoiceQuery.data && isClosedContract(editInvoiceQuery.data)) {
+    return (
+      <SalesPageShell title="تعديل تعاقد خدمات">
+        <p role="alert" className="text-sm text-error">العقود المغلقة تُصحح من شاشة التصحيح المخصصة.</p>
+      </SalesPageShell>
+    )
+  }
+
   return (
     <SalesPageShell
-      title="تعاقد خدمات"
-      subtitle="خدمة واحدة أو أكتر في نفس العقد"
+      title={isEditMode ? 'تعديل تعاقد خدمات' : 'تعاقد خدمات'}
+      subtitle={isEditMode ? (editInvoiceQuery.data?.invoice_number || `#${editInvoiceId}`) : 'خدمة واحدة أو أكتر في نفس العقد'}
       actions={<MyContractsButton />}
     >
-      <PosContractTypeTabs onClear={resetServiceForm} />
+      {isEditMode ? null : <PosContractTypeTabs onClear={resetServiceForm} />}
       <form
         onSubmit={handleSubmit}
         className="pos-form grid grid-cols-1 items-start gap-md lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"
@@ -1457,6 +1518,7 @@ export function ServiceCombinerPage() {
                   setManualDeviceEntry(false)
                   setNewServiceUsername('')
                   setNewSoftwareSerial('')
+                  setNewProgrammingSim('')
                 }}
                 onSerialChange={handleContractSerialChange}
                 onSimChange={handleContractSimChange}
@@ -1510,6 +1572,31 @@ export function ServiceCombinerPage() {
                   </label>
                   <p className="text-xs text-on-surface-variant">يُحفظ السيريال الفعلي (Physical Serial) كما هو.</p>
                   {submitAttempted && !softwareValid && <p role="alert" className="text-sm text-error">اختر جهاز العميل وأدخل سيريالًا جديدًا مختلفًا عن الحالي.</p>}
+                </div>
+              )}
+              {programmingSelected && (
+                <div className="mt-md space-y-xs">
+                  <p className="text-sm text-on-surface-variant">الشريحة الحالية: {selectedCustomerDevice?.sim_number || '—'}</p>
+                  <label className="block text-sm font-medium">
+                    الشريحة الجديدة
+                    <input
+                      value={newProgrammingSim}
+                      onChange={(event) => setNewProgrammingSim(normalizeScannedDigits(event.target.value))}
+                      disabled={!listedDeviceSelected}
+                      dir="ltr"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={100}
+                      placeholder="امسح أو أدخل رقم الشريحة الجديد"
+                      className="mt-xs w-full rounded-lg border border-outline-variant px-sm py-2 disabled:opacity-50"
+                    />
+                  </label>
+                  {submitAttempted && !programmingValid && (
+                    <p role="alert" className="text-sm text-error">
+                      اختر جهاز العميل وأدخل رقم شريحة جديدًا مختلفًا عن الحالي.
+                    </p>
+                  )}
                 </div>
               )}
             </PosSectionCard>
@@ -1606,14 +1693,6 @@ export function ServiceCombinerPage() {
                 if (manualDeviceEntry) {
                   setContractSerial(line.serialNumber)
                   setContractSim(line.simNumber)
-                  setExternalLine((prev) =>
-                    prev
-                      ? applyContractDeviceIdentity(prev, {
-                          serialNumber: line.serialNumber,
-                          simNumber: line.simNumber,
-                        })
-                      : prev,
-                  )
                 }
               }}
               minDownPercent={minDownPercent}
@@ -1627,40 +1706,6 @@ export function ServiceCombinerPage() {
             />
           )}
 
-          {selectedChips.has('external_device') && externalLine && (
-            <DeviceLineCard
-              index={0}
-              line={externalLine}
-              contractDate={contractDate}
-              contractKind="external_device"
-              product={product}
-              cashPrice={externalCashPrice}
-              installmentPrice={externalInstallmentPrice}
-              onChange={(line) => {
-                setExternalLine(line)
-                if (manualDeviceEntry) {
-                  setContractSerial(line.serialNumber)
-                  setContractSim(line.simNumber)
-                  setRenewalLine((prev) =>
-                    prev
-                      ? applyContractDeviceIdentity(prev, {
-                          serialNumber: line.serialNumber,
-                          simNumber: line.simNumber,
-                        })
-                      : prev,
-                  )
-                }
-              }}
-              minDownPercent={minDownPercent}
-              maxInstallmentCount={maxInstallmentCount}
-              employees={employeesQuery.data ?? []}
-              employeesLoading={employeesQuery.isLoading}
-              showErrors={submitAttempted}
-              showPayment={collectionScope === 'service'}
-              lockedFromSource={listedDeviceSelected}
-              annualRenewalOnly
-            />
-          )}
 
           {needsFeeTechnician ? (
             <div
@@ -1986,7 +2031,7 @@ export function ServiceCombinerPage() {
             className="flex w-full items-center justify-center gap-xs rounded-lg bg-primary py-4 text-base font-bold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="check_circle" />
-            {checkoutMutation.isPending ? 'جاري الحفظ...' : 'تسجيل العملية'}
+            {checkoutMutation.isPending ? 'جاري الحفظ...' : isEditMode ? 'حفظ التعديل' : 'تسجيل العملية'}
           </button>
         </aside>
       </form>

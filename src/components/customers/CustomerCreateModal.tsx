@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
 import type { Customer, CustomerContractDevice } from '../../api/types'
+import { useEnterToNextField } from '../../hooks/useEnterToNextField'
 import { Modal } from '../Modal'
 import { TextArea } from '../ui/TextArea'
 import { TextInput } from '../ui/TextInput'
@@ -52,6 +53,7 @@ function CustomerCreateForm({
 }: CustomerCreateModalProps) {
   const queryClient = useQueryClient()
   const branchId = useAuthStore((s) => s.branchId)
+  const onEnterToNextField = useEnterToNextField()
   const [phones, setPhones] = useState<CustomerPhoneEntry[]>(defaultPhoneEntries())
   const [form, setForm] = useState(emptyForm)
   const [withGuarantor, setWithGuarantor] = useState(false)
@@ -117,7 +119,11 @@ function CustomerCreateForm({
 
   return createPortal(
     <Modal open={open} onClose={onClose} title="إضافة عميل" size="lg">
-      <form onSubmit={handleSubmit} className="max-h-[min(70vh,640px)] space-y-md overflow-y-auto pe-xs">
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={onEnterToNextField}
+        className="max-h-[min(70vh,640px)] space-y-md overflow-y-auto pe-xs"
+      >
         <section>
           <h3 className="mb-sm text-sm font-bold text-on-surface">بيانات العميل</h3>
           <div className="grid grid-cols-12 gap-sm">

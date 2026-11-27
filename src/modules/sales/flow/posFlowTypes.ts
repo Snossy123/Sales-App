@@ -110,6 +110,7 @@ export interface PosFlowDraft {
   serviceSerial: string
   renewalManualDevice: boolean
   renewalSerial: string
+  renewalPhysicalSerial: string
   renewalSim: string
   renewalUsername: string
   sourceRenewalCandidate: SubscriptionRenewalCandidate | null
@@ -171,6 +172,7 @@ export function emptyPosFlowDraft(): PosFlowDraft {
     serviceSerial: '',
     renewalManualDevice: false,
     renewalSerial: '',
+    renewalPhysicalSerial: '',
     renewalSim: '',
     renewalUsername: '',
     sourceRenewalCandidate: null,

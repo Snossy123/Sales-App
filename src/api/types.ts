@@ -571,6 +571,9 @@ export interface ProductUnit {
   notes?: string | null
   maintenance_entered_on?: string | null
   maintenance_exited_on?: string | null
+  maintenance_amount?: string | number | null
+  maintenance_notes?: string | null
+  maintenance_invoice_id?: number | null
   product_model?: ProductModel
   warehouse?: Warehouse
 }
@@ -1079,6 +1082,7 @@ export interface SalesInvoiceLine {
   serial_number?: string | null
   physical_serial?: string | null
   sim_number?: string | null
+  previous_sim_number?: string | null
   vehicle_type?: 'car' | 'tuk_tuk' | 'motorcycle' | 'other' | null
   vehicle_plate_letters?: string | null
   vehicle_plate_numbers?: string | null
@@ -1324,6 +1328,7 @@ export interface CheckoutPayload {
     serial_number?: string
     physical_serial?: string
     sim_number?: string
+    previous_sim_number?: string
     username?: string
     payment_term?: 'cash' | 'installment'
     cash_schedule?: 'immediate' | 'month_1' | 'month_2' | 'month_3' | 'custom'

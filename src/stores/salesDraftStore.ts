@@ -25,6 +25,7 @@ export interface DeviceContractDraft extends CheckoutPaymentDraft {
   selectedCustomerDevice?: CustomerContractDevice | null
   renewalManualDevice?: boolean
   renewalSerial?: string
+  renewalPhysicalSerial?: string
   renewalSim?: string
   renewalUsername?: string
   renewalCustomerLocked?: boolean
@@ -85,8 +86,10 @@ export interface ServiceContractDraft extends CheckoutPaymentDraft {
   contractUsername: string
   newServiceUsername?: string
   newSoftwareSerial?: string
+  newProgrammingSim?: string
   renewalLine: DeviceLineDraft | null
-  externalLine: DeviceLineDraft | null
+  /** @deprecated خارج الشركة removed from combiner; kept optional for old drafts */
+  externalLine?: DeviceLineDraft | null
   feeLines: FeeLineInstance[]
   accessoryLines?: CombinerAccessoryLine[]
   distributorBalanceAmount: number
