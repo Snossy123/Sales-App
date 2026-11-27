@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import type { InstallmentItem, SalesInvoice } from '../../api/types'
 import {
   buildContractSummary,
@@ -34,8 +35,33 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
   const summary = buildContractSummary(invoice)
   const ledger = reconcileContractLedger(invoice)
   const totalDue = items.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+  const sourceContractId =
+    invoice.source_invoice?.id ?? invoice.source_sales_invoice_id ?? null
+  const sourceInvoiceNumber =
+    invoice.source_invoice?.invoice_number ??
+    (sourceContractId ? `#${sourceContractId}` : null)
 
   if (items.length === 0) {
+    if (invoice.contract_kind === 'ownership_transfer') {
+      return (
+        <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
+          <p>
+            عقد نقل الملكية لا يحتوي أقساطاً خاصة به. الأقساط المتبقية تبقى على التعاقد الأصلي
+            وتنتقل للمالك الجديد بعد الاعتماد.
+          </p>
+          {sourceContractId ? (
+            <Link
+              to={`/contracts/${sourceContractId}?tab=installments`}
+              className="mt-sm inline-flex font-medium text-primary hover:underline"
+            >
+              عرض أقساط التعاقد الأصلي
+              {sourceInvoiceNumber ? ` (${sourceInvoiceNumber})` : ''}
+            </Link>
+          ) : null}
+        </div>
+      )
+    }
+
     return (
       <p className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
         لا توجد أقساط على هذا التعاقد
