@@ -22,6 +22,8 @@ export interface FilterMultiSelectConfig {
   options: FilterSelectOption[]
   onChange: (values: string[]) => void
   emptyLabel: string
+  /** Noun used when multiple values selected, e.g. مصادر / محصلين */
+  countNoun?: string
 }
 
 interface FilterBarProps {
@@ -51,7 +53,7 @@ function multiSelectSummary(config: FilterMultiSelectConfig): string {
   if (config.values.length === 1) {
     return config.options.find((option) => option.value === config.values[0])?.label ?? config.values[0]
   }
-  return `${config.values.length} محصلين`
+  return `${config.values.length} ${config.countNoun ?? 'محصلين'}`
 }
 
 function FilterMultiSelect({ config }: { config: FilterMultiSelectConfig }) {

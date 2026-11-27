@@ -41,9 +41,14 @@ const sourceLabels: Record<string, string> = {
   transportation_fee: 'رسوم تنقلات',
   distributor_balance: 'رصيد عمولة',
   contract_disbursement: 'أمر دفع',
+  verification: 'تحقق من سجل قديم',
 }
 
-type SourceFilter = '' | 'all_payments' | 'contract_disbursement'
+const paymentSourceFilterOptions = Object.entries(sourceLabels).map(([value, label]) => ({
+  value,
+  label,
+}))
+
 type PaymentPeriod = 'day' | 'week' | 'month' | 'year' | 'custom'
 type ChannelFilter = '' | 'cash' | 'transfer'
 
@@ -88,7 +93,7 @@ export function PaymentsPage() {
     user?.roles?.some((role) => role.name === 'Sales') || user?.demo_role === 'sales'
   const showBranchFilter = canPickBranch(user) && !isSales
   const [statusFilter, setStatusFilter] = useState('active')
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all_payments')
+  const [sourceFilters, setSourceFilters] = useState<string[]>([])
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('')
   const [methodFilter, setMethodFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -127,7 +132,7 @@ export function PaymentsPage() {
     queryKey: [
       'payment-transactions',
       statusFilter,
-      sourceFilter,
+      sourceFilters,
       channelFilter,
       methodFilter,
       branchFilter,
@@ -140,10 +145,10 @@ export function PaymentsPage() {
     ],
     enabled: customReady,
     queryFn: async () => {
-      const params: Record<string, string | number> = { per_page: 15, page }
+      const params: Record<string, string | number | string[]> = { per_page: 15, page }
       if (statusFilter) params.status = statusFilter
-      if (sourceFilter === 'contract_disbursement') {
-        params.payment_source = 'contract_disbursement'
+      if (sourceFilters.length > 0) {
+        params.payment_source = sourceFilters
       }
       if (!isSales && channelFilter) params.channel = channelFilter
       if (!isSales && channelFilter === 'transfer' && methodFilter) params.payment_method = methodFilter
@@ -161,10 +166,12 @@ export function PaymentsPage() {
   })
 
   const rows = paymentsQuery.data?.data ?? []
+  const totalAmount = Number(paymentsQuery.data?.total_amount ?? 0)
+  const onePercentAmount = Math.round(totalAmount * 0.01 * 100) / 100
   const hasFilters =
     Boolean(search.trim()) ||
     statusFilter !== 'active' ||
-    sourceFilter !== 'all_payments' ||
+    sourceFilters.length > 0 ||
     channelFilter !== '' ||
     methodFilter !== '' ||
     branchFilter !== '' ||
@@ -282,19 +289,6 @@ export function PaymentsPage() {
               ]
             : []),
           {
-            id: 'source',
-            label: 'النوع',
-            value: sourceFilter,
-            onChange: (v) => {
-              setSourceFilter(v as SourceFilter)
-              setPage(1)
-            },
-            options: [
-              { value: 'all_payments', label: 'كل المدفوعات' },
-              { value: 'contract_disbursement', label: 'أوامر الدفع' },
-            ],
-          },
-          {
             id: 'status',
             label: 'الحالة',
             value: statusFilter,
@@ -309,10 +303,24 @@ export function PaymentsPage() {
             ],
           },
         ]}
+        multiSelects={[
+          {
+            id: 'payment_source',
+            label: 'المصدر',
+            values: sourceFilters,
+            emptyLabel: 'كل المصادر',
+            countNoun: 'مصادر',
+            options: paymentSourceFilterOptions,
+            onChange: (values) => {
+              setSourceFilters(values)
+              setPage(1)
+            },
+          },
+        ]}
         showClear={hasFilters}
         onClear={() => {
           setStatusFilter('active')
-          setSourceFilter('all_payments')
+          setSourceFilters([])
           setChannelFilter('')
           setMethodFilter('')
           setBranchFilter('')
@@ -325,8 +333,17 @@ export function PaymentsPage() {
       />
 
       {customReady && paymentsQuery.data ? (
-        <div className="mb-md max-w-sm">
-          <KpiCard label="إجمالي المدفوعات" value={`${formatMoney(paymentsQuery.data.total_amount)} ج.م`} icon="payments" />
+        <div className="mb-md grid max-w-2xl gap-sm sm:grid-cols-2">
+          <KpiCard
+            label="إجمالي المدفوعات"
+            value={`${formatMoney(totalAmount)} ج.م`}
+            icon="payments"
+          />
+          <KpiCard
+            label="1% من الإجمالي"
+            value={`${formatMoney(onePercentAmount)} ج.م`}
+            icon="percent"
+          />
         </div>
       ) : null}
 
