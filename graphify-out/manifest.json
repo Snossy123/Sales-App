@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "src/components/contracts/ContractInstallmentsTab.tsx": {
-    "mtime": 1793455008.906341,
-    "seen": 1795795842.947178,
-    "ast_hash": "60d3100e0fd27ee2583a8eb8d69bba25",
+    "mtime": 1795805598.8301942,
+    "seen": 1795809944.572339,
+    "ast_hash": "18e947dcfc21190a1ce8b516b8264460",
     "semantic_hash": ""
   },
   "src/components/contracts/ContractPaymentsTab.tsx": {
@@ -1560,9 +1560,9 @@
     "semantic_hash": ""
   },
   "src/lib/printInstallmentContract.ts": {
-    "mtime": 1795803094.5407803,
-    "seen": 1795804385.2981,
-    "ast_hash": "d989f2717a53bb2e5b5766f504e07462",
+    "mtime": 1795805235.8646588,
+    "seen": 1795809944.574633,
+    "ast_hash": "9cf1f5e726368c45c6d2135b87c23fed",
     "semantic_hash": ""
   },
   "src/lib/printPaymentReceipt.ts": {
@@ -2436,15 +2436,15 @@
     "semantic_hash": ""
   },
   "src/modules/sales/flow/posFlowCheckout.test.ts": {
-    "mtime": 1795795926.27007,
-    "seen": 1795802053.294883,
-    "ast_hash": "2d63e529f12eb5bb10f4bd924042a1fe",
+    "mtime": 1795808797.3138883,
+    "seen": 1795809944.5775082,
+    "ast_hash": "c0847e15ad02820f17d5f858a05e98e1",
     "semantic_hash": ""
   },
   "src/modules/sales/flow/posFlowCheckout.ts": {
-    "mtime": 1795795931.567355,
-    "seen": 1795802053.294902,
-    "ast_hash": "e05989957e92d7e3d2e2dce64ce0b86b",
+    "mtime": 1795808787.183636,
+    "seen": 1795809944.577512,
+    "ast_hash": "9e2c24db3981e8c3afbee92bdc11a423",
     "semantic_hash": ""
   },
   "src/modules/sales/flow/posFlowHelpers.ts": {
@@ -2826,9 +2826,9 @@
     "semantic_hash": ""
   },
   "src/pages/PosPage.tsx": {
-    "mtime": 1795796021.3442986,
-    "seen": 1795802053.2952561,
-    "ast_hash": "5246e0f54c6e3530beeb7f0beb276c1e",
+    "mtime": 1795809856.086935,
+    "seen": 1795809944.5785751,
+    "ast_hash": "5c2c1002ce79597a0df1c79e4f5c9bf8",
     "semantic_hash": ""
   },
   "src/pages/PosServicesPage.tsx": {
@@ -3417,6 +3417,30 @@
     "mtime": 1795796095.1100624,
     "seen": 1795802053.2951832,
     "ast_hash": "628590d47b435e1ca630de4c7eb317fd",
+    "semantic_hash": ""
+  },
+  "src/lib/ownershipTransferEditCheckout.test.ts": {
+    "mtime": 1795809843.0268922,
+    "seen": 1795809944.574204,
+    "ast_hash": "da1528111be562cc10a889eed96b6e31",
+    "semantic_hash": ""
+  },
+  "src/lib/ownershipTransferEditCheckout.ts": {
+    "mtime": 1795809846.078332,
+    "seen": 1795809944.574209,
+    "ast_hash": "c376f32a967ce15f273e8ae4d75fa10b",
+    "semantic_hash": ""
+  },
+  "src/lib/ownershipTransferFeePlans.test.ts": {
+    "mtime": 1795808709.2429478,
+    "seen": 1795809944.574212,
+    "ast_hash": "215d36628518db4332392b0b56dd1d78",
+    "semantic_hash": ""
+  },
+  "src/lib/ownershipTransferFeePlans.ts": {
+    "mtime": 1795808735.6137989,
+    "seen": 1795809944.5742168,
+    "ast_hash": "c722533939525d81072fcc79badd8185",
     "semantic_hash": ""
   },
   "package-lock.json": {

@@ -80,6 +80,7 @@ import {
   ownershipTransferLifetimeUpgradeAmount,
   resolveGpsUnitPrice,
 } from '../lib/gpsProductPricing'
+import { shouldReuseInvoiceServiceLinesOnEdit } from '../lib/ownershipTransferEditCheckout'
 import { allocateOwnershipTransferFeePlans } from '../lib/ownershipTransferFeePlans'
 import { isAtOrBelowMinStock, minStockWarningMessage } from '../lib/minStock'
 import { InsightBanner } from '../components/InsightBanner'
@@ -1789,7 +1790,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       }
     })
 
-    if (isEditMode && editInvoiceQuery.data) {
+    if (
+      isEditMode &&
+      editInvoiceQuery.data &&
+      shouldReuseInvoiceServiceLinesOnEdit(contractKind)
+    ) {
       for (const line of editInvoiceQuery.data.lines ?? []) {
         if (!isServiceInvoiceLine(line)) continue
         lines.push({
