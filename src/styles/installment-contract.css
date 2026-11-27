@@ -1578,16 +1578,6 @@
   /* Auto margin would swallow free space before flex-grow can distribute it. */
   margin-top: 0;
 }
-.ownership-transfer-contract .ic-header {
-  margin-bottom: 2.5mm;
-}
-/* Base badge uses margin-bottom: -12mm and sits on top of the next block. */
-.ownership-transfer-contract .ic-title-badge {
-  margin-bottom: 3mm;
-}
-.ownership-transfer-contract .ic-header + .ic-ot-grid {
-  margin-top: 2mm;
-}
 .ownership-transfer-contract .ic-ot-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1651,9 +1641,9 @@
 .ownership-transfer-contract .ic-ot-row {
   /* Fixed label column keeps every value on the same vertical edge. */
   display: grid;
-  grid-template-columns: 6mm 34mm minmax(0, 1fr);
+  grid-template-columns: 6mm 28mm minmax(0, 1fr);
   align-items: center;
-  column-gap: 1.6mm;
+  column-gap: 1.2mm;
   flex: 1 1 auto;
   min-height: 6.4mm;
   padding: 0.8mm 2mm;
@@ -1664,11 +1654,12 @@
 }
 .ownership-transfer-contract .ic-ot-device .ic-ot-row,
 .ownership-transfer-contract .ic-ot-financial .ic-ot-row {
-  grid-template-columns: 6mm 40mm minmax(0, 1fr);
+  /* Wide enough for «تاريخ انتهاء الاشتراك» on one line. */
+  grid-template-columns: 6mm 33mm minmax(0, 1fr);
 }
 .ownership-transfer-contract .ic-ot-device .ic-ot-row-label,
 .ownership-transfer-contract .ic-ot-financial .ic-ot-row-label {
-  white-space: normal;
+  white-space: nowrap;
 }
 .ownership-transfer-contract .ic-ot-row:nth-child(even) {
   background: #f8ecee;
@@ -1700,8 +1691,11 @@
   text-align: right;
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-weight: 700;
-  font-size: 14.5pt;
+  font-size: 13.5pt;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ownership-transfer-contract .ic-ot-row.ic-ot-row--remaining {
   background: #f8d6d9;
