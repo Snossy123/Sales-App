@@ -83,8 +83,12 @@ export function AppShell() {
   const [sidebarPinned, setSidebarPinned] = useState(false)
   const [sidebarHover, setSidebarHover] = useState(false)
   const printLayout = isContractPrintPath(location.pathname)
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches,
+  )
   const desktopSidebarOpen = sidebarPinned || sidebarHover
   const sidebarVisible = mobileNavOpen || desktopSidebarOpen
+  const navCollapsed = isDesktop && !desktopSidebarOpen
   const sidebarHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearSidebarHoverTimer = () => {
@@ -107,6 +111,14 @@ export function AppShell() {
   useEffect(() => () => clearSidebarHoverTimer(), [])
 
   useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const onChange = () => setIsDesktop(media.matches)
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
     clearSidebarHoverTimer()
     setMobileNavOpen(false)
     setSidebarPinned(false)
@@ -120,10 +132,9 @@ export function AppShell() {
     setSidebarHover(false)
   }
 
-  const leaveSidebarHover = (event: { relatedTarget: EventTarget | null; currentTarget: EventTarget | null }) => {
+  const leaveSidebarHover = (event: { relatedTarget: EventTarget | null; currentTarget: EventTarget & Node }) => {
     const next = event.relatedTarget
-    const root = event.currentTarget instanceof HTMLElement ? event.currentTarget.parentElement : null
-    if (next instanceof Node && root?.contains(next)) return
+    if (next instanceof Node && event.currentTarget.contains(next)) return
     scheduleSidebarHoverClose()
   }
 
@@ -186,72 +197,85 @@ export function AppShell() {
           onClick={closeSidebar}
         />
       ) : null}
-      <div
-        className={`fixed top-0 right-0 z-[70] h-full w-64 print:hidden max-lg:transition-transform max-lg:duration-300 ${
+      <aside
+        aria-hidden={!isDesktop && !mobileNavOpen}
+        className={`fixed top-0 right-0 z-[70] flex h-full flex-col overflow-x-hidden border-l border-outline-variant/80 bg-surface-container-lowest print:hidden max-lg:w-64 max-lg:transition-transform max-lg:duration-300 lg:transition-[width] lg:duration-300 ${
           printLayout ? 'hidden' : ''
         } ${mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'} ${
-          desktopSidebarOpen ? 'lg:pointer-events-auto' : 'lg:pointer-events-none'
+          desktopSidebarOpen ? 'lg:w-64 lg:shadow-lg' : 'lg:w-[4.5rem]'
         }`}
+        onMouseEnter={openSidebarHover}
+        onMouseLeave={leaveSidebarHover}
       >
-        <div
-          className="pointer-events-auto absolute top-14 right-0 bottom-0 z-10 hidden w-3 lg:block"
-          onMouseEnter={openSidebarHover}
-          onMouseLeave={leaveSidebarHover}
-        />
-        <aside
-          aria-hidden={!sidebarVisible}
-          className={`flex h-full w-64 flex-col border-l border-outline-variant/80 bg-surface-container-lowest shadow-lg transition-transform duration-300 ${
-            desktopSidebarOpen ? 'lg:pointer-events-auto lg:translate-x-0' : 'lg:pointer-events-none lg:translate-x-full'
-          }`}
-          onMouseEnter={openSidebarHover}
-          onMouseLeave={leaveSidebarHover}
-        >
-          <div className="flex min-h-0 flex-1 flex-col gap-xs p-md">
-            <div className="mb-md flex items-center gap-base rounded-xl bg-primary/5 p-sm">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-on-primary shadow-sm">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <Icon name="gps_fixed" filled size={22} className="no-flip" />
-                )}
-              </div>
+        <div className={`flex min-h-0 flex-1 flex-col gap-xs ${navCollapsed ? 'p-sm' : 'p-md'}`}>
+          <div
+            className={`mb-md flex items-center rounded-xl bg-primary/5 p-sm ${
+              navCollapsed ? 'justify-center' : 'gap-base'
+            }`}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-on-primary shadow-sm">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+              ) : (
+                <Icon name="gps_fixed" filled size={22} className="no-flip" />
+              )}
+            </div>
+            {!navCollapsed && (
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-base font-black text-primary">{orgName}</span>
               </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-              <SidebarNav entries={navEntries} user={user} />
-            </div>
-
-            {showPosShortcut && (
-              <NavLink
-                to="/pos"
-                className="relative mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90"
-              >
-                <Icon name="edit_document" className="no-flip" />
-                <span className="text-sm">تعاقد جديد</span>
-                {hasPosDraft && (
-                  <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-on-primary" title="مسودة غير مكتملة" />
-                )}
-              </NavLink>
             )}
           </div>
 
-          <div className="mt-auto flex flex-col gap-base border-t border-outline-variant p-md">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-base rounded-lg p-sm text-on-surface-variant transition-all hover:bg-surface-container-high"
-            >
-              <Icon name="logout" className="no-flip" />
-              <span className="text-sm">تسجيل الخروج</span>
-            </button>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <SidebarNav
+              entries={navEntries}
+              user={user}
+              collapsed={navCollapsed}
+              onExpand={() => {
+                openSidebarHover()
+                setSidebarPinned(true)
+              }}
+            />
           </div>
-        </aside>
-      </div>
 
-      <main className="flex h-full flex-grow flex-col overflow-y-auto scroll-pt-24 bg-background print:h-auto print:overflow-visible">
+          {showPosShortcut && (
+            <NavLink
+              to="/pos"
+              title="تعاقد جديد"
+              className={`relative mt-md flex items-center justify-center gap-xs rounded-xl bg-primary py-sm font-bold text-on-primary transition-opacity hover:opacity-90 ${
+                navCollapsed ? 'px-sm' : ''
+              }`}
+            >
+              <Icon name="edit_document" className="no-flip" />
+              {!navCollapsed && <span className="text-sm">تعاقد جديد</span>}
+              {hasPosDraft && (
+                <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-on-primary" title="مسودة غير مكتملة" />
+              )}
+            </NavLink>
+          )}
+        </div>
+
+        <div className={`mt-auto flex flex-col gap-base border-t border-outline-variant ${navCollapsed ? 'p-sm' : 'p-md'}`}>
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="تسجيل الخروج"
+            className={`flex items-center rounded-lg p-sm text-on-surface-variant transition-all hover:bg-surface-container-high ${
+              navCollapsed ? 'justify-center' : 'gap-base'
+            }`}
+          >
+            <Icon name="logout" className="no-flip" />
+            {!navCollapsed && <span className="text-sm">تسجيل الخروج</span>}
+          </button>
+        </div>
+      </aside>
+
+      <main
+        className={`flex h-full flex-grow flex-col overflow-y-auto scroll-pt-24 bg-background print:h-auto print:overflow-visible ${
+          printLayout ? '' : 'lg:mr-[4.5rem]'
+        }`}
+      >
         <div className={`sticky top-0 z-40 bg-surface print:hidden ${printLayout ? 'hidden' : ''}`}>
         <header className="flex w-full items-center justify-between gap-sm border-b border-outline-variant bg-surface px-margin py-base">
           <button

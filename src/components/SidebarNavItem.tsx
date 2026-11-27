@@ -43,6 +43,7 @@ export function SidebarNavItem({
     <NavLink
       to={navTo}
       end={item.end}
+      title={collapsed ? item.label : undefined}
       className={`flex items-center rounded-xl transition-all ${
         collapsed ? 'justify-center px-sm py-sm' : 'gap-base px-sm py-sm'
       } ${

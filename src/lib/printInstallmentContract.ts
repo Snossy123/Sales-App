@@ -18,21 +18,37 @@ function absolutizeCssUrls(css: string, origin: string): string {
   })
 }
 
-async function waitForAlMateen(doc: Document, timeoutMs = 1000): Promise<void> {
+async function waitForFont(
+  doc: Document,
+  font: string,
+  sample: string,
+  timeoutMs: number,
+): Promise<void> {
   const fonts = doc.fonts
   if (!fonts) return
 
-  await fonts.ready.catch(() => undefined)
+  await fonts.load(font, sample).catch(() => undefined)
 
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      if (fonts.check("700 12px 'AL Mateen'")) return
+      if (fonts.check(font, sample)) return
     } catch {
       return
     }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 50))
   }
+}
+
+async function waitForAlMateen(doc: Document, timeoutMs = 1000): Promise<void> {
+  const fonts = doc.fonts
+  if (!fonts) return
+  await fonts.ready.catch(() => undefined)
+  await waitForFont(doc, "700 12px 'AL Mateen'", 'عقد', timeoutMs)
+}
+
+async function waitForMaterialSymbols(doc: Document, timeoutMs = 1500): Promise<void> {
+  await waitForFont(doc, "500 22px 'Material Symbols Outlined'", 'description', timeoutMs)
 }
 
 async function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
@@ -49,6 +65,7 @@ async function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
   })
 
   await waitForAlMateen(doc)
+  await waitForMaterialSymbols(doc)
 
   const images = Array.from(doc.querySelectorAll<HTMLImageElement>('img'))
   await Promise.all(
@@ -81,6 +98,7 @@ function buildPrintDocument(contractHtml: string): string {
   <meta charset="UTF-8" />
   <base href="${origin}/" />
   <title>عقد تقسيط</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0" />
   <style>
     html, body {
       margin: 0 !important;
@@ -117,6 +135,31 @@ function buildPrintDocument(contractHtml: string): string {
     .ic-head-ar-main {
       font-size: 31.62pt !important;
       white-space: nowrap !important;
+    }
+    /* The contract face is bold and inherits onto icon ligatures. Without the
+       symbol font, names such as "description" print as text and spill off the sheet. */
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: 500 !important;
+      font-style: normal !important;
+      line-height: 1 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      white-space: nowrap !important;
+      direction: ltr !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 1em !important;
+      height: 1em !important;
+      overflow: hidden !important;
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24 !important;
+    }
+    .ic-ot-row-icon,
+    .ic-ot-card-badge,
+    .ic-ot-terms-icon {
+      overflow: hidden !important;
+      min-width: 0 !important;
     }
     @page {
       size: A4 portrait;
