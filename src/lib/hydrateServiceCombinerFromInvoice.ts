@@ -155,7 +155,10 @@ export function hydrateServiceCombinerFromInvoice(
         name: line.description ?? line.product_model?.name_ar ?? line.accessory_package?.name_ar ?? 'إكسسوار',
         quantity: qty,
         unitSellPrice: unitPrice,
-        line: serviceDraftFromLine(line, contractDate, minDownPercent),
+        line: {
+          ...serviceDraftFromLine(line, contractDate, minDownPercent),
+          paymentTerm,
+        },
       })
       continue
     }

@@ -16,7 +16,7 @@ import { Icon } from '../components/Icon'
 import { SalesPageShell } from '../components/SalesPageShell'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAuthStore } from '../stores/authStore'
-import { userCanPerform, userHasPermission } from '../lib/access'
+import { userCanPerform } from '../lib/access'
 import { contractSourceLabel, fmtInvoiceContractDateTime } from '../lib/contractFields'
 import { contractKindLabel } from '../lib/contractKinds'
 import {
