@@ -83,7 +83,7 @@ describe('buildRenewalCheckout', () => {
 })
 
 describe('buildOwnershipTransferCheckout', () => {
-  it('does not put the full shared down payment on every fee line', () => {
+  it('waterfalls shared down onto ownership first instead of every fee line', () => {
     const draft = emptyPosFlowDraft()
     draft.action = 'ownership_transfer'
     draft.selectedCustomer = {
@@ -133,10 +133,10 @@ describe('buildOwnershipTransferCheckout', () => {
 
     const feeLines = payload.lines.filter((line) => line.line_type === 'service')
     expect(feeLines).toHaveLength(3)
-    for (const line of feeLines) {
-      expect(line.installment_plan?.down_payment).toBe(0)
-      expect(line.installment_plan?.down_payment).not.toBe(500)
-    }
+    expect(feeLines[0].installment_plan?.down_payment).toBe(500)
+    expect(feeLines[0].installment_plan?.installment_amount).toBe(250)
+    expect(feeLines[1].installment_plan?.down_payment).toBe(0)
+    expect(feeLines[2].installment_plan?.down_payment).toBe(0)
   })
 })
 

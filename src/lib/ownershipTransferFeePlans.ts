@@ -114,30 +114,11 @@ function installmentLine(input: {
   }
 }
 
-function allocateProportionalDowns(
-  amounts: number[],
-  totalDown: number,
-): number[] {
-  const total = amounts.reduce((sum, n) => sum + n, 0)
-  if (total <= 0 || amounts.length === 0) {
-    return amounts.map(() => 0)
-  }
-  const cappedDown = Math.min(Math.max(0, totalDown), total)
-  const downs = amounts.map((amount, index) => {
-    if (index === amounts.length - 1) {
-      return 0
-    }
-    return round2((amount / total) * cappedDown)
-  })
-  const allocated = downs.reduce((sum, n) => sum + n, 0)
-  downs[downs.length - 1] = round2(cappedDown - allocated)
-  return downs
-}
-
 /**
  * Build per-line payment terms for ownership-transfer fee services.
- * Shared installment down payment is split proportionally across fee lines
- * (except the legacy disassembly path, which finances each line fully with zero down).
+ * Shared down payment is applied in waterfall order (ownership → subscription →
+ * uninstall → installation) so the financed remainder usually sits on one line
+ * as clean N×amount installments instead of proportional splits.
  */
 export function allocateOwnershipTransferFeePlans(
   input: AllocateOwnershipTransferFeePlansInput,
@@ -155,47 +136,18 @@ export function allocateOwnershipTransferFeePlans(
   }
 
   const count = Math.max(1, input.installmentCount || 1)
+  let remainingDown = round2(Math.max(0, input.downPayment))
 
-  if (input.includeDisassemblyAndAssembly) {
-    return entries.map((entry) =>
-      installmentLine({
-        key: entry.key,
-        amount: entry.amount,
-        downPayment: 0,
-        installmentCount: count,
-        intervalType: input.intervalType,
-        firstDueDate: input.firstDueDate,
-      }),
-    )
-  }
-
-  // Ownership-only (or single fee line): keep full down on that line.
-  if (entries.length === 1) {
-    return [
-      installmentLine({
-        key: entries[0].key,
-        amount: entries[0].amount,
-        downPayment: input.downPayment,
-        installmentCount: count,
-        intervalType: input.intervalType,
-        firstDueDate: input.firstDueDate,
-      }),
-    ]
-  }
-
-  const downs = allocateProportionalDowns(
-    entries.map((e) => e.amount),
-    input.downPayment,
-  )
-
-  return entries.map((entry, index) =>
-    installmentLine({
+  return entries.map((entry) => {
+    const lineDown = round2(Math.min(entry.amount, remainingDown))
+    remainingDown = round2(Math.max(0, remainingDown - lineDown))
+    return installmentLine({
       key: entry.key,
       amount: entry.amount,
-      downPayment: downs[index] ?? 0,
+      downPayment: lineDown,
       installmentCount: count,
       intervalType: input.intervalType,
       firstDueDate: input.firstDueDate,
-    }),
-  )
+    })
+  })
 }

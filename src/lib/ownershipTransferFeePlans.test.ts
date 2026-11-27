@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { allocateOwnershipTransferFeePlans } from './ownershipTransferFeePlans'
 
 describe('allocateOwnershipTransferFeePlans', () => {
-  it('splits shared down payment proportionally across ownership + subscription (screenshot case)', () => {
+  it('applies down payment waterfall so only one line carries 4 x 250 (screenshot case)', () => {
     const lines = allocateOwnershipTransferFeePlans({
-      fees: { ownership: 1000, subscription: 1150 },
+      fees: { ownership: 450, subscription: 1700 },
       includeDisassemblyAndAssembly: false,
       paymentTerm: 'installment',
       downPayment: 1150,
@@ -18,39 +18,40 @@ describe('allocateOwnershipTransferFeePlans', () => {
     const ownership = lines.find((l) => l.key === 'ownership')!
     const subscription = lines.find((l) => l.key === 'subscription')!
 
-    expect(ownership.amount).toBe(1000)
-    expect(subscription.amount).toBe(1150)
+    expect(ownership.paymentTerm).toBe('cash')
+    expect(ownership.installmentPlan).toBeUndefined()
 
-    expect(ownership.downPayment ?? 0).toBeLessThanOrEqual(ownership.amount)
-    expect(subscription.downPayment ?? 0).toBeLessThanOrEqual(subscription.amount)
+    expect(subscription.paymentTerm).toBe('installment')
+    expect(subscription.downPayment).toBe(700)
+    expect(subscription.installmentPlan).toMatchObject({
+      down_payment: 700,
+      installment_count: 4,
+      installment_amount: 250,
+      interval_type: 'weekly',
+      interval_days: 7,
+      first_due_date: '2026-12-04',
+    })
+  })
 
-    const totalDown =
-      (ownership.downPayment ?? 0) + (subscription.downPayment ?? 0)
-    expect(totalDown).toBeCloseTo(1150, 2)
+  it('waterfalls older ownership+subscription totals the same way (1000 + 1150)', () => {
+    const lines = allocateOwnershipTransferFeePlans({
+      fees: { ownership: 1000, subscription: 1150 },
+      includeDisassemblyAndAssembly: false,
+      paymentTerm: 'installment',
+      downPayment: 1150,
+      installmentCount: 4,
+      intervalType: 'weekly',
+      firstDueDate: '2026-12-04',
+    })
 
-    const financedLines = [ownership, subscription].filter(
-      (l) => l.paymentTerm === 'installment',
-    )
-    expect(financedLines.length).toBeGreaterThan(0)
+    const ownership = lines.find((l) => l.key === 'ownership')!
+    const subscription = lines.find((l) => l.key === 'subscription')!
 
-    for (const line of financedLines) {
-      expect(line.installmentPlan).toBeDefined()
-      const plan = line.installmentPlan!
-      const financed = line.amount - (line.downPayment ?? 0)
-      expect(financed).toBeGreaterThan(0.009)
-      expect(plan.down_payment).toBe(line.downPayment)
-      expect(plan.installment_count).toBe(4)
-      expect(plan.interval_type).toBe('weekly')
-      expect(plan.interval_days).toBe(7)
-      expect(plan.first_due_date).toBe('2026-12-04')
-      expect(plan.installment_amount).toBeCloseTo(financed / 4, 2)
-    }
-
-    const totalFinanced = financedLines.reduce(
-      (sum, l) => sum + (l.amount - (l.downPayment ?? 0)),
-      0,
-    )
-    expect(totalFinanced).toBeCloseTo(1000, 2)
+    expect(ownership.paymentTerm).toBe('cash')
+    expect(subscription.paymentTerm).toBe('installment')
+    expect(subscription.downPayment).toBe(150)
+    expect(subscription.installmentPlan?.installment_amount).toBe(250)
+    expect(subscription.installmentPlan?.installment_count).toBe(4)
   })
 
   it('keeps full down on ownership-only installment line', () => {
@@ -79,7 +80,7 @@ describe('allocateOwnershipTransferFeePlans', () => {
     })
   })
 
-  it('uses cash when a line is fully covered by its share of down payment', () => {
+  it('uses cash when down payment covers all fee lines', () => {
     const lines = allocateOwnershipTransferFeePlans({
       fees: { ownership: 1000, subscription: 1150 },
       includeDisassemblyAndAssembly: false,
@@ -94,7 +95,7 @@ describe('allocateOwnershipTransferFeePlans', () => {
     expect(lines.every((l) => l.installmentPlan === undefined)).toBe(true)
   })
 
-  it('finances each disassembly fee line fully with zero down (legacy path)', () => {
+  it('waterfalls shared down across ownership + disassembly fees', () => {
     const lines = allocateOwnershipTransferFeePlans({
       fees: {
         ownership: 1000,
@@ -116,15 +117,22 @@ describe('allocateOwnershipTransferFeePlans', () => {
       'installation',
     ])
 
-    for (const line of lines) {
-      expect(line.paymentTerm).toBe('installment')
-      expect(line.downPayment).toBe(0)
-      expect(line.installmentPlan).toMatchObject({
-        down_payment: 0,
-        installment_count: 2,
-        installment_amount: Math.round((line.amount / 2) * 100) / 100,
-      })
-    }
+    const ownership = lines[0]
+    expect(ownership.paymentTerm).toBe('installment')
+    expect(ownership.downPayment).toBe(500)
+    expect(ownership.installmentPlan).toMatchObject({
+      down_payment: 500,
+      installment_count: 2,
+      installment_amount: 250,
+    })
+
+    expect(lines[1].paymentTerm).toBe('installment')
+    expect(lines[1].downPayment).toBe(0)
+    expect(lines[1].installmentPlan?.installment_amount).toBe(100)
+
+    expect(lines[2].paymentTerm).toBe('installment')
+    expect(lines[2].downPayment).toBe(0)
+    expect(lines[2].installmentPlan?.installment_amount).toBe(150)
   })
 
   it('returns cash lines when payment term is cash', () => {
