@@ -20,6 +20,10 @@ import {
   resolveVehicleDistinctiveDetail,
 } from '../../lib/contractFields'
 import { contractKindLabel } from '../../lib/contractKinds'
+import {
+  resolveOwnershipTransferNewOwner,
+  resolveOwnershipTransferPreviousOwner,
+} from '../../lib/ownershipTransferContract'
 import { isServiceInvoiceLine, paymentTermLabel } from '../../lib/sales'
 import { CustomerAttachmentsSection } from '../customers/CustomerAttachmentsSection'
 import { DataTable } from '../DataTable'
@@ -425,7 +429,12 @@ function ContractKindReviewNotice({ invoice }: { invoice: SalesInvoice }) {
     const sourceInvoice =
       invoice.source_invoice ??
       (invoice as SalesInvoice & { sourceInvoice?: SalesInvoice }).sourceInvoice
-    const previousOwner = sourceInvoice?.customer
+    // After transfer, source_invoice.customer is the NEW owner — use the transfer record.
+    const previousOwner = resolveOwnershipTransferPreviousOwner(invoice)
+    const newOwner = resolveOwnershipTransferNewOwner(invoice)
+    const remainingOnSource =
+      invoice.ownership_transfer_record?.remaining_balance_at_transfer ??
+      sourceInvoice?.balance_due
 
     return (
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-md">
@@ -449,13 +458,20 @@ function ContractKindReviewNotice({ invoice }: { invoice: SalesInvoice }) {
               </dd>
             </div>
             <div>
+              <dt className="text-on-surface-variant">المالك الجديد</dt>
+              <dd className="font-medium">
+                {newOwner?.name ?? '—'}
+                {newOwner?.phone ? ` — ${newOwner.phone}` : ''}
+              </dd>
+            </div>
+            <div>
               <dt className="text-on-surface-variant">حالة السداد (الأصلي)</dt>
               <dd className="font-medium">{paymentTermLabel(sourceInvoice.payment_term)}</dd>
             </div>
             <div>
               <dt className="text-on-surface-variant">المتبقي على التعاقد الأصلي</dt>
               <dd className="font-medium tabular-nums">
-                {fmtContractMoney(sourceInvoice.balance_due)}
+                {fmtContractMoney(remainingOnSource)}
               </dd>
             </div>
           </dl>

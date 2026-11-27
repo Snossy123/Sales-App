@@ -92,7 +92,7 @@ export function ContractDetailPage() {
       const { data } = await api.get<SalesInvoice>(`/sales-invoices/${id}`, {
         params: {
           include:
-            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan.items,sourceInvoice.customer,paymentTransactions.user,paymentTransactions.installmentItem',
+            'customer.guarantors,branch,distributor,salesUser,lines,lines.productUnit,lines.service,lines.technician,lines.installmentPlan.items,sourceInvoice.customer,sourceInvoice.lines.installmentPlan.items,sourceInvoice.installmentPlans.items,ownershipTransferRecord.fromCustomer,ownershipTransferRecord.toCustomer,paymentTransactions.user,paymentTransactions.installmentItem',
         },
       })
       return data
