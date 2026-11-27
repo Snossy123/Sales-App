@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { Customer, CustomerContractDevice, SalesInvoice } from '../../api/types'
 import { formatContractMoney, ownershipTransferInstallmentSummary } from '../../lib/customerContracts'
@@ -10,11 +10,18 @@ import { PosSectionCard } from './PosSectionCard'
 import { normalizeScannedDigits } from '../../lib/scanner'
 import { posInputClass, posLabelClass } from './posFormStyles'
 import { CustomerCreateModal } from '../customers/CustomerCreateModal'
+import { CustomerLegacyDevicesFields } from '../customers/CustomerLegacyDevicesFields'
 import {
   contractDeviceLabel,
   DEVICE_ORIGIN_LABELS,
 } from '../services/CustomerContractDevicePicker'
 import { renewalTypeLabels } from '../../lib/contractFields'
+import {
+  emptyLegacyDeviceDraft,
+  legacyDevicesAreComplete,
+  registerCustomerLegacyDevices,
+  type LegacyDeviceDraft,
+} from '../../lib/customerLegacyDevices'
 
 export interface PosOwnershipTransferSectionProps {
   selectedSourceInvoice: SalesInvoice | null
@@ -62,6 +69,11 @@ export function PosOwnershipTransferSection({
   const [selectedPreviousOwner, setSelectedPreviousOwner] = useState<Customer | null>(null)
   const [addPreviousOwnerOpen, setAddPreviousOwnerOpen] = useState(false)
   const [resolvingDeviceInvoice, setResolvingDeviceInvoice] = useState(false)
+  const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>([emptyLegacyDeviceDraft()])
+  const [legacyShowErrors, setLegacyShowErrors] = useState(false)
+  const [legacyError, setLegacyError] = useState<string | null>(null)
+  const [savingLegacyDevice, setSavingLegacyDevice] = useState(false)
+  const queryClient = useQueryClient()
 
   const customersQuery = useQuery({
     queryKey: ['customers', 'ownership-transfer', previousOwnerSearch],
@@ -124,6 +136,12 @@ export function PosOwnershipTransferSection({
   const showDevicePicker = devices.length > 0 && !hasSource && Boolean(selectedPreviousOwner)
   const searching = sourceQuery.isFetching || devicesQuery.isFetching
 
+  const resetLegacyForm = () => {
+    setLegacyDevices([emptyLegacyDeviceDraft()])
+    setLegacyShowErrors(false)
+    setLegacyError(null)
+  }
+
   const clearSource = () => {
     onSourceInvoiceChange(null)
     onSourceDeviceChange?.(null)
@@ -166,6 +184,38 @@ export function PosOwnershipTransferSection({
     onSourceDeviceChange?.(device)
   }
 
+  const saveLegacyDevice = async () => {
+    if (!selectedPreviousOwner) return
+    setLegacyShowErrors(true)
+    if (!legacyDevicesAreComplete(legacyDevices)) return
+
+    setSavingLegacyDevice(true)
+    setLegacyError(null)
+    try {
+      const result = await registerCustomerLegacyDevices(selectedPreviousOwner.id, legacyDevices)
+      await queryClient.invalidateQueries({
+        queryKey: ['customers', selectedPreviousOwner.id, 'devices'],
+      })
+      await queryClient.invalidateQueries({ queryKey: ['sales-invoices', 'transfer-source'] })
+      const registered = result.registered[0]
+      if (result.error || !registered) {
+        setLegacyError(result.error ?? 'تعذر تسجيل الجهاز')
+        return
+      }
+      resetLegacyForm()
+      await selectDevice(registered)
+    } finally {
+      setSavingLegacyDevice(false)
+    }
+  }
+
+  const canCompleteDeviceData =
+    Boolean(selectedPreviousOwner) &&
+    !hasSource &&
+    !searching &&
+    invoices.length === 0 &&
+    devices.length === 0
+
   return (
     <PosSectionCard
       number={1}
@@ -183,6 +233,7 @@ export function PosOwnershipTransferSection({
             onChange={(customer) => {
               setSelectedPreviousOwner(customer)
               clearSource()
+              resetLegacyForm()
             }}
             onSearchChange={setPreviousOwnerSearch}
             getOptionValue={(c) => c.id}
@@ -283,13 +334,43 @@ export function PosOwnershipTransferSection({
 
       {!hasSource &&
         !searching &&
-        (serialSearch.trim().length >= 2 || selectedPreviousOwner) &&
+        !selectedPreviousOwner &&
+        serialSearch.trim().length >= 2 &&
         invoices.length === 0 &&
         devices.length === 0 && (
           <p className="rounded-lg border border-dashed border-outline-variant px-md py-sm text-sm text-on-surface-variant">
             لا توجد تعاقدات أو أجهزة متاحة لنقل الملكية
           </p>
         )}
+
+      {canCompleteDeviceData && (
+        <div className="space-y-sm">
+          <p className="text-sm text-on-surface-variant">
+            لا توجد تعاقدات أو أجهزة لهذا المالك. أكمل بيانات الجهاز ليُسجَّل ويُختار مصدرًا لنقل
+            الملكية.
+          </p>
+          <CustomerLegacyDevicesFields
+            enabled
+            onEnabledChange={() => undefined}
+            devices={legacyDevices}
+            onChange={setLegacyDevices}
+            showErrors={legacyShowErrors}
+            showToggle={false}
+            compact
+          />
+          {legacyError && <p className="text-sm text-error">{legacyError}</p>}
+          <button
+            type="button"
+            disabled={savingLegacyDevice}
+            onClick={() => {
+              void saveLegacyDevice()
+            }}
+            className="rounded-lg bg-primary px-md py-sm text-sm font-bold text-on-primary disabled:opacity-50"
+          >
+            {savingLegacyDevice ? 'جاري الحفظ…' : 'حفظ بيانات الجهاز'}
+          </button>
+        </div>
+      )}
 
       {selectedSourceInvoice && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-md">
@@ -398,10 +479,13 @@ export function PosOwnershipTransferSection({
       <CustomerCreateModal
         open={addPreviousOwnerOpen}
         onClose={() => setAddPreviousOwnerOpen(false)}
-        onCreated={(customer) => {
+        onCreated={(customer, devices) => {
           setPreviousOwnerSearch(customer.name)
           setSelectedPreviousOwner(customer)
           clearSource()
+          resetLegacyForm()
+          const device = devices?.[0]
+          if (device) void selectDevice(device)
         }}
       />
     </PosSectionCard>

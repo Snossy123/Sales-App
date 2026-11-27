@@ -181,7 +181,10 @@ function FitOneLine({
   )
 }
 
+const INSTALLMENT_ROWS_PER_COLUMN = 12
+
 function renderTableCol(rows: InstallmentTableCell[], startNumber: number, colKey: string) {
+  const padded = Array.from({ length: INSTALLMENT_ROWS_PER_COLUMN }, (_, index) => rows[index])
   return (
     <div key={colKey} className="ic-tcol">
       <div className="ic-trow ic-trow--head">
@@ -190,14 +193,14 @@ function renderTableCol(rows: InstallmentTableCell[], startNumber: number, colKe
         <span className="ic-tcell">المبلغ</span>
         <span className="ic-tcell">سداد</span>
       </div>
-      {rows.map((cell, index) => {
+      {padded.map((cell, index) => {
         const num = startNumber + index
         return (
           <div key={num} className="ic-trow">
             <span className="ic-tnum">{num}</span>
-            <span className="ic-tcell">{cell.due}</span>
-            <span className="ic-tcell">{cell.amount}</span>
-            <span className="ic-tcell">{cell.paid}</span>
+            <span className="ic-tcell">{cell?.due ?? ''}</span>
+            <span className="ic-tcell">{cell?.amount ?? ''}</span>
+            <span className="ic-tcell">{cell?.paid ?? ''}</span>
           </div>
         )
       })}
@@ -635,8 +638,11 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 <div className={`ic-table-grid ic-table-grid--cols-${tableCols}`}>
                   {Array.from({ length: tableCols }, (_, i) =>
                     renderTableCol(
-                      installmentRows.slice(i * 12, (i + 1) * 12),
-                      i * 12 + 1,
+                      installmentRows.slice(
+                        i * INSTALLMENT_ROWS_PER_COLUMN,
+                        (i + 1) * INSTALLMENT_ROWS_PER_COLUMN,
+                      ),
+                      i * INSTALLMENT_ROWS_PER_COLUMN + 1,
                       `installment-col-${i}`,
                     ),
                   )}

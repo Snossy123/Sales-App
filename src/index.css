@@ -80,34 +80,35 @@
 @layer base {
   html {
     font-family: var(--font-sans);
-    font-size: 14px;
+    /* Scale type with font-size, not zoom. CSS zoom on html mis-hits native checkboxes. */
+    font-size: calc(14px * var(--ui-zoom, 1));
   }
 
   /* الشاشات المتوسطة والأجهزة اللوحية */
   @media (min-width: 640px) {
     html {
-      font-size: 15px;
+      font-size: calc(15px * var(--ui-zoom, 1));
     }
   }
 
   /* أجهزة اللابتوب والشاشات المتوسطة */
   @media (min-width: 1024px) {
     html {
-      font-size: 16px;
+      font-size: calc(16px * var(--ui-zoom, 1));
     }
   }
 
   /* الشاشات الكبيرة والمكتبية */
   @media (min-width: 1440px) {
     html {
-      font-size: 17px;
+      font-size: calc(17px * var(--ui-zoom, 1));
     }
   }
 
   /* الشاشات الضخمة وشاشات الـ 4K ذات الدقة العالية */
   @media (min-width: 1920px) {
     html {
-      font-size: 18px;
+      font-size: calc(18px * var(--ui-zoom, 1));
     }
   }
 
@@ -314,4 +315,10 @@
 ::-webkit-scrollbar-thumb {
   background: #c1c6d6;
   border-radius: 10px;
+}
+
+@media print {
+  html {
+    --ui-zoom: 1 !important;
+  }
 }

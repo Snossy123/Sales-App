@@ -556,14 +556,14 @@
 }
 .ic-below .ic-alert-grid {
   flex: 0 0 auto;
-  min-height: 32mm;
+  min-height: 22mm;
   margin: 0;
 }
 .ic-below .ic-alert-box {
-  justify-content: space-evenly;
+  justify-content: center;
   font-size: 12pt;
-  line-height: 1.4;
-  padding: 1.6mm 2.2mm;
+  line-height: 1.15;
+  padding: 0.6mm 1.4mm;
 }
 .ic-below .ic-alert-box p {
   text-align: justify;
@@ -571,7 +571,7 @@
 }
 .ic-below .ic-alert-warn {
   font-size: 12.5pt;
-  margin: 0.6mm 0;
+  margin: 0.2mm 0;
 }
 .ic-below .ic-signatures {
   margin: 0;

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, getErrorMessage } from '../../api/client'
-import type { Customer } from '../../api/types'
+import type { Customer, CustomerContractDevice } from '../../api/types'
 import { Modal } from '../Modal'
 import { TextArea } from '../ui/TextArea'
 import { TextInput } from '../ui/TextInput'
@@ -33,7 +33,7 @@ const inputClass = 'w-full rounded border border-outline-variant px-sm py-2'
 interface CustomerCreateModalProps {
   open: boolean
   onClose: () => void
-  onCreated: (customer: Customer) => void
+  onCreated: (customer: Customer, devices?: CustomerContractDevice[]) => void
   startWithDevices?: boolean
 }
 
@@ -60,6 +60,8 @@ function CustomerCreateForm({
   const [isLegacyCustomer, setIsLegacyCustomer] = useState(startWithDevices)
   const [legacyDevices, setLegacyDevices] = useState<LegacyDeviceDraft[]>([emptyLegacyDeviceDraft()])
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [savedCustomer, setSavedCustomer] = useState<Customer | null>(null)
+  const [deviceError, setDeviceError] = useState<string | null>(null)
 
   const handleGuarantorModeChange = (next: boolean) => {
     setWithGuarantor(next)
@@ -68,29 +70,37 @@ function CustomerCreateForm({
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
-        ...form,
-        ...phoneEntriesToPayload(phones),
-        ...(branchId ? { branch_id: branchId } : {}),
+      let customer = savedCustomer
+      if (!customer) {
+        const payload: Record<string, unknown> = {
+          ...form,
+          ...phoneEntriesToPayload(phones),
+          ...(branchId ? { branch_id: branchId } : {}),
+        }
+        if (withGuarantor && hasGuarantorData(guarantor)) {
+          payload.guarantors = [guarantor]
+        }
+        const { data } = await api.post<Customer>('/customers', payload)
+        customer = data
+        if (pendingFiles.length > 0) {
+          await uploadCustomerAttachments(customer.id, pendingFiles)
+        }
       }
-      if (withGuarantor && hasGuarantorData(guarantor)) {
-        payload.guarantors = [guarantor]
+
+      if (!isLegacyCustomer) {
+        return { customer, devices: [] as CustomerContractDevice[], deviceError: null }
       }
-      const { data } = await api.post<Customer>('/customers', payload)
-      if (pendingFiles.length > 0) {
-        await uploadCustomerAttachments(data.id, pendingFiles)
-      }
-      if (isLegacyCustomer) {
-        await registerCustomerLegacyDevices(data.id, legacyDevices, {
-          afterCustomerCreate: true,
-        })
-      }
-      return { customer: data }
+
+      const result = await registerCustomerLegacyDevices(customer.id, legacyDevices)
+      return { customer, devices: result.registered, deviceError: result.error }
     },
-    onSuccess: ({ customer }) => {
+    onSuccess: ({ customer, devices, deviceError: nextDeviceError }) => {
+      setSavedCustomer(customer)
+      setDeviceError(nextDeviceError)
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       queryClient.invalidateQueries({ queryKey: ['customers', customer.id, 'devices'] })
-      onCreated(customer)
+      if (nextDeviceError) return
+      onCreated(customer, devices)
       onClose()
     },
   })
@@ -252,6 +262,9 @@ function CustomerCreateForm({
         {createMutation.isError && (
           <p className="text-sm text-error">{getErrorMessage(createMutation.error)}</p>
         )}
+        {deviceError && (
+          <p className="text-sm text-error">تم حفظ العميل. {deviceError}</p>
+        )}
 
         <div className="flex justify-end gap-sm">
           <button
@@ -266,7 +279,11 @@ function CustomerCreateForm({
             disabled={createMutation.isPending}
             className="rounded-lg bg-primary px-md py-2 text-sm font-bold text-on-primary disabled:opacity-50"
           >
-            {createMutation.isPending ? 'جاري الحفظ...' : 'حفظ العميل'}
+            {createMutation.isPending
+              ? 'جاري الحفظ...'
+              : savedCustomer && deviceError
+                ? 'إعادة تسجيل الجهاز'
+                : 'حفظ العميل'}
           </button>
         </div>
       </form>
