@@ -2,7 +2,14 @@ import { ContractPrintBorder } from '../contracts/ContractPrintBorder'
 import { ContractPrintHeader } from '../contracts/ContractPrintHeader'
 import type { CustodyVoucher, ProductUnit } from '../../api/types'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
+import { formatNumber } from '../../lib/format'
 import { formatVisitDate, inventoryBucketLabel, maintenanceVisitStatusLabel, productUnitDisplayCode, productUnitStateLabel } from '../../lib/inventoryBuckets'
+
+function formatMaintenanceAmount(value: ProductUnit['maintenance_amount']): string {
+  if (value == null || value === '') return '—'
+  const formatted = formatNumber(value)
+  return formatted === '—' ? '—' : `${formatted} ج.م`
+}
 
 function deviceInformation(unit: ProductUnit): Array<[string, string]> {
   const fields: Array<[string, string]> = [
@@ -21,10 +28,14 @@ function deviceInformation(unit: ProductUnit): Array<[string, string]> {
     ['حالة الصيانة', maintenanceVisitStatusLabel(unit)],
     ['تاريخ الدخول', formatVisitDate(unit.maintenance_entered_on)],
     ['تاريخ الخروج', formatVisitDate(unit.maintenance_exited_on)],
+    ['رسوم الصيانة', formatMaintenanceAmount(unit.maintenance_amount)],
+    ['ملاحظات الصيانة', unit.maintenance_notes?.trim() || '—'],
   )
   fields.push(['ملاحظات الجهاز', unit.notes?.trim() || '—'])
   return fields
 }
+
+const FULL_WIDTH_LABELS = new Set(['ملاحظات الجهاز', 'ملاحظات الصيانة'])
 
 export function DeviceInformation({ unit, print = false }: { unit: ProductUnit; print?: boolean }) {
   const fields = deviceInformation(unit)
@@ -32,7 +43,7 @@ export function DeviceInformation({ unit, print = false }: { unit: ProductUnit; 
     <tr key={label}><th scope="row">{label}</th><td><bdi>{value}</bdi></td></tr>
   ))}</tbody></table>
   return <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-lg border border-outline-variant bg-surface-container-low p-3 text-sm sm:grid-cols-2">
-    {fields.map(([label, value]) => <div key={label} className={label === 'ملاحظات الجهاز' ? 'sm:col-span-2' : ''}>
+    {fields.map(([label, value]) => <div key={label} className={FULL_WIDTH_LABELS.has(label) ? 'sm:col-span-2' : ''}>
       <dt className="text-xs text-on-surface-variant">{label}</dt>
       <dd className="whitespace-pre-wrap break-words font-medium"><bdi>{value}</bdi></dd>
     </div>)}

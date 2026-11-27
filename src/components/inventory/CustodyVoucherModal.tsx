@@ -4,11 +4,19 @@ import { api, getErrorMessage } from '../../api/client'
 import type { Customer, CustomerContractDevice, CustodyVoucher, Employee, PaginatedResponse, ProductUnit } from '../../api/types'
 import { useCheckoutPayment } from '../../hooks/useCheckoutPayment'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { buildMaintenanceBillingPaymentFields } from '../../lib/custodyMaintenancePayment'
 import { CUSTODY_BUCKET_OPTIONS } from '../../lib/inventoryBuckets'
 import { normalizeScannedDigits } from '../../lib/scanner'
+import { useOrgSettingsStore } from '../../stores/orgSettingsStore'
 import { CustodyVoucherDetails } from './CustodyVoucherDetails'
 import { CustomerCreateModal } from '../customers/CustomerCreateModal'
 import { CheckoutPaymentSection } from '../pos/CheckoutPaymentSection'
+import {
+  createDefaultServicePayment,
+  ServicePaymentSection,
+  validateServicePayment,
+  type ServicePaymentState,
+} from '../services/ServicePaymentSection'
 import { Modal } from '../Modal'
 
 interface CustodyVoucherModalProps {
@@ -50,6 +58,12 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const [savedVoucher, setSavedVoucher] = useState<CustodyVoucher | null>(null)
   const [showPaymentErrors, setShowPaymentErrors] = useState(false)
   const checkoutPayment = useCheckoutPayment()
+  const salesSettings = useOrgSettingsStore((s) => s.sales)
+  const minDownPercent = salesSettings?.min_down_payment_percent ?? 10
+  const maxInstallmentCount = salesSettings?.max_installment_months ?? 24
+  const [contractPayment, setContractPayment] = useState<ServicePaymentState>(() =>
+    createDefaultServicePayment(0, minDownPercent),
+  )
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300)
   const customerQuery = debouncedCustomerSearch.trim()
   const maintenanceAmount = Number(resolvedUnit?.maintenance_amount ?? 0)
@@ -64,6 +78,20 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
     [mode, recipientType, resolvedUnit, maintenanceAmount],
   )
   const checkoutPaymentError = checkoutPayment.paymentError(needsMaintenanceBilling)
+  const servicePaymentValidation = validateServicePayment(
+    contractPayment,
+    maintenanceAmount,
+    minDownPercent,
+    maxInstallmentCount,
+  )
+  const servicePaymentError = needsMaintenanceBilling && !servicePaymentValidation.valid
+    ? servicePaymentValidation.errors[0] ?? 'بيانات التقسيط غير صالحة'
+    : null
+
+  useEffect(() => {
+    if (!needsMaintenanceBilling) return
+    setContractPayment(createDefaultServicePayment(maintenanceAmount, minDownPercent))
+  }, [needsMaintenanceBilling, maintenanceAmount, minDownPercent, resolvedUnit?.id])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -219,6 +247,9 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
         payload.customer_id = customerId
       }
       Object.assign(payload, checkoutPayment.paymentPayload(needsMaintenanceBilling))
+      if (needsMaintenanceBilling) {
+        Object.assign(payload, buildMaintenanceBillingPaymentFields(contractPayment, maintenanceAmount))
+      }
       const { data } = await api.post<CustodyVoucher>('/inventory/custody/issue', payload)
       return data
     },
@@ -231,7 +262,7 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
   const handleSave = async () => {
     if (mode !== 'issue') { submitMutation.mutate(); return }
     if (!resolvedUnit || checkingOverdue || submitMutation.isPending) return
-    if (needsMaintenanceBilling && checkoutPaymentError) {
+    if (needsMaintenanceBilling && (checkoutPaymentError || servicePaymentError)) {
       setShowPaymentErrors(true)
       return
     }
@@ -560,6 +591,16 @@ function CustodyVoucherForm({ open, mode, branchId, onClose, onSuccess }: Custod
                 <p className="text-sm text-on-surface-variant">ملاحظات الصيانة</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-on-surface">{resolvedUnit.maintenance_notes}</p>
               </div>
+            ) : null}
+            <ServicePaymentSection
+              total={maintenanceAmount}
+              payment={contractPayment}
+              onChange={(patch) => setContractPayment((prev) => ({ ...prev, ...patch }))}
+              minDownPercent={minDownPercent}
+              maxInstallmentCount={maxInstallmentCount}
+            />
+            {showPaymentErrors && servicePaymentError ? (
+              <p role="alert" className="text-sm text-error">{servicePaymentError}</p>
             ) : null}
             <CheckoutPaymentSection
               payment={checkoutPayment}

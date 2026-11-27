@@ -574,6 +574,7 @@ export interface ProductUnit {
   maintenance_amount?: string | number | null
   maintenance_notes?: string | null
   maintenance_invoice_id?: number | null
+  maintenance_invoice?: { id: number; invoice_number?: string | null } | null
   product_model?: ProductModel
   warehouse?: Warehouse
 }
@@ -590,6 +591,8 @@ export interface CustodyVoucher {
   notes?: string | null
   created_by?: number
   created_at?: string | null
+  maintenance_invoice_id?: number | null
+  maintenance_invoice?: { id: number; invoice_number?: string | null } | null
   product_unit?: ProductUnit | null
   employee?: { id: number; name: string } | null
   customer?: { id: number; name: string; phone?: string } | null

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { CustodyVoucher } from '../../api/types'
 import { productUnitDisplayCode } from '../../lib/inventoryBuckets'
 import { formatDatetime12hDisplay } from '../../lib/datetime12h'
@@ -23,6 +24,19 @@ function DetailField({ label, value, mono = false }: { label: string; value: str
   )
 }
 
+function resolveMaintenanceContract(voucher: CustodyVoucher): {
+  id: number
+  label: string
+} | null {
+  const nested = voucher.maintenance_invoice ?? voucher.product_unit?.maintenance_invoice
+  const id = voucher.maintenance_invoice_id
+    ?? voucher.product_unit?.maintenance_invoice_id
+    ?? nested?.id
+  if (!id) return null
+  const label = nested?.invoice_number?.trim() || `#${id}`
+  return { id, label }
+}
+
 export function CustodyVoucherDetails({
   voucher,
   compact = false,
@@ -40,11 +54,26 @@ export function CustodyVoucherDetails({
     : '—'
   const notes = voucher.notes?.trim() ?? ''
   const hideNotes = compact && notes === (deviceNotes?.trim() ?? '')
+  const maintenanceContract = resolveMaintenanceContract(voucher)
 
   return (
     <div className="grid grid-cols-1 gap-sm text-sm sm:grid-cols-2">
       <DetailField label="رقم الإذن" value={voucher.voucher_number ?? '—'} />
       <DetailField label="النوع" value={voucherTypeLabel(voucher.type)} />
+      <div>
+        <p className="text-on-surface-variant">رقم العقد</p>
+        {maintenanceContract ? (
+          <Link
+            to={`/contracts/${maintenanceContract.id}`}
+            dir="ltr"
+            className="font-medium text-primary hover:underline"
+          >
+            {maintenanceContract.label}
+          </Link>
+        ) : (
+          <p className="font-medium">—</p>
+        )}
+      </div>
       <DetailField label="التاريخ والوقت" value={formatDatetime12hDisplay(voucher.created_at)} />
       {!compact && <DetailField label="السريال" value={unit ? productUnitDisplayCode(unit) : '—'} mono />}
       <DetailField label="اسم المستخدم" value={unit?.username?.trim() || '—'} />

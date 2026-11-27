@@ -146,6 +146,10 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
 
         <div className="sr-info-grid">
           <div className="sr-info-cell">
+            <span className="sr-info-label">رقم العقد :</span>
+            {dashedValue(invoice.invoice_number ?? '', { dir: 'ltr' })}
+          </div>
+          <div className="sr-info-cell">
             <span className="sr-info-label">اسم العميل :</span>
             {dashedValue(customer?.name ?? '')}
           </div>

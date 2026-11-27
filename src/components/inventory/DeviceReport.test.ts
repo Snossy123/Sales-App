@@ -8,6 +8,8 @@ const unit: ProductUnit = {
   id: 1, product_model_id: 1, imei: '12345', state: 'maintenance',
   username: 'user-123', sim_number: '01012345678', inventory_bucket: 'custody_maintenance',
   notes: 'ملاحظات الجهاز <script>alert(1)</script>',
+  maintenance_amount: 150,
+  maintenance_notes: 'تم تغيير باور <script>alert(2)</script>',
 }
 
 function render(vouchers: CustodyVoucher[]) {
@@ -38,5 +40,9 @@ describe('device report', () => {
     expect(html).toContain('&lt;script&gt;')
     expect(html).not.toContain('<script>')
     expect(html).toContain('حالة الصيانة')
+    expect(html).toContain('رسوم الصيانة')
+    expect(html).toContain('150 ج.م')
+    expect(html).toContain('ملاحظات الصيانة')
+    expect(html).toContain('تم تغيير باور')
   })
 })
