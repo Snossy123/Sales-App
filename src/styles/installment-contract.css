@@ -465,7 +465,7 @@
   gap: 1.4mm;
 }
 .ic-below .ic-terms {
-  font-size: 13.6pt;
+  font-size: 14.6pt;
   line-height: 1.22;
   margin: 0;
 }
@@ -803,13 +803,29 @@
 .ic-terms {
   font-family: 'AL Mateen', Arial, Helvetica, sans-serif;
   font-size: 14.5pt;
-  text-align: justify;
-  text-align-last: right;
   line-height: 1.24;
   font-weight: 700;
   margin: 0.6mm 0 0.9mm;
   padding: 0 0.5mm;
   hyphens: none;
+}
+.ic-terms-line {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: inherit;
+  font: inherit;
+  text-align: start;
+  min-height: 0;
+  background: transparent;
+}
+.ic-terms-line > span {
+  display: block;
+  width: 100%;
 }
 .ic-terms b {
   color: #000;
@@ -1557,19 +1573,24 @@
   flex-direction: column;
 }
 .ownership-transfer-contract .ic-ot-row {
-  display: flex;
+  /* Fixed label column keeps every value on the same vertical edge. */
+  display: grid;
+  grid-template-columns: 5.4mm 32mm minmax(0, 1fr);
   align-items: center;
-  gap: 1.6mm;
+  column-gap: 1.6mm;
   min-height: 6.6mm;
   padding: 1mm 2mm;
   background: #fff;
   font-size: 10.5pt;
 }
+.ownership-transfer-contract .ic-ot-device .ic-ot-row,
+.ownership-transfer-contract .ic-ot-financial .ic-ot-row {
+  grid-template-columns: 5.4mm 48mm minmax(0, 1fr);
+}
 .ownership-transfer-contract .ic-ot-row:nth-child(even) {
   background: #f8ecee;
 }
 .ownership-transfer-contract .ic-ot-row-icon {
-  flex: none;
   width: 5.4mm;
   height: 5.4mm;
   min-width: 0;
@@ -1588,9 +1609,8 @@
   color: #333;
 }
 .ownership-transfer-contract .ic-ot-row-value {
-  flex: 1;
   min-width: 0;
-  text-align: center;
+  text-align: start;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -1604,8 +1624,10 @@
 .ownership-transfer-contract .ic-ot-row--remaining .ic-ot-row-icon {
   background: #fff;
 }
+.ownership-transfer-contract .ic-ot-row--wide {
+  grid-template-columns: 5.4mm minmax(0, 1fr);
+}
 .ownership-transfer-contract .ic-ot-row--wide .ic-ot-row-label {
-  flex: 1;
   white-space: normal;
   text-align: center;
   font-weight: 700;

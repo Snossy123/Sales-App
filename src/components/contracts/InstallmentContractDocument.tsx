@@ -1,6 +1,14 @@
 import { ContractPrintBorder } from './ContractPrintBorder'
 import { ContractPrintFooter } from './ContractPrintFooter'
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import type { SalesInvoice } from '../../api/types'
 import {
   branchLabel,
@@ -109,18 +117,40 @@ function FitOneLine({
       const avail = box.clientWidth - padX
       if (avail <= 0 || !basePx) return
       const natural = text.getBoundingClientRect().width
+      const applySpread = (contentWidth: number, atPx: number) => {
+        const raw = text.textContent ?? ''
+        const spaces = (raw.match(/\s+/g) ?? []).length
+        const extra = avail - contentWidth
+        // Cap gaps so justified lines stay readable; leftover may stay at the end.
+        const maxGap = atPx * 0.22
+        setWordSpacingPx(spaces > 0 && extra > 0.5 ? Math.min(extra / spaces, maxGap) : undefined)
+        text.style.display = 'block'
+        text.style.flex = ''
+        text.style.width = '100%'
+        text.style.minWidth = ''
+      }
+
       if (natural <= avail) {
-        setFontPx(undefined) // fits at full size — let CSS own it
         if (spread) {
-          const raw = text.textContent ?? ''
-          const spaces = (raw.match(/\s+/g) ?? []).length
-          const extra = avail - natural
-          setWordSpacingPx(spaces > 0 && extra > 0.5 ? extra / spaces : undefined)
-          text.style.display = 'block'
-          text.style.flex = ''
-          text.style.width = '100%'
-          text.style.minWidth = ''
+          // Grow slightly toward the line width before spacing words.
+          const maxGrow = basePx * 1.03
+          let growPx = basePx
+          if (natural < avail * 0.97) {
+            growPx = Math.min(maxGrow, (basePx * avail) / natural * 0.985)
+            text.style.fontSize = `${growPx}px`
+            // Nudge down if growth overshoots.
+            let guard = 0
+            while (text.getBoundingClientRect().width > avail && growPx > basePx && guard < 40) {
+              growPx -= 0.4
+              text.style.fontSize = `${growPx}px`
+              guard++
+            }
+          }
+          const grew = growPx > basePx + 0.2
+          setFontPx(grew ? growPx : undefined)
+          applySpread(text.getBoundingClientRect().width, growPx)
         } else {
+          setFontPx(undefined)
           setWordSpacingPx(undefined)
           text.style.display = ''
           text.style.flex = ''
@@ -129,7 +159,6 @@ function FitOneLine({
         }
         return
       }
-      setWordSpacingPx(undefined)
       // Proportional first guess with a 1% safety margin, then verify & nudge down.
       let px = Math.max(MIN_PX, ((basePx * avail) / natural) * 0.99)
       text.style.fontSize = `${px}px`
@@ -139,11 +168,16 @@ function FitOneLine({
         text.style.fontSize = `${px}px`
         guard++
       }
-      text.style.display = spread ? 'block' : ''
-      text.style.flex = ''
-      text.style.width = spread ? '100%' : ''
-      text.style.minWidth = ''
       setFontPx(px)
+      if (spread) {
+        applySpread(text.getBoundingClientRect().width, px)
+      } else {
+        setWordSpacingPx(undefined)
+        text.style.display = ''
+        text.style.flex = ''
+        text.style.width = ''
+        text.style.minWidth = ''
+      }
     }
 
     fit()
@@ -180,6 +214,209 @@ function FitOneLine({
     </div>
   )
 }
+
+type TermsToken = { text: string; bold?: boolean }
+
+function balanceTermsTokens(tokens: TermsToken[], lineCount: number): TermsToken[][] {
+  if (tokens.length === 0 || lineCount < 1) return []
+  if (lineCount === 1) return [tokens]
+
+  const weights = tokens.map((token) => Math.max(1, token.text.length + 1))
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  const target = total / lineCount
+  const lines: TermsToken[][] = []
+  let current: TermsToken[] = []
+  let weight = 0
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]!
+    const tokenWeight = weights[index]!
+    const remainingLines = lineCount - lines.length
+    const remainingTokens = tokens.length - index
+    const wouldOverflow = current.length > 0 && weight + tokenWeight > target * 1.05
+
+    if (wouldOverflow && remainingLines > 1 && remainingTokens >= remainingLines) {
+      lines.push(current)
+      current = []
+      weight = 0
+    }
+
+    current.push(token)
+    weight += tokenWeight
+  }
+
+  if (current.length) lines.push(current)
+
+  while (lines.length > lineCount) {
+    const last = lines.pop()!
+    lines[lines.length - 1]!.push(...last)
+  }
+
+  return lines
+}
+
+function renderTermsTokens(tokens: TermsToken[]): ReactNode {
+  return tokens.map((token, index) => (
+    <Fragment key={`${token.text}-${index}`}>
+      {index > 0 ? ' ' : null}
+      {token.bold ? <b>{token.text}</b> : token.text}
+    </Fragment>
+  ))
+}
+
+/** Split fixed contract terms across N lines and spread each line to full width. */
+function FitJustifiedTerms({
+  className,
+  tokens,
+  lineCount,
+}: {
+  className?: string
+  tokens: TermsToken[]
+  lineCount: number
+}) {
+  const lines = useMemo(() => balanceTermsTokens(tokens, lineCount), [tokens, lineCount])
+
+  return (
+    <div className={className}>
+      {lines.map((line, index) => (
+        <FitOneLine key={index} className="ic-terms-line" spread>
+          {renderTermsTokens(line)}
+        </FitOneLine>
+      ))}
+    </div>
+  )
+}
+
+const INSTALLMENT_TERMS_TOKENS: TermsToken[] = [
+  { text: 'الرجاء' },
+  { text: 'الالتزام' },
+  { text: 'بسداد' },
+  { text: 'الأقساط' },
+  { text: 'المستحقة' },
+  { text: 'دفعها' },
+  { text: 'في' },
+  { text: 'الموعد' },
+  { text: 'المحدد' },
+  { text: 'لتجنب' },
+  { text: 'فرض' },
+  { text: 'غرامة' },
+  { text: '10 جنيهات', bold: true },
+  { text: 'لكل' },
+  { text: 'يوم' },
+  { text: 'تأخير،' },
+  { text: 'وفي' },
+  { text: 'حالة' },
+  { text: 'تأخير' },
+  { text: 'دفع' },
+  { text: 'القسط' },
+  { text: 'ثلاثة أيام', bold: true },
+  { text: 'فسوف' },
+  { text: 'يتم' },
+  { text: 'فقد' },
+  { text: 'إشارة' },
+  { text: 'الجهاز' },
+  { text: 'أو' },
+  { text: 'تعطيل' },
+  { text: 'المركبة.' },
+  { text: 'وفي' },
+  { text: 'حالة' },
+  { text: 'استرجاع' },
+  { text: 'الجهاز' },
+  { text: 'للشركة' },
+  { text: 'يلتزم' },
+  { text: 'العميل' },
+  { text: 'بدفع' },
+  { text: '25%', bold: true },
+  { text: 'من' },
+  { text: 'قيمة' },
+  { text: 'الجهاز' },
+  { text: 'كاش' },
+  { text: 'ويتم' },
+  { text: 'دفع' },
+  { text: '350', bold: true },
+  { text: 'سوفت' },
+  { text: 'وير' },
+  { text: 'ويتم' },
+  { text: 'دفع' },
+  { text: '150', bold: true },
+  { text: 'جنية' },
+  { text: 'رسوم' },
+  { text: 'فك' },
+  { text: 'ويطبق' },
+  { text: 'نسبة' },
+  { text: 'الفوائد' },
+  { text: '200', bold: true },
+  { text: 'جنية' },
+  { text: 'لكل' },
+  { text: 'شهر' },
+  { text: 'مع' },
+  { text: 'دفع' },
+  { text: 'حق' },
+  { text: 'أي' },
+  { text: 'اجزاء' },
+  { text: 'تالفة' },
+  { text: 'للجهاز،' },
+  { text: 'ولا' },
+  { text: 'يحق' },
+  { text: 'للعميل' },
+  { text: 'استرجاع' },
+  { text: 'الجهاز' },
+  { text: 'بعد' },
+  { text: 'مرور' },
+  { text: '29 يوم', bold: true },
+]
+
+const CASH_TERMS_TOKENS: TermsToken[] = [
+  { text: 'في' },
+  { text: 'حالة' },
+  { text: 'إسترجاع' },
+  { text: 'الجهاز' },
+  { text: 'للشركة' },
+  { text: 'يلتزم' },
+  { text: 'العميل' },
+  { text: 'بدفع' },
+  { text: '25%', bold: true },
+  { text: 'من' },
+  { text: 'سعر' },
+  { text: 'الجهاز' },
+  { text: 'رسوم' },
+  { text: 'فتح' },
+  { text: 'الإشتراك' },
+  { text: 'ويتم' },
+  { text: 'دفع' },
+  { text: '575', bold: true },
+  { text: 'سوفت' },
+  { text: 'وير' },
+  { text: 'للجهاز' },
+  { text: 'ويتم' },
+  { text: 'دفع' },
+  { text: '200', bold: true },
+  { text: 'جنية' },
+  { text: 'رسوم' },
+  { text: 'فك' },
+  { text: 'ويطبق' },
+  { text: 'نسبة' },
+  { text: 'الفوائد' },
+  { text: '250', bold: true },
+  { text: 'جنية' },
+  { text: 'لكل' },
+  { text: 'شهر' },
+  { text: 'مع' },
+  { text: 'دفع' },
+  { text: 'حق' },
+  { text: 'أي' },
+  { text: 'أجزاء' },
+  { text: 'تالفة' },
+  { text: 'للجهاز' },
+  { text: 'ولا' },
+  { text: 'يحق' },
+  { text: 'للعميل' },
+  { text: 'إسترجاع' },
+  { text: 'الجهاز' },
+  { text: 'بعد' },
+  { text: 'مرور' },
+  { text: '14 يوم', bold: true },
+]
 
 const INSTALLMENT_ROWS_PER_COLUMN = 12
 
@@ -524,12 +761,7 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
                 </span>
               </div>
 
-              <div className="ic-terms">
-                في حالة إسترجاع الجهاز للشركة يلتزم العميل بدفع <b>25%</b> من سعر الجهاز رسوم فتح
-                الإشتراك ويتم دفع <b>575</b> سوفت وير للجهاز ويتم دفع <b>200</b> جنية رسوم فك ويطبق نسبة
-                الفوائد <b>250</b> جنية لكل شهر مع دفع حق أي أجزاء تالفة للجهاز ولا يحق للعميل إسترجاع
-                الجهاز بعد مرور <b>14 يوم</b>
-              </div>
+              <FitJustifiedTerms className="ic-terms" tokens={CASH_TERMS_TOKENS} lineCount={3} />
 
               <FitOneLine className="ic-warning ic-warning--line">
                 برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد
@@ -708,14 +940,11 @@ export function InstallmentContractDocument({ invoice, lineId }: InstallmentCont
               </div>
             </div>
 
-            <div className="ic-terms">
-              الرجاء الالتزام بسداد الأقساط المستحقة دفعها في الموعد المحدد لتجنب فرض غرامة{' '}
-              <b>10 جنيهات</b> لكل يوم تأخير، وفي حالة تأخير دفع القسط <b>ثلاثة أيام</b> فسوف يتم فقد
-              إشارة الجهاز أو تعطيل المركبة. وفي حالة استرجاع الجهاز للشركة يلتزم العميل بدفع{' '}
-              <b>25%</b> من قيمة الجهاز كاش ويتم دفع <b>350</b> سوفت وير ويتم دفع <b>150</b> جنية رسوم
-              فك ويطبق نسبة الفوائد <b>200</b> جنية لكل شهر مع دفع حق أي اجزاء تالفة للجهاز، ولا يحق
-              للعميل استرجاع الجهاز بعد مرور <b>29 يوم</b>
-            </div>
+            <FitJustifiedTerms
+              className="ic-terms"
+              tokens={INSTALLMENT_TERMS_TOKENS}
+              lineCount={4}
+            />
 
             <FitOneLine className="ic-warning ic-warning--line">
               برجاء الإلتزام بشحن الباقة السنوية أو الشهرية الخاصة بالشريحة لتجنب إيقاف الشريحة وفقد
