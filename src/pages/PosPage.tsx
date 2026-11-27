@@ -80,6 +80,7 @@ import {
   ownershipTransferLifetimeUpgradeAmount,
   resolveGpsUnitPrice,
 } from '../lib/gpsProductPricing'
+import { allocateOwnershipTransferFeePlans } from '../lib/ownershipTransferFeePlans'
 import { isAtOrBelowMinStock, minStockWarningMessage } from '../lib/minStock'
 import { InsightBanner } from '../components/InsightBanner'
 import { PosDevicesToolbar } from '../components/pos/PosDevicesToolbar'
@@ -1805,135 +1806,80 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
     }
 
     if (contractKind === 'ownership_transfer') {
-      const transferCount = Math.max(1, transferInstallmentCount || 1)
-      const transferFinanced = Math.max(0, transferServicesTotal - transferDownPayment)
-      const transferInstallmentAmount =
-        Math.round((transferFinanced / transferCount) * 100) / 100
+      const allocatedFeeLines = allocateOwnershipTransferFeePlans({
+        fees: {
+          ownership: ownershipFeeAmount,
+          subscription: subscriptionUpgradeAmount,
+          uninstall: uninstallFeeAmount,
+          installation: installationFeeAmount,
+        },
+        includeDisassemblyAndAssembly: transferIncludeDisassemblyAndAssembly,
+        paymentTerm: transferPaymentTerm,
+        downPayment: transferDownPayment,
+        installmentCount: transferInstallmentCount,
+        intervalType: transferIntervalType,
+        firstDueDate: transferFirstDueDate,
+      })
 
-      const transferServiceInstallmentPlan = (
-        lineAmount: number,
-        applyDownPayment: boolean,
-      ): CheckoutPayload['lines'][number]['installment_plan'] => {
-        if (transferPaymentTerm !== 'installment') {
-          return undefined
+      const feeLineMeta: Record<
+        (typeof allocatedFeeLines)[number]['key'],
+        {
+          serviceId?: number
+          description: string
+          serviceCategory: string
         }
-        let installmentAmount = transferInstallmentAmount
-        let downPayment = applyDownPayment ? transferDownPayment : 0
-        if (transferIncludeDisassemblyAndAssembly) {
-          installmentAmount = Math.round((lineAmount / transferCount) * 100) / 100
-          downPayment = 0
-        } else if (subscriptionUpgradeAmount > 0) {
-          installmentAmount =
-            transferServicesTotal > 0
-              ? Math.round(
-                  ((lineAmount / transferServicesTotal) * transferFinanced) / transferCount * 100,
-                ) / 100
-              : Math.round((lineAmount / transferCount) * 100) / 100
-          downPayment = applyDownPayment ? transferDownPayment : 0
-        }
-        return {
-          installment_count: transferCount,
-          installment_amount: installmentAmount,
-          down_payment: downPayment,
-          interval_type: transferIntervalType,
-          interval_days: transferIntervalType === 'weekly' ? 7 : 30,
-          first_due_date: transferFirstDueDate,
-        }
-      }
-
-      if (ownershipFeeAmount > 0) {
-        lines.push({
-          line_type: 'service',
-          service_id: ownershipTransferService?.id,
+      > = {
+        ownership: {
+          serviceId: ownershipTransferService?.id,
           description:
             ownershipTransferService?.name_ar ||
             ownershipTransferService?.name ||
             'رسوم نقل ملكية',
-          service_category: 'ownership_transfer',
-          quantity: 1,
-          unit_price: ownershipFeeAmount,
-          payment_term: transferPaymentTerm,
-          cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
-          down_payment:
-            transferPaymentTerm === 'installment' &&
-            !transferIncludeDisassemblyAndAssembly
-              ? transferDownPayment
-              : undefined,
-          installment_plan: transferServiceInstallmentPlan(ownershipFeeAmount, true),
-        })
-      }
-
-      if (subscriptionUpgradeAmount > 0) {
-        lines.push({
-          line_type: 'service',
-          service_id: subscriptionLifetimeService?.id,
+          serviceCategory: 'ownership_transfer',
+        },
+        subscription: {
+          serviceId: subscriptionLifetimeService?.id,
           description:
             subscriptionLifetimeService?.name_ar ||
             subscriptionLifetimeService?.name ||
             'ترقية اشتراك مدى الحياة',
-          service_category: 'subscription',
-          quantity: 1,
-          unit_price: subscriptionUpgradeAmount,
-          payment_term: transferPaymentTerm,
-          cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
-          installment_plan: transferServiceInstallmentPlan(subscriptionUpgradeAmount, false),
-        })
+          serviceCategory: 'subscription',
+        },
+        uninstall: {
+          serviceId: uninstallService?.id,
+          description:
+            uninstallService?.name_ar || uninstallService?.name || 'رسوم فك',
+          serviceCategory: 'uninstall',
+        },
+        installation: {
+          serviceId: installationServiceForTransfer?.id,
+          description:
+            installationServiceForTransfer?.name_ar ||
+            installationServiceForTransfer?.name ||
+            'رسوم تركيب',
+          serviceCategory: 'installation',
+        },
       }
 
-      if (transferIncludeDisassemblyAndAssembly) {
-        if (uninstallFeeAmount > 0) {
-          lines.push({
-            line_type: 'service',
-            service_id: uninstallService?.id,
-            description:
-              uninstallService?.name_ar || uninstallService?.name || 'رسوم فك',
-            service_category: 'uninstall',
-            quantity: 1,
-            unit_price: uninstallFeeAmount,
-            payment_term: transferPaymentTerm,
-            cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
-            installment_plan:
-              transferPaymentTerm === 'installment'
-                ? {
-                    installment_count: transferCount,
-                    installment_amount:
-                      Math.round((uninstallFeeAmount / transferCount) * 100) / 100,
-                    down_payment: 0,
-                    interval_type: transferIntervalType,
-                    interval_days: transferIntervalType === 'weekly' ? 7 : 30,
-                    first_due_date: transferFirstDueDate,
-                  }
-                : undefined,
-          })
-        }
-
-        if (installationFeeAmount > 0) {
-          lines.push({
-            line_type: 'service',
-            service_id: installationServiceForTransfer?.id,
-            description:
-              installationServiceForTransfer?.name_ar ||
-              installationServiceForTransfer?.name ||
-              'رسوم تركيب',
-            service_category: 'installation',
-            quantity: 1,
-            unit_price: installationFeeAmount,
-            payment_term: transferPaymentTerm,
-            cash_schedule: transferPaymentTerm === 'cash' ? 'immediate' : undefined,
-            installment_plan:
-              transferPaymentTerm === 'installment'
-                ? {
-                    installment_count: transferCount,
-                    installment_amount:
-                      Math.round((installationFeeAmount / transferCount) * 100) / 100,
-                    down_payment: 0,
-                    interval_type: transferIntervalType,
-                    interval_days: transferIntervalType === 'weekly' ? 7 : 30,
-                    first_due_date: transferFirstDueDate,
-                  }
-                : undefined,
-          })
-        }
+      for (const feeLine of allocatedFeeLines) {
+        const meta = feeLineMeta[feeLine.key]
+        lines.push({
+          line_type: 'service',
+          service_id: meta.serviceId,
+          description: meta.description,
+          service_category: meta.serviceCategory,
+          quantity: 1,
+          unit_price: feeLine.amount,
+          payment_term: feeLine.paymentTerm,
+          cash_schedule:
+            feeLine.paymentTerm === 'cash' ? 'immediate' : undefined,
+          down_payment:
+            feeLine.paymentTerm === 'installment' &&
+            !transferIncludeDisassemblyAndAssembly
+              ? feeLine.downPayment
+              : undefined,
+          installment_plan: feeLine.installmentPlan,
+        })
       }
     }
 

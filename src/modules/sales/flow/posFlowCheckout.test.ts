@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createDeviceLine } from '../../../components/pos/DeviceLineCard'
 import { createServiceLine } from '../../../components/services/ServiceLineCard'
-import { buildRenewalCheckout, buildServiceCheckout, detailsReady } from './posFlowCheckout'
+import {
+  buildOwnershipTransferCheckout,
+  buildRenewalCheckout,
+  buildServiceCheckout,
+  detailsReady,
+} from './posFlowCheckout'
 import { emptyPosFlowDraft } from './posFlowTypes'
 
 describe('buildRenewalCheckout', () => {
@@ -74,6 +79,64 @@ describe('buildRenewalCheckout', () => {
     })
 
     expect(errors).toContain('اختار الجهاز أو سجّله وربطه بالعميل')
+  })
+})
+
+describe('buildOwnershipTransferCheckout', () => {
+  it('does not put the full shared down payment on every fee line', () => {
+    const draft = emptyPosFlowDraft()
+    draft.action = 'ownership_transfer'
+    draft.selectedCustomer = {
+      id: 1,
+      name: 'Test customer',
+      phone: '01000000000',
+      status: 'active',
+    }
+    draft.transferPaymentTerm = 'installment'
+    draft.transferDownPayment = 500
+    draft.transferInstallmentCount = 2
+    draft.transferIncludeDisassemblyAndAssembly = true
+    draft.transferOwnershipFeeAmount = 1000
+    draft.transferUninstallFeeAmount = 200
+    draft.transferInstallationFeeAmount = 300
+
+    const payload = buildOwnershipTransferCheckout(draft, {
+      contextBranchId: 1,
+      maxInstallmentCount: 12,
+      services: [
+        {
+          id: 10,
+          name: 'Ownership',
+          name_ar: 'رسوم نقل ملكية',
+          category: 'ownership_transfer',
+          default_price: 1000,
+          is_active: true,
+        },
+        {
+          id: 11,
+          name: 'Uninstall',
+          name_ar: 'رسوم فك',
+          category: 'uninstall',
+          default_price: 200,
+          is_active: true,
+        },
+        {
+          id: 12,
+          name: 'Installation',
+          name_ar: 'رسوم تركيب',
+          category: 'installation',
+          default_price: 300,
+          is_active: true,
+        },
+      ],
+    })
+
+    const feeLines = payload.lines.filter((line) => line.line_type === 'service')
+    expect(feeLines).toHaveLength(3)
+    for (const line of feeLines) {
+      expect(line.installment_plan?.down_payment).toBe(0)
+      expect(line.installment_plan?.down_payment).not.toBe(500)
+    }
   })
 })
 

@@ -5,6 +5,7 @@ import {
   validateDeviceLine,
 } from '../../../components/pos/DeviceLineCard'
 import { cashLineCheckoutFields, linePaidNow } from '../../../lib/cashSchedule'
+import { allocateOwnershipTransferFeePlans } from '../../../lib/ownershipTransferFeePlans'
 import { computeInstallmentCount } from '../../../lib/sales'
 import { isRenewalSourceReady } from '../../../lib/posRenewalSource'
 import { validateServicePayment } from '../../../components/services/ServicePaymentSection'
@@ -192,12 +193,7 @@ export function buildOwnershipTransferCheckout(
   input: { contextBranchId: number | null; maxInstallmentCount: number; services?: Service[] },
 ): CheckoutPayload {
   const paymentTerm = draft.transferPaymentTerm ?? 'cash'
-  const downPayment = draft.transferDownPayment ?? 0
-  const installmentCount = Math.max(1, draft.transferInstallmentCount ?? 1)
-  const intervalType = draft.transferIntervalType ?? 'monthly'
-  const firstDueDate = draft.transferFirstDueDate ?? new Date().toISOString().split('T')[0]
-
-  // Resolve service IDs from services list
+  const includeDisassembly = draft.transferIncludeDisassemblyAndAssembly ?? false
   const findService = (category: string) =>
     input.services?.find((s) => s.category === category)
 
@@ -205,42 +201,79 @@ export function buildOwnershipTransferCheckout(
   const uninstallSvc = findService('uninstall')
   const installationSvc = findService('installation')
 
-  // Helper to build a single service line
-  const buildServiceLine = (
-    svc: Service,
-  ): NonNullable<CheckoutPayload['lines']>[number] => {
-    const lineTotal = Number(svc.default_price) || 0
-    const baseLine = {
-      line_type: 'service' as const,
-      service_id: svc.id,
-      unit_price: lineTotal,
-      payment_term: paymentTerm,
-    }
-    if (paymentTerm === 'installment' && lineTotal > 0) {
-      const financedAmount = Math.max(0, lineTotal - downPayment)
-      const installmentAmount = Math.round((financedAmount / installmentCount) * 100) / 100
-      return {
-        ...baseLine,
-        installment_plan: {
-          down_payment: downPayment,
-          installment_amount: installmentAmount,
-          installment_count: installmentCount,
-          interval_type: intervalType,
-          interval_days: intervalType === 'weekly' ? 7 : 30,
-          first_due_date: firstDueDate,
-        },
-      }
-    }
-    return { ...baseLine, cash_schedule: 'immediate' as const }
+  const ownershipAmount =
+    draft.transferOwnershipFeeAmount ??
+    (ownershipSvc ? Number(ownershipSvc.default_price) || 0 : 0)
+  const uninstallAmount =
+    draft.transferUninstallFeeAmount ??
+    (uninstallSvc ? Number(uninstallSvc.default_price) || 0 : 0)
+  const installationAmount =
+    draft.transferInstallationFeeAmount ??
+    (installationSvc ? Number(installationSvc.default_price) || 0 : 0)
+
+  const allocatedFeeLines = allocateOwnershipTransferFeePlans({
+    fees: {
+      ownership: ownershipAmount,
+      uninstall: uninstallAmount,
+      installation: installationAmount,
+    },
+    includeDisassemblyAndAssembly: includeDisassembly,
+    paymentTerm,
+    downPayment: draft.transferDownPayment ?? 0,
+    installmentCount: Math.max(1, draft.transferInstallmentCount ?? 1),
+    intervalType: draft.transferIntervalType ?? 'monthly',
+    firstDueDate:
+      draft.transferFirstDueDate ?? new Date().toISOString().split('T')[0],
+  })
+
+  const feeMeta: Record<
+    (typeof allocatedFeeLines)[number]['key'],
+    { serviceId?: number; description: string; serviceCategory: string }
+  > = {
+    ownership: {
+      serviceId: ownershipSvc?.id,
+      description:
+        ownershipSvc?.name_ar || ownershipSvc?.name || 'رسوم نقل ملكية',
+      serviceCategory: 'ownership_transfer',
+    },
+    subscription: {
+      serviceId: undefined,
+      description: 'ترقية اشتراك مدى الحياة',
+      serviceCategory: 'subscription',
+    },
+    uninstall: {
+      serviceId: uninstallSvc?.id,
+      description: uninstallSvc?.name_ar || uninstallSvc?.name || 'رسوم فك',
+      serviceCategory: 'uninstall',
+    },
+    installation: {
+      serviceId: installationSvc?.id,
+      description:
+        installationSvc?.name_ar || installationSvc?.name || 'رسوم تركيب',
+      serviceCategory: 'installation',
+    },
   }
 
-  // Build transfer fee lines
-  const transferServiceLines: NonNullable<CheckoutPayload['lines']> = []
-  if (ownershipSvc) transferServiceLines.push(buildServiceLine(ownershipSvc))
-  if (draft.transferIncludeDisassemblyAndAssembly) {
-    if (uninstallSvc) transferServiceLines.push(buildServiceLine(uninstallSvc))
-    if (installationSvc) transferServiceLines.push(buildServiceLine(installationSvc))
-  }
+  const transferServiceLines: NonNullable<CheckoutPayload['lines']> =
+    allocatedFeeLines.map((feeLine) => {
+      const meta = feeMeta[feeLine.key]
+      return {
+        line_type: 'service' as const,
+        service_id: meta.serviceId,
+        description: meta.description,
+        service_category: meta.serviceCategory,
+        quantity: 1,
+        unit_price: feeLine.amount,
+        payment_term: feeLine.paymentTerm,
+        cash_schedule:
+          feeLine.paymentTerm === 'cash' ? ('immediate' as const) : undefined,
+        down_payment:
+          feeLine.paymentTerm === 'installment' && !includeDisassembly
+            ? feeLine.downPayment
+            : undefined,
+        installment_plan: feeLine.installmentPlan,
+      }
+    })
 
   return {
     customer_id: draft.selectedCustomer!.id,
