@@ -9,6 +9,7 @@ import {
   lineFinancialSummary,
   linePaymentDisplay,
   planIsSharedAcrossLines,
+  resolveInstallmentPaidAt,
 } from './contractFields'
 
 describe('displayPersonName', () => {
@@ -57,6 +58,38 @@ describe('installment table sizing', () => {
 
     expect(row?.due).toBe('1/10/2026')
     expect(row?.paid).toBe('15/10/2026')
+  })
+
+  it('resolveInstallmentPaidAt falls back to payment_transactions when paid_at is null', () => {
+    const item = makeItem(101, 2000, 2000)
+    item.paid_at = null
+    const invoice = makeInvoice([makeLine(1, 2000, 'installment', makePlan(11, 1, 0, [item]))], {
+      payment_transactions: [
+        {
+          id: 1,
+          installment_item_id: 101,
+          amount: 2000,
+          status: 'completed',
+          paid_at: '2026-10-12',
+        },
+        {
+          id: 2,
+          installment_item_id: 101,
+          amount: 2000,
+          status: 'completed',
+          paid_at: '2026-10-15',
+        },
+        {
+          id: 3,
+          installment_item_id: 101,
+          amount: 2000,
+          status: 'refunded',
+          paid_at: '2026-10-20',
+        },
+      ],
+    })
+
+    expect(resolveInstallmentPaidAt(item, invoice)).toBe('2026-10-15')
   })
 })
 

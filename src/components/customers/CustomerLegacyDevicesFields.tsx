@@ -54,8 +54,8 @@ export function CustomerLegacyDevicesFields({
         <div>
           <h3 className="text-sm font-bold text-on-surface">عميل قديم (أجهزة قبل السيستم)</h3>
           <p className="mt-0.5 text-xs text-on-surface-variant">
-            سجّل السريال والشريحة واسم المستخدم ونوع الاشتراك والأقساط المتبقية لكل جهاز حتى التجديد والتحصيل ونقل
-            الملكية يشتغلوا بدون تسجيل الجهاز من مخزون الشركة.
+            سجّل السريال السوفت والسريال الفعلي والشريحة واسم المستخدم ونوع الاشتراك والأقساط المتبقية لكل جهاز حتى
+            التجديد والتحصيل ونقل الملكية يشتغلوا بدون تسجيل الجهاز من مخزون الشركة.
           </p>
         </div>
         {showToggle && (
@@ -117,9 +117,9 @@ export function CustomerLegacyDevicesFields({
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 gap-sm sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 xl:grid-cols-4">
                   <label className="block text-sm">
-                    <span className="mb-xs block text-on-surface-variant">السريال *</span>
+                    <span className="mb-xs block text-on-surface-variant">السريال السوفت *</span>
                     <TextInput
                       mode="phone"
                       value={device.serial_number}
@@ -131,6 +131,21 @@ export function CustomerLegacyDevicesFields({
                     />
                     {errors.serial_number && (
                       <p className="mt-xs text-xs text-error">{errors.serial_number}</p>
+                    )}
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-xs block text-on-surface-variant">السريال الفعلي *</span>
+                    <TextInput
+                      mode="phone"
+                      value={device.physical_serial}
+                      onChange={(e) =>
+                        patchDevice(device.key, { physical_serial: normalizeScannedDigits(e.target.value) })
+                      }
+                      dir="ltr"
+                      className={`${inputClass}${errors.physical_serial ? ' border-error' : ''}`}
+                    />
+                    {errors.physical_serial && (
+                      <p className="mt-xs text-xs text-error">{errors.physical_serial}</p>
                     )}
                   </label>
                   <label className="block text-sm">

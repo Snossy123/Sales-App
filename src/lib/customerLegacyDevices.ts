@@ -9,6 +9,7 @@ export type LegacyDeviceDraft = {
   key: string
   origin: LegacyDeviceOrigin
   serial_number: string
+  physical_serial: string
   sim_number: string
   username: string
   renewal_type: LegacyRenewalType
@@ -21,6 +22,7 @@ export type LegacyDeviceDraft = {
 
 export type LegacyDeviceFieldErrors = {
   serial_number?: string
+  physical_serial?: string
   sim_number?: string
   username?: string
   renewal_type?: string
@@ -52,6 +54,7 @@ export function emptyLegacyDeviceDraft(): LegacyDeviceDraft {
     key: newLegacyDeviceKey(),
     origin: 'legacy',
     serial_number: '',
+    physical_serial: '',
     sim_number: '',
     username: '',
     renewal_type: 'annual',
@@ -77,14 +80,20 @@ export function hydrateLegacyDeviceDraft(
 
 export function isLegacyDeviceRowFilled(device: LegacyDeviceDraft): boolean {
   return Boolean(
-    device.serial_number.trim() || device.sim_number.trim() || device.username.trim(),
+    device.serial_number.trim() ||
+      device.physical_serial.trim() ||
+      device.sim_number.trim() ||
+      device.username.trim(),
   )
 }
 
 export function validateLegacyDeviceDraft(device: LegacyDeviceDraft): LegacyDeviceFieldErrors {
   const errors: LegacyDeviceFieldErrors = {}
   if (!device.serial_number.trim()) {
-    errors.serial_number = 'السريال مطلوب'
+    errors.serial_number = 'السريال السوفت مطلوب'
+  }
+  if (!device.physical_serial.trim()) {
+    errors.physical_serial = 'السريال الفعلي مطلوب'
   }
   if (!device.sim_number.trim()) {
     errors.sim_number = 'رقم الشريحة مطلوب'
@@ -123,6 +132,7 @@ export function toRegisterDevicePayload(device: LegacyDeviceDraft) {
   return {
     origin: device.origin,
     serial_number: device.serial_number.trim(),
+    physical_serial: device.physical_serial.trim(),
     sim_number: device.sim_number.trim(),
     username: device.username.trim(),
     renewal_type: device.renewal_type,

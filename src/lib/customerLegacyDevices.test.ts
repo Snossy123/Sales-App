@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   emptyLegacyDeviceDraft,
+  isLegacyDeviceRowFilled,
   legacyDevicesAreComplete,
   toRegisterDevicePayload,
   validateLegacyDeviceDraft,
 } from './customerLegacyDevices'
 
 describe('customerLegacyDevices', () => {
-  it('requires serial, sim, and complete GPS username', () => {
+  it('requires soft serial, physical serial, sim, and complete GPS username', () => {
     const draft = emptyLegacyDeviceDraft()
     expect(validateLegacyDeviceDraft(draft)).toEqual({
-      serial_number: 'السريال مطلوب',
+      serial_number: 'السريال السوفت مطلوب',
+      physical_serial: 'السريال الفعلي مطلوب',
       sim_number: 'رقم الشريحة مطلوب',
       username: 'اسم المستخدم مطلوب',
     })
@@ -19,6 +21,7 @@ describe('customerLegacyDevices', () => {
       validateLegacyDeviceDraft({
         ...draft,
         serial_number: '1000001',
+        physical_serial: '2000001',
         sim_number: '01011110000',
         username: 'Eleraqy123',
       }),
@@ -29,6 +32,7 @@ describe('customerLegacyDevices', () => {
     const draft = {
       ...emptyLegacyDeviceDraft(),
       serial_number: '1000001',
+      physical_serial: '2000001',
       sim_number: '01011110000',
       username: 'Eleraqy123',
       has_remaining_installments: true,
@@ -52,6 +56,7 @@ describe('customerLegacyDevices', () => {
     const draft = {
       ...emptyLegacyDeviceDraft(),
       serial_number: '1000001',
+      physical_serial: '2000001',
       sim_number: '01011110000',
       username: 'Eleraqy123',
       renewal_type: 'annual' as const,
@@ -72,6 +77,7 @@ describe('customerLegacyDevices', () => {
           key: 'a',
           origin: 'legacy',
           serial_number: '1000001',
+          physical_serial: '2000001',
           sim_number: '01011110000',
           username: 'Eleraqy123',
         },
@@ -80,11 +86,22 @@ describe('customerLegacyDevices', () => {
     ).toBe(false)
   })
 
-  it('sends imported contract fields in the register payload', () => {
+  it('treats a row as filled when either serial is started', () => {
+    expect(isLegacyDeviceRowFilled(emptyLegacyDeviceDraft())).toBe(false)
+    expect(
+      isLegacyDeviceRowFilled({
+        ...emptyLegacyDeviceDraft(),
+        physical_serial: '2000001',
+      }),
+    ).toBe(true)
+  })
+
+  it('sends soft and physical serials in the register payload', () => {
     expect(
       toRegisterDevicePayload({
         ...emptyLegacyDeviceDraft(),
         serial_number: '1000001',
+        physical_serial: '2000001',
         sim_number: '01011110000',
         username: 'Eleraqy123',
         renewal_type: 'annual',
@@ -97,6 +114,7 @@ describe('customerLegacyDevices', () => {
     ).toEqual({
       origin: 'legacy',
       serial_number: '1000001',
+      physical_serial: '2000001',
       sim_number: '01011110000',
       username: 'Eleraqy123',
       renewal_type: 'annual',

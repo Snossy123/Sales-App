@@ -128,56 +128,58 @@ export function OwnershipTransferContractDocument({
           )}
         </div>
 
-        {card(
-          'بيانات الجهاز والاشتراك',
-          'settings',
-          <>
-            {infoRow(
-              'السريال :',
-              resolveSerial(deviceLine, newOwner as Customer | undefined),
-              'barcode',
-              { dir: 'ltr' },
-            )}
-            {infoRow(
-              'رقم الشريحة :',
-              resolveSim(deviceLine, newOwner as Customer | undefined),
-              'sim_card',
-              { dir: 'ltr' },
-            )}
-            {infoRow(
-              'اسم المستخدم :',
-              resolveUsername(deviceLine, newOwner as Customer | undefined),
-              'person',
-            )}
-            {infoRow('المركبة :', vehicle, 'directions_car')}
-            {infoRow(
-              'تاريخ انتهاء الاشتراك :',
-              subscriptionExpiry === '—' ? '' : subscriptionExpiry,
-              'calendar_month',
-            )}
-          </>,
-          'ic-ot-device',
-        )}
+        <div className="ic-ot-grid">
+          {card(
+            'بيانات الجهاز والاشتراك',
+            'settings',
+            <>
+              {infoRow(
+                'السريال :',
+                resolveSerial(deviceLine, newOwner as Customer | undefined),
+                'barcode',
+                { dir: 'ltr' },
+              )}
+              {infoRow(
+                'رقم الشريحة :',
+                resolveSim(deviceLine, newOwner as Customer | undefined),
+                'sim_card',
+                { dir: 'ltr' },
+              )}
+              {infoRow(
+                'اسم المستخدم :',
+                resolveUsername(deviceLine, newOwner as Customer | undefined),
+                'person',
+              )}
+              {infoRow('المركبة :', vehicle, 'directions_car')}
+              {infoRow(
+                'تاريخ انتهاء الاشتراك :',
+                subscriptionExpiry === '—' ? '' : subscriptionExpiry,
+                'calendar_month',
+              )}
+            </>,
+            'ic-ot-device',
+          )}
 
-        {card(
-          'التفاصيل المالية',
-          'payments',
-          <>
-            {infoRow('تاريخ النقل', financial.transferDate, 'calendar_month')}
-            {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee, 'payments')}
-            {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee, 'autorenew')}
-            {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource, 'receipt_long')}
-            {moneyRow('فك + تركيب', financial.disassemblyInstallationFee, 'build')}
-            {infoRow('تم الدفع', fmtContractMoney(financial.paidAmount), 'check_circle')}
-            {infoRow('باقي المبلغ', fmtContractMoney(financial.remainingBalance), 'account_balance_wallet', {
-              tone: 'remaining',
-            })}
-            {financial.paymentScheduleText
-              ? infoRow(financial.paymentScheduleText, '', 'calendar_month', { wide: true })
-              : null}
-          </>,
-          'ic-ot-financial',
-        )}
+          {card(
+            'التفاصيل المالية',
+            'payments',
+            <>
+              {infoRow('تاريخ النقل', financial.transferDate, 'calendar_month')}
+              {moneyRow('رسوم نقل الملكية', financial.ownershipTransferFee, 'payments')}
+              {moneyRow('تجديد الاشتراك', financial.subscriptionRenewalFee, 'autorenew')}
+              {moneyRow('أقساط متبقية', financial.remainingInstallmentsOnSource, 'receipt_long')}
+              {moneyRow('فك + تركيب', financial.disassemblyInstallationFee, 'build')}
+              {infoRow('تم الدفع', fmtContractMoney(financial.paidAmount), 'check_circle')}
+              {infoRow('باقي المبلغ', fmtContractMoney(financial.remainingBalance), 'account_balance_wallet', {
+                tone: 'remaining',
+              })}
+              {financial.paymentScheduleText
+                ? infoRow(financial.paymentScheduleText, '', 'calendar_month', { wide: true })
+                : null}
+            </>,
+            'ic-ot-financial',
+          )}
+        </div>
 
         <div className="ic-ot-terms">
           <p>

@@ -4,6 +4,7 @@ import type { InstallmentItem, SalesInvoice, SalesInvoiceLine } from '../../api/
 import {
   branchLabel,
   displayPersonName,
+  resolveInstallmentPaidAt,
   resolveInvoiceLine,
   resolveSerial,
   resolveTechnician,
@@ -248,16 +249,22 @@ export function ServiceReceiptDocument({ invoice, lineId }: ServiceReceiptDocume
                 <th>#</th>
                 <th>الاستحقاق</th>
                 <th>المبلغ</th>
+                <th>سداد</th>
               </tr>
             </thead>
             <tbody>
-              {installmentItems.map((item, index) => (
-                <tr key={item.id ?? index}>
-                  <td>{item.sequence ?? item.installment_number ?? index + 1}</td>
-                  <td>{fmtSlashDate(item.due_date)}</td>
-                  <td>{fmtFee(item.amount)}</td>
-                </tr>
-              ))}
+              {installmentItems.map((item, index) => {
+                const fullyPaid = Number(item.paid_amount ?? 0) >= Number(item.amount)
+                const paidAt = fullyPaid ? resolveInstallmentPaidAt(item, invoice) : null
+                return (
+                  <tr key={item.id ?? index}>
+                    <td>{item.sequence ?? item.installment_number ?? index + 1}</td>
+                    <td>{fmtSlashDate(item.due_date)}</td>
+                    <td>{fmtFee(item.amount)}</td>
+                    <td>{paidAt ? fmtSlashDate(paidAt) : ''}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         ) : null}

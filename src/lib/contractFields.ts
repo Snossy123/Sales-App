@@ -409,7 +409,7 @@ export function buildInstallmentRows(
   return rows
 }
 
-function resolveInstallmentPaidAt(
+export function resolveInstallmentPaidAt(
   item: InstallmentItem,
   invoice?: SalesInvoice,
 ): string | null {

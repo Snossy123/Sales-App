@@ -128,6 +128,10 @@ function buildPrintDocument(contractHtml: string): string {
       max-height: calc(297mm - 5mm) !important;
       box-sizing: border-box !important;
     }
+    /* Keep OT sections at content height so A4 max-height cannot crush/clip cards. */
+    .ownership-transfer-contract .ic-frame > :not(.ic-frame-border) {
+      flex-shrink: 0 !important;
+    }
     .ic-head-en-main {
       font-size: 23pt !important;
       white-space: nowrap !important;
