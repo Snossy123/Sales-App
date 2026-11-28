@@ -839,6 +839,8 @@ export interface InstallmentItem {
   unpaid_reason?: string | null
   suspended_at?: string | null
   is_suspended?: boolean
+  ownership_transferred_at?: string | null
+  is_ownership_transferred?: boolean
   device_in_custody?: boolean
   collection_status?: string | null
   collection_reminder_at?: string | null
@@ -922,6 +924,8 @@ export interface InstallmentPlan {
   first_due_date?: string
   status?: string
   custom_schedule?: { amount: number | string; due_date: string }[] | null
+  /** Present on ownership-transfer invoice plans after confirmation. */
+  transfer_origin?: 'transferred_balance' | 'ownership_transfer_fee' | null
   items?: InstallmentItem[]
 }
 

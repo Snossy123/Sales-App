@@ -11,6 +11,7 @@ import {
   legacyCreditForItem,
   normalizeInstallmentStatus,
   reconcileContractLedger,
+  splitOwnershipTransferInstallmentItems,
 } from '../../lib/customerContracts'
 import { formatInvoiceDate } from '../../lib/sales'
 import { DataTable } from '../DataTable'
@@ -41,8 +42,7 @@ function OwnershipTransferSourceLink({ invoice }: { invoice: SalesInvoice }) {
   return (
     <div className="rounded-lg border border-primary/25 bg-primary/5 px-md py-sm text-sm text-on-surface">
       <p>
-        أقساط الجهاز الأصلية تبقى على التعاقد الأصلي وتنتقل للمالك الجديد بعد الاعتماد — ليست ضمن
-        أقساط رسوم نقل الملكية.
+        أقساط الجهاز المتبقية تُجمَّد على التعاقد الأصلي وتُنسخ على عقد النقل عند التأكيد.
       </p>
       <Link
         to={`/contracts/${sourceContractId}?tab=installments`}
@@ -53,6 +53,16 @@ function OwnershipTransferSourceLink({ invoice }: { invoice: SalesInvoice }) {
       </Link>
     </div>
   )
+}
+
+function installmentBadgeStatus(row: InstallmentItem): string {
+  if (row.is_ownership_transferred || row.ownership_transferred_at) {
+    return 'blocked'
+  }
+  if (row.is_suspended || row.suspended_at) {
+    return 'blocked'
+  }
+  return normalizeInstallmentStatus(String(row.status), row.due_date)
 }
 
 function InstallmentsTable({
@@ -107,8 +117,8 @@ function InstallmentsTable({
           render: (row) => (
             <div className="flex flex-wrap items-center gap-xs">
               <StatusBadge
-                status={normalizeInstallmentStatus(String(row.status), row.due_date)}
-                label={installmentStatusLabel(String(row.status), row.due_date)}
+                status={installmentBadgeStatus(row)}
+                label={installmentStatusLabel(String(row.status), row.due_date, row)}
               />
               {legacyCreditForItem(ledger, row.id) > 0 ? (
                 <span className="text-xs text-on-surface-variant">سجل قديم غير مؤكد</span>
@@ -133,40 +143,40 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 }
 
 export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProps) {
-  const feeItems = useMemo(() => {
+  const isOwnershipTransfer = invoice.contract_kind === 'ownership_transfer'
+
+  const { feeItems, transferredBalanceItems } = useMemo(() => {
+    if (isOwnershipTransfer) {
+      const split = splitOwnershipTransferInstallmentItems(invoice)
+      return {
+        feeItems: sortInstallmentItems(split.feeItems),
+        transferredBalanceItems: sortInstallmentItems(split.transferredBalanceItems),
+      }
+    }
+
     const source = getInstallmentItems(invoice)
     const rows = source.length > 0 ? source : (invoice.installment_items ?? [])
-    return sortInstallmentItems(rows)
-  }, [invoice])
-
-  const sourceItems = useMemo(() => {
-    if (invoice.contract_kind !== 'ownership_transfer' || !invoice.source_invoice) {
-      return [] as InstallmentItem[]
+    return {
+      feeItems: sortInstallmentItems(rows),
+      transferredBalanceItems: [] as InstallmentItem[],
     }
-    const source = getInstallmentItems(invoice.source_invoice)
-    const rows =
-      source.length > 0
-        ? source
-        : (invoice.source_invoice.installment_items ?? [])
-    return sortInstallmentItems(rows)
-  }, [invoice])
+  }, [invoice, isOwnershipTransfer])
 
   const summary = buildContractSummary(invoice)
   const ledger = reconcileContractLedger(invoice)
-  const totalDue = feeItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
-  const isOwnershipTransfer = invoice.contract_kind === 'ownership_transfer'
-  const sourceLedger = invoice.source_invoice
-    ? reconcileContractLedger(invoice.source_invoice)
-    : null
+  const feeTotalDue = feeItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+  const transferredTotalDue = transferredBalanceItems.reduce(
+    (sum, item) => sum + Number(item.amount ?? 0),
+    0,
+  )
 
-  if (feeItems.length === 0 && sourceItems.length === 0) {
+  if (feeItems.length === 0 && transferredBalanceItems.length === 0) {
     if (isOwnershipTransfer) {
       return (
         <div className="space-y-md">
           <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-lg text-center text-sm text-on-surface-variant">
             <p>
-              عقد نقل الملكية لا يحتوي أقساطاً خاصة به. الأقساط المتبقية تبقى على التعاقد الأصلي
-              وتنتقل للمالك الجديد بعد الاعتماد.
+              أقساط الجهاز المتبقية تُجمَّد على التعاقد الأصلي وتُنسخ على عقد النقل عند التأكيد.
             </p>
           </div>
           <OwnershipTransferSourceLink invoice={invoice} />
@@ -186,60 +196,75 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
       {isOwnershipTransfer ? <OwnershipTransferSourceLink invoice={invoice} /> : null}
 
       {feeItems.length > 0 ? (
-        <>
+        <div className="space-y-sm">
           {isOwnershipTransfer ? (
             <h3 className="text-sm font-bold text-on-surface">أقساط رسوم نقل الملكية</h3>
           ) : null}
-          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
-            <SummaryCard
-              label="عدد الأقساط"
-              value={String(summary.installmentCount || feeItems.length)}
-            />
-            <SummaryCard label="المقدمة" value={formatContractMoney(summary.downPayment)} />
-            <SummaryCard label="إجمالي الأقساط" value={formatContractMoney(totalDue)} />
-            <SummaryCard
-              label="مسدد مؤكد"
-              value={formatContractMoney(ledger.confirmedInstallmentPaid)}
-            />
-            <SummaryCard
-              label="متبقي مؤكد"
-              value={formatContractMoney(ledger.confirmedOutstanding)}
-            />
-            <SummaryCard
-              label="متأخر مؤكد"
-              value={formatContractMoney(ledger.confirmedOverdue)}
-            />
-            <SummaryCard
-              label="سجل قديم غير مؤكد"
-              value={formatContractMoney(ledger.legacyCredit)}
-            />
-          </div>
-          <p className="text-xs text-on-surface-variant">
-            الأقساط {formatContractMoney(totalDue)} + المقدمة{' '}
-            {formatContractMoney(summary.downPayment)} = إجمالي التعاقد{' '}
-            {formatContractMoney(totalDue + summary.downPayment)}
-            {ledger.downPaymentUnverified > 0
-              ? ` · المقدمة غير مؤكدة بسند: ${formatContractMoney(ledger.downPaymentUnverified)}`
-              : ''}
-          </p>
+
+          {!isOwnershipTransfer ? (
+            <>
+              <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  label="عدد الأقساط"
+                  value={String(summary.installmentCount || feeItems.length)}
+                />
+                <SummaryCard label="المقدمة" value={formatContractMoney(summary.downPayment)} />
+                <SummaryCard label="إجمالي الأقساط" value={formatContractMoney(feeTotalDue)} />
+                <SummaryCard
+                  label="مسدد مؤكد"
+                  value={formatContractMoney(ledger.confirmedInstallmentPaid)}
+                />
+                <SummaryCard
+                  label="متبقي مؤكد"
+                  value={formatContractMoney(ledger.confirmedOutstanding)}
+                />
+                <SummaryCard
+                  label="متأخر مؤكد"
+                  value={formatContractMoney(ledger.confirmedOverdue)}
+                />
+                <SummaryCard
+                  label="سجل قديم غير مؤكد"
+                  value={formatContractMoney(ledger.legacyCredit)}
+                />
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                الأقساط {formatContractMoney(feeTotalDue)} + المقدمة{' '}
+                {formatContractMoney(summary.downPayment)} = إجمالي التعاقد{' '}
+                {formatContractMoney(feeTotalDue + summary.downPayment)}
+                {ledger.downPaymentUnverified > 0
+                  ? ` · المقدمة غير مؤكدة بسند: ${formatContractMoney(ledger.downPaymentUnverified)}`
+                  : ''}
+              </p>
+            </>
+          ) : (
+            <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
+              <SummaryCard label="عدد الأقساط" value={String(feeItems.length)} />
+              <SummaryCard label="إجمالي الأقساط" value={formatContractMoney(feeTotalDue)} />
+            </div>
+          )}
 
           <InstallmentsTable
             items={feeItems}
             emptyMessage="لا توجد أقساط على هذا التعاقد"
             ledger={ledger}
           />
-        </>
+        </div>
       ) : null}
 
-      {sourceItems.length > 0 && sourceLedger ? (
+      {isOwnershipTransfer && transferredBalanceItems.length > 0 ? (
         <div className="space-y-sm">
-          <h3 className="text-sm font-bold text-on-surface">
-            أقساط التعاقد الأصلي (منقولة للمالك الجديد)
-          </h3>
+          <h3 className="text-sm font-bold text-on-surface">أقساط الجهاز المنقولة</h3>
+          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
+            <SummaryCard label="عدد الأقساط" value={String(transferredBalanceItems.length)} />
+            <SummaryCard
+              label="إجمالي الأقساط"
+              value={formatContractMoney(transferredTotalDue)}
+            />
+          </div>
           <InstallmentsTable
-            items={sourceItems}
-            emptyMessage="لا توجد أقساط على التعاقد الأصلي"
-            ledger={sourceLedger}
+            items={transferredBalanceItems}
+            emptyMessage="لا توجد أقساط منقولة"
+            ledger={ledger}
           />
         </div>
       ) : null}

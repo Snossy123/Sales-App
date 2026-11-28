@@ -87,12 +87,71 @@ export function normalizeInstallmentStatus(
   return 'pending'
 }
 
-export function installmentStatusLabel(status: string, dueDate?: string | null): string {
+export type InstallmentStatusLabelItem = Pick<
+  InstallmentItem,
+  'is_ownership_transferred' | 'ownership_transferred_at' | 'is_suspended' | 'suspended_at'
+>
+
+export function installmentStatusLabel(
+  status: string,
+  dueDate?: string | null,
+  item?: InstallmentStatusLabelItem | null,
+): string {
+  if (item?.is_ownership_transferred || item?.ownership_transferred_at) {
+    return 'تم نقل ملكية'
+  }
+  if (item?.is_suspended || item?.suspended_at) {
+    return 'موقوف'
+  }
   const normalized = normalizeInstallmentStatus(status, dueDate)
   if (normalized === 'paid') return 'مدفوع'
   if (normalized === 'partial') return 'جزئي'
   if (normalized === 'overdue') return 'متأخر'
   return 'معلق'
+}
+
+/** Split OT invoice plans into fee rows vs copied device-balance rows. */
+export function splitOwnershipTransferInstallmentItems(invoice: SalesInvoice): {
+  feeItems: InstallmentItem[]
+  transferredBalanceItems: InstallmentItem[]
+} {
+  const feeItems: InstallmentItem[] = []
+  const transferredBalanceItems: InstallmentItem[] = []
+  const seen = new Set<string>()
+  const plans: InstallmentPlan[] = []
+
+  const addPlan = (plan: InstallmentPlan | null | undefined) => {
+    if (!plan) return
+    const key = planIdentity(plan)
+    if (seen.has(key)) return
+    seen.add(key)
+    plans.push(plan)
+  }
+
+  // Invoice-level plans include transfer_origin=transferred_balance (no line id).
+  for (const plan of invoice.installment_plans ?? []) addPlan(plan)
+  const camelPlans = (
+    invoice as SalesInvoice & { installmentPlans?: InstallmentPlan[] }
+  ).installmentPlans
+  for (const plan of camelPlans ?? []) addPlan(plan)
+  for (const plan of uniqueResolvedPlans(invoice)) addPlan(plan)
+
+  for (const plan of plans) {
+    const rows = plan.items ?? []
+    if (rows.length === 0) continue
+    if (plan.transfer_origin === 'transferred_balance') {
+      transferredBalanceItems.push(...rows)
+    } else {
+      // ownership_transfer_fee, null, or missing → treat as fees (fallback)
+      feeItems.push(...rows)
+    }
+  }
+
+  if (feeItems.length === 0 && transferredBalanceItems.length === 0) {
+    feeItems.push(...(invoice.installment_items ?? []))
+  }
+
+  return { feeItems, transferredBalanceItems }
 }
 
 export function buildContractSummary(invoice: SalesInvoice): ContractSummary {

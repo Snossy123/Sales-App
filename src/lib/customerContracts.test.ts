@@ -4,9 +4,37 @@ import {
   assertPaymentVerification,
   buildContractSummary,
   getInstallmentItems,
+  installmentStatusLabel,
   ownershipTransferInstallmentSummary,
   reconcileContractLedger,
 } from './customerContracts'
+
+describe('installmentStatusLabel', () => {
+  it('returns تم نقل ملكية when ownership_transferred_at is set', () => {
+    expect(
+      installmentStatusLabel('pending', '2026-01-01', {
+        ownership_transferred_at: '2026-11-01T10:00:00Z',
+      }),
+    ).toBe('تم نقل ملكية')
+  })
+
+  it('returns تم نقل ملكية when is_ownership_transferred is true', () => {
+    expect(
+      installmentStatusLabel('paid', '2026-01-01', {
+        is_ownership_transferred: true,
+      }),
+    ).toBe('تم نقل ملكية')
+  })
+
+  it('prefers ownership transfer over suspended', () => {
+    expect(
+      installmentStatusLabel('pending', '2026-01-01', {
+        is_suspended: true,
+        ownership_transferred_at: '2026-11-01T10:00:00Z',
+      }),
+    ).toBe('تم نقل ملكية')
+  })
+})
 
 function isoOffset(days: number): string {
   const date = new Date()

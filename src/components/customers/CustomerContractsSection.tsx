@@ -300,18 +300,29 @@ export function CustomerContractsSection({ invoices }: CustomerContractsSectionP
                           {
                             key: 'status',
                             header: 'الحالة',
-                            render: (row) => (
-                              <StatusBadge
-                                status={normalizeInstallmentStatus(
-                                  String(row.status),
-                                  (row as unknown as InstallmentItem).due_date,
-                                )}
-                                label={installmentStatusLabel(
-                                  String(row.status),
-                                  (row as unknown as InstallmentItem).due_date,
-                                )}
-                              />
-                            ),
+                            render: (row) => {
+                              const item = row as unknown as InstallmentItem
+                              const transferred =
+                                item.is_ownership_transferred ||
+                                Boolean(item.ownership_transferred_at)
+                              return (
+                                <StatusBadge
+                                  status={
+                                    transferred
+                                      ? 'blocked'
+                                      : normalizeInstallmentStatus(
+                                          String(row.status),
+                                          item.due_date,
+                                        )
+                                  }
+                                  label={installmentStatusLabel(
+                                    String(row.status),
+                                    item.due_date,
+                                    item,
+                                  )}
+                                />
+                              )
+                            },
                           },
                         ]}
                       />
