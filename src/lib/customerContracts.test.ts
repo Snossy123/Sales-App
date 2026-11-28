@@ -7,6 +7,7 @@ import {
   installmentStatusLabel,
   ownershipTransferInstallmentSummary,
   reconcileContractLedger,
+  splitOwnershipTransferInstallmentItems,
 } from './customerContracts'
 
 describe('installmentStatusLabel', () => {
@@ -59,6 +60,109 @@ function invoice(extras: Partial<SalesInvoice>): SalesInvoice {
     ...extras,
   }
 }
+
+describe('splitOwnershipTransferInstallmentItems', () => {
+  it('splits transferred_balance vs ownership_transfer_fee plans', () => {
+    const feeItem = {
+      id: 1,
+      due_date: '2026-10-01',
+      amount: 200,
+      paid_amount: 0,
+      status: 'pending' as const,
+    }
+    const balanceItem = {
+      id: 2,
+      due_date: '2026-11-01',
+      amount: 800,
+      paid_amount: 0,
+      status: 'pending' as const,
+    }
+    const result = splitOwnershipTransferInstallmentItems(
+      invoice({
+        installment_plans: [
+          {
+            id: 10,
+            down_payment: 0,
+            installment_count: 1,
+            transfer_origin: 'ownership_transfer_fee',
+            items: [feeItem],
+          },
+          {
+            id: 11,
+            down_payment: 0,
+            installment_count: 1,
+            transfer_origin: 'transferred_balance',
+            sales_invoice_line_id: null,
+            items: [balanceItem],
+          },
+        ],
+      }),
+    )
+
+    expect(result.feeItems).toEqual([feeItem])
+    expect(result.transferredBalanceItems).toEqual([balanceItem])
+  })
+
+  it('falls back missing transfer_origin to fees', () => {
+    const feeLikeItem = {
+      id: 3,
+      due_date: '2026-10-01',
+      amount: 150,
+      paid_amount: 0,
+      status: 'pending' as const,
+    }
+    const result = splitOwnershipTransferInstallmentItems(
+      invoice({
+        installment_plans: [
+          {
+            id: 12,
+            down_payment: 0,
+            installment_count: 1,
+            items: [feeLikeItem],
+          },
+        ],
+      }),
+    )
+
+    expect(result.feeItems).toEqual([feeLikeItem])
+    expect(result.transferredBalanceItems).toEqual([])
+  })
+
+  it('keeps invoice-level transferred_balance plan with null line id', () => {
+    const balanceItem = {
+      id: 4,
+      due_date: '2026-12-01',
+      amount: 900,
+      paid_amount: 0,
+      status: 'pending' as const,
+    }
+    const result = splitOwnershipTransferInstallmentItems(
+      invoice({
+        lines: [
+          {
+            id: 1,
+            unit_price: 100,
+            line_total: 100,
+            payment_term: 'cash',
+          },
+        ],
+        installment_plans: [
+          {
+            id: 13,
+            down_payment: 0,
+            installment_count: 1,
+            sales_invoice_line_id: null,
+            transfer_origin: 'transferred_balance',
+            items: [balanceItem],
+          },
+        ],
+      }),
+    )
+
+    expect(result.transferredBalanceItems).toEqual([balanceItem])
+    expect(result.feeItems).toEqual([])
+  })
+})
 
 describe('ownershipTransferInstallmentSummary', () => {
   it('uses generated installment items when present', () => {

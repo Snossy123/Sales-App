@@ -44,3 +44,17 @@ npm test -- src/lib/customerContracts.test.ts
 
 1. **API plan payload:** Frontend reads `transfer_origin` from nested plans; if the API omits it on Eloquent JSON, fee/copied split falls back to treating all as fees until the field is present.
 2. **Invoice-level plans:** Split helper merges `installment_plans` + line-resolved plans so `transferred_balance` (null line id) is not dropped by `uniqueResolvedPlans` alone.
+
+## Review follow-up (Task 6 finding)
+
+Added unit coverage for `splitOwnershipTransferInstallmentItems`:
+
+1. `transferred_balance` vs `ownership_transfer_fee` split
+2. Missing `transfer_origin` → fees fallback
+3. Invoice-level `transferred_balance` plan with `sales_invoice_line_id: null` is kept
+
+```bash
+npm test -- src/lib/customerContracts.test.ts
+```
+
+- **PASS** — 19 tests / 1 file (was 16).
