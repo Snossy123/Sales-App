@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "src/api/types.ts": {
-    "mtime": 1795800688.039105,
-    "seen": 1795802053.293225,
-    "ast_hash": "25a5ee2deef6664fc48259b295d2b360",
+    "mtime": 1795877367.168891,
+    "seen": 1795883327.959015,
+    "ast_hash": "a80f91f2af450b8ca538b898f3550502",
     "semantic_hash": ""
   },
   "src/app/routes.tsx": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "src/components/FilterBar.tsx": {
-    "mtime": 1795293354.29915,
-    "seen": 1795795842.947069,
-    "ast_hash": "152d2dbce10fa313d84a43aca4b1e63f",
+    "mtime": 1795814117.025496,
+    "seen": 1795883327.959179,
+    "ast_hash": "6f12396fcd4545a65fe225acce175d89",
     "semantic_hash": ""
   },
   "src/components/FontSizeControl.tsx": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "src/components/contracts/ContractInstallmentsTab.tsx": {
-    "mtime": 1795805598.8301942,
-    "seen": 1795809944.572339,
-    "ast_hash": "18e947dcfc21190a1ce8b516b8264460",
+    "mtime": 1795877367.4031856,
+    "seen": 1795883327.9593642,
+    "ast_hash": "5fc5ed9233381317600e25f402f8aecb",
     "semantic_hash": ""
   },
   "src/components/contracts/ContractPaymentsTab.tsx": {
@@ -432,9 +432,9 @@
     "semantic_hash": ""
   },
   "src/components/contracts/ContractReviewDetails.tsx": {
-    "mtime": 1795212587.7287948,
-    "seen": 1795795842.947201,
-    "ast_hash": "a07a9a5a1a16f0fc84ced4df09e45e3e",
+    "mtime": 1795813483.9883413,
+    "seen": 1795883327.9593852,
+    "ast_hash": "1708509b869a744aec8f1ccc5d88a22b",
     "semantic_hash": ""
   },
   "src/components/contracts/ConvertCashToInstallmentModal.tsx": {
@@ -510,9 +510,9 @@
     "semantic_hash": ""
   },
   "src/components/customers/CustomerContractsSection.tsx": {
-    "mtime": 1795212782.0826018,
-    "seen": 1795795842.947238,
-    "ast_hash": "058301efec74bdcb36a70aa2ad1a4a0b",
+    "mtime": 1795877367.4399765,
+    "seen": 1795883327.9594219,
+    "ast_hash": "452bb6c04122bc5917d37db4b7a05406",
     "semantic_hash": ""
   },
   "src/components/customers/CustomerCreateModal.tsx": {
@@ -1170,15 +1170,15 @@
     "semantic_hash": ""
   },
   "src/lib/customerContracts.test.ts": {
-    "mtime": 1795264881.0739968,
-    "seen": 1795795842.9475682,
-    "ast_hash": "b817e040463915c294c664516808fcef",
+    "mtime": 1795883237.7566082,
+    "seen": 1795883327.959739,
+    "ast_hash": "99f088f9d164dafc55ff246d96484385",
     "semantic_hash": ""
   },
   "src/lib/customerContracts.ts": {
-    "mtime": 1795264932.0894232,
-    "seen": 1795795842.947571,
-    "ast_hash": "f68446a5930a494c0dad8cd28fe9d5a3",
+    "mtime": 1795883234.5825646,
+    "seen": 1795883327.959742,
+    "ast_hash": "66131934f91dcf5e41b9458e2207eba3",
     "semantic_hash": ""
   },
   "src/lib/customerForm.test.ts": {
@@ -1614,9 +1614,9 @@
     "semantic_hash": ""
   },
   "src/lib/sales.ts": {
-    "mtime": 1795213014.703833,
-    "seen": 1795795842.9477792,
-    "ast_hash": "360c69537a312d0328e3048bfd1b9632",
+    "mtime": 1795883235.0686793,
+    "seen": 1795883327.9599428,
+    "ast_hash": "107add629fc0124bd7697d3cf9fd18f1",
     "semantic_hash": ""
   },
   "src/lib/scanner.ts": {
@@ -2436,9 +2436,9 @@
     "semantic_hash": ""
   },
   "src/modules/sales/flow/posFlowCheckout.test.ts": {
-    "mtime": 1795808797.3138883,
-    "seen": 1795809944.5775082,
-    "ast_hash": "c0847e15ad02820f17d5f858a05e98e1",
+    "mtime": 1795811607.7309167,
+    "seen": 1795883327.9604301,
+    "ast_hash": "1947a4fdb65c2d462d33579668f44226",
     "semantic_hash": ""
   },
   "src/modules/sales/flow/posFlowCheckout.ts": {
@@ -2592,9 +2592,9 @@
     "semantic_hash": ""
   },
   "src/pages/ContractDetailPage.tsx": {
-    "mtime": 1795799144.508616,
-    "seen": 1795802053.295058,
-    "ast_hash": "a1db9fc35392606797ef24c9931b95fb",
+    "mtime": 1795813471.3689468,
+    "seen": 1795883327.960512,
+    "ast_hash": "5b4bf000a5a4d8f457dcf9d7ae0822a6",
     "semantic_hash": ""
   },
   "src/pages/ContractTemplatePreviewPage.tsx": {
@@ -2772,9 +2772,9 @@
     "semantic_hash": ""
   },
   "src/pages/InvoiceReviewDetailPage.tsx": {
-    "mtime": 1795207449.5154154,
-    "seen": 1795795842.948391,
-    "ast_hash": "b518d39e41385b8566c0e1a2083902c5",
+    "mtime": 1795813524.586231,
+    "seen": 1795883327.960596,
+    "ast_hash": "a82624b793ff40617598774f75930fd6",
     "semantic_hash": ""
   },
   "src/pages/InvoiceReviewPage.tsx": {
@@ -2820,9 +2820,9 @@
     "semantic_hash": ""
   },
   "src/pages/PaymentsPage.tsx": {
-    "mtime": 1793470657.041281,
-    "seen": 1795795842.9484138,
-    "ast_hash": "60e7accb35583bd145855f1dde92a7af",
+    "mtime": 1795814174.4387589,
+    "seen": 1795883327.960622,
+    "ast_hash": "2f0fe7341010a491fac20669d914a52f",
     "semantic_hash": ""
   },
   "src/pages/PosPage.tsx": {
@@ -3432,15 +3432,27 @@
     "semantic_hash": ""
   },
   "src/lib/ownershipTransferFeePlans.test.ts": {
-    "mtime": 1795808709.2429478,
-    "seen": 1795809944.574212,
-    "ast_hash": "215d36628518db4332392b0b56dd1d78",
+    "mtime": 1795811581.8886461,
+    "seen": 1795883327.9598641,
+    "ast_hash": "630b13a31667fd3d84f530f0fed28470",
     "semantic_hash": ""
   },
   "src/lib/ownershipTransferFeePlans.ts": {
-    "mtime": 1795808735.6137989,
-    "seen": 1795809944.5742168,
-    "ast_hash": "c722533939525d81072fcc79badd8185",
+    "mtime": 1795811593.625438,
+    "seen": 1795883327.959866,
+    "ast_hash": "4ae82bb68a045ea776cb01f8456233ed",
+    "semantic_hash": ""
+  },
+  ".superpowers/sdd/task-6-brief.md": {
+    "mtime": 1795877367.158405,
+    "seen": 1795883327.960756,
+    "ast_hash": "0682cb9cc92cedd6de83f3cde758031e",
+    "semantic_hash": ""
+  },
+  ".superpowers/sdd/task-6-report.md": {
+    "mtime": 1795877367.1602595,
+    "seen": 1795883327.96076,
+    "ast_hash": "6a44832e75c731ea8fa12aa5777990fb",
     "semantic_hash": ""
   },
   "package-lock.json": {

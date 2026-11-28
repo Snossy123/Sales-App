@@ -107,7 +107,7 @@ export function installmentStatusLabel(
   if (normalized === 'paid') return 'مدفوع'
   if (normalized === 'partial') return 'جزئي'
   if (normalized === 'overdue') return 'متأخر'
-  return 'معلق'
+  return 'قادم'
 }
 
 /** Split OT invoice plans into fee rows vs copied device-balance rows. */

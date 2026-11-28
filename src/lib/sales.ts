@@ -35,7 +35,7 @@ export function paymentTermLabel(term?: string | null): string {
 
 export const installmentStatusOptions = [
   { value: '', label: 'كل الحالات' },
-  { value: 'pending', label: 'مستحق' },
+  { value: 'pending', label: 'قادم' },
   { value: 'overdue', label: 'متأخر' },
   { value: 'partial', label: 'جزئي' },
   { value: 'paid', label: 'مدفوع' },

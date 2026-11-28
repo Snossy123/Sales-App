@@ -35,6 +35,10 @@ describe('installmentStatusLabel', () => {
       }),
     ).toBe('تم نقل ملكية')
   })
+
+  it('labels unpaid future installments as قادم', () => {
+    expect(installmentStatusLabel('pending', isoOffset(30))).toBe('قادم')
+  })
 })
 
 function isoOffset(days: number): string {
