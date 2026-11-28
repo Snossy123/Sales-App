@@ -195,6 +195,24 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
     <section className="space-y-md">
       {isOwnershipTransfer ? <OwnershipTransferSourceLink invoice={invoice} /> : null}
 
+      {isOwnershipTransfer && transferredBalanceItems.length > 0 ? (
+        <div className="space-y-sm">
+          <h3 className="text-sm font-bold text-on-surface">أقساط الجهاز المنقولة</h3>
+          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
+            <SummaryCard label="عدد الأقساط" value={String(transferredBalanceItems.length)} />
+            <SummaryCard
+              label="إجمالي الأقساط"
+              value={formatContractMoney(transferredTotalDue)}
+            />
+          </div>
+          <InstallmentsTable
+            items={transferredBalanceItems}
+            emptyMessage="لا توجد أقساط منقولة"
+            ledger={ledger}
+          />
+        </div>
+      ) : null}
+
       {feeItems.length > 0 ? (
         <div className="space-y-sm">
           {isOwnershipTransfer ? (
@@ -246,24 +264,6 @@ export function ContractInstallmentsTab({ invoice }: ContractInstallmentsTabProp
           <InstallmentsTable
             items={feeItems}
             emptyMessage="لا توجد أقساط على هذا التعاقد"
-            ledger={ledger}
-          />
-        </div>
-      ) : null}
-
-      {isOwnershipTransfer && transferredBalanceItems.length > 0 ? (
-        <div className="space-y-sm">
-          <h3 className="text-sm font-bold text-on-surface">أقساط الجهاز المنقولة</h3>
-          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
-            <SummaryCard label="عدد الأقساط" value={String(transferredBalanceItems.length)} />
-            <SummaryCard
-              label="إجمالي الأقساط"
-              value={formatContractMoney(transferredTotalDue)}
-            />
-          </div>
-          <InstallmentsTable
-            items={transferredBalanceItems}
-            emptyMessage="لا توجد أقساط منقولة"
             ledger={ledger}
           />
         </div>
