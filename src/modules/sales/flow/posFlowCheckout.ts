@@ -211,7 +211,7 @@ export function buildOwnershipTransferCheckout(
     draft.transferInstallationFeeAmount ??
     (installationSvc ? Number(installationSvc.default_price) || 0 : 0)
 
-  const allocatedFeeLines = allocateOwnershipTransferFeePlans({
+  const feeAllocation = allocateOwnershipTransferFeePlans({
     fees: {
       ownership: ownershipAmount,
       uninstall: uninstallAmount,
@@ -227,7 +227,7 @@ export function buildOwnershipTransferCheckout(
   })
 
   const feeMeta: Record<
-    (typeof allocatedFeeLines)[number]['key'],
+    (typeof feeAllocation.lines)[number]['key'],
     { serviceId?: number; description: string; serviceCategory: string }
   > = {
     ownership: {
@@ -255,7 +255,7 @@ export function buildOwnershipTransferCheckout(
   }
 
   const transferServiceLines: NonNullable<CheckoutPayload['lines']> =
-    allocatedFeeLines.map((feeLine) => {
+    feeAllocation.lines.map((feeLine) => {
       const meta = feeMeta[feeLine.key]
       return {
         line_type: 'service' as const,
@@ -267,18 +267,15 @@ export function buildOwnershipTransferCheckout(
         payment_term: feeLine.paymentTerm,
         cash_schedule:
           feeLine.paymentTerm === 'cash' ? ('immediate' as const) : undefined,
-        down_payment:
-          feeLine.paymentTerm === 'installment' && !includeDisassembly
-            ? feeLine.downPayment
-            : undefined,
-        installment_plan: feeLine.installmentPlan,
       }
     })
 
-  return {
+  const payload: CheckoutPayload = {
     customer_id: draft.selectedCustomer!.id,
     ...sourceFields(draft, input.contextBranchId),
     contract_kind: 'ownership_transfer',
+    collection_scope: 'contract',
+    payment_term: paymentTerm,
     invoice_date: draft.contractDate,
     notes: draft.notes.trim() || undefined,
     source_sales_invoice_id:
@@ -288,6 +285,12 @@ export function buildOwnershipTransferCheckout(
       ...transferServiceLines,
     ],
   }
+
+  if (feeAllocation.sharedInstallmentPlan) {
+    payload.installment_plan = feeAllocation.sharedInstallmentPlan
+  }
+
+  return payload
 }
 
 export function buildMixedCatalogCheckout(

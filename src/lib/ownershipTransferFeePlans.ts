@@ -28,6 +28,7 @@ export interface AllocatedOwnershipTransferFeeLine {
   amount: number
   paymentTerm: OwnershipTransferFeePaymentTerm
   downPayment?: number
+  /** @deprecated Per-line plans removed; use sharedInstallmentPlan on the allocation result. */
   installmentPlan?: OwnershipTransferInstallmentPlan
 }
 
@@ -39,6 +40,13 @@ export interface AllocateOwnershipTransferFeePlansInput {
   installmentCount: number
   intervalType: OwnershipTransferFeeIntervalType
   firstDueDate: string
+}
+
+export interface OwnershipTransferFeeAllocation {
+  lines: AllocatedOwnershipTransferFeeLine[]
+  /** One schedule on sum(fees) − down payment; null when cash or fully covered by down. */
+  sharedInstallmentPlan: OwnershipTransferInstallmentPlan | null
+  feesTotal: number
 }
 
 function round2(value: number): number {
@@ -83,71 +91,77 @@ function cashLine(
   return { key, amount, paymentTerm: 'cash' }
 }
 
-function installmentLine(input: {
-  key: OwnershipTransferFeeKey
-  amount: number
+function sharedPlan(input: {
+  feesTotal: number
   downPayment: number
   installmentCount: number
   intervalType: OwnershipTransferFeeIntervalType
   firstDueDate: string
-}): AllocatedOwnershipTransferFeeLine {
+}): OwnershipTransferInstallmentPlan | null {
   const count = Math.max(1, input.installmentCount || 1)
-  const down = round2(Math.max(0, input.downPayment))
-  const financed = round2(Math.max(0, input.amount - down))
+  const down = round2(Math.min(input.feesTotal, Math.max(0, input.downPayment)))
+  const financed = round2(Math.max(0, input.feesTotal - down))
   if (financed < 0.01) {
-    return cashLine(input.key, input.amount)
+    return null
   }
-  const installmentAmount = round2(financed / count)
   return {
-    key: input.key,
-    amount: input.amount,
-    paymentTerm: 'installment',
-    downPayment: down,
-    installmentPlan: {
-      down_payment: down,
-      installment_count: count,
-      installment_amount: installmentAmount,
-      interval_type: input.intervalType,
-      interval_days: input.intervalType === 'weekly' ? 7 : 30,
-      first_due_date: input.firstDueDate,
-    },
+    down_payment: down,
+    installment_count: count,
+    installment_amount: round2(financed / count),
+    interval_type: input.intervalType,
+    interval_days: input.intervalType === 'weekly' ? 7 : 30,
+    first_due_date: input.firstDueDate,
   }
 }
 
 /**
- * Build per-line payment terms for ownership-transfer fee services.
- * Shared down payment is applied in waterfall order (ownership → subscription →
- * uninstall → installation) so the financed remainder usually sits on one line
- * as clean N×amount installments instead of proportional splits.
+ * Build per-service fee invoice lines plus one shared installment schedule on
+ * the total of those fees (not one plan per service line).
  */
 export function allocateOwnershipTransferFeePlans(
   input: AllocateOwnershipTransferFeePlansInput,
-): AllocatedOwnershipTransferFeeLine[] {
+): OwnershipTransferFeeAllocation {
   const entries = buildFeeEntries(
     input.fees,
     input.includeDisassemblyAndAssembly,
   )
+  const feesTotal = round2(entries.reduce((sum, entry) => sum + entry.amount, 0))
+
   if (entries.length === 0) {
-    return []
+    return { lines: [], sharedInstallmentPlan: null, feesTotal: 0 }
   }
 
   if (input.paymentTerm !== 'installment') {
-    return entries.map((entry) => cashLine(entry.key, entry.amount))
+    return {
+      lines: entries.map((entry) => cashLine(entry.key, entry.amount)),
+      sharedInstallmentPlan: null,
+      feesTotal,
+    }
   }
 
-  const count = Math.max(1, input.installmentCount || 1)
-  let remainingDown = round2(Math.max(0, input.downPayment))
+  const plan = sharedPlan({
+    feesTotal,
+    downPayment: input.downPayment,
+    installmentCount: input.installmentCount,
+    intervalType: input.intervalType,
+    firstDueDate: input.firstDueDate,
+  })
 
-  return entries.map((entry) => {
-    const lineDown = round2(Math.min(entry.amount, remainingDown))
-    remainingDown = round2(Math.max(0, remainingDown - lineDown))
-    return installmentLine({
+  if (!plan) {
+    return {
+      lines: entries.map((entry) => cashLine(entry.key, entry.amount)),
+      sharedInstallmentPlan: null,
+      feesTotal,
+    }
+  }
+
+  return {
+    lines: entries.map((entry) => ({
       key: entry.key,
       amount: entry.amount,
-      downPayment: lineDown,
-      installmentCount: count,
-      intervalType: input.intervalType,
-      firstDueDate: input.firstDueDate,
-    })
-  })
+      paymentTerm: 'installment' as const,
+    })),
+    sharedInstallmentPlan: plan,
+    feesTotal,
+  }
 }

@@ -1810,8 +1810,12 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       }
     }
 
+    let ownershipTransferFeePlan:
+      | ReturnType<typeof allocateOwnershipTransferFeePlans>['sharedInstallmentPlan']
+      | undefined
+
     if (contractKind === 'ownership_transfer') {
-      const allocatedFeeLines = allocateOwnershipTransferFeePlans({
+      const feeAllocation = allocateOwnershipTransferFeePlans({
         fees: {
           ownership: ownershipFeeAmount,
           subscription: subscriptionUpgradeAmount,
@@ -1825,9 +1829,10 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
         intervalType: transferIntervalType,
         firstDueDate: transferFirstDueDate,
       })
+      ownershipTransferFeePlan = feeAllocation.sharedInstallmentPlan
 
       const feeLineMeta: Record<
-        (typeof allocatedFeeLines)[number]['key'],
+        (typeof feeAllocation.lines)[number]['key'],
         {
           serviceId?: number
           description: string
@@ -1866,7 +1871,7 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
         },
       }
 
-      for (const feeLine of allocatedFeeLines) {
+      for (const feeLine of feeAllocation.lines) {
         const meta = feeLineMeta[feeLine.key]
         lines.push({
           line_type: 'service',
@@ -1878,12 +1883,6 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
           payment_term: feeLine.paymentTerm,
           cash_schedule:
             feeLine.paymentTerm === 'cash' ? 'immediate' : undefined,
-          down_payment:
-            feeLine.paymentTerm === 'installment' &&
-            !transferIncludeDisassemblyAndAssembly
-              ? feeLine.downPayment
-              : undefined,
-          installment_plan: feeLine.installmentPlan,
         })
       }
     }
@@ -1912,6 +1911,11 @@ function PosPageForm({ onSessionChange, onCheckoutComplete, lastInvoice }: {
       discount_amount: contractKind === 'ownership_transfer' ? 0 : feeDiscountAmount,
       invoice_date: contractDate,
       payment_term: contractKind === 'ownership_transfer' ? transferPaymentTerm : undefined,
+      collection_scope: contractKind === 'ownership_transfer' ? 'contract' : undefined,
+      installment_plan:
+        contractKind === 'ownership_transfer' && ownershipTransferFeePlan
+          ? ownershipTransferFeePlan
+          : undefined,
       lines,
       ...checkoutPayment.paymentPayload(needsCheckoutPayment),
     }
